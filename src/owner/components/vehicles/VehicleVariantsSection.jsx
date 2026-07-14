@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import axios from "axios";
+import api from "../../../services/api";
 
 function VehicleVariantsSection() {
 
@@ -37,8 +37,8 @@ function VehicleVariantsSection() {
         try {
 
             const response =
-               await axios.get(
-    "http://localhost:8080/vehicle-generations"
+               await api.get(
+    "/vehicle-generations"
 );
 
             setGenerations(response.data);
@@ -54,8 +54,8 @@ function VehicleVariantsSection() {
         try {
 
             const response =
-               await axios.get(
-    "http://localhost:8080/vehicle-variants"
+               await api.get(
+    "/vehicle-variants"
 );
 
             setVariants(response.data);
@@ -80,8 +80,8 @@ function VehicleVariantsSection() {
             }
 
             const response =
-                await axios.get(
-    `http://localhost:8080/vehicle-variants/by-generation/${generationId}`
+                await api.get(
+    `/vehicle-variants/by-generation/${generationId}`
 );
 
             setVariants(response.data);
@@ -143,8 +143,8 @@ if (!region.trim()) {
         try {
 
             const response =
-                await axios.post(
-                    "http://localhost:8080/vehicle-variants",
+                await api.post(
+                    "/vehicle-variants",
                     {
                         variantName: variantName,
 

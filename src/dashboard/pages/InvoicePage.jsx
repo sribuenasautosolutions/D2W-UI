@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../../services/api";
 
 function InvoicePage() {
 
@@ -15,7 +15,7 @@ function InvoicePage() {
         try {
 
             const response =
-                await axios.get(
+                await api.get(
                     `http://localhost:8080/orders/${orderId}`
                 );
 

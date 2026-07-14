@@ -1,7 +1,7 @@
 import { useState, useEffect }
 from "react";
 
-import axios from "axios";
+import api from "../../../services/api";
 
 function MastersSection() {
 
@@ -38,7 +38,7 @@ function MastersSection() {
         try {
 
             const response =
-                await axios.get(
+                await api.get(
                     "http://localhost:8080/categories"
                 );
 
@@ -55,7 +55,7 @@ function MastersSection() {
         try {
 
             const response =
-                await axios.get(
+               await api.get(
                     "http://localhost:8080/product-masters"
                 );
 
@@ -91,7 +91,7 @@ function MastersSection() {
             };
 
             const response =
-                await axios.post(
+                await api.post(
                     "http://localhost:8080/product-masters",
                     payload
                 );

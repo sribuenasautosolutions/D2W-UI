@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 
 const BASE_URL = "http://localhost:8080";
 
@@ -176,13 +176,13 @@ export default function AddStockSection() {
       try {
         // Try fetching store-specific inventory first for richer data
         const storeId = user.storeId;
-        const res = await axios.get(`${BASE_URL}/products`);
+        const res = await api.get(`${BASE_URL}/products`);
 
 setProducts(res.data);
       } catch {
         // Fallback to flat product list
         try {
-          const res = await axios.get(`${BASE_URL}/products`);
+          const res = await api.get(`${BASE_URL}/products`);
           console.log(res.data);
           setProducts(res.data);
           console.log(res.data);
@@ -209,14 +209,15 @@ setProducts(res.data);
     setSelectedProduct(found || null);
 
     // Pre-fill prices from existing inventory entry
-    if (found) {
-      setForm(f => ({
+   if (found) {
+    setForm(f => ({
         ...f,
         productId,
-        sellingPrice: found.sellingPrice ?? "",
-       mrp: found.mrpPrice ?? "",
-      }));
-    }
+        purchasePrice: "",
+        sellingPrice: "",
+        mrp: ""
+    }));
+} 
   }
 
   function setField(key, value) {
@@ -253,7 +254,7 @@ setProducts(res.data);
         mrp:           Number(form.mrp),
       };
 
-      const res = await axios.post(
+      const res = await api.post(
         `${BASE_URL}/store-inventory/add-product`,
         payload
       );
@@ -273,7 +274,7 @@ setProducts(res.data);
         const endpoint = storeId
           ? `${BASE_URL}/store-inventory/store/${storeId}`
           : `${BASE_URL}/store-inventory`;
-        const refreshed = await axios.get(endpoint);
+        const refreshed = await api.get(endpoint);
         setProducts(refreshed.data);
       } catch { /* non-critical */ }
 
@@ -298,7 +299,8 @@ setProducts(res.data);
     setStatus(null);
   }
 
-  const isUpdate = selectedProduct && selectedProduct.quantity != null;
+ const isExistingProduct =
+    selectedProduct && selectedProduct.quantity != null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -309,19 +311,21 @@ setProducts(res.data);
         <div style={styles.header}>
           <div>
             <h2 style={styles.title}>
-              {isUpdate ? "Update Stock" : "Add Stock"}
-            </h2>
-            <p style={styles.subtitle}>
-              {isUpdate
-                ? "Increase quantity for an existing inventory item."
-                : "Create a new inventory entry for this location."}
-            </p>
+    Receive Stock
+</h2>
+          <p style={styles.subtitle}>
+    Receive new stock into inventory. Every stock receipt creates a new inventory batch.
+</p>
           </div>
           <div style={styles.modeBadge}>
-            {isUpdate
-              ? <><span style={{ ...styles.modeDot, background: "#f59e0b" }} />Update Mode</>
-              : <><span style={{ ...styles.modeDot, background: "#10b981" }} />New Entry</>}
-          </div>
+    <span
+        style={{
+            ...styles.modeDot,
+            background: "#10b981"
+        }}
+    />
+    Batch Receive Mode
+</div>
         </div>
 
         <div style={styles.divider} />
@@ -376,7 +380,9 @@ setProducts(res.data);
           <FieldGroup
             label="Quantity to Add"
             required
-            hint={isUpdate ? `Current stock: ${selectedProduct.quantity} unit(s). This amount will be added on top.` : undefined}
+           hint={isExistingProduct
+    ? `Current stock: ${selectedProduct.quantity} unit(s). This receipt will create a new batch and increase total stock.`
+    : undefined}
             error={errors.quantity}
           >
             <input
@@ -391,7 +397,7 @@ setProducts(res.data);
                 borderColor: errors.quantity ? "#ef4444" : "#cbd5e1",
               }}
             />
-            {isUpdate && form.quantity && Number(form.quantity) > 0 && (
+            {isExistingProduct && form.quantity && Number(form.quantity) > 0 && (
               <p style={styles.calcHint}>
                 New total will be: <strong>{selectedProduct.quantity + Number(form.quantity)}</strong> units
               </p>
@@ -421,7 +427,7 @@ setProducts(res.data);
     required
     value={form.mrp}
     onChange={v => setField("mrp", v)}
-    readOnly={true}
+    readOnly={false}
     error={errors.mrp}
     placeholder="Maximum retail price"
 />
@@ -471,10 +477,8 @@ setProducts(res.data);
               disabled={loading}
             >
               {loading
-                ? "Saving…"
-                : isUpdate
-                  ? "Update Stock"
-                  : "Add to Inventory"}
+    ? "Saving..."
+    : "Receive Stock"}
             </button>
           </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import axios from "axios";
+import api from "../../../services/api";
 
 function VehicleGenerationsSection() {
 
@@ -23,8 +23,8 @@ function VehicleGenerationsSection() {
         try {
 
             const response =
-                await axios.get(
-    "http://localhost:8080/vehicle-models"
+                await api.get(
+    "/vehicle-models"
 );
 
             setModels(response.data);
@@ -40,8 +40,8 @@ function VehicleGenerationsSection() {
         try {
 
             const response =
-               await axios.get(
-    "http://localhost:8080/vehicle-generations"
+               await api.get(
+    "/vehicle-generations"
 );
 
             setGenerations(response.data);
@@ -64,8 +64,8 @@ function VehicleGenerationsSection() {
             }
 
             const response =
-                await axios.get(
-    `http://localhost:8080/vehicle-generations/by-model/${modelId}`
+                await api.get(
+    `/vehicle-generations/by-model/${modelId}`
 );
 
             setGenerations(response.data);
@@ -106,8 +106,8 @@ if (Number(startYear) > Number(endYear)) {
         try {
 
             const response =
-                await axios.post(
-                    "http://localhost:8080/vehicle-generations",
+                await api.post(
+                    "/vehicle-generations",
                     {
                         generationName: generationName,
                         startYear: startYear,

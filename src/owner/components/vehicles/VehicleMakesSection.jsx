@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import axios from "axios";
+import api from "../../../services/api";
 
 function VehicleMakesSection() {
 
@@ -21,8 +21,8 @@ function VehicleMakesSection() {
         try {
 
             const response =
-                await axios.get(
-                    "http://localhost:8080/vehicle-makes"
+                await api.get(
+                    "/vehicle-makes"
                 );
 
             setMakes(response.data);
@@ -42,8 +42,8 @@ function VehicleMakesSection() {
         try {
 
             const response =
-                await axios.post(
-                    "http://localhost:8080/vehicle-makes",
+                await api.post(
+                    "/vehicle-makes",
                     {
                         makeName: makeName
                     }

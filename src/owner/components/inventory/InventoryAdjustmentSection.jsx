@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 import { createInventoryAdjustment }
 from "../../../services/inventoryTransactionService";
 
@@ -41,7 +41,7 @@ function InventoryAdjustmentSection() {
             try {
 
                 const response =
-                    await axios.get(
+                    await api.get(
                         "http://localhost:8080/products"
                     );
 

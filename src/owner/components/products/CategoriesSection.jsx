@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 
 function CategoriesSection() {
 
@@ -14,7 +14,7 @@ function CategoriesSection() {
 
         try {
 
-            const response = await axios.get(
+            const response = await api.get(
                 "http://localhost:8080/categories"
             );
 
@@ -34,7 +34,7 @@ function CategoriesSection() {
                 categoryName: categoryName
             };
 
-            const response = await axios.post(
+            const response = await api.post(
                 "http://localhost:8080/categories",
                 payload
             );
@@ -72,7 +72,7 @@ function CategoriesSection() {
             const formData = new FormData();
             formData.append("file", selectedFile);
 
-            const response = await axios.post(
+            const response = await api.post(
                 "http://localhost:8080/categories/bulk-upload",
                 formData,
                 {

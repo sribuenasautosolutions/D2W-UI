@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import axios from "axios";
+import api from "../../../services/api";
 
 function VehicleModelsSection() {
 
@@ -19,8 +19,8 @@ function VehicleModelsSection() {
         try {
 
             const response =
-                await axios.get(
-                    "http://localhost:8080/vehicle-makes"
+                await api.get(
+                    "/vehicle-makes"
                 );
 
             setMakes(response.data);
@@ -36,8 +36,8 @@ function VehicleModelsSection() {
         try {
 
             const response =
-               await axios.get(
-    "http://localhost:8080/vehicle-models"
+               await api.get(
+    "/vehicle-models"
 );
 
             setModels(response.data);
@@ -60,8 +60,8 @@ function VehicleModelsSection() {
             }
 
             const response =
-               await axios.get(
-    `http://localhost:8080/vehicle-models/by-make/${makeId}`
+               await api.get(
+    `/vehicle-models/by-make/${makeId}`
 );
 
             setModels(response.data);
@@ -85,8 +85,8 @@ if (!modelName.trim()) {
         try {
 
             const response =
-                await axios.post(
-    "http://localhost:8080/vehicle-models",
+                await api.post(
+    "/vehicle-models",
                     {
                         modelName: modelName,
                         vehicleMake: {

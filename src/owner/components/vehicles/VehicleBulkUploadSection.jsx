@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 
 function VehicleBulkUploadSection() {
 
@@ -27,8 +27,8 @@ function VehicleBulkUploadSection() {
             formData.append("file", file);
 
             const response =
-                await axios.post(
-                    "http://localhost:8080/vehicle-bulk-upload",
+                await api.post(
+                    "/vehicle-bulk-upload",
                     formData,
                     {
                         headers: {

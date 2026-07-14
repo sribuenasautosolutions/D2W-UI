@@ -1,4 +1,4 @@
-import axios from "axios";
+import api from "./api";
 
 const API =
     "http://localhost:8080";
@@ -17,7 +17,7 @@ export const getProductsByVariant =
             );
 
         const response =
-            await axios.get(
+            await api.get(
 
                 `${API}/fitment/products`,
                 {
@@ -50,7 +50,7 @@ export const getAllProducts =
         */
 
         const response =
-            await axios.get(
+            await api.get(
 
                 `${API}/store-inventory/store/${user.storeId}`
             );
@@ -73,7 +73,7 @@ export const getProductById =
             );
 
         const response =
-            await axios.get(
+            await api.get(
                 `${API}/store-inventory/product-details`,
                 {
                     params: {
@@ -99,7 +99,7 @@ export const searchProducts =
     ) => {
 
         const response =
-            await axios.get(
+            await api.get(
 
                 `${API}/products/search`,
 
@@ -117,7 +117,7 @@ export const searchProducts =
     async (productId) => {
 
         const response =
-            await axios.get(
+            await api.get(
                 `${API}/fitment/product`,
                 {
                     params: {

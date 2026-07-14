@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 
 function BrandsSection() {
 
@@ -21,7 +21,7 @@ function BrandsSection() {
         try {
 
             const response =
-                await axios.get(
+                await api.get(
                     "http://localhost:8080/brands"
                 );
 
@@ -47,7 +47,7 @@ function BrandsSection() {
         try {
 
             const response =
-                await axios.post(
+                await api.post(
                     "http://localhost:8080/brands",
                     {
                         brandName
@@ -94,7 +94,7 @@ function BrandsSection() {
             );
 
             const response =
-                await axios.post(
+                await api.post(
                     "http://localhost:8080/brands/bulk-upload",
                     formData,
                     {

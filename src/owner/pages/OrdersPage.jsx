@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import apiClient from "../../services/apiClient";
 import { useNavigate } from "react-router-dom";
 
 function OrdersPage() {
@@ -24,15 +24,13 @@ let response;
 
 if (user.role === "OWNER") {
 
-    response = await axios.get(
-        "http://localhost:8080/orders"
-    );
+   response = await apiClient.get("/orders");
 
 } else {
 
-    response = await axios.get(
-        `http://localhost:8080/orders/store/${user.storeId}`
-    );
+   response = await apiClient.get(
+    `/orders/store/${user.storeId}`
+);
 
 }
 

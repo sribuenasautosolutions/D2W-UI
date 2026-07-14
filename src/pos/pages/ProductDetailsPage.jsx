@@ -156,7 +156,7 @@ function ProductDetailsPage() {
                         style={{
                             display: "flex",
                             flexDirection: "column",
-                            gap: "14px",
+                            gap: "14px", 
                             marginBottom: "30px"
                         }}
                     >

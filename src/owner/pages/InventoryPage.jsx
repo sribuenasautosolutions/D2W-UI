@@ -9,6 +9,8 @@ import InventoryAdjustmentSection
 from "../components/inventory/InventoryAdjustmentSection";
 import BulkUploadSection
 from "../components/inventory/BulkUploadSection";
+import BatchReportSection
+from "../../owner/components/inventory/BatchReportPage";
 
 
 
@@ -75,6 +77,13 @@ function InventoryPage() {
 >
     Bulk Upload
 </button>
+<button
+    onClick={() =>
+        setActiveTab("batchreport")
+    }
+>
+    Batch Report
+</button>
 
             </div>
 {
@@ -98,6 +107,10 @@ function InventoryPage() {
 {
     activeTab === "bulkupload" &&
     <BulkUploadSection />
+}
+{
+    activeTab === "batchreport" &&
+    <BatchReportSection />
 }
 
         </div>

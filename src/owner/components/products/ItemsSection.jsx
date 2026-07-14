@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import axios from "axios";
+import apiClient from "../../../services/apiClient";
 import {
   Package, Hash, Wallet, Boxes, UploadCloud, Search, Trash2,
   CheckCircle2, XCircle, ChevronRight, ChevronLeft, Loader2, FileSpreadsheet,
@@ -434,10 +434,10 @@ function ItemsSection() {
     setFetchError(false);
     try {
       const [b, c, m, i] = await Promise.all([
-        axios.get(`${API_BASE}/brands`),
-        axios.get(`${API_BASE}/categories`),
-        axios.get(`${API_BASE}/product-masters`),
-        axios.get(`${API_BASE}/products`)
+        apiClient.get("/brands"),
+apiClient.get("/categories"),
+apiClient.get("/product-masters"),
+apiClient.get("/products")
       ]);
       setBrands(b.data || []);
       setAllCategories(c.data || []);
@@ -488,7 +488,7 @@ function ItemsSection() {
     }
     setSaving(true);
     try {
-      await axios.post(`${API_BASE}/products`, formData);
+   await apiClient.post("/products", formData);
       setStatus({ type: "success", msg: "Product saved successfully." });
       resetForm();
       fetchData();
@@ -501,7 +501,7 @@ function ItemsSection() {
   const deleteItem = async (item) => {
     if (!window.confirm(`Delete "${item.itemName}"? This can't be undone.`)) return;
     try {
-      await axios.delete(`${API_BASE}/products/${item.id}`);
+     await apiClient.delete(`/products/${item.id}`);
       setStatus({ type: "success", msg: "Product deleted." });
       fetchData();
     } catch (e) {
@@ -520,19 +520,23 @@ function ItemsSection() {
     data.append("file", selectedFile);
 
     try {
-      const response = await axios.post(
-        `${API_BASE}/products/bulk-upload`,
-        data,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-          onUploadProgress: (progressEvent) => {
+     const response = await apiClient.post(
+    "/products/bulk-upload",
+    data,
+    {
+        headers: {
+            "Content-Type": "multipart/form-data"
+        },
+        onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
-              const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-              setUploadProgress(pct);
+                const pct = Math.round(
+                    (progressEvent.loaded * 100) / progressEvent.total
+                );
+                setUploadProgress(pct);
             }
-          }
         }
-      );
+    }
+);
 
       const result = response.data;
       setUploadResult(result);

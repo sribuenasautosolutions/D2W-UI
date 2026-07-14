@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 
 const API_BASE = "http://localhost:8080";
 
@@ -465,7 +465,7 @@ function FitmentForm({ products, variants, productsLoading, variantsLoading, onS
                 notes,
             };
 
-            const response = await axios.post(
+            const response = await api.post(
                 `${API_BASE}/product-fitment`,
                 payload
             );
@@ -607,7 +607,7 @@ function BulkUpload({ onUploaded }) {
             const formData = new FormData();
             formData.append("file", file);
 
-            const response = await axios.post(
+            const response = await api.post(
                 `${API_BASE}/fitment/bulk-upload`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
@@ -723,7 +723,7 @@ function VehicleProductSearch({ variants, variantsLoading }) {
         setSearched(true);
 
         try {
-            const response = await axios.get(
+            const response = await api.get(
     `${API_BASE}/fitment/products`,
     {
         params: {
@@ -852,7 +852,7 @@ function SmartSearch({ variants, variantsLoading }) {
             setLoading(true);
             setError("");
             try {
-                const response = await axios.get(
+                const response = await api.get(
     `${API_BASE}/fitment/search`,
     {
         params: {
@@ -1076,7 +1076,7 @@ function FitmentsSection() {
     const loadProducts = useCallback(async () => {
         setProductsLoading(true);
         try {
-            const response = await axios.get(`${API_BASE}/products`);
+            const response = await api.get(`${API_BASE}/products`);
             setProducts(response.data || []);
         } catch (error) {
             console.log(error);
@@ -1088,7 +1088,7 @@ function FitmentsSection() {
     const loadVariants = useCallback(async () => {
         setVariantsLoading(true);
         try {
-            const response = await axios.get(`${API_BASE}/vehicle-variants`);
+            const response = await api.get(`${API_BASE}/vehicle-variants`);
             setVariants(response.data || []);
         } catch (error) {
             console.log(error);
@@ -1100,7 +1100,7 @@ function FitmentsSection() {
     const loadFitments = useCallback(async () => {
         setFitmentsLoading(true);
         try {
-            const response = await axios.get(`${API_BASE}/product-fitments`);
+            const response = await api.get(`${API_BASE}/product-fitments`);
             setFitments(response.data || []);
         } catch (error) {
             console.log(error);

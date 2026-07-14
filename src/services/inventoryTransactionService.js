@@ -1,4 +1,4 @@
-import axios from "axios";
+import api from "./api";
 
 const API = "http://localhost:8080";
 
@@ -6,7 +6,7 @@ export const getInventoryTransactions =
 async (storeId) => {
 
     const response =
-        await axios.get(
+        await api.get(
             `${API}/inventory-transactions/store/${storeId}`
         );
 
@@ -16,7 +16,7 @@ export const createInventoryAdjustment =
 async (data) => {
 
     const response =
-        await axios.post(
+        await api.post(
             `${API}/inventory-adjustment`,
             data
         );

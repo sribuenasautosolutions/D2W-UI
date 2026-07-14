@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 import {
   GitMerge, Search, Trash2, CheckCircle2, AlertTriangle, Loader2,
   RefreshCw, Plus, UploadCloud, FileSpreadsheet, X, FileUp, Download, Hash
@@ -194,21 +194,21 @@ function CrossReferenceSection() {
     setFetchError(false);
     try {
       const [pRes, crRes] = await Promise.all([
-        axios.get(`${API_BASE}/products`),
-        axios.get(`${API_BASE}/cross-references`)
+       api.get(`${API_BASE}/products`),
+       api.get(`${API_BASE}/cross-references`)
       ]);
       setProducts(pRes.data || []);
       setAllCrossRefs(crRes.data || []);
     } catch (e) {
       // If bulk endpoint fails, try products only then cross-refs per product
       try {
-        const pRes = await axios.get(`${API_BASE}/products`);
+        const pRes = await api.get(`${API_BASE}/products`);
         setProducts(pRes.data || []);
         // Load cross refs for all products in parallel
         const prods = pRes.data || [];
         if (prods.length > 0) {
           const crResults = await Promise.allSettled(
-            prods.map((p) => axios.get(`${API_BASE}/cross-references/product/${p.id}`))
+            prods.map((p) =>api.get(`${API_BASE}/cross-references/product/${p.id}`))
           );
           const merged = crResults
             .filter((r) => r.status === "fulfilled")
@@ -229,7 +229,7 @@ function CrossReferenceSection() {
     }
     setSaving(true);
     try {
-      await axios.post(`${API_BASE}/cross-references`, {
+      await api.post(`${API_BASE}/cross-references`, {
         productId: Number(selectedProductId),
         crossBrand: crossBrand.trim(),
         crossPartNumber: crossPartNumber.trim()
@@ -247,7 +247,7 @@ function CrossReferenceSection() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this cross reference? This can't be undone.")) return;
     try {
-      await axios.delete(`${API_BASE}/cross-references/${id}`);
+      await api.delete(`${API_BASE}/cross-references/${id}`);
       setStatus({ type: "success", msg: "Cross reference deleted." });
       setAllCrossRefs((prev) => prev.filter((cr) => cr.id !== id));
     } catch (e) {
@@ -262,7 +262,7 @@ function CrossReferenceSection() {
     const data = new FormData();
     data.append("file", selectedFile);
     try {
-      const res = await axios.post(`${API_BASE}/cross-references/bulk-upload`, data, {
+      const res = await api.post(`${API_BASE}/cross-references/bulk-upload`, data, {
         headers: { "Content-Type": "multipart/form-data" }
       });
       setUploadResult(res.data || {});

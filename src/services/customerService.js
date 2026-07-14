@@ -1,4 +1,4 @@
-import axios from "axios";
+import api from "./api";
 
 const API = "http://localhost:8080";
 
@@ -7,7 +7,7 @@ const API = "http://localhost:8080";
 ========================= */
 
 export const getCustomerByMobile = async (mobile) => {
-    const response = await axios.get(
+    const response = await api.get(
         `${API}/customers/mobile/${mobile}`
     );
 
@@ -15,7 +15,7 @@ export const getCustomerByMobile = async (mobile) => {
 };
 
 export const saveCustomer = async (customer) => {
-    const response = await axios.post(
+    const response = await api.post(
         `${API}/customers`,
         customer
     );
@@ -28,7 +28,7 @@ export const saveCustomer = async (customer) => {
 ========================= */
 
 export const getCustomerReport = async () => {
-    const response = await axios.get(
+    const response = await api.get(
         `${API}/reports/customers`
     );
 
@@ -36,7 +36,7 @@ export const getCustomerReport = async () => {
 };
 
 export const getCustomerList = async () => {
-    const response = await axios.get(
+    const response = await api.get(
         `${API}/reports/customers/list`
     );
 
@@ -46,7 +46,7 @@ export const getCustomerList = async () => {
 export const getCustomerDetails = async (
     customerId
 ) => {
-    const response = await axios.get(
+    const response = await api.get(
         `${API}/reports/customers/${customerId}`
     );
 
@@ -56,7 +56,7 @@ export const getCustomerDetails = async (
 export const getCustomerOrders = async (
     customerId
 ) => {
-    const response = await axios.get(
+    const response = await api.get(
         `${API}/reports/customers/${customerId}/orders`
     );
 

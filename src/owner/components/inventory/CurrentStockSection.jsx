@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../../services/api";
 
 function CurrentStockSection() {
 
@@ -32,13 +32,13 @@ const user =
 
 if (user?.role === "OWNER") {
 
-    response = await axios.get(
+    response = await api.get(
         "http://localhost:8080/store-inventory"
     );
 
 } else {
 
-    response = await axios.get(
+    response = await api.get(
         `http://localhost:8080/store-inventory/store/${user.storeId}`
     );
 
