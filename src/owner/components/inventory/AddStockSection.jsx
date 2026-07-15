@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../../../services/api";
+import { getProductById } from "../../../services/productService";
 
 const BASE_URL = "http://localhost:8080";
 
@@ -196,29 +197,58 @@ setProducts(res.data);
   }, []);
 
   // ── When product selection changes, enrich form with existing prices
-  function handleProductSelect(productId) {
-    setForm(f => ({ ...f, productId, quantity: "", purchasePrice: "", sellingPrice: "", mrp: "" }));
+ async function handleProductSelect(productId) {
+
     setErrors({});
     setStatus(null);
 
-    if (!productId) { setSelectedProduct(null); return; }
+    if (!productId) {
 
-    const found = products.find(p =>
-      String(p.productId || p.id) === String(productId)
+        setSelectedProduct(null);
+
+        setForm({
+            productId: "",
+            quantity: "",
+            purchasePrice: "",
+            sellingPrice: "",
+            mrp: ""
+        });
+
+        return;
+    }
+
+    const found = products.find(
+        p => String(p.productId || p.id) === String(productId)
     );
+
     setSelectedProduct(found || null);
 
-    // Pre-fill prices from existing inventory entry
-   if (found) {
-    setForm(f => ({
-        ...f,
-        productId,
-        purchasePrice: "",
-        sellingPrice: "",
-        mrp: ""
-    }));
-} 
-  }
+    try {
+
+        const data = await getProductById(productId);
+
+        setForm({
+            productId,
+            quantity: "",
+            purchasePrice: data.purchasePrice ?? "",
+            sellingPrice: data.sellingPrice ?? "",
+            mrp: data.mrp ?? ""
+        });
+
+    } catch (error) {
+
+        console.error("Failed to load latest batch", error);
+
+        setForm({
+            productId,
+            quantity: "",
+            purchasePrice: "",
+            sellingPrice: "",
+            mrp: ""
+        });
+
+    }
+}
 
   function setField(key, value) {
     setForm(f => ({ ...f, [key]: value }));
@@ -269,14 +299,18 @@ setProducts(res.data);
       setSelectedProduct(null);
 
       // Refresh product list to reflect updated quantities
-      try {
-        const storeId = user.storeId;
-        const endpoint = storeId
-          ? `${BASE_URL}/store-inventory/store/${storeId}`
-          : `${BASE_URL}/store-inventory`;
-        const refreshed = await api.get(endpoint);
-        setProducts(refreshed.data);
-      } catch { /* non-critical */ }
+     // Reload all global products
+try {
+
+    const refreshed = await api.get(`${BASE_URL}/products`);
+
+    setProducts(refreshed.data);
+
+} catch (err) {
+
+    console.error("Failed to reload products", err);
+
+}
 
     } catch (err) {
       const serverMsg = err?.response?.data;

@@ -1,10 +1,15 @@
-import { useCart } from "../../context/CartContext";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import { useCart } from "../../context/CartContext";
+import BatchSelectionModal from "./BatchSelectionModal";
 
 function ProductCard({ product }) {
 
 
-    const { addToCart } = useCart();
+   const { addToCart } = useCart();
+
+const [openBatchModal, setOpenBatchModal] = useState(false);
 
     const navigate = useNavigate();
 
@@ -98,8 +103,8 @@ function ProductCard({ product }) {
 
     <button
         onClick={() =>
-            addToCart(product)
-        }
+    setOpenBatchModal(true)
+}
         disabled={!isAvailable}
         style={{
             flex: 1,
@@ -127,6 +132,38 @@ function ProductCard({ product }) {
     </button>
 
 </div>
+<BatchSelectionModal
+
+    open={openBatchModal}
+
+    product={product}
+
+    onClose={() =>
+        setOpenBatchModal(false)
+    }
+
+    onSelect={(batch) => {
+
+        addToCart({
+
+            ...product,
+
+            batchId: batch.batchId,
+
+            batchNumber: batch.batchNumber,
+
+            mrp: batch.mrp,
+
+            sellingPrice: batch.sellingPrice,
+
+            purchasePrice: batch.purchasePrice
+
+        });
+
+        setOpenBatchModal(false);
+
+    }}
+/>
         </div>
     );
 }

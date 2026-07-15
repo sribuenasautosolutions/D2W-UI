@@ -128,3 +128,32 @@ export const searchProducts =
 
         return response.data;
     };
+    /*
+|--------------------------------------------------------------------------
+| GET PRODUCT BATCHES
+|--------------------------------------------------------------------------
+*/
+
+export const getProductBatches =
+    async (productId) => {
+
+        const user =
+            JSON.parse(
+                localStorage.getItem("user")
+            );
+
+        const response =
+            await api.get(
+
+                `${API}/store-inventory/product-batches`,
+
+                {
+                    params: {
+                        storeId: user.storeId,
+                        productId
+                    }
+                }
+            );
+
+        return response.data;
+    };
