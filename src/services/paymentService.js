@@ -1,4 +1,4 @@
-import apiClient from "./apiClient";
+import apiClient from "./apiclient";
 
 /**
  * Sales-payment API client.
