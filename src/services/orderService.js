@@ -1,4 +1,4 @@
-import apiClient from "./apiclient";
+import apiclient from "./apiclient";
 
 /**
  * Order API client.

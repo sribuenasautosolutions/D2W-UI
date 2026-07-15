@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import apiClient from "../../services/apiclient";
+import apiclient from "../../services/apiclient";
 import { useNavigate } from "react-router-dom";
 
 function OrdersPage() {
