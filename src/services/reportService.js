@@ -1,6 +1,6 @@
 import api from "./api";
 
-const API = "http://localhost:8080";
+
 
 /* ===========================
    SALES REPORT
@@ -8,42 +8,42 @@ const API = "http://localhost:8080";
 
 export const getSalesReport = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/sales?storeId=${storeId}`
+    `/reports/sales?storeId=${storeId}`
   );
   return response.data;
 };
 
 export const getSalesOrders = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/sales/orders?storeId=${storeId}`
+    `/reports/sales/orders?storeId=${storeId}`
   );
   return response.data;
 };
 
 export const getTopProducts = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/sales/top-products?storeId=${storeId}`
+    `/reports/sales/top-products?storeId=${storeId}`
   );
   return response.data;
 };
 
 export const getTopCategories = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/sales/top-categories?storeId=${storeId}`
+    `/reports/sales/top-categories?storeId=${storeId}`
   );
   return response.data;
 };
 
 export const getTopBrands = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/sales/top-brands?storeId=${storeId}`
+    `/reports/sales/top-brands?storeId=${storeId}`
   );
   return response.data;
 };
 
 export const getTopVehicles = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/sales/top-vehicles?storeId=${storeId}`
+    `/reports/sales/top-vehicles?storeId=${storeId}`
   );
   return response.data;
 };
@@ -54,14 +54,14 @@ export const getTopVehicles = async (storeId) => {
 
 export const getInventoryReport = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/inventory?storeId=${storeId}`
+    `/reports/inventory?storeId=${storeId}`
   );
   return response.data;
 };
  
 export const getInventoryItems = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/inventory/items?storeId=${storeId}`
+    `/reports/inventory/items?storeId=${storeId}`
   );
   return response.data;
 };
@@ -72,14 +72,14 @@ export const getInventoryItems = async (storeId) => {
 
 export const getLowStockReport = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/low-stock?storeId=${storeId}`
+    `/reports/low-stock?storeId=${storeId}`
   );
   return response.data;
 };
 
 export const getLowStockItems = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/low-stock/items?storeId=${storeId}`
+    `/reports/low-stock/items?storeId=${storeId}`
   );
   return response.data;
 };
@@ -90,14 +90,14 @@ export const getLowStockItems = async (storeId) => {
 
 export const getCustomerReport = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/customers?storeId=${storeId}`
+    `/reports/customers?storeId=${storeId}`
   );
   return response.data;
 };
 
 export const getCustomerList = async (storeId) => {
   const response = await api.get(
-    `${API}/reports/customers/list?storeId=${storeId}`
+    `/reports/customers/list?storeId=${storeId}`
   );
   return response.data;
 };
@@ -108,14 +108,14 @@ export const getCustomerList = async (storeId) => {
 
 export const getCustomerDetails = async (id) => {
   const response = await api.get(
-    `${API}/reports/customers/${id}`
+    `/reports/customers/${id}`
   );
   return response.data;
 };
 
 export const getCustomerOrderHistory = async (id) => {
   const response = await api.get(
-    `${API}/reports/customers/${id}/orders`
+    `/reports/customers/${id}/orders`
   );
   return response.data;
 };

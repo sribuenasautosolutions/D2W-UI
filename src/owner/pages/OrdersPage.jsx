@@ -24,21 +24,17 @@ let response;
 
 if (user.role === "OWNER") {
 
-   response = await apiClient.get("/orders");
+   response = await apiclient.get("/orders");
 
 } else {
 
-   response = await apiClient.get(
+   response = await apiclient.get(
     `/orders/store/${user.storeId}`
 );
 
 }
 
 setOrders(response.data);
-
-            setOrders(
-                response.data
-            );
 
         }
         catch(error) {

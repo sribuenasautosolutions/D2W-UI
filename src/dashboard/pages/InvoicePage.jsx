@@ -14,10 +14,7 @@ function InvoicePage() {
 
         try {
 
-            const response =
-                await api.get(
-                    `http://localhost:8080/orders/${orderId}`
-                );
+           const response = await api.get(`/orders/${orderId}`);
 
             setInvoice(
                 response.data

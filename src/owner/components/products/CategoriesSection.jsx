@@ -14,9 +14,9 @@ function CategoriesSection() {
 
         try {
 
-            const response = await api.get(
-                "http://localhost:8080/categories"
-            );
+           const response = await api.get(
+    "/categories"
+);
 
             setCategories(response.data);
 
@@ -34,10 +34,10 @@ function CategoriesSection() {
                 categoryName: categoryName
             };
 
-            const response = await api.post(
-                "http://localhost:8080/categories",
-                payload
-            );
+           const response = await api.post(
+    "/categories",
+    payload
+);
 
             setMessage(response.data);
 
@@ -72,8 +72,8 @@ function CategoriesSection() {
             const formData = new FormData();
             formData.append("file", selectedFile);
 
-            const response = await api.post(
-                "http://localhost:8080/categories/bulk-upload",
+           const response = await api.post(
+    "/categories/bulk-upload",
                 formData,
                 {
                     headers: {

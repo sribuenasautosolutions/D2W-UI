@@ -20,10 +20,9 @@ function BrandsSection() {
 
         try {
 
-            const response =
-                await api.get(
-                    "http://localhost:8080/brands"
-                );
+           const response = await api.get(
+    "/brands"
+);
 
             setBrands(response.data);
 
@@ -46,13 +45,12 @@ function BrandsSection() {
 
         try {
 
-            const response =
-                await api.post(
-                    "http://localhost:8080/brands",
-                    {
-                        brandName
-                    }
-                );
+           const response = await api.post(
+    "/brands",
+    {
+        brandName
+    }
+);
 
             setMessage(
                 response.data
@@ -93,9 +91,8 @@ function BrandsSection() {
                 selectedFile
             );
 
-            const response =
-                await api.post(
-                    "http://localhost:8080/brands/bulk-upload",
+            const response = await api.post(
+    "/brands/bulk-upload",
                     formData,
                     {
                         headers: {

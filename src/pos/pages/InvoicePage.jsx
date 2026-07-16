@@ -170,7 +170,7 @@ export default function InvoicePage() {
           <button style={styles.btnSecondary} onClick={() => navigate(-1)}>
             ← Back
           </button>
-          <button style={styles.btnOutline} onClick={() => navigate("/sales/new")}>
+          <button style={styles.btnOutline} onClick={() => navigate("/pos")}>
             + New Sale
           </button>
         </div>

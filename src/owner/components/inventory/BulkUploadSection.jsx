@@ -21,8 +21,8 @@ function BulkUploadSection() {
         formData.append("storeId", user.storeId);
       }
 
-      const response = await axios.post(
-        "http://localhost:8080/store-inventory/bulk-upload",
+     const response = await axios.post(
+    `${import.meta.env.VITE_API_BASE_URL}/store-inventory/bulk-upload`,
         formData,
         {
           headers: {

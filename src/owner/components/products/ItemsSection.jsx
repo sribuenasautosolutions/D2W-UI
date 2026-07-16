@@ -10,7 +10,7 @@ import {
    CONFIG
    ========================================================================= */
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const EMPTY_FORM = {
   itemName: "",
@@ -434,10 +434,10 @@ function ItemsSection() {
     setFetchError(false);
     try {
       const [b, c, m, i] = await Promise.all([
-        apiClient.get("/brands"),
-apiClient.get("/categories"),
-apiClient.get("/product-masters"),
-apiClient.get("/products")
+        apiclient.get("/brands"),
+apiclient.get("/categories"),
+apiclient.get("/product-masters"),
+apiclient.get("/products")
       ]);
       setBrands(b.data || []);
       setAllCategories(c.data || []);
@@ -488,7 +488,7 @@ apiClient.get("/products")
     }
     setSaving(true);
     try {
-   await apiClient.post("/products", formData);
+   await apiclient.post("/products", formData);
       setStatus({ type: "success", msg: "Product saved successfully." });
       resetForm();
       fetchData();
@@ -501,7 +501,7 @@ apiClient.get("/products")
   const deleteItem = async (item) => {
     if (!window.confirm(`Delete "${item.itemName}"? This can't be undone.`)) return;
     try {
-     await apiClient.delete(`/products/${item.id}`);
+     await apiclient.delete(`/products/${item.id}`);
       setStatus({ type: "success", msg: "Product deleted." });
       fetchData();
     } catch (e) {
@@ -520,7 +520,7 @@ apiClient.get("/products")
     data.append("file", selectedFile);
 
     try {
-     const response = await apiClient.post(
+     const response = await apiclient.post(
     "/products/bulk-upload",
     data,
     {

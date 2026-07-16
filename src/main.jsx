@@ -1,3 +1,4 @@
+console.log(import.meta.env);
 import React from "react";
 
 import ReactDOM from "react-dom/client";

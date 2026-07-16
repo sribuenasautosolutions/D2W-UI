@@ -33,14 +33,14 @@ const user =
 if (user?.role === "OWNER") {
 
     response = await api.get(
-        "http://localhost:8080/store-inventory"
-    );
+    "/store-inventory"
+);
 
 } else {
 
-    response = await api.get(
-        `http://localhost:8080/store-inventory/store/${user.storeId}`
-    );
+   response = await api.get(
+    `/store-inventory/store/${user.storeId}`
+);
 
 }
 

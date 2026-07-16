@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 
 function UsersPage() {
 
@@ -31,10 +31,10 @@ function UsersPage() {
 
         try {
 
-            const response =
-                await axios.get(
-                    "http://localhost:8080/users"
-                );
+           const response =
+    await api.get(
+        "/users"
+    );
 
             setUsers(
                 response.data
@@ -51,10 +51,10 @@ function UsersPage() {
 
         try {
 
-            const response =
-                await axios.get(
-                    "http://localhost:8080/stores"
-                );
+           const response =
+    await api.get(
+        "/stores"
+    );
 
             setStores(
                 response.data
@@ -79,9 +79,9 @@ function UsersPage() {
 
         try {
 
-            await axios.post(
-                "http://localhost:8080/users",
-                {
+           await api.post(
+    "/users",
+    {
                     name,
                     email,
                     phone,

@@ -30,7 +30,7 @@ import apiclient from "./apiclient";
  * @returns {Promise<number>} the new orderId
  */
 export const placeOrder = async (orderRequestDTO) => {
-  const response = await apiClient.post("/orders", orderRequestDTO);
+  const response = await apiclient.post("/orders", orderRequestDTO);
   return response.data;
 };
 
@@ -43,7 +43,7 @@ export const placeOrder = async (orderRequestDTO) => {
  * @returns {Promise<Object>} InvoiceResponseDTO
  */
 export const getInvoice = async (orderId) => {
-  const response = await apiClient.get(`/orders/${orderId}`);
+  const response = await apiclient.get(`/orders/${orderId}`);
   return response.data;
 };
 
@@ -54,7 +54,7 @@ export const getInvoice = async (orderId) => {
  * @returns {Promise<Array>} OrderListResponseDTO[]
  */
 export const getAllOrders = async () => {
-  const response = await apiClient.get("/orders");
+  const response = await apiclient.get("/orders");
   return response.data;
 };
 
@@ -66,7 +66,7 @@ export const getAllOrders = async () => {
  * @returns {Promise<Array>} OrderListResponseDTO[]
  */
 export const getOrdersByStore = async (storeId) => {
-  const response = await apiClient.get(`/orders/store/${storeId}`);
+  const response = await apiclient.get(`/orders/store/${storeId}`);
   return response.data;
 };
 
@@ -86,6 +86,6 @@ export const getOrdersByStore = async (storeId) => {
  * @returns {Promise<Object>} OrderCalculationResponseDTO
  */
 export const calculateOrder = async (orderCalculationRequestDTO) => {
-  const response = await apiClient.post("/orders/recalculate", orderCalculationRequestDTO);
+  const response = await apiclient.post("/orders/recalculate", orderCalculationRequestDTO);
   return response.data;
 };

@@ -22,6 +22,7 @@ const GST_TYPE_OPTIONS = [
 
 const RECALC_DEBOUNCE_MS = 400;
 
+
 /* ============================================================
    HELPERS (no money math — display/formatting only)
    ============================================================ */
@@ -76,7 +77,40 @@ function CheckoutPage() {
 
   /* ---------- Cashier-editable financial inputs ---------- */
   const [billDiscount, setBillDiscount] = useState("0");
-  const [gstTypes, setGstTypes] = useState({}); // productId -> gstType
+  const [invoiceGstRate, setInvoiceGstRate] = useState(18);
+
+const [invoiceGstMode, setInvoiceGstMode] = useState("AUTO");
+
+const [gstTypes, setGstTypes] = useState({});
+const applyInvoiceGSTToAll = () => {
+
+    const updatedGST = {};
+
+    cartItems.forEach((item) => {
+
+        let gstType = "";
+
+        if (invoiceGstMode === "AUTO") {
+
+            gstType = `GST_${invoiceGstRate}`;
+
+        } else if (invoiceGstMode === "IGST") {
+
+            gstType = `IGST_${invoiceGstRate}`;
+
+        } else {
+
+            gstType = `GST_${invoiceGstRate}`;
+        }
+
+        updatedGST[item.productId] = gstType;
+
+    });
+
+    setGstTypes(updatedGST);
+
+};
+ 
 
   /* ---------- Backend calculation (single source of truth) ---------- */
   const [calculation, setCalculation] = useState(null);
@@ -99,9 +133,25 @@ function CheckoutPage() {
      ============================================================ */
 
   const effectiveGstType = useCallback(
-    (item) => gstTypes[item.productId] ?? deriveGstType(item),
-    [gstTypes]
-  );
+    (item) => {
+
+        if (gstTypes[item.productId]) {
+
+            return gstTypes[item.productId];
+
+        }
+
+        if (invoiceGstMode === "IGST") {
+
+            return `IGST_${invoiceGstRate}`;
+
+        }
+
+        return `GST_${invoiceGstRate}`;
+
+    },
+    [gstTypes, invoiceGstRate, invoiceGstMode]
+);
 
   const buildCalculationRequest = useCallback(
     () => ({
@@ -348,11 +398,7 @@ function CheckoutPage() {
             />
           </Field>
 
-          {!customerExists && /^\d{10}$/.test(phone) && customerName.trim() !== "" && (
-            <button onClick={handleSaveCustomer} style={saveCustomerBtnStyle}>
-              Save Customer
-            </button>
-          )}
+        
 
           <div style={paymentInfoBoxStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
@@ -393,7 +439,7 @@ function CheckoutPage() {
                     <th style={{ ...thStyle, textAlign: "right" }}>Rate</th>
                     <th style={thStyle}>Qty</th>
                     <th style={thStyle}>Disc %</th>
-                    <th style={thStyle}>GST Type</th>
+                    <th style={thStyle}>GST</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Taxable</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>GST</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
@@ -536,6 +582,98 @@ function CheckoutPage() {
                 Recalculating…
               </div>
             )}
+<div
+    style={{
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: "8px",
+        padding: "12px",
+        marginBottom: "12px"
+    }}
+>
+
+    <div
+        style={{
+            fontSize: "13px",
+            fontWeight: "600",
+            marginBottom: "10px",
+            color: "#1e293b"
+        }}
+    >
+        🧾 Invoice GST
+    </div>
+
+    <div
+        style={{
+            display: "flex",
+            gap: "8px",
+            marginBottom: "10px"
+        }}
+    >
+
+        <select
+            value={invoiceGstRate}
+            onChange={(e) =>
+                setInvoiceGstRate(Number(e.target.value))
+            }
+            style={gstSelectStyle}
+        >
+            <option value={5}>5%</option>
+            <option value={12}>12%</option>
+            <option value={18}>18%</option>
+            <option value={28}>28%</option>
+        </select>
+
+        <select
+            value={invoiceGstMode}
+            onChange={(e) =>
+                setInvoiceGstMode(e.target.value)
+            }
+            style={gstSelectStyle}
+        >
+            <option value="AUTO">
+                AUTO
+            </option>
+
+            <option value="CGST_SGST">
+                CGST + SGST
+            </option>
+
+            <option value="IGST">
+                IGST
+            </option>
+
+        </select>
+
+    </div>
+
+   <button
+
+    onClick={() => {
+
+        const confirmed = window.confirm(
+
+            `Apply ${invoiceGstRate}% GST to all products?`
+
+        );
+
+        if (confirmed) {
+
+            applyInvoiceGSTToAll();
+
+        }
+
+    }}
+
+    style={saveCustomerBtnStyle}
+
+>
+
+    Apply To All
+
+</button>
+
+</div>
 
             {/* Bill discount — cashier input */}
             <div style={billDiscountBoxStyle}>
@@ -860,7 +998,7 @@ const billDiscountBoxStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-};
+}; 
 
 const billDiscountInputStyle = {
   width: "64px",

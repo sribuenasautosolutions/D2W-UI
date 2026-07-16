@@ -8,7 +8,7 @@ const API = "http://localhost:8080";
 
 export const getCustomerByMobile = async (mobile) => {
     const response = await api.get(
-        `${API}/customers/mobile/${mobile}`
+        `/customers/mobile/${mobile}`
     );
 
     return response.data;
@@ -16,7 +16,7 @@ export const getCustomerByMobile = async (mobile) => {
 
 export const saveCustomer = async (customer) => {
     const response = await api.post(
-        `${API}/customers`,
+        `/customers`,
         customer
     );
 
@@ -29,7 +29,7 @@ export const saveCustomer = async (customer) => {
 
 export const getCustomerReport = async () => {
     const response = await api.get(
-        `${API}/reports/customers`
+        `/reports/customers`
     );
 
     return response.data;
@@ -37,7 +37,7 @@ export const getCustomerReport = async () => {
 
 export const getCustomerList = async () => {
     const response = await api.get(
-        `${API}/reports/customers/list`
+        `/reports/customers/list`
     );
 
     return response.data;
@@ -47,7 +47,7 @@ export const getCustomerDetails = async (
     customerId
 ) => {
     const response = await api.get(
-        `${API}/reports/customers/${customerId}`
+        `/reports/customers/${customerId}`
     );
 
     return response.data;
@@ -57,7 +57,7 @@ export const getCustomerOrders = async (
     customerId
 ) => {
     const response = await api.get(
-        `${API}/reports/customers/${customerId}/orders`
+        `/reports/customers/${customerId}/orders`
     );
 
     return response.data;

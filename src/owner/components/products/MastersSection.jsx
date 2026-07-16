@@ -37,10 +37,10 @@ function MastersSection() {
 
         try {
 
-            const response =
-                await api.get(
-                    "http://localhost:8080/categories"
-                );
+          const response =
+    await api.get(
+        "/categories"
+    );
 
             setCategories(response.data);
 
@@ -54,10 +54,10 @@ function MastersSection() {
 
         try {
 
-            const response =
-               await api.get(
-                    "http://localhost:8080/product-masters"
-                );
+         const response =
+    await api.get(
+        "/product-masters"
+    );
 
             setMasters(response.data);
 
@@ -90,11 +90,11 @@ function MastersSection() {
                 }
             };
 
-            const response =
-                await api.post(
-                    "http://localhost:8080/product-masters",
-                    payload
-                );
+           const response =
+    await api.post(
+        "/product-masters",
+        payload
+    );
 
             setMessage(response.data);
 

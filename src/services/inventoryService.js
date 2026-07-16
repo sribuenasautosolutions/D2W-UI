@@ -9,7 +9,7 @@ import api from "./api";
 export const getInventoryReport = async (storeId) => {
   const url = storeId
     ? `/reports/${storeId}/inventory`
-    : ` /reports/inventory`;
+    : `/reports/inventory`;
 
   const response = await api.get(url);
   return response.data;
@@ -18,7 +18,7 @@ export const getInventoryReport = async (storeId) => {
 export const getInventoryItems = async (storeId) => {
   const url = storeId
     ? ` /reports/${storeId}/inventory/items`
-    : ` /reports/inventory/items`;
+   : `/reports/inventory/items`
 
   const response = await api.get(url);
   return response.data;
@@ -30,8 +30,8 @@ export const getInventoryItems = async (storeId) => {
 
 export const getLowStockReport = async (storeId) => {
   const url = storeId
-    ? ` /reports/${storeId}/low-stock`
-    : ` /reports/low-stock`;
+    ? `/reports/${storeId}/low-stock`
+    : `/reports/low-stock`;
 
   const response = await api.get(url);
   return response.data;
@@ -52,8 +52,8 @@ export const getLowStockItems = async (storeId) => {
 
 export const getDeadStockProducts = async (storeId) => {
   const url = storeId
-    ? ` /reports/${storeId}/inventory/dead-stock`
-    : ` /reports/inventory/dead-stock`;
+    ? `/reports/${storeId}/inventory/dead-stock`
+    : `/reports/inventory/dead-stock`;
 
   const response = await api.get(url);
   return response.data;
@@ -65,8 +65,8 @@ export const getDeadStockProducts = async (storeId) => {
 
 export const getStorePerformance = async (storeId) => {
   const url = storeId
-    ? ` /reports/${storeId}/store-performance`
-    : ` /reports/store-performance`;
+    ? `/reports/${storeId}/store-performance`
+    : `/reports/store-performance`;
 
   const response = await api.get(url);
   return response.data;

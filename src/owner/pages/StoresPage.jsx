@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 
 function StoresPage() {
 
@@ -56,9 +56,9 @@ function StoresPage() {
         try {
 
             const response =
-                await axios.get(
-                    "http://localhost:8080/stores"
-                );
+    await api.get(
+        "/stores"
+    );
 
             setStores(
                 response.data
@@ -81,9 +81,9 @@ function StoresPage() {
 
     try {
 
-        await axios.post(
-            "http://localhost:8080/stores",
-            {
+       await api.post(
+    "/stores",
+    {
                 storeName,
                 storeCode,
                 ownerName,

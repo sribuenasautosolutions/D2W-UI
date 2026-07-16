@@ -80,10 +80,11 @@ function POSVehicleSelector({
 
         try {
 
-            const data =
-                await getYears();
+           const data = await getYears();
 
-            setYears(data);
+console.log(data);
+
+setYears(data);
 
         } catch (error) {
 

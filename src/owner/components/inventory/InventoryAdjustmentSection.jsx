@@ -40,10 +40,9 @@ function InventoryAdjustmentSection() {
 
             try {
 
-                const response =
-                    await api.get(
-                        "http://localhost:8080/products"
-                    );
+                const response = await api.get(
+    "/products"
+);
 
                 setProducts(
                     response.data

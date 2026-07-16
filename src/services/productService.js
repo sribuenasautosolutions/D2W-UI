@@ -1,8 +1,4 @@
 import api from "./api";
-
-const API =
-    "http://localhost:8080";
-
 /*
 |--------------------------------------------------------------------------
 | GET PRODUCTS BY VEHICLE VARIANT
@@ -18,8 +14,7 @@ export const getProductsByVariant =
 
         const response =
             await api.get(
-
-                `${API}/fitment/products`,
+                "/fitment/products",
                 {
                     params: {
                         storeId: user.storeId,
@@ -50,10 +45,9 @@ export const getAllProducts =
         */
 
         const response =
-            await api.get(
-
-                `${API}/store-inventory/store/${user.storeId}`
-            );
+           await api.get(
+    `/store-inventory/store/${user.storeId}`
+);
 
         return response.data;
     };
@@ -73,9 +67,8 @@ export const getProductById =
             );
 
         const response =
-            await api.get(
-                `${API}/store-inventory/product-details`,
-                {
+           await api.get(
+    "/store-inventory/product-details",{
                     params: {
                         storeId: user.storeId,
                         productId: id
@@ -99,9 +92,8 @@ export const searchProducts =
     ) => {
 
         const response =
-            await api.get(
-
-                `${API}/products/search`,
+           await api.get(
+    "/products/search",
 
                 {
                     params: {
@@ -117,8 +109,8 @@ export const searchProducts =
     async (productId) => {
 
         const response =
-            await api.get(
-                `${API}/fitment/product`,
+           await api.get(
+    "/fitment/product",
                 {
                     params: {
                         productId
@@ -143,10 +135,8 @@ export const getProductBatches =
             );
 
         const response =
-            await api.get(
-
-                `${API}/store-inventory/product-batches`,
-
+           await api.get(
+    "/store-inventory/product-batches",
                 {
                     params: {
                         storeId: user.storeId,
