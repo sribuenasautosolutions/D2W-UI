@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import VehicleMakesSection
 from "../../owner/components/vehicles/VehicleMakesSection";
@@ -11,188 +11,141 @@ from "../../owner/components/vehicles/VehicleGenerationsSection";
 
 import VehicleVariantsSection
 from "../../owner/components/vehicles/VehicleVariantsSection";
+
 import VehicleBulkUploadSection from "../components/vehicles/VehicleBulkUploadSection";
+
+import "./styles/vehicle-management.css";
+import "./styles/VehiclePage.css";
+
+// Order matters: it's the real Make -> Model -> Generation -> Variant hierarchy,
+// so the sidebar numbers it like steps, not a decorative list.
+const SECTIONS = [
+    { id: "makes", label: "Makes", num: "01" },
+    { id: "models", label: "Models", num: "02" },
+    { id: "generations", label: "Generations", num: "03" },
+    { id: "variants", label: "Variants", num: "04" },
+    { id: "bulk", label: "Bulk Upload", num: "05" },
+];
 
 function VehiclePage() {
 
-    const [activeTab,
-        setActiveTab] =
-            useState("makes");
+    const [activeSection, setActiveSection] = useState("makes");
+    const sectionRefs = useRef({});
+
+    // Scroll-spy: highlight whichever section is currently in view, instead of
+    // forcing the user to click a tab (and lose whatever they'd typed elsewhere).
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        setActiveSection(entry.target.dataset.sectionId);
+                    }
+                });
+            },
+            { rootMargin: "-15% 0px -70% 0px", threshold: 0 }
+        );
+
+        Object.values(sectionRefs.current).forEach((el) => {
+            if (el) observer.observe(el);
+        });
+
+        return () => observer.disconnect();
+    }, []);
+
+    const scrollToSection = (id) => {
+        sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
 
     return (
+        <div className="vc-app">
+            <div className="vc-shell">
 
-        <div>
+                <aside className="vc-sidebar">
+                    <div className="vc-brand">
+                        <div className="vc-brand-mark">VC</div>
+                        <div className="vc-brand-text">
+                            <strong>Vehicle Catalog</strong>
+                            <span>Master data console</span>
+                        </div>
+                    </div>
 
-            <h1
-                style={{
-                    marginBottom: "20px"
-                }}
-            >
-                Vehicle Management
-            </h1>
+                    <div className="vc-nav-label">Catalog hierarchy</div>
 
-            <div
-                style={{
-                    display: "flex",
-                    gap: "10px",
-                    marginTop: "20px",
-                    marginBottom: "20px",
-                    flexWrap: "wrap"
-                }}
-            >
+                    {SECTIONS.map((section) => (
+                        <button
+                            key={section.id}
+                            className={
+                                "vc-nav-item" +
+                                (activeSection === section.id ? " is-active" : "")
+                            }
+                            onClick={() => scrollToSection(section.id)}
+                        >
+                            <span className="vc-nav-num">{section.num}</span>
+                            {section.label}
+                        </button>
+                    ))}
 
-                <button
-                    onClick={() =>
-                        setActiveTab("makes")
-                    }
-                    style={{
-                        padding: "10px 20px",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontWeight: "600",
-                        background:
-                            activeTab === "makes"
-                                ? "#2563eb"
-                                : "#f3f4f6",
-                        color:
-                            activeTab === "makes"
-                                ? "white"
-                                : "#111827"
-                    }}
-                >
-                    Makes
-                </button>
+                    <div className="vc-sidebar-footer">
+                        All sections stay loaded — jump between them without
+                        losing anything you've typed.
+                    </div>
+                </aside>
 
-                <button
-                    onClick={() =>
-                        setActiveTab("models")
-                    }
-                    style={{
-                        padding: "10px 20px",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontWeight: "600",
-                        background:
-                            activeTab === "models"
-                                ? "#2563eb"
-                                : "#f3f4f6",
-                        color:
-                            activeTab === "models"
-                                ? "white"
-                                : "#111827"
-                    }}
-                >
-                    Models
-                </button>
+                <main className="vc-main">
 
-                <button
-                    onClick={() =>
-                        setActiveTab("generations")
-                    }
-                    style={{
-                        padding: "10px 20px",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontWeight: "600",
-                        background:
-                            activeTab === "generations"
-                                ? "#2563eb"
-                                : "#f3f4f6",
-                        color:
-                            activeTab === "generations"
-                                ? "white"
-                                : "#111827"
-                    }}
-                >
-                    Generations
-                </button>
+                    <div className="vc-topbar">
+                        <div className="vc-crumb">Vehicle Management</div>
+                        <h1 className="vc-h1">Vehicle Catalog</h1>
+                    </div>
 
-                <button
-                    onClick={() =>
-                        setActiveTab("variants")
-                    }
-                    style={{
-                        padding: "10px 20px",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontWeight: "600",
-                        background:
-                            activeTab === "variants"
-                                ? "#2563eb"
-                                : "#f3f4f6",
-                        color:
-                            activeTab === "variants"
-                                ? "white"
-                                : "#111827"
-                    }}
-                >
-                    Variants
-                </button>
-                <button
-    onClick={() =>
-        setActiveTab("bulk")
-    }
-    style={{
-        padding: "10px 20px",
-        border: "none",
-        borderRadius: "8px",
-        cursor: "pointer",
-        fontWeight: "600",
-        background:
-            activeTab === "bulk"
-                ? "#2563eb"
-                : "#f3f4f6",
-        color:
-            activeTab === "bulk"
-                ? "white"
-                : "#111827"
-    }}
->
-    Bulk Upload
-</button>
+                    <div
+                        id="makes"
+                        className="vc-section"
+                        data-section-id="makes"
+                        ref={(el) => (sectionRefs.current.makes = el)}
+                    >
+                        <VehicleMakesSection />
+                    </div>
 
+                    <div
+                        id="models"
+                        className="vc-section"
+                        data-section-id="models"
+                        ref={(el) => (sectionRefs.current.models = el)}
+                    >
+                        <VehicleModelsSection />
+                    </div>
+
+                    <div
+                        id="generations"
+                        className="vc-section"
+                        data-section-id="generations"
+                        ref={(el) => (sectionRefs.current.generations = el)}
+                    >
+                        <VehicleGenerationsSection />
+                    </div>
+
+                    <div
+                        id="variants"
+                        className="vc-section"
+                        data-section-id="variants"
+                        ref={(el) => (sectionRefs.current.variants = el)}
+                    >
+                        <VehicleVariantsSection />
+                    </div>
+
+                    <div
+                        id="bulk"
+                        className="vc-section"
+                        data-section-id="bulk"
+                        ref={(el) => (sectionRefs.current.bulk = el)}
+                    >
+                        <VehicleBulkUploadSection />
+                    </div>
+
+                </main>
             </div>
-
-            <div
-                style={{
-                    background: "white",
-                    padding: "20px",
-                    borderRadius: "10px",
-                    boxShadow:
-                        "0 2px 8px rgba(0,0,0,0.08)"
-                }}
-            >
-
-                {
-                    activeTab === "makes" &&
-                    <VehicleMakesSection />
-                }
-
-                {
-                    activeTab === "models" &&
-                    <VehicleModelsSection />
-                }
-
-                {
-                    activeTab === "generations" &&
-                    <VehicleGenerationsSection />
-                }
-
-                {
-                    activeTab === "variants" &&
-                    <VehicleVariantsSection />
-                }
-                {
-    activeTab === "bulk" &&
-    <VehicleBulkUploadSection />
-}
-
-            </div>
-
         </div>
     );
 }

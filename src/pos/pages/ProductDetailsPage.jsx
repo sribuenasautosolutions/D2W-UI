@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getProductById, getCompatibleVehicles } from "../../services/productService";
+import { getInventoryDetails, getCompatibleVehicles } from "../../services/productService";
 import { useCart } from "../context/CartContext";
 
 function ProductDetailsPage() {
@@ -22,8 +22,8 @@ function ProductDetailsPage() {
 
     try {
 
-        const data =
-            await getProductById(id);
+   const data =
+    await getInventoryDetails(id);
 
         console.log(
             "PRODUCT DETAILS = ",
@@ -32,17 +32,19 @@ function ProductDetailsPage() {
 
         setProduct(data);
 
-        const fitments =
-            await getCompatibleVehicles(id);
+       if (data.productId != null) {
 
-        console.log(
-            "FITMENTS = ",
-            fitments
-        );
+    const fitments =
+        await getCompatibleVehicles(data.productId);
 
-        setCompatibility(
-            fitments
-        );
+    console.log("FITMENTS = ", fitments);
+
+    setCompatibility(fitments);
+
+} else {
+
+    setCompatibility([]);
+}
 
     } catch(error) {
 
@@ -275,10 +277,7 @@ function ProductDetailsPage() {
                         <button
                             onClick={() => {
                                 console.log("PRODUCT BEFORE CART", product);
-                                addToCart({
-                                    ...product,
-                                    productId: product.productId || product.id
-                                });
+                                addToCart(product);
                                 alert("Product Added To Cart");
                             }}
                             style={{

@@ -194,21 +194,21 @@ function CrossReferenceSection() {
     setFetchError(false);
     try {
       const [pRes, crRes] = await Promise.all([
-       api.get(`${API_BASE}/products`),
-       api.get(`${API_BASE}/cross-references`)
+       api.get(`/products`),
+       api.get(`/cross-references`)
       ]);
       setProducts(pRes.data || []);
       setAllCrossRefs(crRes.data || []);
     } catch (e) {
       // If bulk endpoint fails, try products only then cross-refs per product
       try {
-        const pRes = await api.get(`${API_BASE}/products`);
+        const pRes = await api.get(`/products`);
         setProducts(pRes.data || []);
         // Load cross refs for all products in parallel
         const prods = pRes.data || [];
         if (prods.length > 0) {
           const crResults = await Promise.allSettled(
-            prods.map((p) =>api.get(`${API_BASE}/cross-references/product/${p.id}`))
+            prods.map((p) =>api.get(`/cross-references/product/${p.id}`))
           );
           const merged = crResults
             .filter((r) => r.status === "fulfilled")

@@ -1,0 +1,6 @@
+/* VehicleBulkUploadSection-specific rules — shared primitives live in
+   vehicle-management.css. */
+
+.vc-dropzone label.vc-btn-ghost {
+  display: inline-flex;
+}

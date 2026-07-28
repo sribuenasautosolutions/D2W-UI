@@ -2,12 +2,14 @@ import { Routes, Route } from "react-router-dom";
 
 import DashboardHome from "../pages/DashboardHome";
 import ProductPage from "../pages/ProductPage";
-import VehiclesPage from "../pages/VehiclePage";
+import VehicleManagement from "../components/vehicles/VehicleManagement";
 import InventoryPage from "../pages/InventoryPage";
 import OrdersPage from "../pages/OrdersPage";
 import ReportsPage from "../pages/ReportsPage";
 import StoresPage from "../pages/StoresPage";
 import UsersPage from "../pages/UsersPage";
+import ProductApprovalPage from "../pages/ProductApprovalPage";
+
 
 import DashboardLayout from "../layouts/DashboardLayout";
 
@@ -32,16 +34,24 @@ function OwnerRoutes() {
           </DashboardLayout>
         }
       />
+      <Route
+  path="/product-approval"
+  element={
+    <DashboardLayout>
+      <ProductApprovalPage />
+    </DashboardLayout>
+  }
+/>
+     
 
       <Route
-        path="/vehicles"
-        element={
-          <DashboardLayout>
-            <VehiclesPage />
-          </DashboardLayout>
-        }
-      />
-
+  path="/vehicles"
+  element={
+    <DashboardLayout>
+      <VehicleManagement />
+    </DashboardLayout>
+  }
+/>
       <Route
         path="/inventory"
         element={

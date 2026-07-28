@@ -1,0 +1,74 @@
+/* ==========================================================================
+   Product Approval — page shell
+   The sidebar step-nav is gone: Review / Create / Merge now live inside the
+   workflow modal (see .pa-modal-* in product-approval.css). The page itself
+   is a single column: dashboard cards + search + Pending Products table.
+   Built on the shared --vm-* tokens defined in vehicle-management.css
+   (loaded by the section components, so this file does not redefine :root).
+   ========================================================================== */
+
+.vc-app {
+  min-height: 100vh;
+  background: var(--vm-bg);
+  font-family: var(--vm-font);
+  color: var(--vm-text);
+}
+
+.vc-page-shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+/* ================================ MAIN ================================= */
+
+.vc-main {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 32px 80px 32px;
+}
+
+.vc-main-full {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.vc-topbar {
+  margin-bottom: 22px;
+}
+
+.vc-crumb {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--vm-text-faint);
+  letter-spacing: 0.2px;
+  margin-bottom: 6px;
+}
+
+.vc-h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin: 0;
+  color: var(--vm-text);
+}
+
+.vc-section {
+  scroll-margin-top: 24px;
+  margin-bottom: 32px;
+}
+
+.vc-section:last-child {
+  margin-bottom: 0;
+}
+
+/* =============================== MOBILE ================================ */
+
+@media (max-width: 900px) {
+
+  .vc-main {
+    padding: 20px 16px 60px 16px;
+  }
+
+}

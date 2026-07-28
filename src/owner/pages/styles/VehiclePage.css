@@ -1,0 +1,7 @@
+/* VehiclePage-specific overrides. Shared layout, sidebar, topbar and drawer
+   rules live in vehicle-management.css so every section reuses the same
+   design system. */
+
+.vc-shell { scroll-behavior: smooth; }
+
+#makes.vc-section { scroll-margin-top: 24px; }
