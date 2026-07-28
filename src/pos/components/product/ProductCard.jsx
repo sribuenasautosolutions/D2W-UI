@@ -84,7 +84,7 @@ const [openBatchModal, setOpenBatchModal] = useState(false);
     <button
        onClick={() =>
    navigate(
-    `/pos/product/${product.productId || product.id}`
+     `/pos/product/${product.inventoryId}`
 )
 }
         style={{

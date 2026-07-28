@@ -1,0 +1,318 @@
+/* ==========================================================================
+   Product Catalog (Brands / Categories / Masters) — shared design system
+   Matches the vehicles/styles/vehicle-management.css look & tokens so the
+   two modules feel like one app.
+   ========================================================================== */
+
+:root {
+  --pc-bg: #F8FAFC;
+  --pc-card: #FFFFFF;
+  --pc-border: #E5E7EB;
+  --pc-border-soft: #EEF1F5;
+
+  --pc-primary: #2563EB;
+  --pc-primary-dark: #1D4ED8;
+  --pc-primary-soft: #EFF4FF;
+  --pc-primary-softer: #F5F8FF;
+
+  --pc-text: #0F172A;
+  --pc-text-soft: #475569;
+  --pc-text-faint: #94A3B8;
+
+  --pc-success: #16A34A;
+  --pc-success-bg: #ECFDF3;
+  --pc-danger: #DC2626;
+  --pc-danger-bg: #FEF2F2;
+
+  --pc-radius-lg: 16px;
+  --pc-radius-md: 12px;
+  --pc-radius-sm: 8px;
+
+  --pc-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --pc-shadow: 0 2px 10px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+
+  --pc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.pc-page {
+  font-family: var(--pc-font);
+  color: var(--pc-text);
+  background: var(--pc-bg);
+  min-height: 100%;
+}
+
+.pc-header {
+  margin-bottom: 20px;
+}
+
+.pc-header-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin: 0 0 4px 0;
+}
+
+.pc-header-sub {
+  font-size: 13.5px;
+  color: var(--pc-text-soft);
+  margin: 0;
+}
+
+.pc-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .pc-grid { grid-template-columns: 1fr; }
+}
+
+.pc-panel {
+  background: var(--pc-card);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius-lg);
+  box-shadow: var(--pc-shadow);
+  padding: 20px;
+}
+
+.pc-panel + .pc-panel {
+  margin-top: 20px;
+}
+
+.pc-panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pc-field {
+  margin-bottom: 14px;
+}
+
+.pc-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pc-text-soft);
+  margin-bottom: 6px;
+}
+
+.pc-input,
+.pc-select,
+.pc-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--pc-radius-sm);
+  border: 1px solid var(--pc-border);
+  background: var(--pc-card);
+  font-size: 13.5px;
+  color: var(--pc-text);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.pc-textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.pc-input:focus,
+.pc-select:focus,
+.pc-textarea:focus {
+  border-color: var(--pc-primary);
+  box-shadow: 0 0 0 3px var(--pc-primary-soft);
+}
+
+.pc-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--pc-text-soft);
+  font-weight: 600;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.pc-checkbox-row input {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.pc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: var(--pc-radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.pc-btn:active { transform: translateY(1px); }
+
+.pc-btn-primary {
+  background: var(--pc-primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+.pc-btn-primary:hover:not(:disabled) { background: var(--pc-primary-dark); }
+
+.pc-btn-secondary {
+  background: var(--pc-card);
+  color: var(--pc-text-soft);
+  border-color: var(--pc-border);
+}
+.pc-btn-secondary:hover:not(:disabled) { border-color: var(--pc-primary); color: var(--pc-primary-dark); }
+
+.pc-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pc-divider {
+  border: none;
+  border-top: 1px solid var(--pc-border-soft);
+  margin: 18px 0;
+}
+
+.pc-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--pc-border);
+  border-radius: var(--pc-radius-sm);
+  font-size: 12.5px;
+  color: var(--pc-text-soft);
+  margin-bottom: 12px;
+  background: #FBFCFE;
+}
+
+.pc-file-row input[type="file"] {
+  font-size: 12.5px;
+  max-width: 100%;
+}
+
+.pc-banner {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--pc-radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.pc-banner.success {
+  background: var(--pc-success-bg);
+  color: var(--pc-success);
+}
+
+.pc-banner.error {
+  background: var(--pc-danger-bg);
+  color: var(--pc-danger);
+}
+
+.pc-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.pc-count-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--pc-primary-soft);
+  color: var(--pc-primary-dark);
+}
+
+.pc-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.pc-card {
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius-md);
+  padding: 14px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.pc-card:hover {
+  box-shadow: var(--pc-shadow);
+  transform: translateY(-1px);
+}
+
+.pc-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pc-text);
+  margin: 0 0 6px 0;
+}
+
+.pc-card-row {
+  font-size: 12px;
+  color: var(--pc-text-soft);
+  margin: 3px 0;
+}
+
+.pc-card-row b {
+  color: var(--pc-text);
+  font-weight: 600;
+}
+
+.pc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 8px;
+  margin-right: 6px;
+}
+
+.pc-tag.on { background: var(--pc-success-bg); color: var(--pc-success); }
+.pc-tag.off { background: #F1F5F9; color: var(--pc-text-faint); }
+.pc-tag.featured { background: #FFFBEB; color: #D97706; }
+
+.pc-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--pc-text-faint);
+  font-size: 13px;
+}
+
+.pc-skeleton {
+  color: var(--pc-text-faint);
+  font-size: 13px;
+  padding: 20px;
+  text-align: center;
+}
+
+.pc-spin {
+  animation: pc-spin-rotate 0.8s linear infinite;
+}
+
+@keyframes pc-spin-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

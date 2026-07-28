@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getInvoice } from "../../services/orderService";
 import { calculatePayment, addPayment } from "../../services/paymentService";
+import { useCart } from "../context/CartContext";
 
 /* ============================================================
    CONSTANTS
@@ -113,6 +114,7 @@ const removeHeldPayment = (orderId) => {
 function PaymentPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { clearCart } = useCart();
   const user = getUser();
 
   /* ---------- Invoice header (loaded from backend) ---------- */
@@ -334,6 +336,11 @@ function PaymentPage() {
      SAVE PAYMENT — POST /sales-payments
      Partial payments are not allowed: the entered payments must add
      up to the exact remaining balance before this is allowed to fire.
+
+     NOTE: the cart is intentionally NOT cleared here. After payment is
+     saved the cashier may still want to view / print / download the
+     invoice, so the cart must stay intact until New Sale is clicked.
+     clearCart() only ever runs inside handleNewSale().
      ============================================================ */
 
   const handleSavePayment = async () => {
@@ -429,11 +436,20 @@ function PaymentPage() {
   };
 
   /* ============================================================
-     VIEW INVOICE
+     VIEW INVOICE — does nothing else: no cart clearing, no state reset
      ============================================================ */
 
   const handleViewInvoice = () => {
     navigate(`/pos/invoice/${orderId}`);
+  };
+
+  /* ============================================================
+     NEW SALE — the ONLY place the cart is ever cleared
+     ============================================================ */
+
+  const handleNewSale = () => {
+    clearCart();
+    navigate("/pos");
   };
 
   /* ============================================================
@@ -716,37 +732,43 @@ function PaymentPage() {
         </div>
       </div>
 
-      {/* ================= FOOTER ACTIONS ================= */}
+      {/* ================= FOOTER ACTIONS =================
+          Before payment is saved: Back / Hold Payment / Save Payment.
+          After payment is saved: ONLY View Invoice / New Sale.
+          The two sets are mutually exclusive — no Back, Hold, or
+          Save Payment button exists once `saved` is true. */}
       <div style={footerBarStyle}>
-        <button style={backFooterBtnStyle} onClick={() => navigate(-1)}>← Back</button>
-        <div style={{ display: "flex", gap: "10px" }}>
-          {!saved && <button style={holdBtnStyle} onClick={handleHoldPayment}>Hold Payment</button>}
-          <button
-            style={{
-              ...saveBtnStyle,
-              opacity: saving || saved || !canSave ? 0.6 : 1,
-              cursor: saving || saved || !canSave ? "not-allowed" : "pointer",
-            }}
-            onClick={handleSavePayment}
-            disabled={saving || saved || !canSave}
-            title={
-              !fullyCovered
-                ? "Full payment is required before saving"
-                : needsChangeConfirmation && !changeConfirmed
-                ? "Confirm the change return checkbox before saving"
-                : undefined
-            }
-          >
-            {saving ? "Saving…" : saved ? "✓ Payment Saved" : "Save Payment"}
-          </button>
-          <button
-            style={{ ...invoiceBtnStyle, opacity: saved ? 1 : 0.5, cursor: saved ? "pointer" : "not-allowed" }}
-            onClick={handleViewInvoice}
-            disabled={!saved}
-          >
-            View Invoice →
-          </button>
-        </div>
+        {!saved ? (
+          <>
+            <button style={backFooterBtnStyle} onClick={() => navigate(-1)}>← Back</button>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button style={holdBtnStyle} onClick={handleHoldPayment}>Hold Payment</button>
+              <button
+                style={{
+                  ...saveBtnStyle,
+                  opacity: saving || !canSave ? 0.6 : 1,
+                  cursor: saving || !canSave ? "not-allowed" : "pointer",
+                }}
+                onClick={handleSavePayment}
+                disabled={saving || !canSave}
+                title={
+                  !fullyCovered
+                    ? "Full payment is required before saving"
+                    : needsChangeConfirmation && !changeConfirmed
+                    ? "Confirm the change return checkbox before saving"
+                    : undefined
+                }
+              >
+                {saving ? "Saving…" : "Save Payment"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: "flex", gap: "10px", marginLeft: "auto" }}>
+            <button style={invoiceBtnStyle} onClick={handleViewInvoice}>View Invoice →</button>
+            <button style={newSaleBtnStyle} onClick={handleNewSale}>New Sale</button>
+          </div>
+        )}
       </div>
 
       {/* ================= TRANSACTION NUMBER POPUP ================= */}
@@ -1042,6 +1064,17 @@ const invoiceBtnStyle = {
   borderRadius: "8px",
   padding: "10px 22px",
   background: "#16a34a",
+};
+
+const newSaleBtnStyle = {
+  fontSize: "13px",
+  fontWeight: 700,
+  color: "#fff",
+  border: "none",
+  borderRadius: "8px",
+  padding: "10px 22px",
+  background: "#2563eb",
+  cursor: "pointer",
 };
 
 /* ---------- items panel ---------- */

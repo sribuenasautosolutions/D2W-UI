@@ -39,16 +39,18 @@ export const CartProvider =
         const addToCart =
             (product) => {
 console.log("product=",product);
-                const productId =
-                    product.productId ||
-                    product.id;
+               const inventoryId = product.inventoryId;
+const batchId = product.batchId;
 
-                const existingItem =
-                    cartItems.find(
+const existingItem =
+    cartItems.find(
 
-                        (item) =>
-                            item.productId === productId
-                    );
+        (item) =>
+
+            item.inventoryId === inventoryId &&
+
+            item.batchId === batchId
+    );
 
                 if(existingItem)
                 {
@@ -56,7 +58,8 @@ console.log("product=",product);
                     const updatedCart =
                         cartItems.map((item) =>
 
-                            item.productId === productId
+                            item.inventoryId === inventoryId &&
+                            item.batchId === batchId
 
                                 ? {
                                     ...item,
@@ -79,8 +82,10 @@ console.log("product=",product);
          {
     ...product,
 
-    productId:
-        productId,
+    inventoryId:
+        inventoryId,
+          batchId:
+        batchId,
 
     quantity: 1,
 
@@ -100,12 +105,12 @@ console.log("product=",product);
             };
 
         const increaseQuantity =
-            (productId) => {
+    (inventoryId, batchId) => {
 
                 const updatedCart =
                     cartItems.map((item) =>
 
-                        item.productId === productId
+                       item.inventoryId === inventoryId &&item.batchId === batchId
 
                             ? {
                                 ...item,
@@ -120,13 +125,13 @@ console.log("product=",product);
             };
 
         const decreaseQuantity =
-            (productId) => {
+    (inventoryId, batchId) => {
 
                 const updatedCart =
                     cartItems.map((item) =>
 
-                        item.productId === productId
-
+                        item.inventoryId === inventoryId &&
+                           item.batchId === batchId
                             ? {
                                 ...item,
                                 quantity:
@@ -141,14 +146,18 @@ console.log("product=",product);
                 setCartItems(updatedCart);
             };
 
-        const removeFromCart =
-            (productId) => {
+       const removeFromCart =
+    (inventoryId, batchId) => {
 
                 const updatedCart =
                     cartItems.filter(
 
                         (item) =>
-                            item.productId !== productId
+                            item.inventoryId !== inventoryId
+                        &&
+                         item.batchId === batchId
+                       
+                       
                     );
 
                 setCartItems(updatedCart);
@@ -160,12 +169,14 @@ console.log("product=",product);
                 setCartItems([]);
             };
 const updateDiscount =
-    (productId, discount) => {
+    (inventoryId,batchId, discount )  => {
 
         const updatedCart =
             cartItems.map((item) =>
 
-                item.productId === productId
+                item.inventoryId === inventoryId
+                &&
+                 item.batchId === batchId
 
                     ? {
                         ...item,

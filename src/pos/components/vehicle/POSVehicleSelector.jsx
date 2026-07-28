@@ -1,345 +1,423 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import "./POSVehicleSelector.css";
 
 import {
-    getYears,
-    getMakesByYear,
-    getModelsByYearAndMake,
-    getVariantsByYearMakeModel
-}
-from "../../../services/vehicleService";
-
-const sel = {
-    width: "100%",
-    height: "34px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    background: "#f8fafc",
-    color: "#1e293b",
-    fontSize: "13px",
-    padding: "0 10px",
-    boxSizing: "border-box"
-};
-
-const lbl = {
-    fontSize: "11px",
-    color: "#64748b",
-    marginBottom: "4px",
-    marginTop: "10px",
-    display: "block"
-};
-
-const showBtn = {
-    width: "100%",
-    height: "34px",
-    marginTop: "12px",
-    background: "#2563eb",
-    border: "none",
-    borderRadius: "6px",
-    color: "#fff",
-    fontSize: "13px",
-    cursor: "pointer",
-    fontWeight: "500"
-};
+    getAllMakes,
+    getModelsByMake,
+    getGenerationsByModel,
+    getVariantsByGeneration
+} from "../../../services/vehicleService";
 
 function POSVehicleSelector({
     onVariantSelected,
     onLabelChange
 }) {
 
-    const [years, setYears] =
-        useState([]);
+    const [makes, setMakes] = useState([]);
+    const [models, setModels] = useState([]);
+    const [generations, setGenerations] = useState([]);
+    const [variants, setVariants] = useState([]);
 
-    const [makes, setMakes] =
-        useState([]);
+    const [selectedMake, setSelectedMake] = useState("");
+    const [selectedModel, setSelectedModel] = useState("");
+    const [selectedGeneration, setSelectedGeneration] = useState("");
+    const [selectedVariant, setSelectedVariant] = useState("");
 
-    const [models, setModels] =
-        useState([]);
-
-    const [variants, setVariants] =
-        useState([]);
-
-    const [selectedYear, setSelectedYear] =
-        useState("");
-
-    const [selectedMake, setSelectedMake] =
-        useState("");
-
-    const [selectedModel, setSelectedModel] =
-        useState("");
-
-    const [selectedVariant, setSelectedVariant] =
-        useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
     useEffect(() => {
-
-        loadYears();
-
+        loadMakes();
     }, []);
 
-    const loadYears = async () => {
+    const loadMakes = async () => {
 
         try {
 
-           const data = await getYears();
+            setLoading(true);
+            setError("");
 
-console.log(data);
+            const data = await getAllMakes();
+            setMakes(data || []);
 
-setYears(data);
+        } catch (err) {
 
-        } catch (error) {
+            console.error(err);
+            setError("Unable to load vehicle makes.");
 
-            console.error(error);
-        }
-    };
+        } finally {
 
-    const handleYearChange = async (e) => {
+            setLoading(false);
 
-        const year =
-            e.target.value;
-
-        setSelectedYear(year);
-
-        setSelectedMake("");
-        setSelectedModel("");
-        setSelectedVariant("");
-
-        setMakes([]);
-        setModels([]);
-        setVariants([]);
-
-        if (!year) {
-            return;
         }
 
-        try {
-
-            const data =
-                await getMakesByYear(year);
-
-            setMakes(data);
-
-        } catch (error) {
-
-            console.error(error);
-        }
     };
 
     const handleMakeChange = async (e) => {
 
-        const make =
-            e.target.value;
+        const makeId = e.target.value;
 
-        setSelectedMake(make);
+        setSelectedMake(makeId);
 
         setSelectedModel("");
+        setSelectedGeneration("");
         setSelectedVariant("");
 
         setModels([]);
+        setGenerations([]);
         setVariants([]);
 
-        if (!make) {
-            return;
-        }
+        if (!makeId) return;
 
         try {
 
-            const data =
-                await getModelsByYearAndMake(
-                    selectedYear,
-                    make
-                );
+            setLoading(true);
 
-            setModels(data);
+            const data = await getModelsByMake(makeId);
 
-        } catch (error) {
+            setModels(data || []);
 
-            console.error(error);
+        } catch (err) {
+
+            console.error(err);
+            setError("Unable to load vehicle models.");
+
+        } finally {
+
+            setLoading(false);
+
         }
+
     };
 
     const handleModelChange = async (e) => {
 
-        const model =
-            e.target.value;
+        const modelId = e.target.value;
 
-        setSelectedModel(model);
+        setSelectedModel(modelId);
+
+        setSelectedGeneration("");
+        setSelectedVariant("");
+
+        setGenerations([]);
+        setVariants([]);
+
+        if (!modelId) return;
+
+        try {
+
+            setLoading(true);
+
+            const data = await getGenerationsByModel(modelId);
+
+            setGenerations(data || []);
+
+        } catch (err) {
+
+            console.error(err);
+            setError("Unable to load generations.");
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+    };
+
+    const handleGenerationChange = async (e) => {
+
+        const generationId = e.target.value;
+
+        setSelectedGeneration(generationId);
 
         setSelectedVariant("");
 
         setVariants([]);
 
-        if (!model) {
-            return;
-        }
+        if (!generationId) return;
 
         try {
 
+            setLoading(true);
+
             const data =
-                await getVariantsByYearMakeModel(
-                    selectedYear,
-                    selectedMake,
-                    model
-                );
+                await getVariantsByGeneration(generationId);
 
-            setVariants(data);
+            setVariants(data || []);
 
-        } catch (error) {
+        } catch (err) {
 
-            console.error(error);
+            console.error(err);
+            setError("Unable to load variants.");
+
+        } finally {
+
+            setLoading(false);
+
         }
+
     };
 
     const handleVariantChange = (e) => {
 
-        setSelectedVariant(
-            e.target.value
-        );
+        setSelectedVariant(e.target.value);
+
     };
+
+    const selectedMakeObj =
+        makes.find(x => String(x.id) === String(selectedMake));
+
+    const selectedModelObj =
+        models.find(x => String(x.id) === String(selectedModel));
+
+    const selectedGenerationObj =
+        generations.find(x => String(x.id) === String(selectedGeneration));
+
+    const selectedVariantObj =
+        variants.find(x => String(x.id) === String(selectedVariant));
 
     const handleSearch = () => {
 
-        if (!selectedVariant) {
+        if (!selectedVariantObj) {
 
-            alert(
-                "Please Select Variant"
-            );
+            alert("Please select a vehicle variant.");
 
             return;
+
         }
 
-        onVariantSelected(
-            selectedVariant
-        );
+        if (onVariantSelected) {
+
+            onVariantSelected(selectedVariantObj.id);
+
+        }
 
         if (onLabelChange) {
 
             onLabelChange(
-
-                `${selectedYear}
-                 ${selectedMake}
-                 ${selectedModel}
-                 ${selectedVariant}`
-
+                `${selectedMakeObj?.makeName || ""}
+                 ${selectedModelObj?.modelName || ""}
+                 ${selectedGenerationObj?.generationName || ""}
+                 ${selectedVariantObj?.variantName || ""}`
             );
+
         }
+
     };
 
     return (
 
-        <div>
+        <div className="vehicle-card">
 
-            <label style={lbl}>
-                Year
-            </label>
+            <div className="vehicle-header">
 
-            <select
-                value={selectedYear}
-                onChange={handleYearChange}
-                style={sel}
-            >
-                <option value="">
-                    Select Year
-                </option>
+                <h3>Select Vehicle</h3>
 
-                {years.map(year => (
+                <p>
+                    Choose Make, Model,
+                    Generation and Variant
+                </p>
 
-                    <option
-                        key={year}
-                        value={year}
-                    >
-                        {year}
+            </div>
+
+            {error && (
+
+                <div className="vehicle-error">
+
+                    {error}
+
+                </div>
+
+            )}
+
+            <div className="vehicle-field">
+
+                <label>Make</label>
+
+                <select
+                    value={selectedMake}
+                    onChange={handleMakeChange}
+                >
+
+                    <option value="">
+                        Select Make
                     </option>
 
-                ))}
-            </select>
+                    {makes.map(make => (
 
-            <label style={lbl}>
-                Make
-            </label>
+                        <option
+                            key={make.id}
+                            value={make.id}
+                        >
+                            {make.makeName}
+                        </option>
 
-            <select
-                value={selectedMake}
-                onChange={handleMakeChange}
-                style={sel}
-                disabled={!selectedYear}
-            >
-                <option value="">
-                    Select Make
-                </option>
+                    ))}
 
-                {makes.map(make => (
+                </select>
 
-                    <option
-                        key={make}
-                        value={make}
-                    >
-                        {make}
+            </div>
+
+            <div className="vehicle-field">
+
+                <label>Model</label>
+
+                <select
+                    value={selectedModel}
+                    onChange={handleModelChange}
+                    disabled={!selectedMake}
+                >
+
+                    <option value="">
+                        Select Model
                     </option>
 
-                ))}
-            </select>
+                    {models.map(model => (
 
-            <label style={lbl}>
-                Model
-            </label>
+                        <option
+                            key={model.id}
+                            value={model.id}
+                        >
+                            {model.modelName}
+                        </option>
 
-            <select
-                value={selectedModel}
-                onChange={handleModelChange}
-                style={sel}
-                disabled={!selectedMake}
-            >
-                <option value="">
-                    Select Model
-                </option>
+                    ))}
 
-                {models.map(model => (
+                </select>
 
-                    <option
-                        key={model}
-                        value={model}
-                    >
-                        {model}
+            </div>
+
+            <div className="vehicle-field">
+
+                <label>Generation</label>
+
+                <select
+                    value={selectedGeneration}
+                    onChange={handleGenerationChange}
+                    disabled={!selectedModel}
+                >
+
+                    <option value="">
+                        Select Generation
                     </option>
 
-                ))}
-            </select>
+                    {generations.map(gen => (
 
-            <label style={lbl}>
-                Variant
-            </label>
+                        <option
+                            key={gen.id}
+                            value={gen.id}
+                        >
+                            {gen.generationName}
+                            {" "}
+                            ({gen.generationNumber})
+                        </option>
 
-            <select
-                value={selectedVariant}
-                onChange={handleVariantChange}
-                style={sel}
-                disabled={!selectedModel}
-            >
-                <option value="">
-                    Select Variant
-                </option>
+                    ))}
 
-                {variants.map(variant => (
+                </select>
 
-                    <option
-                        key={variant.id}
-                        value={variant.id}
-                    >
-                        {variant.fullName}
+            </div>
+                        <div className="vehicle-field">
+
+                <label>Variant</label>
+
+                <select
+                    value={selectedVariant}
+                    onChange={handleVariantChange}
+                    disabled={!selectedGeneration}
+                >
+
+                    <option value="">
+                        Select Variant
                     </option>
 
-                ))}
-            </select>
+                    {variants.map((variant) => (
+
+                        <option
+                            key={variant.id}
+                            value={variant.id}
+                        >
+                            {variant.veachilefullName ||
+                                variant.variantfullname ||
+                                variant.variantName}
+                        </option>
+
+                    ))}
+
+                </select>
+
+            </div>
+
+            <div className="vehicle-summary">
+
+                <h4>Selected Vehicle</h4>
+
+                <div className="summary-box">
+
+                    {selectedVariantObj ? (
+
+                        <>
+                            <div>
+                                <strong>Make :</strong>{" "}
+                                {selectedMakeObj?.makeName}
+                            </div>
+
+                            <div>
+                                <strong>Model :</strong>{" "}
+                                {selectedModelObj?.modelName}
+                            </div>
+
+                            <div>
+                                <strong>Generation :</strong>{" "}
+                                {selectedGenerationObj?.generationName}
+                                {" "}
+                                ({selectedGenerationObj?.generationNumber})
+                            </div>
+
+                            <div>
+                                <strong>Variant :</strong>{" "}
+                                {selectedVariantObj?.variantName}
+                            </div>
+
+                            <div className="vehicle-name">
+
+                                {selectedVariantObj?.veachilefullName ||
+                                    selectedVariantObj?.variantfullname}
+
+                            </div>
+                        </>
+
+                    ) : (
+
+                        <div className="placeholder">
+
+                            No vehicle selected
+
+                        </div>
+
+                    )}
+
+                </div>
+
+            </div>
 
             <button
+                className="vehicle-search-btn"
                 onClick={handleSearch}
-                style={showBtn}
+                disabled={!selectedVariant || loading}
             >
-                Show Products
+
+                {loading
+                    ? "Loading..."
+                    : "Show Products"}
+
             </button>
 
         </div>
+
     );
+
 }
 
 export default POSVehicleSelector;

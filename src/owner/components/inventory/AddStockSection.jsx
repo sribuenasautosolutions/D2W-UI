@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+
 import api from "../../../services/api";
-import { getProductById } from "../../../services/productService";
+import { getProductBatches } from "../../../services/productService";
+import { searchProducts } from "../../../services/productSearchService";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -65,6 +67,7 @@ function StatusBadge({ type, children }) {
     warning: { bg: "#fef3c7", color: "#78350f", border: "#fcd34d" },
   };
   const s = map[type] || map.info;
+
   return (
     <div style={{
       padding: "0.75rem 1rem",
@@ -133,9 +136,17 @@ function ProductInfoCard({ product }) {
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-function validate(form) {
+function validate(form, isNewProduct, newProduct) {
   const errors = {};
-  if (!form.productId)                           errors.productId     = "Select a product.";
+if (isNewProduct) {
+    if (!newProduct.itemName.trim()) {
+        errors.itemName = "Item Name is required.";
+    }
+} else {
+    if (!form.productId) {
+        errors.productId = "Select a product.";
+    }
+}
   if (!form.quantity || Number(form.quantity) <= 0) errors.quantity   = "Quantity must be greater than zero.";
   if (!form.purchasePrice || Number(form.purchasePrice) <= 0)
                                                   errors.purchasePrice = "Enter a valid purchase price.";
@@ -156,6 +167,9 @@ export default function AddStockSection() {
 
   const [products,    setProducts]    = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+const [showSuggestions, setShowSuggestions] = useState(false);
+const [searchLoading, setSearchLoading] = useState(false);
   const [form, setForm] = useState({
     productId:     "",
     quantity:      "",
@@ -169,36 +183,44 @@ export default function AddStockSection() {
   const [fetching,   setFetching]   = useState(true);
 
   // Selected product enriched from store inventory (if it exists)
-  const [selectedProduct, setSelectedProduct] = useState(null);
+ const [selectedProduct, setSelectedProduct] = useState(null);
+ 
+ const [newProduct, setNewProduct] = useState({
+    itemName: ""
+});
 
   // ── Load all products from store inventory (includes brand, category, etc.)
-  useEffect(() => {
-    (async () => {
-      try {
-        // Try fetching store-specific inventory first for richer data
-        const storeId = user.storeId;
-        const res = await api.get(`${BASE_URL}/products`);
+//   useEffect(() => {
+//     (async () => {
+//       try {
+//         // Try fetching store-specific inventory first for richer data
+//         const storeId = user.storeId;
+//         const res = await api.get(`${BASE_URL}/products`);
 
-setProducts(res.data);
-      } catch {
-        // Fallback to flat product list
-        try {
-          const res = await api.get(`${BASE_URL}/products`);
-          console.log(res.data);
-          setProducts(res.data);
-          console.log(res.data);
-        } catch (err) {
-          console.error("Failed to load products", err);
-        }
-      } finally {
-        setFetching(false);
-      }
-    })();
-  }, []);
+// setProducts(res.data);
+//       } catch {
+//         // Fallback to flat product list
+//         try {
+//           const res = await api.get(`${BASE_URL}/products`);
+//           console.log(res.data);
+//           setProducts(res.data);
+//           console.log(res.data);
+//         } catch (err) {
+//           console.error("Failed to load products", err);
+//         }
+//       } finally {
+//         setFetching(false);
+//       }
+//     })();
+//   }, []);
 
   // ── When product selection changes, enrich form with existing prices
- async function handleProductSelect(productId) {
-
+ async function handleProductSelect(product) {
+const productId = product.productId || product.id;
+setSelectedProduct(product);
+setNewProduct({
+    itemName: ""
+});
     setErrors({});
     setStatus(null);
 
@@ -217,23 +239,19 @@ setProducts(res.data);
         return;
     }
 
-    const found = products.find(
-        p => String(p.productId || p.id) === String(productId)
-    );
-
-    setSelectedProduct(found || null);
+ 
 
     try {
 
-        const data = await getProductById(productId);
-
-        setForm({
-            productId,
-            quantity: "",
-            purchasePrice: data.purchasePrice ?? "",
-            sellingPrice: data.sellingPrice ?? "",
-            mrp: data.mrp ?? ""
-        });
+       const batches = await getProductBatches(productId);
+const latestBatch = Array.isArray(batches) && batches.length > 0 ? batches[0] : null;
+setForm({
+    productId,
+    quantity: "",
+    purchasePrice: latestBatch?.purchasePrice ?? "",
+    sellingPrice: latestBatch?.sellingPrice ?? "",
+    mrp: latestBatch?.mrp ?? ""
+});
 
     } catch (error) {
 
@@ -255,6 +273,56 @@ setProducts(res.data);
     if (errors[key]) setErrors(e => { const ne = { ...e }; delete ne[key]; return ne; });
   }
 
+  async function handleSearch(value) {
+
+    setSearchQuery(value);
+    setSelectedProduct(null);
+
+    setForm({
+      productId: "",
+      quantity: "",
+      purchasePrice: "",
+      sellingPrice: "",
+      mrp: ""
+  });
+  setNewProduct({
+      itemName: ""
+    });
+      setErrors({});
+      setStatus(null);
+    setShowSuggestions(false);
+      
+
+    if (value.trim().length < 3) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+    }
+
+    try {
+
+        setSearchLoading(true);
+
+        const result = await searchProducts(
+            value,
+            user.storeId
+        );
+
+        setSuggestions(result);
+        setShowSuggestions(true);
+
+    } catch (e) {
+
+        console.error("Search failed", e);
+        setSuggestions([]);
+        setShowSuggestions(false);
+
+    } finally {
+
+        setSearchLoading(false);
+
+    }
+}
   // ── Filtered product list
   const filteredProducts = products.filter(p => {
     const q = searchQuery.toLowerCase();
@@ -268,30 +336,64 @@ setProducts(res.data);
 
   // ── Submit
   async function handleSave() {
-    const errs = validate(form);
+   const errs = validate(form, isNewProduct, newProduct);
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     setLoading(true);
     setStatus(null);
 
     try {
-      const payload = {
-        storeId:       user.storeId,
-        productId:     Number(form.productId),
-        quantity:      Number(form.quantity),
+     let payload;
+
+if (isNewProduct) {
+
+    payload = {
+        storeId: user.storeId,
+        partNumber: searchQuery.trim(),
+        itemName: newProduct.itemName.trim(),
+        quantity: Number(form.quantity),
         purchasePrice: Number(form.purchasePrice),
-        sellingPrice:  Number(form.sellingPrice),
-        mrp:           Number(form.mrp),
-      };
+        sellingPrice: Number(form.sellingPrice),
+        mrp: Number(form.mrp)
+    };
 
-      const res = await api.post(
-        `${BASE_URL}/store-inventory/add-product`,
-        payload
-      );
+} else {
 
-      const msg    = typeof res.data === "string" ? res.data : "Stock saved successfully.";
-      const isNew  = msg.toLowerCase().includes("added");
-      setStatus({ type: "success", message: msg });
+    payload = {
+        storeId: user.storeId,
+        productId: Number(form.productId),
+        quantity: Number(form.quantity),
+        purchasePrice: Number(form.purchasePrice),
+        sellingPrice: Number(form.sellingPrice),
+        mrp: Number(form.mrp)
+    };
+
+}
+
+  const res = await api.post(
+  `${BASE_URL}/store-inventory/add-product`,
+  payload
+);
+
+const response = res.data;
+
+if (response.success) {
+
+    setStatus({
+        type: "success",
+        message: response.message
+    });
+
+} else {
+
+    setStatus({
+        type: "error",
+        message: response.message
+    });
+
+    setLoading(false);
+    return;
+}
 
       // Reset form on success
       setForm({ productId: "", quantity: "", purchasePrice: "", sellingPrice: "", mrp: "" });
@@ -314,12 +416,13 @@ try {
 
     } catch (err) {
       const serverMsg = err?.response?.data;
-      setStatus({
-        type: "error",
-        message: typeof serverMsg === "string"
-          ? serverMsg
-          : "Failed to save stock. Check your inputs and try again.",
-      });
+
+setStatus({
+    type: "error",
+    message:
+        serverMsg?.message ||
+        "Failed to save stock. Check your inputs and try again."
+});
     } finally {
       setLoading(false);
     }
@@ -335,6 +438,11 @@ try {
 
  const isExistingProduct =
     selectedProduct && selectedProduct.quantity != null;
+    const isNewProduct =
+    !searchLoading &&
+    searchQuery.trim().length >= 3 &&
+    suggestions.length === 0 &&
+    !selectedProduct;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -378,37 +486,98 @@ try {
               type="text"
               placeholder="Search products…"
               value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); setField("productId", ""); setSelectedProduct(null); }}
-              style={{ ...styles.input, marginBottom: "0.5rem" }}
+            onChange={(e) => {
+
+    setField("productId", "");
+    setSelectedProduct(null);
+
+    handleSearch(e.target.value);
+
+}}
             />
-            <select
-              value={form.productId}
-              onChange={e => handleProductSelect(e.target.value)}
-              style={{
-                ...styles.input,
-                borderColor: errors.productId ? "#ef4444" : "#cbd5e1",
-              }}
-              disabled={fetching}
-            >
-              <option value="">
-                {fetching ? "Loading products…" : `— Select a product (${filteredProducts.length} found) —`}
-              </option>
-              {filteredProducts.map(p => {
-                const id    = p.productId ?? p.id;
-                const name  = p.itemName  ?? p.name ?? `Product #${id}`;
-                const brand = p.brandName ? ` · ${p.brandName}` : "";
-                const pn    = p.partNumber ? ` [${p.partNumber}]` : "";
-                return (
-                  <option key={id} value={id}>
-                    {name}{brand}{pn}
-                  </option>
-                );
-              })} 
-            </select>
+            {showSuggestions && (
+    <div
+        style={{
+            border: "1px solid #cbd5e1",
+            borderRadius: "6px",
+            maxHeight: "250px",
+            overflowY: "auto",
+            background: "#fff",
+            marginTop: "5px"
+        }}
+    >
+
+        {searchLoading && (
+            <div style={{ padding: "10px" }}>
+                Searching...
+            </div>
+        )}
+
+
+        {!searchLoading &&
+            suggestions.map(product => (
+
+                <div
+                  key={product.inventoryId || product.productId || product.id}
+                    onClick={() => {
+ console.log(product);
+                        setSearchQuery(
+                            product.partNumber + " - " + product.itemName
+                        );
+
+                        setShowSuggestions(false);
+
+                        handleProductSelect(product);
+
+                    }}
+                    style={{
+                        padding: "10px",
+                        cursor: "pointer",
+                        borderBottom: "1px solid #eee"
+                    }}
+                >
+
+                    <strong>{product.partNumber}</strong>
+
+                    <br />
+
+                    {product.itemName}
+
+                    <br />
+
+                    <small>
+                        {product.brandName}
+                    </small>
+
+                </div>
+
+            ))}
+    </div>
+)}
           </FieldGroup>
 
           {/* Selected product info card */}
           <ProductInfoCard product={selectedProduct} />
+          {isNewProduct && (
+    <FieldGroup
+    label="Item Name"
+    required
+    error={errors.itemName}
+>
+        <input
+            type="text"
+            placeholder="Enter Item Name"
+            value={newProduct.itemName}
+            onChange={(e) =>
+                setNewProduct({
+                    ...newProduct,
+                    itemName: e.target.value
+                })
+            }
+            style={styles.input}
+        />
+    </FieldGroup>
+)}
 
           {/* Quantity */}
           <FieldGroup

@@ -40,7 +40,7 @@ function BatchSelectionModal({
 
             const data =
                 await getProductBatches(
-                    product.productId
+                    product.inventoryId
                 );
 
             setBatches(data);

@@ -1,7 +1,5 @@
 import api from "./api";
 
-const API = "http://localhost:8080";
-
 /* =========================
    CUSTOMER MANAGEMENT
 ========================= */
@@ -43,9 +41,7 @@ export const getCustomerList = async () => {
     return response.data;
 };
 
-export const getCustomerDetails = async (
-    customerId
-) => {
+export const getCustomerDetails = async (customerId) => {
     const response = await api.get(
         `/reports/customers/${customerId}`
     );
@@ -53,9 +49,7 @@ export const getCustomerDetails = async (
     return response.data;
 };
 
-export const getCustomerOrders = async (
-    customerId
-) => {
+export const getCustomerOrders = async (customerId) => {
     const response = await api.get(
         `/reports/customers/${customerId}/orders`
     );

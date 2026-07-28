@@ -137,7 +137,7 @@ function POSPage() {
                     gap: "14px"
                 }}>
                     {currentProducts.map((product) => (
-                        <ProductCard key={product.productId} product={product} />
+                        <ProductCard key={product.inventoryId} product={product} />
                     ))}
                 </div>
 

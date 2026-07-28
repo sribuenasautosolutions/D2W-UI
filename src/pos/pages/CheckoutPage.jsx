@@ -103,7 +103,7 @@ const applyInvoiceGSTToAll = () => {
             gstType = `GST_${invoiceGstRate}`;
         }
 
-        updatedGST[item.productId] = gstType;
+        updatedGST[item.inventoryId] = gstType;
 
     });
 
@@ -128,16 +128,18 @@ const applyInvoiceGSTToAll = () => {
   /* ============================================================
      BUILD /orders/recalculate REQUEST
      Payload matches OrderCalculationRequestDTO exactly:
-     { storeId, billDiscountPercent, items: [{ productId, quantity,
+     { storeId, billDiscountPercent, items: [{ inventoryId, quantity,
        discountPercentage, gstType }] }
+     StoreInventory is the pillar — POS always sells by inventoryId,
+     never by productId (which is null for Local Products).
      ============================================================ */
 
   const effectiveGstType = useCallback(
     (item) => {
 
-        if (gstTypes[item.productId]) {
+        if (gstTypes[item.inventoryId]) {
 
-            return gstTypes[item.productId];
+            return gstTypes[item.inventoryId];
 
         }
 
@@ -157,12 +159,21 @@ const applyInvoiceGSTToAll = () => {
     () => ({
       storeId,
       billDiscountPercent: Number(billDiscount || 0),
-      items: cartItems.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        discountPercentage: Number(item.itemDiscount || 0),
-        gstType: effectiveGstType(item),
-      })),
+     items: cartItems.map((item) => ({
+
+    inventoryId: item.inventoryId,
+
+    batchId: item.batchId,
+
+    productId: item.productId,
+
+    quantity: item.quantity,
+
+    discountPercentage: Number(item.itemDiscount || 0),
+
+    gstType: effectiveGstType(item)
+
+})),
     }),
     [storeId, billDiscount, cartItems, effectiveGstType]
   );
@@ -211,16 +222,23 @@ const applyInvoiceGSTToAll = () => {
   }, [cartItems, billDiscount, gstTypes, storeId, buildCalculationRequest, navigate]);
 
   /* ============================================================
-     Fast lookup: productId -> backend calculation line
+     Fast lookup: inventoryId -> backend calculation line
      ============================================================ */
 
   const lineByProduct = useMemo(() => {
     const map = {};
+
     (calculation?.items || []).forEach((line) => {
-      map[line.productId] = line;
+
+        const key =
+            `${line.inventoryId}_${line.batchId}`;
+
+        map[key] = line;
     });
+
     return map;
-  }, [calculation]);
+
+}, [calculation]);
 
   /* ============================================================
      CUSTOMER LOOKUP / SAVE
@@ -266,8 +284,8 @@ const applyInvoiceGSTToAll = () => {
      GST TYPE CHANGE (triggers auto-recalculate via effect)
      ============================================================ */
 
-  const handleGstTypeChange = (productId, gstType) => {
-    setGstTypes((prev) => ({ ...prev, [productId]: gstType }));
+  const handleGstTypeChange = (inventoryId, gstType) => {
+    setGstTypes((prev) => ({ ...prev, [inventoryId]: gstType }));
   };
 
   /* ============================================================
@@ -304,12 +322,21 @@ const applyInvoiceGSTToAll = () => {
         address,
         paymentMethod: "PENDING", // payment is collected on the Payment page
         billDiscountPercent: Number(billDiscount || 0),
-        items: cartItems.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          discountPercentage: Number(item.itemDiscount || 0),
-          gstType: effectiveGstType(item),
-        })),
+       items: cartItems.map((item) => ({
+
+    inventoryId: item.inventoryId,
+
+    batchId: item.batchId,
+
+    productId: item.productId,
+
+    quantity: item.quantity,
+
+    discountPercentage: Number(item.itemDiscount || 0),
+
+    gstType: effectiveGstType(item)
+
+})),
       };
 
       const orderId = await placeOrder(orderData);
@@ -448,9 +475,14 @@ const applyInvoiceGSTToAll = () => {
                 </thead>
                 <tbody>
                   {cartItems.map((item) => {
-                    const line = lineByProduct[item.productId];
+                   const line = lineByProduct[ `${item.inventoryId}_${item.batchId}`];
                     return (
-                      <tr key={item.productId} style={{ borderBottom: "1px solid #f8fafc" }}>
+                     <tr
+    key={`${item.inventoryId}_${item.batchId}`}
+    style={{
+        borderBottom: "1px solid #f8fafc"
+    }}
+>
                         {/* Product */}
                         <td style={tdStyle}>
                           <div style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a" }}>
@@ -492,7 +524,7 @@ const applyInvoiceGSTToAll = () => {
                         <td style={tdStyle}>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px", justifyContent: "center" }}>
                             <button
-                              onClick={() => decreaseQuantity(item.productId)}
+                              onClick={() =>   decreaseQuantity(item.inventoryId,item.batchId)}
                               style={qtyBtnStyle}
                               aria-label="Decrease quantity"
                             >
@@ -500,7 +532,7 @@ const applyInvoiceGSTToAll = () => {
                             </button>
                             <span style={qtyValueStyle}>{item.quantity}</span>
                             <button
-                              onClick={() => increaseQuantity(item.productId)}
+                              onClick={() =>   increaseQuantity(item.inventoryId,item.batchId)}
                               style={qtyBtnStyle}
                               aria-label="Increase quantity"
                             >
@@ -516,7 +548,7 @@ const applyInvoiceGSTToAll = () => {
                             min="0"
                             max="100"
                             value={item.itemDiscount || 0}
-                            onChange={(e) => updateDiscount(item.productId, e.target.value)}
+                            onChange={(e) =>  updateDiscount(item.inventoryId,item.batchId,e.target.value)}
                             style={discountInputStyle}
                             aria-label="Item discount percent"
                           />
@@ -526,7 +558,7 @@ const applyInvoiceGSTToAll = () => {
                         <td style={tdStyle}>
                           <select
                             value={effectiveGstType(item)}
-                            onChange={(e) => handleGstTypeChange(item.productId, e.target.value)}
+                            onChange={(e) => handleGstTypeChange(item.inventoryId, e.target.value)}
                             style={gstSelectStyle}
                             aria-label="GST type"
                           >
@@ -556,7 +588,7 @@ const applyInvoiceGSTToAll = () => {
                         {/* Remove */}
                         <td style={tdStyle}>
                           <button
-                            onClick={() => removeFromCart(item.productId)}
+                            onClick={() =>  removeFromCart(item.inventoryId,item.batchId )}
                             style={removeBtnStyle}
                             aria-label="Remove item"
                           >
