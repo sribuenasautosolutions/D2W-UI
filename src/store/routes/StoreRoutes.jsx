@@ -6,6 +6,11 @@ import DashboardHome from "../../owner/pages/DashboardHome";
 import InventoryPage from "../../owner/pages/InventoryPage";
 import OrdersPage from "../../owner/pages/OrdersPage";
 
+// FIX: reuse the existing, fully-built InvoicePage from the POS module.
+// CartProvider wraps the whole app in main.jsx, so useCart() inside
+// InvoicePage is safe to render here too — no new context needed.
+import InvoicePage from "../../pos/pages/InvoicePage";
+
 import StoreWiseReportPage from "../pages/StoreWiseReportPage";
 import InventoryReportPage from "../pages/inventoryReportPage";
 import SalesReportPage from "../pages/SalesReportPage";
@@ -42,6 +47,17 @@ function StoreRoutes() {
                 element={
                     <DashboardLayout>
                         <OrdersPage />
+                    </DashboardLayout>
+                }
+            />
+
+            {/* FIX: was missing entirely — this is what made "/admin/invoice/:id"
+                (a dead route) blank out instead of showing the invoice. */}
+            <Route
+                path="/orders/invoice/:orderId"
+                element={
+                    <DashboardLayout>
+                        <InvoicePage />
                     </DashboardLayout>
                 }
             />

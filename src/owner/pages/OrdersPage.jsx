@@ -171,8 +171,9 @@ setOrders(response.data);
 
                                         <button
                                             onClick={() =>
+                                               
                                                 navigate(
-                                                    `/admin/invoice/${order.orderId}`
+                                                    `invoice/${order.orderId}`
                                                 )
                                             }
                                         >
