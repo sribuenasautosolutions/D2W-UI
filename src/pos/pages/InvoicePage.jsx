@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiclient from "../../services/apiclient";
+import { useCart } from "../context/CartContext";
 
 
 const COLORS = {
@@ -35,6 +36,21 @@ const formatINR = (value) => {
   return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// Splits a line item's combined gstAmount into CGST / SGST for display.
+// NOTE: InvoiceItemDTO (backend) does not currently expose a per-item
+// gstType, so an inter-state (IGST) line can't be distinguished from an
+// intra-state (CGST+SGST) line at the row level — only the invoice-level
+// totals (invoice.cgstAmount / sgstAmount / igstAmount) carry that split.
+// This assumes the standard intra-state CGST+SGST half/half split, which
+// mirrors the backend's own calculateGST() logic for GST_xx types. If you
+// also do inter-state sales, add gstType (or separate cgstAmount/
+// sgstAmount fields) to InvoiceItemDTO so this can be exact per row.
+const splitGst = (item) => {
+  const gstAmount = Number(item?.gstAmount ?? 0) || 0;
+  const half = gstAmount / 2;
+  return { cgst: half, sgst: half };
+};
+
 const formatPercent = (value) => {
   if (value === null || value === undefined || value === "") return "—";
   const num = Number(value);
@@ -58,6 +74,29 @@ const formatDateTime = (isoString) => {
     "en-IN",
     { hour: "2-digit", minute: "2-digit" }
   )}`;
+};
+
+// Enterprise pattern: the invoice/order header must never claim to know
+// "how" an invoice was paid — that fact only exists in the payment ledger,
+// because a single invoice can be paid in one shot, in installments, or via
+// more than one method (e.g. part cash + part UPI). orders.paymentMethod is
+// written once at invoice-creation time (before any money has moved) and is
+// never updated afterward, so it is not a trustworthy source for this field.
+// This derives the displayed value from the actual payment records instead.
+const summarizePaymentMethod = (payments) => {
+  if (!payments || payments.length === 0) {
+    return "Not yet paid";
+  }
+  const distinctMethods = [
+    ...new Set(
+      payments
+        .map((p) => p.paymentMethod)
+        .filter(Boolean)
+    ),
+  ];
+  if (distinctMethods.length === 0) return "Not yet paid";
+  if (distinctMethods.length === 1) return distinctMethods[0].replace(/_/g, " ");
+  return distinctMethods.map((m) => m.replace(/_/g, " ")).join(" + ");
 };
 
 const orderStatusLabel = (status) => {
@@ -177,6 +216,7 @@ const SummaryRow = ({ label, value, emphasis, negative, tone }) => (
 export default function InvoicePage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { clearCart } = useCart();
 
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +243,10 @@ export default function InvoicePage() {
   }, [fetchInvoice]);
 
   const handlePrint = () => window.print();
-  const handleNewSale = () => navigate("/pos");
+  const handleNewSale = () => {
+    clearCart();
+    navigate("/pos");
+  };
 
   if (loading) {
     return (
@@ -225,6 +268,7 @@ export default function InvoicePage() {
 
   const items = invoice.items || [];
   const payments = invoice.payments || [];
+  const paymentMethodSummary = summarizePaymentMethod(payments);
 
   return (
     <div style={S.pageBackdrop}>
@@ -294,7 +338,7 @@ export default function InvoicePage() {
             <div style={S.sectionLabel}>Invoice Details</div>
             <FieldRow label="Invoice Date" value={formatDate(invoice.orderDate)} />
             <FieldRow label="Order Date" value={formatDateTime(invoice.orderDate)} />
-            <FieldRow label="Payment Method" value={invoice.paymentMethod} />
+            <FieldRow label="Payment Method" value={paymentMethodSummary} />
             <FieldRow
               label="Order Status"
               value={
@@ -325,52 +369,48 @@ export default function InvoicePage() {
         <table style={S.table}>
           <thead>
             <tr>
-              <th style={{ ...S.th, width: "3%" }}>#</th>
-              <th style={{ ...S.th, width: "9%" }}>Part No.</th>
-              <th style={{ ...S.th, width: "8%" }}>Brand</th>
-              <th style={{ ...S.th, width: "14%", textAlign: "left" }}>Item Name</th>
-              <th style={{ ...S.th, width: "6%" }}>HSN</th>
-              <th style={{ ...S.th, width: "8%" }}>Batch No.</th>
-              <th style={{ ...S.th, width: "5%" }}>Qty</th>
-              <th style={{ ...S.th, width: "7%" }}>MRP</th>
-              <th style={{ ...S.th, width: "7%" }}>Selling Price</th>
-              <th style={{ ...S.th, width: "7%" }}>Gross Amt</th>
-              <th style={{ ...S.th, width: "5%" }}>Disc %</th>
-              <th style={{ ...S.th, width: "7%" }}>Disc Amt</th>
-              <th style={{ ...S.th, width: "7%" }}>Taxable Amt</th>
-              <th style={{ ...S.th, width: "5%" }}>GST %</th>
-              <th style={{ ...S.th, width: "7%" }}>GST Amt</th>
-              <th style={{ ...S.th, width: "8%" }}>Total</th>
+              <th style={{ ...S.th, width: "26%", textAlign: "left" }}>Item Name</th>
+              <th style={{ ...S.th, width: "6%" }}>Qty</th>
+              <th style={{ ...S.th, width: "10%" }}>MRP</th>
+              <th style={{ ...S.th, width: "10%" }}>Disc</th>
+              <th style={{ ...S.th, width: "13%" }}>Taxable Amt</th>
+              <th style={{ ...S.th, width: "10%" }}>CGST</th>
+              <th style={{ ...S.th, width: "10%" }}>SGST</th>
+              <th style={{ ...S.th, width: "15%" }}>Amount</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td style={S.tdEmpty} colSpan={16}>
+                <td style={S.tdEmpty} colSpan={8}>
                   No items on this invoice.
                 </td>
               </tr>
             )}
-            {items.map((item, idx) => (
-              <tr key={item.batchId ? `${item.batchId}-${idx}` : idx} style={idx % 2 === 1 ? S.trBand : undefined}>
-                <td style={S.tdCenter}>{idx + 1}</td>
-                <td style={{ ...S.tdCenter, fontFamily: FONT_MONO }}>{item.partNumber || "—"}</td>
-                <td style={S.tdCenter}>{item.brandName || "—"}</td>
-                <td style={S.tdLeft}>{item.itemName || item.productName || "—"}</td>
-                <td style={{ ...S.tdCenter, fontFamily: FONT_MONO }}>{item.hsncode || "—"}</td>
-                <td style={{ ...S.tdCenter, fontFamily: FONT_MONO }}>{item.batchNumber || "—"}</td>
-                <td style={S.tdCenter}>{item.quantity ?? "—"}</td>
-                <td style={S.tdNum}>{formatINR(item.mrp)}</td>
-                <td style={S.tdNum}>{formatINR(item.sellingPrice)}</td>
-                <td style={S.tdNum}>{formatINR(item.grossAmount)}</td>
-                <td style={S.tdNum}>{formatPercent(item.discountPercentage)}</td>
-                <td style={S.tdNum}>{formatINR(item.discountAmount)}</td>
-                <td style={S.tdNum}>{formatINR(item.taxableAmount)}</td>
-                <td style={S.tdNum}>{formatPercent(item.gstPercentage)}</td>
-                <td style={S.tdNum}>{formatINR(item.gstAmount)}</td>
-                <td style={{ ...S.tdNum, fontWeight: 600 }}>{formatINR(item.totalPrice)}</td>
-              </tr>
-            ))}
+            {items.map((item, idx) => {
+              const hasDiscount = Number(item.discountAmount) > 0;
+              const { cgst, sgst } = splitGst(item);
+              return (
+                <tr key={item.batchId ? `${item.batchId}-${idx}` : idx} style={idx % 2 === 1 ? S.trBand : undefined}>
+                  <td style={S.tdLeft}>
+                    <div style={{ fontWeight: 600 }}>{item.itemName || item.productName || "—"}</div>
+                    <div style={{ fontSize: 10, color: COLORS.inkSoft, fontFamily: FONT_MONO }}>
+                      HSN: {item.hsncode || "—"}
+                    </div>
+                    <div style={{ fontSize: 10, color: COLORS.inkSoft, fontFamily: FONT_MONO }}>
+                      Part No: {item.partNumber || "—"}
+                    </div>
+                  </td>
+                  <td style={S.tdCenter}>{item.quantity ?? "—"}</td>
+                  <td style={S.tdNum}>{formatINR(item.mrp)}</td>
+                  <td style={S.tdNum}>{hasDiscount ? formatPercent(item.discountPercentage) : "—"}</td>
+                  <td style={S.tdNum}>{formatINR(item.taxableAmount)}</td>
+                  <td style={S.tdNum}>{formatINR(cgst)}</td>
+                  <td style={S.tdNum}>{formatINR(sgst)}</td>
+                  <td style={{ ...S.tdNum, fontWeight: 600 }}>{formatINR(item.totalPrice)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -422,15 +462,18 @@ export default function InvoicePage() {
 
           <div style={S.ledgerBlock}>
             <SummaryRow label="Gross Amount" value={invoice.grossAmount} />
-            <SummaryRow label="Item Discount" value={invoice.itemDiscountAmount} negative />
-            <SummaryRow label="Subtotal" value={invoice.subTotal} />
-            <SummaryRow
-              label={`Bill Discount ${
-                invoice.billDiscountPercentage != null ? `(${formatPercent(invoice.billDiscountPercentage)})` : ""
-              }`}
-              value={invoice.billDiscountAmount}
-              negative
-            />
+            {Number(invoice.itemDiscountAmount) > 0 && (
+              <SummaryRow label="Item Discount" value={invoice.itemDiscountAmount} negative />
+            )}
+            {Number(invoice.billDiscountAmount) > 0 && (
+              <SummaryRow
+                label={`Bill Discount ${
+                  invoice.billDiscountPercentage != null ? `(${formatPercent(invoice.billDiscountPercentage)})` : ""
+                }`}
+                value={invoice.billDiscountAmount}
+                negative
+              />
+            )}
             <SummaryRow label="Taxable Amount" value={invoice.taxableAmount} />
             <SummaryRow label="CGST" value={invoice.cgstAmount} />
             <SummaryRow label="SGST" value={invoice.sgstAmount} />

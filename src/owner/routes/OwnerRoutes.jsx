@@ -11,6 +11,8 @@ import UsersPage from "../pages/UsersPage";
 import ProductApprovalPage from "../pages/ProductApprovalPage";
 
 
+import InvoicePage from "../../pos/pages/InvoicePage";
+
 import DashboardLayout from "../layouts/DashboardLayout";
 
 function OwnerRoutes() {
@@ -66,6 +68,16 @@ function OwnerRoutes() {
         element={
           <DashboardLayout>
             <OrdersPage />
+          </DashboardLayout>
+        }
+      />
+
+  
+      <Route
+        path="/orders/invoice/:orderId"
+        element={
+          <DashboardLayout>
+            <InvoicePage />
           </DashboardLayout>
         }
       />
