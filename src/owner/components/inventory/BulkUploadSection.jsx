@@ -11,7 +11,7 @@ function BulkUploadSection() {
   const [downloadingFailedRows, setDownloadingFailedRows] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const isStoreManager = user?.role === "MAINSTORE_MANAGER";
+  const isStoreManager = user?.role === "STORE_OWNER";
 
   const uploadFile = async () => {
     if (!file) {
@@ -31,7 +31,7 @@ function BulkUploadSection() {
       if (isStoreManager) {
         formData.append("storeId", user.storeId);
       }
-      // OWNER MODE: storeId omitted, backend reads StoreCode per row instead
+      // Super Admin mode: storeId omitted, backend reads StoreCode per row instead
 
       const response = await api.post(
         "/store-inventory/bulk-upload",

@@ -23,13 +23,7 @@ const PAYMENT_METHOD_OPTIONS = [
 const CALC_DEBOUNCE_MS = 400;
 const ITEMS_PER_PAGE = 5;
 
-// NOTE: OrderListResponseDTO (from GET /orders and /orders/store/{id})
-// has no orderStatus field, so the backend has no way to tell us which
-// orders are still PENDING_PAYMENT vs already PAID. Until that field is
-// added, "Held Payments" is tracked client-side in localStorage — it
-// only remembers invoices YOU held from THIS browser. If you add
-// orderStatus to OrderListResponseDTO later, this can be swapped for a
-// real backend-driven list.
+
 const HELD_PAYMENTS_KEY = "pos_held_payments";
 
 /* ============================================================
@@ -176,18 +170,6 @@ function PaymentPage() {
     };
   }, [orderId]);
 
-  /* ============================================================
-     BUILD /sales-payments/calculate + /sales-payments REQUEST
-     Payload matches SalesPaymentItemDTO exactly:
-     { amount, paymentMethod, transactionNumber, remarks, customerTendered }
-
-     CASH: the cashier just types in whatever the customer physically
-     handed over into the Amount field. That raw amount is sent as both
-     `amount` and `customerTendered` — the backend decides on its own
-     whether that's exactly the balance, short, or more than the balance
-     (in which case it returns changeReturn). No client-side branching
-     needed here.
-     ============================================================ */
 
   const buildPaymentsPayload = useCallback(() => {
     return rows
@@ -337,10 +319,12 @@ function PaymentPage() {
      Partial payments are not allowed: the entered payments must add
      up to the exact remaining balance before this is allowed to fire.
 
-     NOTE: the cart is intentionally NOT cleared here. After payment is
-     saved the cashier may still want to view / print / download the
-     invoice, so the cart must stay intact until New Sale is clicked.
-     clearCart() only ever runs inside handleNewSale().
+     The cart is cleared the moment Save Payment succeeds (see
+     handleSavePayment below) — that's the point the sale is actually
+     complete. Before that (on this page, pre-save, or back on
+     Checkout) the cart intentionally stays intact, since the sale
+     isn't finished yet. handleNewSale() below also calls clearCart()
+     so it's a safe no-op if the cart is already empty.
      ============================================================ */
 
   const handleSavePayment = async () => {
@@ -399,6 +383,12 @@ function PaymentPage() {
       }));
       setSaved(true);
       removeHeldPayment(orderId);
+
+      // FIX: the sale is only truly complete once payment is saved — so
+      // this is the correct moment to clear the cart, not before (Checkout
+      // still needs it) and not deferred to a separate "New Sale" click
+      // (which left the cart re-billable if the cashier hit Back instead).
+      clearCart();
     } catch (error) {
       alert(extractError(error));
     } finally {

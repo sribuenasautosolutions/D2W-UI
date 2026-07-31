@@ -51,17 +51,17 @@ function LoginPage() {
                 );
 
 
-                if (response.role === "OWNER") {
+                if (response.role === "SUPER_ADMIN") {
 
     navigate("/owner/dashboard");
 
 }
-else if (response.role === "MAINSTORE_MANAGER") {
+else if (response.role === "STORE_OWNER") {
 
     navigate("/store/dashboard");
 
 }
-else if (response.role === "Admin") {
+else if (response.role === "CASHIER") {
 
     navigate("/pos");
 

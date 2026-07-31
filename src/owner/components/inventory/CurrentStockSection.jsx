@@ -30,7 +30,7 @@ const user =
 
    let response;
 
-if (user?.role === "OWNER") {
+if (user?.role === "SUPER_ADMIN") {
 
     response = await api.get(
     "/store-inventory"
@@ -355,4 +355,4 @@ const totalPages =
     );
 }
 
-export default CurrentStockSection; 
+export default CurrentStockSection;

@@ -6,15 +6,15 @@ function PublicRoute({ children }) {
 
     if (user) {
 
-        if (user.role === "OWNER") {
+        if (user.role === "SUPER_ADMIN") {
             return <Navigate to="/owner/dashboard" replace />;
         }
 
-        if (user.role === "MAINSTORE_MANAGER") {
+        if (user.role === "STORE_OWNER") {
             return <Navigate to="/store/dashboard" replace />;
         }
 
-        if (user.role === "Admin") {
+        if (user.role === "CASHIER") {
             return <Navigate to="/pos" replace />;
         }
     }

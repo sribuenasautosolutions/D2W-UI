@@ -400,7 +400,7 @@ function toCsv(rows) {
     const headers = [
         "Batch Number", "Store", "Brand", "Category", "Product", "Part Number",
         "Received Qty", "Available Qty", "Consumed Qty", "Purchase Price",
-        "Selling Price", "MRP", "Received Date", "Status",
+        "Selling Price", "MRP", "Rack Number", "Received Date", "Status",
     ];
     const lines = [headers.join(",")];
     rows.forEach((b) => {
@@ -408,7 +408,7 @@ function toCsv(rows) {
         const line = [
             b.batchNumber, b.storeName || "", b.brandName, b.categoryName || "", b.itemName,
             b.partNumber, b.receivedQuantity, b.availableQuantity, b.consumedQuantity,
-            b.purchasePrice, b.sellingPrice, b.mrp, b.receivedDate, status,
+            b.purchasePrice, b.sellingPrice, b.mrp, b.rackNumber || "", b.receivedDate, status,
         ].map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`);
         lines.push(line.join(","));
     });
@@ -545,7 +545,7 @@ function BatchReportPage() {
     const [viewBatch, setViewBatch] = useState(null);
 
     const user = getUser();
-    const isOwner = (user.role || "").toUpperCase() === "OWNER";
+    const isOwner = (user.role || "").toUpperCase() === "SUPER_ADMIN";
 
     useEffect(() => {
         loadBatches();
@@ -901,8 +901,9 @@ function BatchReportPage() {
                                         <Th label="Consumed Qty" sortKey="consumedQuantity" sortConfig={sortConfig} onSort={handleSort} align="center" />
                                         <Th label="Purchase Price" sortKey="purchasePrice" sortConfig={sortConfig} onSort={handleSort} align="right" />
                                         <Th label="Selling Price" sortKey="sellingPrice" sortConfig={sortConfig} onSort={handleSort} align="right" />
-                                        <Th label="MRP" sortKey="mrp" sortConfig={sortConfig} onSort={handleSort} align="right" />
-                                        <Th label="Received Date" sortKey="receivedDate" sortConfig={sortConfig} onSort={handleSort} />
+                                         <Th label="MRP" sortKey="mrp" sortConfig={sortConfig} onSort={handleSort} align="right" />
+                                         <Th label="Rack" sortKey="rackNumber" sortConfig={sortConfig} onSort={handleSort} />
+                                         <Th label="Received Date" sortKey="receivedDate" sortConfig={sortConfig} onSort={handleSort} />
                                         <Th label="Status" sortKey={null} sortConfig={sortConfig} onSort={handleSort} align="center" />
                                         <Th label="Actions" sortKey={null} sortConfig={sortConfig} onSort={handleSort} align="center" noPrint />
                                     </tr>
@@ -925,8 +926,9 @@ function BatchReportPage() {
                                             <td style={{ ...S.td, textAlign: "center", color: COLORS.textSecondary }}>{batch.consumedQuantity}</td>
                                             <td style={{ ...S.td, textAlign: "right" }}>{formatCurrency(batch.purchasePrice)}</td>
                                             <td style={{ ...S.td, textAlign: "right" }}>{formatCurrency(batch.sellingPrice)}</td>
-                                            <td style={{ ...S.td, textAlign: "right" }}>{formatCurrency(batch.mrp)}</td>
-                                            <td style={S.td}>{batch.receivedDate}</td>
+                                             <td style={{ ...S.td, textAlign: "right" }}>{formatCurrency(batch.mrp)}</td>
+                                             <td style={S.td}>{batch.rackNumber || "—"}</td>
+                                             <td style={S.td}>{batch.receivedDate}</td>
                                             <td style={{ ...S.td, textAlign: "center" }}><StatusBadge batch={batch} /></td>
                                             <td style={{ ...S.td, textAlign: "center" }} className="no-print">
                                                 <button style={S.iconBtn} title="View Batch Details" onClick={() => setViewBatch(batch)}>
@@ -1115,6 +1117,7 @@ function ViewDetailsModal({ batch, hasStoreData, hasCategoryData, onClose }) {
                     <Field label="Purchase Price" value={formatCurrency(batch.purchasePrice)} />
                     <Field label="Selling Price" value={formatCurrency(batch.sellingPrice)} />
                     <Field label="MRP" value={formatCurrency(batch.mrp)} />
+                    <Field label="Rack Number" value={batch.rackNumber || "—"} />
                     <Field label="Received Quantity" value={batch.receivedQuantity} />
                     <Field label="Available Quantity" value={batch.availableQuantity} />
                     <Field label="Consumed Quantity" value={batch.consumedQuantity} />

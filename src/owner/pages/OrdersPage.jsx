@@ -22,7 +22,7 @@ function OrdersPage() {
                 );
 let response;
 
-if (user.role === "OWNER") {
+if (user.role === "SUPER_ADMIN") {
 
    response = await apiclient.get("/orders");
 

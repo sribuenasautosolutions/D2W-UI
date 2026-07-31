@@ -4,25 +4,27 @@ import apiclient from "../../services/apiclient";
 import { useCart } from "../context/CartContext";
 
 
+
 const COLORS = {
-  ink: "#152B3D",          // primary text
-  inkSoft: "#4B5D6B",      // secondary text
-  steel: "#1B3A5C",        // primary brand blue (header, buttons)
-  steelDeep: "#0F2740",    // pressed/hover state
-  accent: "#2E6DA4",       // mid blue accent (rules, badges)
-  accentSoft: "#E7EEF5",   // pale blue fills (row bands, boxes)
-  line: "#D3DCE3",         // hairline borders
-  lineSoft: "#E7ECEF",     // faint borders inside tables
+  ink: "#16283B",          // primary text — deep navy-charcoal, not flat black
+  inkSoft: "#5B6B79",      // secondary text
+  navy: "#15304D",         // brand / table header
+  navyDeep: "#0B2038",     // rules, pressed states
+  brass: "#A9791F",        // signature accent — used sparingly (seal, total tab)
+  brassSoft: "#F6EEDC",    // pale brass tint for highlight fills
+  hairline: "#E1E6EA",     // outer borders
+  hairlineSoft: "#EDF1F3", // inner table lines
+  slateFill: "#F7F9FA",    // quiet panel fill (replaces old solid pale-blue box)
   paper: "#FFFFFF",
-  canvas: "#EEF1F4",       // screen-only page backdrop
-  danger: "#A22B2B",       // balance due
-  success: "#1E6B45",      // paid / success
+  canvas: "#EEF1F4",       // screen-only backdrop
+  danger: "#A93131",
+  success: "#1E7145",
   warn: "#8A5A00",
 };
 
-const FONT_DISPLAY = "'Oswald', 'Arial Narrow', sans-serif";
+const FONT_DISPLAY = "'Space Grotesk', 'Segoe UI', sans-serif";
 const FONT_BODY = "'Inter', 'Segoe UI', Helvetica, Arial, sans-serif";
-const FONT_MONO = "'Roboto Mono', 'Consolas', monospace";
+const FONT_MONO = "'IBM Plex Mono', 'Consolas', monospace";
 
 /* ----------------------------------------------------------------------------
    Formatting helpers (display-only — no math performed here beyond
@@ -114,7 +116,7 @@ const orderStatusTone = (status) => {
     case "CANCELLED":
       return COLORS.danger;
     default:
-      return COLORS.accent;
+      return COLORS.brass;
   }
 };
 
@@ -196,11 +198,11 @@ const SummaryRow = ({ label, value, emphasis, negative, tone }) => (
       ...(emphasis ? S.summaryRowEmphasis : {}),
     }}
   >
-    <span style={{ ...S.summaryLabel, ...(emphasis ? { fontWeight: 700 } : {}) }}>{label}</span>
+    <span style={{ ...S.summaryLabel, ...(emphasis ? { fontWeight: 700, color: COLORS.ink } : {}) }}>{label}</span>
     <span
       style={{
         ...S.summaryValue,
-        ...(emphasis ? { fontSize: 18, fontWeight: 700 } : {}),
+        ...(emphasis ? { fontSize: 19, fontWeight: 700 } : {}),
         ...(tone ? { color: tone } : {}),
       }}
     >
@@ -209,6 +211,60 @@ const SummaryRow = ({ label, value, emphasis, negative, tone }) => (
     </span>
   </div>
 );
+
+// The signature element of this page: a calibration-seal badge standing in
+// for "genuine, verified invoice" — the same instinct an auto-parts buyer
+// applies to a hologram sticker on a genuine part, applied to the paperwork.
+// Pure decoration built from primitives (no external assets), so it always
+// renders identically on screen and in print.
+const AuthenticitySeal = () => {
+  const ticks = Array.from({ length: 28 }, (_, i) => {
+    const angle = (i * 360) / 28;
+    return (
+      <line
+        key={i}
+        x1="60"
+        y1="8"
+        x2="60"
+        y2="15"
+        stroke={COLORS.brass}
+        strokeWidth="1.4"
+        transform={`rotate(${angle} 60 60)`}
+      />
+    );
+  });
+  return (
+    <svg width="86" height="86" viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
+      <circle cx="60" cy="60" r="52" fill={COLORS.brassSoft} stroke={COLORS.brass} strokeWidth="1.5" />
+      <circle cx="60" cy="60" r="40" fill="none" stroke={COLORS.brass} strokeWidth="1" strokeDasharray="2 3" />
+      {ticks}
+      <text
+        x="60"
+        y="54"
+        textAnchor="middle"
+        fontFamily={FONT_DISPLAY}
+        fontWeight="700"
+        fontSize="12.5"
+        letterSpacing="1"
+        fill={COLORS.navy}
+      >
+        TAX
+      </text>
+      <text
+        x="60"
+        y="70"
+        textAnchor="middle"
+        fontFamily={FONT_DISPLAY}
+        fontWeight="700"
+        fontSize="12.5"
+        letterSpacing="1"
+        fill={COLORS.navy}
+      >
+        INVOICE
+      </text>
+    </svg>
+  );
+};
 
 /* ============================================================================
    Main component
@@ -272,8 +328,9 @@ export default function InvoicePage() {
 
   return (
     <div style={S.pageBackdrop}>
-      {/* Print stylesheet: hides toolbar, strips shadows/backdrop for A4 print */}
+      {/* Typefaces + print stylesheet */}
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         @media print {
           .d2w-toolbar { display: none !important; }
           .d2w-backdrop { background: #fff !important; padding: 0 !important; }
@@ -318,19 +375,24 @@ export default function InvoicePage() {
           </div>
 
           <div style={S.invoiceBadgeBlock}>
-            <div style={S.invoiceBadge}>TAX INVOICE</div>
-            <div style={S.invoiceNumberLine}>
-              <span style={S.fieldLabel}>Invoice No.</span>
-              <span style={S.invoiceNumberValue}>{invoice.invoiceNumber || "—"}</span>
-            </div>
-            <div style={S.invoiceNumberLine}>
-              <span style={S.fieldLabel}>Order ID</span>
-              <span style={{ fontFamily: FONT_MONO }}>#{invoice.orderId ?? "—"}</span>
+            <AuthenticitySeal />
+            <div style={{ marginTop: 10 }}>
+              <div style={S.invoiceNumberLine}>
+                <span style={S.fieldLabel}>Invoice No.</span>
+                <span style={S.invoiceNumberValue}>{invoice.invoiceNumber || "—"}</span>
+              </div>
+              <div style={S.invoiceNumberLine}>
+                <span style={S.fieldLabel}>Order ID</span>
+                <span style={{ fontFamily: FONT_MONO, color: COLORS.ink }}>#{invoice.orderId ?? "—"}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div style={S.hairline} />
+        <div style={S.hairlineDouble}>
+          <div style={S.hairlineMain} />
+          <div style={S.hairlineAccent} />
+        </div>
 
         {/* ---------- Invoice + Customer details ---------- */}
         <div style={S.detailsGrid}>
@@ -347,6 +409,7 @@ export default function InvoicePage() {
                     ...S.statusPill,
                     color: orderStatusTone(invoice.orderStatus),
                     borderColor: orderStatusTone(invoice.orderStatus),
+                    background: `${orderStatusTone(invoice.orderStatus)}12`,
                   }}
                 >
                   {orderStatusLabel(invoice.orderStatus)}
@@ -354,6 +417,8 @@ export default function InvoicePage() {
               }
             />
           </div>
+
+          <div style={S.detailsDivider} />
 
           <div style={S.detailsCol}>
             <div style={S.sectionLabel}>Bill To</div>
@@ -376,7 +441,7 @@ export default function InvoicePage() {
               <th style={{ ...S.th, width: "13%" }}>Taxable Amt</th>
               <th style={{ ...S.th, width: "10%" }}>CGST</th>
               <th style={{ ...S.th, width: "10%" }}>SGST</th>
-              <th style={{ ...S.th, width: "15%" }}>Amount</th>
+              <th style={{ ...S.th, width: "15%", ...S.thAccent }}>Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -393,8 +458,8 @@ export default function InvoicePage() {
               return (
                 <tr key={item.batchId ? `${item.batchId}-${idx}` : idx} style={idx % 2 === 1 ? S.trBand : undefined}>
                   <td style={S.tdLeft}>
-                    <div style={{ fontWeight: 600 }}>{item.itemName || item.productName || "—"}</div>
-                    <div style={{ fontSize: 10, color: COLORS.inkSoft, fontFamily: FONT_MONO }}>
+                    <div style={{ fontWeight: 600, color: COLORS.ink }}>{item.itemName || item.productName || "—"}</div>
+                    <div style={{ fontSize: 10, color: COLORS.inkSoft, fontFamily: FONT_MONO, marginTop: 2 }}>
                       HSN: {item.hsncode || "—"}
                     </div>
                     <div style={{ fontSize: 10, color: COLORS.inkSoft, fontFamily: FONT_MONO }}>
@@ -407,7 +472,9 @@ export default function InvoicePage() {
                   <td style={S.tdNum}>{formatINR(item.taxableAmount)}</td>
                   <td style={S.tdNum}>{formatINR(cgst)}</td>
                   <td style={S.tdNum}>{formatINR(sgst)}</td>
-                  <td style={{ ...S.tdNum, fontWeight: 600 }}>{formatINR(item.totalPrice)}</td>
+                  <td style={{ ...S.tdNum, fontWeight: 700, color: COLORS.ink, background: COLORS.brassSoft }}>
+                    {formatINR(item.totalPrice)}
+                  </td>
                 </tr>
               );
             })}
@@ -417,7 +484,7 @@ export default function InvoicePage() {
         {/* ---------- Payment History ---------- */}
         {payments.length > 0 && (
           <>
-            <div style={{ ...S.sectionLabel, marginTop: 22 }}>Payment History</div>
+            <div style={{ ...S.sectionLabel, marginTop: 24 }}>Payment History</div>
             <table style={S.table}>
               <thead>
                 <tr>
@@ -437,7 +504,7 @@ export default function InvoicePage() {
                     <td style={{ ...S.tdCenter, fontFamily: FONT_MONO }}>{p.transactionNumber || "—"}</td>
                     <td style={S.tdCenter}>{p.collectedBy || "—"}</td>
                     <td style={S.tdLeft}>{p.remarks || "—"}</td>
-                    <td style={{ ...S.tdNum, fontWeight: 600 }}>{formatINR(p.amount)}</td>
+                    <td style={{ ...S.tdNum, fontWeight: 600, color: COLORS.ink }}>{formatINR(p.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -451,7 +518,7 @@ export default function InvoicePage() {
             <div style={S.sectionLabel}>Amount In Words</div>
             <div style={S.wordsText}>{amountInWords(invoice.totalAmount)}</div>
 
-            <div style={{ ...S.sectionLabel, marginTop: 26 }}>Terms &amp; Conditions</div>
+            <div style={{ ...S.sectionLabel, marginTop: 28 }}>Terms &amp; Conditions</div>
             <ul style={S.termsList}>
               <li>Warranty as per manufacturer / brand policy only; D2W does not extend a separate warranty.</li>
               <li>Goods once sold cannot be returned or exchanged.</li>
@@ -482,7 +549,9 @@ export default function InvoicePage() {
 
             <div style={S.ledgerDivider} />
 
-            <SummaryRow label="Grand Total" value={invoice.totalAmount} emphasis />
+            <div style={S.grandTotalTab}>
+              <SummaryRow label="Grand Total" value={invoice.totalAmount} emphasis />
+            </div>
             <SummaryRow label="Paid Amount" value={invoice.paidAmount} tone={COLORS.success} />
             <SummaryRow
               label="Balance Due"
@@ -519,7 +588,7 @@ const S = {
     fontFamily: FONT_BODY,
     background: COLORS.canvas,
     minHeight: "100vh",
-    padding: "24px 0 60px",
+    padding: "28px 0 60px",
     color: COLORS.ink,
   },
   toolbar: {
@@ -531,22 +600,23 @@ const S = {
     alignItems: "center",
   },
   btnPrimary: {
-    background: COLORS.steel,
+    background: COLORS.navy,
     color: "#fff",
     border: "none",
-    borderRadius: 4,
-    padding: "10px 18px",
+    borderRadius: 6,
+    padding: "11px 20px",
     fontFamily: FONT_BODY,
     fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(11,32,56,0.18)",
   },
   btnSecondary: {
     background: "#fff",
-    color: COLORS.steel,
-    border: `1px solid ${COLORS.line}`,
-    borderRadius: 4,
-    padding: "10px 18px",
+    color: COLORS.navy,
+    border: `1px solid ${COLORS.hairline}`,
+    borderRadius: 6,
+    padding: "11px 20px",
     fontFamily: FONT_BODY,
     fontSize: 14,
     fontWeight: 600,
@@ -557,8 +627,9 @@ const S = {
     minHeight: "297mm",
     margin: "0 auto",
     background: COLORS.paper,
-    boxShadow: "0 2px 14px rgba(21,43,61,0.12)",
-    padding: "16mm 14mm",
+    boxShadow: "0 4px 24px rgba(21,48,77,0.10)",
+    borderRadius: 8,
+    padding: "17mm 15mm",
     boxSizing: "border-box",
   },
   headerBlock: {
@@ -569,99 +640,88 @@ const S = {
   },
   brandBlock: { display: "flex", gap: 14, alignItems: "flex-start" },
   logoMark: {
-    width: 52,
-    height: 52,
-    borderRadius: 6,
-    background: COLORS.steel,
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    background: COLORS.navy,
     color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontFamily: FONT_DISPLAY,
-    fontWeight: 600,
-    fontSize: 18,
-    letterSpacing: 1,
+    fontWeight: 700,
+    fontSize: 16,
+    letterSpacing: 0.5,
     flexShrink: 0,
   },
   brandName: {
     fontFamily: FONT_DISPLAY,
-    fontSize: 24,
-    fontWeight: 600,
-    letterSpacing: 0.5,
-    color: COLORS.steel,
-    lineHeight: 1.1,
+    fontSize: 23,
+    fontWeight: 700,
+    letterSpacing: 0.2,
+    color: COLORS.navy,
+    lineHeight: 1.15,
   },
   brandTagline: {
     fontSize: 11.5,
     color: COLORS.inkSoft,
     marginTop: 3,
-    fontStyle: "italic",
   },
   storeMeta: {
-    marginTop: 8,
+    marginTop: 9,
     fontSize: 11,
     color: COLORS.inkSoft,
     display: "flex",
     gap: 14,
   },
-  invoiceBadgeBlock: { textAlign: "right", minWidth: 210 },
-  invoiceBadge: {
-    display: "inline-block",
-    fontFamily: FONT_DISPLAY,
-    fontSize: 15,
-    letterSpacing: 2,
-    color: "#fff",
-    background: COLORS.steel,
-    padding: "6px 14px",
-    borderRadius: 3,
-    marginBottom: 10,
-  },
+  invoiceBadgeBlock: { textAlign: "right", minWidth: 210, display: "flex", flexDirection: "column", alignItems: "flex-end" },
   invoiceNumberLine: {
     display: "flex",
     justifyContent: "flex-end",
     gap: 8,
     fontSize: 12.5,
-    marginTop: 4,
+    marginTop: 3,
   },
   invoiceNumberValue: { fontFamily: FONT_MONO, fontWeight: 600, color: COLORS.ink },
-  hairline: { height: 2, background: COLORS.steel, margin: "16px 0 18px" },
+  hairlineDouble: { margin: "18px 0 20px" },
+  hairlineMain: { height: 2, background: COLORS.navy },
+  hairlineAccent: { height: 1, background: COLORS.brass, marginTop: 3, width: "100%" },
   detailsGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 28,
-    marginBottom: 22,
-    background: COLORS.accentSoft,
-    border: `1px solid ${COLORS.line}`,
-    borderRadius: 4,
-    padding: "14px 18px",
+    gridTemplateColumns: "1fr auto 1fr",
+    gap: 24,
+    marginBottom: 24,
+    padding: "4px 2px 18px",
   },
   detailsCol: {},
+  detailsDivider: { width: 1, background: COLORS.hairline },
   sectionLabel: {
     fontFamily: FONT_DISPLAY,
-    fontSize: 12.5,
-    letterSpacing: 1.2,
+    fontSize: 11.5,
+    letterSpacing: 1.4,
     textTransform: "uppercase",
-    color: COLORS.accent,
-    borderBottom: `1px solid ${COLORS.line}`,
-    paddingBottom: 5,
-    marginBottom: 8,
+    color: COLORS.navy,
+    fontWeight: 600,
+    marginBottom: 10,
+    position: "relative",
+    paddingBottom: 6,
   },
   fieldRow: {
     display: "flex",
     justifyContent: "space-between",
     gap: 12,
     fontSize: 12.5,
-    padding: "3px 0",
+    padding: "4px 0",
   },
   fieldLabel: { color: COLORS.inkSoft },
   fieldValue: { color: COLORS.ink, fontWeight: 500, textAlign: "right" },
   statusPill: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: 700,
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     border: "1px solid",
-    borderRadius: 3,
-    padding: "1px 8px",
+    borderRadius: 20,
+    padding: "2px 10px",
     textTransform: "uppercase",
   },
   table: {
@@ -671,50 +731,55 @@ const S = {
     tableLayout: "fixed",
   },
   th: {
-    background: COLORS.steel,
+    background: COLORS.navy,
     color: "#fff",
     fontFamily: FONT_BODY,
     fontWeight: 600,
     fontSize: 10.5,
     textAlign: "center",
-    padding: "7px 4px",
-    border: `1px solid ${COLORS.steelDeep}`,
+    padding: "8px 4px",
+    border: `1px solid ${COLORS.navyDeep}`,
   },
-  trBand: { background: COLORS.accentSoft },
+  thAccent: {
+    boxShadow: `inset 0 -3px 0 ${COLORS.brass}`,
+  },
+  trBand: { background: COLORS.slateFill },
   tdCenter: {
     textAlign: "center",
-    padding: "6px 4px",
-    border: `1px solid ${COLORS.lineSoft}`,
+    padding: "7px 4px",
+    border: `1px solid ${COLORS.hairlineSoft}`,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    color: COLORS.inkSoft,
   },
   tdLeft: {
     textAlign: "left",
-    padding: "6px 4px",
-    border: `1px solid ${COLORS.lineSoft}`,
+    padding: "7px 6px",
+    border: `1px solid ${COLORS.hairlineSoft}`,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   tdNum: {
     textAlign: "right",
-    padding: "6px 6px",
-    border: `1px solid ${COLORS.lineSoft}`,
+    padding: "7px 6px",
+    border: `1px solid ${COLORS.hairlineSoft}`,
     fontFamily: FONT_MONO,
     whiteSpace: "nowrap",
+    color: COLORS.ink,
   },
   tdEmpty: {
     textAlign: "center",
-    padding: "18px 4px",
-    border: `1px solid ${COLORS.lineSoft}`,
+    padding: "20px 4px",
+    border: `1px solid ${COLORS.hairlineSoft}`,
     color: COLORS.inkSoft,
   },
   summaryGrid: {
     display: "grid",
     gridTemplateColumns: "1.15fr 0.85fr",
-    gap: 26,
-    marginTop: 24,
+    gap: 28,
+    marginTop: 26,
     alignItems: "start",
   },
   wordsBlock: {},
@@ -722,22 +787,24 @@ const S = {
     fontSize: 12.5,
     fontWeight: 600,
     color: COLORS.ink,
-    background: COLORS.accentSoft,
-    border: `1px solid ${COLORS.line}`,
+    background: COLORS.slateFill,
+    borderLeft: `3px solid ${COLORS.brass}`,
     borderRadius: 4,
-    padding: "10px 12px",
+    padding: "11px 14px",
   },
   termsList: {
     margin: 0,
     paddingLeft: 18,
     fontSize: 10.5,
     color: COLORS.inkSoft,
-    lineHeight: 1.6,
+    lineHeight: 1.7,
   },
   ledgerBlock: {
-    border: `1px solid ${COLORS.line}`,
-    borderRadius: 4,
-    padding: "14px 16px",
+    border: `1px solid ${COLORS.hairline}`,
+    borderRadius: 8,
+    padding: "16px 18px",
+    background: "#fff",
+    boxShadow: "0 1px 6px rgba(21,48,77,0.05)",
   },
   summaryRow: {
     display: "flex",
@@ -745,14 +812,20 @@ const S = {
     fontSize: 12.5,
     padding: "4px 0",
   },
-  summaryRowEmphasis: { padding: "8px 0" },
+  summaryRowEmphasis: { padding: "2px 0" },
   summaryLabel: { color: COLORS.inkSoft },
   summaryValue: { fontFamily: FONT_MONO, color: COLORS.ink },
-  ledgerDivider: { height: 1, background: COLORS.line, margin: "8px 0" },
+  ledgerDivider: { height: 1, background: COLORS.hairline, margin: "9px 0" },
+  grandTotalTab: {
+    background: COLORS.brassSoft,
+    borderRadius: 6,
+    padding: "6px 10px",
+    margin: "2px 0 8px",
+  },
   signatureRow: {
     display: "flex",
     justifyContent: "space-between",
-    marginTop: 60,
+    marginTop: 64,
     padding: "0 20px",
   },
   signatureBox: { width: 220, textAlign: "center" },
@@ -762,7 +835,7 @@ const S = {
     textAlign: "center",
     fontSize: 10.5,
     color: COLORS.inkSoft,
-    marginTop: 30,
+    marginTop: 32,
     fontStyle: "italic",
   },
   stateScreen: {
@@ -776,8 +849,8 @@ const S = {
   stateCard: {
     background: "#fff",
     padding: "24px 32px",
-    borderRadius: 6,
-    border: `1px solid ${COLORS.line}`,
+    borderRadius: 8,
+    border: `1px solid ${COLORS.hairline}`,
     fontSize: 14,
   },
 };
