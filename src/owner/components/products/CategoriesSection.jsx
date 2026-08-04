@@ -8,7 +8,6 @@ import {
   Loader2,
   X,
   CheckCircle2,
-  Layers,
 } from "lucide-react";
 import api from "../../../services/api";
 
@@ -58,10 +57,6 @@ function CategoriesSection() {
   }, [categories, query]);
 
   const activeCount = useMemo(() => categories.filter((c) => c.active).length, [categories]);
-  const topLevelCount = useMemo(
-    () => categories.filter((c) => !c.parentCategoryId).length,
-    [categories]
-  );
   const latestCategory = categories.length ? categories[categories.length - 1].categoryName : "—";
 
   const resetAddModal = () => {
@@ -169,7 +164,6 @@ function CategoriesSection() {
       <div style={S.statsGrid}>
         <StatCard label="Total Categories" value={categories.length} icon={<FolderTree size={16} />} tint="#EEF2FF" iconColor="#4F46E5" />
         <StatCard label="Active" value={activeCount} icon={<CheckCircle2 size={16} />} tint="#ECFDF5" iconColor="#059669" />
-        <StatCard label="Top-Level" value={topLevelCount} icon={<Layers size={16} />} tint="#FFFBEB" iconColor="#D97706" />
         <StatCard label="Latest Added" value={latestCategory} icon={<FolderTree size={16} />} tint="#F5F3FF" iconColor="#7C3AED" small />
       </div>
 
@@ -201,7 +195,6 @@ function CategoriesSection() {
                 <tr>
                   <th style={S.th}>Category</th>
                   <th style={S.th}>Slug</th>
-                  <th style={S.th}>Parent</th>
                   <th style={S.th}>Status</th>
                 </tr>
               </thead>
@@ -210,13 +203,6 @@ function CategoriesSection() {
                   <tr key={category.id} style={S.tr}>
                     <td style={S.tdStrong}>{category.categoryName}</td>
                     <td style={S.td}>{category.slug}</td>
-                    <td style={S.td}>
-                      {category.parentCategoryName ? (
-                        category.parentCategoryName
-                      ) : (
-                        <span style={{ color: "#D1D5DB" }}>—</span>
-                      )}
-                    </td>
                     <td style={S.td}>
                       <span style={{ ...S.badge, ...(category.active ? S.badgeActive : S.badgeInactive) }}>
                         {category.active ? "Active" : "Inactive"}
@@ -324,7 +310,7 @@ function CategoriesSection() {
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {bulkResult.failedRows.map((f, idx) => (
                     <li key={idx} style={{ fontSize: 13, color: "#B91C1C" }}>
-                      Row {f.row}: {f.reason}
+                      Row {f.rowNumber}: {f.reason}
                     </li>
                   ))}
                 </ul>

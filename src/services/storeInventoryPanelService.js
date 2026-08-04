@@ -19,6 +19,13 @@ export const getStoreInventory = async (storeId) => {
   return response.data;
 };
 
+export const getCurrentStockPage = async (storeId, filters = {}) => {
+  const response = await api.get(`/store-inventory/store/${storeId}/paged`, {
+    params: filters,
+  });
+  return response.data;
+};
+
 // Overview tab — full detail for one inventory row.
 export const getProductDetails = async (storeId, inventoryId) => {
   const response = await api.get(`/store-inventory/product-details`, {
@@ -32,6 +39,33 @@ export const getProductBatches = async (storeId, inventoryId) => {
   const response = await api.get(`/store-inventory/product-batches`, {
     params: { storeId, inventoryId },
   });
+  return response.data;
+};
+
+export const getManagementBatches = async (inventoryId) => {
+  const response = await api.get(`/store-inventory/${inventoryId}/management-batches`);
+  return response.data;
+};
+
+export const getProductLocations = async (inventoryId, page = 0, size = 20) => {
+  const response = await api.get(`/store-inventory/${inventoryId}/locations`, {
+    params: { page, size },
+  });
+  return response.data;
+};
+
+export const updateProductBasicInformation = async (inventoryId, payload) => {
+  const response = await api.patch(`/store-inventory/${inventoryId}/basic-information`, payload);
+  return response.data;
+};
+
+export const updateInventoryPrices = async (inventoryId, payload) => {
+  const response = await api.patch(`/store-inventory/${inventoryId}/prices`, payload);
+  return response.data;
+};
+
+export const updateInventoryBatch = async (batchId, payload) => {
+  const response = await api.patch(`/store-inventory/batches/${batchId}`, payload);
   return response.data;
 };
 

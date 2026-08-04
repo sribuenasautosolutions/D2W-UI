@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, ChevronLeft, ChevronRight, MapPin, Pencil, Plus, Search, X } from "lucide-react";
 import api from "../../services/api";
 
@@ -26,6 +26,7 @@ const FONT_MONO = "'IBM Plex Mono', 'Consolas', monospace";
 
 const emptyStore = {
     storeName: "", storeCode: "", ownerName: "", phone: "", email: "",
+    ownerPassword: "", confirmOwnerPassword: "",
     address: "", city: "", state: "", country: "India", pincode: "",
     storeType: "MAIN_STORE", gstno: "",
 };
@@ -37,6 +38,9 @@ function StoresPage() {
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(5);
+    const [totalElements, setTotalElements] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [summary, setSummary] = useState({ active: 0, inactive: 0, main: 0, warehouse: 0 });
     const [modal, setModal] = useState(null);
     const [form, setForm] = useState(emptyStore);
     const [saving, setSaving] = useState(false);
@@ -44,16 +48,34 @@ function StoresPage() {
     const [activeTab, setActiveTab] = useState("Overview");
 
     const loadStores = async () => {
-        const response = await api.get("/stores");
-        const data = Array.isArray(response.data) ? response.data : [];
+        const active = statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE";
+        const response = await api.get("/stores", {
+            params: {
+                page: page - 1,
+                size: pageSize,
+                search: search.trim() || undefined,
+                active,
+            },
+        });
+        const data = Array.isArray(response.data?.content) ? response.data.content : [];
         setStores(data);
+        const returnedTotalPages = Math.max(1, response.data?.totalPages || 1);
+        setTotalElements(response.data?.totalElements || 0);
+        setTotalPages(returnedTotalPages);
+        if (page > returnedTotalPages) setPage(returnedTotalPages);
+        setSummary({
+            active: response.data?.activeStores || 0,
+            inactive: response.data?.inactiveStores || 0,
+            main: response.data?.mainStores || 0,
+            warehouse: response.data?.warehouses || 0,
+        });
         setSelectedId((current) =>
             data.some((store) => store.id === current) ? current : data[0]?.id || null
         );
     };
 
     useEffect(() => {
-        const loadPage = async () => {
+        const timer = window.setTimeout(async () => {
             try {
                 await loadStores();
             } catch (error) {
@@ -62,32 +84,13 @@ function StoresPage() {
                     text: error.response?.data?.message || "Unable to load stores",
                 });
             }
-        };
+        }, 250);
 
-        loadPage();
-    }, []);
-
-    const filtered = useMemo(() => {
-        const query = search.trim().toLowerCase();
-        return stores.filter((store) => {
-            const matchesSearch = !query ||
-                [store.storeName, store.storeCode, store.city, store.ownerName]
-                    .filter(Boolean)
-                    .some((value) => value.toLowerCase().includes(query));
-            const active = store.isActive !== false;
-            const matchesStatus = statusFilter === "ALL" ||
-                (statusFilter === "ACTIVE" ? active : !active);
-            return matchesSearch && matchesStatus;
-        });
-    }, [search, statusFilter, stores]);
+        return () => window.clearTimeout(timer);
+    }, [page, pageSize, search, statusFilter]);
 
     const selected = stores.find((store) => store.id === selectedId) || null;
-    const activeCount = stores.filter((store) => store.isActive !== false).length;
-    const mainStoreCount = stores.filter((store) => store.storeType === "MAIN_STORE").length;
-    const warehouseCount = stores.filter((store) => store.storeType === "WAREHOUSE").length;
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
     const currentPage = Math.min(page, totalPages);
-    const visibleStores = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const openCreate = () => {
         setForm(emptyStore);
@@ -103,6 +106,8 @@ function StoresPage() {
             ownerName: selected.ownerName || "",
             phone: selected.phone || "",
             email: selected.email || "",
+            ownerPassword: "",
+            confirmOwnerPassword: "",
             address: selected.address || "",
             city: selected.city || "",
             state: selected.state || "",
@@ -120,6 +125,10 @@ function StoresPage() {
 
     const saveStore = async (event) => {
         event.preventDefault();
+        if (modal === "create" && form.ownerPassword !== form.confirmOwnerPassword) {
+            setMessage({ type: "error", text: "Owner password and confirmation do not match" });
+            return;
+        }
         setSaving(true);
         setMessage({ type: "", text: "" });
         const payload = {
@@ -137,6 +146,8 @@ function StoresPage() {
                 await api.post("/stores", payload);
             } else {
                 delete payload.country;
+                delete payload.ownerPassword;
+                delete payload.confirmOwnerPassword;
                 await api.put(`/stores/${selected.id}`, payload);
             }
             setModal(null);
@@ -198,11 +209,11 @@ function StoresPage() {
             )}
 
             <div style={S.stats}>
-                <Stat label="Total Stores" value={stores.length} />
-                <Stat label="Active Stores" value={activeCount} color={COLORS.success} />
-                <Stat label="Inactive Stores" value={stores.length - activeCount} color={COLORS.danger} />
-                <Stat label="Main Stores" value={mainStoreCount} color={COLORS.brass} />
-                <Stat label="Warehouses" value={warehouseCount} color={COLORS.navy} />
+                <Stat label="Total Stores" value={summary.active + summary.inactive} />
+                <Stat label="Active Stores" value={summary.active} color={COLORS.success} />
+                <Stat label="Inactive Stores" value={summary.inactive} color={COLORS.danger} />
+                <Stat label="Main Stores" value={summary.main} color={COLORS.brass} />
+                <Stat label="Warehouses" value={summary.warehouse} color={COLORS.navy} />
             </div>
 
             <div style={S.workspace}>
@@ -210,7 +221,7 @@ function StoresPage() {
                     <div style={S.listTools}>
                         <div style={S.listCaption}>
                             <strong>All Stores</strong>
-                            <span>{filtered.length} records</span>
+                            <span>{totalElements} records</span>
                         </div>
                         <select aria-label="Filter stores by status" value={statusFilter}
                             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
@@ -221,7 +232,7 @@ function StoresPage() {
                         </select>
                     </div>
                     <div style={S.storeList}>
-                        {visibleStores.map((store) => (
+                        {stores.map((store) => (
                             <button key={store.id} type="button"
                                 onClick={() => { setSelectedId(store.id); setActiveTab("Overview"); }}
                                 style={{ ...S.storeRow, ...(selectedId === store.id ? S.selectedRow : {}) }}>
@@ -235,10 +246,10 @@ function StoresPage() {
                                 </span>
                             </button>
                         ))}
-                        {filtered.length === 0 && <div style={S.empty}>No stores found</div>}
+                        {stores.length === 0 && <div style={S.empty}>No stores found</div>}
                     </div>
                     <Pagination page={currentPage} totalPages={totalPages} pageSize={pageSize}
-                        total={filtered.length} onPage={setPage}
+                        total={totalElements} onPage={setPage}
                         onPageSize={(size) => { setPageSize(size); setPage(1); }} />
                 </section>
 
@@ -266,7 +277,7 @@ function StoresPage() {
                                 </div>
                             </div>
                             <Tabs active={activeTab} onChange={setActiveTab}
-                                items={["Overview", "Inventory", "Users", "Activity", "Transactions", "History"]} />
+                                items={["Overview"]} />
                             {activeTab === "Overview" ? (
                                 <>
                                     <div style={S.detailGrid}>
@@ -332,10 +343,18 @@ function StoresPage() {
                                 value={form.ownerName} onChange={(v) => updateField("ownerName", v)} />
                             <Field label="Owner Email" type="email" placeholder="Example: ravi@gmail.com"
                                 value={form.email} onChange={(v) => updateField("email", v)} />
+                            {modal === "create" && <>
+                                <Field label="Initial Password" type="password" placeholder="Minimum 8 characters"
+                                    value={form.ownerPassword} onChange={(v) => updateField("ownerPassword", v)} />
+                                <Field label="Confirm Password" type="password" placeholder="Enter password again"
+                                    value={form.confirmOwnerPassword} onChange={(v) => updateField("confirmOwnerPassword", v)} />
+                            </>}
                             <Field label="Phone" placeholder="Example: 9876543210" value={form.phone} maxLength={10}
                                 onChange={(v) => updateField("phone", v.replace(/\D/g, ""))} />
-                            <Field label="GSTIN" placeholder="Example: 36ABCDE1234F1Z5" value={form.gstno} maxLength={15}
-                                onChange={(v) => updateField("gstno", v.toUpperCase())} />
+                            <Field label="GSTIN" placeholder="15 letters and numbers" value={form.gstno} maxLength={15}
+                                pattern="[A-Za-z0-9]{15}"
+                                title="GSTIN must be exactly 15 letters and numbers without spaces or special characters"
+                                onChange={(v) => updateField("gstno", v.replace(/[^A-Za-z0-9]/g, "").toUpperCase())} />
                             <Field label="Address" placeholder="Example: 12-3 Main Road, Hanamkonda"
                                 value={form.address} onChange={(v) => updateField("address", v)} />
                             <Field label="City" placeholder="Example: Warangal"
@@ -383,9 +402,10 @@ function Tabs({ active, onChange, items }) {
         ))}
     </div>;
 }
-function Field({ label, value, onChange, type = "text", maxLength, placeholder }) {
+function Field({ label, value, onChange, type = "text", maxLength, placeholder, pattern, title }) {
     return <label style={S.field}><span style={S.infoLabel}>{label}</span>
         <input required type={type} maxLength={maxLength} placeholder={placeholder}
+            pattern={pattern} title={title}
             style={S.input} value={value}
             onChange={(e) => onChange(e.target.value)} />
     </label>;
@@ -425,7 +445,7 @@ const S = {
     title: { margin: 0, fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: COLORS.navy, letterSpacing: 0.2 },
     headerSearch: { height: 40, display: "flex", alignItems: "center", gap: 9, padding: "0 12px", border: `1px solid ${COLORS.hairline}`, borderRadius: 8, background: COLORS.paper, boxShadow: "0 1px 3px rgba(21,48,77,0.05)" },
     searchInput: { width: "100%", border: 0, outline: 0, font: "inherit", fontSize: 13, color: COLORS.ink, background: "transparent" },
-    primary: { height: 40, padding: "0 16px", border: 0, borderRadius: 7, backgrougnd: COLORS.navy, color: "#FFF", display: "flex", alignItems: "center", gap: 7, fontWeight: 600, fontSize: 13.5, cursor: "pointer", boxShadow: "0 1px 3px rgba(11,32,56,0.2)" },
+    primary: { height: 40, padding: "0 16px", border: 0, borderRadius: 7, background: COLORS.navy, color: "#FFF", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, fontWeight: 600, fontSize: 13.5, cursor: "pointer", boxShadow: "0 1px 3px rgba(11,32,56,0.2)" },
     secondary: { height: 34, padding: "0 13px", border: `1px solid ${COLORS.hairline}`, borderRadius: 6, background: COLORS.paper, color: COLORS.navy, display: "flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: 12.5, cursor: "pointer" },
     activate: { height: 34, padding: "0 13px", border: `1px solid ${COLORS.success}55`, borderRadius: 6, background: COLORS.successSoft, color: COLORS.success, fontWeight: 600, fontSize: 12.5, cursor: "pointer" },
     deactivate: { height: 34, padding: "0 13px", border: `1px solid ${COLORS.danger}55`, borderRadius: 6, background: COLORS.dangerSoft, color: COLORS.danger, fontWeight: 600, fontSize: 12.5, cursor: "pointer" },
@@ -468,7 +488,7 @@ const S = {
     field: { display: "grid", gap: 6 },
     input: { width: "100%", height: 39, padding: "0 10px", border: `1px solid ${COLORS.hairline}`, borderRadius: 6, boxSizing: "border-box", font: "inherit", fontSize: 13, color: COLORS.ink, background: COLORS.paper },
     readOnly: { height: 39, padding: "0 10px", border: `1px solid ${COLORS.hairline}`, borderRadius: 6, background: COLORS.hairlineSoft, display: "flex", alignItems: "center", color: COLORS.inkSoft, fontSize: 13, fontFamily: FONT_MONO },
-    modalActions: { gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 9, paddingTop: 5 },
+    modalActions: { gridColumn: "1 / -1", position: "sticky", bottom: -22, zIndex: 2, display: "flex", justifyContent: "flex-end", gap: 9, margin: "0 -22px -22px", padding: "14px 22px", borderTop: `1px solid ${COLORS.hairline}`, background: COLORS.paper },
     pagination: { minHeight: 52, padding: "8px 10px", borderTop: `1px solid ${COLORS.hairline}`, display: "flex", alignItems: "center", gap: 7, background: COLORS.paper },
     pageMeta: { marginRight: "auto", color: COLORS.inkSoft, fontSize: 10.5, fontFamily: FONT_MONO },
     pageSize: { height: 32, border: `1px solid ${COLORS.hairline}`, borderRadius: 6, background: COLORS.paper, color: COLORS.ink, fontSize: 11 },

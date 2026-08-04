@@ -20,6 +20,14 @@ function getStoredUser() {
     }
 }
 
+function apiErrorMessage(error, fallback) {
+    const data = error.response?.data;
+    if (typeof data === "string" && data.trim()) return data;
+    if (data?.message) return data.message;
+    if (Array.isArray(data?.errors) && data.errors.length) return data.errors[0];
+    return fallback;
+}
+
 function UsersPage() {
     const currentUser = getStoredUser();
     const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
@@ -37,11 +45,13 @@ function UsersPage() {
     const [saving, setSaving] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [error, setError] = useState("");
+    const [createError, setCreateError] = useState("");
+    const [editError, setEditError] = useState("");
+    const [statusMessage, setStatusMessage] = useState(null);
     const [success, setSuccess] = useState("");
     const [editUser, setEditUser] = useState(null);
     const [editForm, setEditForm] = useState(null);
     const [changePassword, setChangePassword] = useState(false);
-    const [activeTab, setActiveTab] = useState("Overview");
 
     const updateField = (field, value) => {
         setForm((current) => ({ ...current, [field]: value }));
@@ -66,8 +76,8 @@ function UsersPage() {
 
                 if (isSuperAdmin) {
                     requests.push(
-                        api.get("/stores").then((response) => {
-                            setStores(Array.isArray(response.data) ? response.data : []);
+                        api.get("/stores", { params: { page: 0, size: 100, active: true } }).then((response) => {
+                            setStores(Array.isArray(response.data?.content) ? response.data.content : []);
                         })
                     );
                 }
@@ -113,19 +123,19 @@ function UsersPage() {
 
     const saveUser = async (event) => {
         event.preventDefault();
-        setError("");
+        setCreateError("");
         setSuccess("");
 
         if (form.email.trim().toLowerCase() !==
             form.confirmEmail.trim().toLowerCase()) {
-            setError("Email and confirm email must match");
+            setCreateError("Email and confirm email must match");
             return;
         }
 
         if (isSuperAdmin &&
             form.role !== "SUPER_ADMIN" &&
             !form.storeId) {
-            setError("Select a store for the Store Owner or Cashier");
+            setCreateError("Select a store for the Store Owner or Cashier");
             return;
         }
 
@@ -157,10 +167,7 @@ function UsersPage() {
             );
             await loadUsers();
         } catch (requestError) {
-            setError(
-                requestError.response?.data?.message ||
-                "Unable to create user"
-            );
+            setCreateError(apiErrorMessage(requestError, "Unable to create user"));
         } finally {
             setSaving(false);
         }
@@ -180,22 +187,22 @@ function UsersPage() {
             active: user.active,
         });
         setChangePassword(false);
-        setError("");
+        setEditError("");
     };
 
     const saveEdit = async (event) => {
         event.preventDefault();
         if (editForm.email.trim().toLowerCase() !==
             editForm.confirmEmail.trim().toLowerCase()) {
-            setError("Email and confirm email must match");
+            setEditError("Email and confirm email must match");
             return;
         }
         if (editForm.newPassword !== editForm.confirmPassword) {
-            setError("New password and confirm password must match");
+            setEditError("New password and confirm password must match");
             return;
         }
         if (isSuperAdmin && editForm.role !== "SUPER_ADMIN" && !editForm.storeId) {
-            setError("Select a store for this user");
+            setEditError("Select a store for this user");
             return;
         }
 
@@ -203,7 +210,6 @@ function UsersPage() {
             name: editForm.name.trim(),
             email: editForm.email.trim(),
             phone: editForm.phone,
-            active: editForm.active,
         };
         if (changePassword) {
             payload.newPassword = editForm.newPassword;
@@ -223,9 +229,28 @@ function UsersPage() {
             setSuccess("User updated successfully");
             await loadUsers();
         } catch (requestError) {
-            setError(requestError.response?.data?.message || "Unable to update user");
+            setEditError(apiErrorMessage(requestError, "Unable to update user"));
         } finally {
             setSaving(false);
+        }
+    };
+
+    const changeUserStatus = async (user) => {
+        const active = !user.active;
+        if (!window.confirm(`${active ? "Activate" : "Deactivate"} ${user.name}?`)) return;
+
+        try {
+            await api.patch(`/users/${user.id}/status`, { active });
+            setStatusMessage({
+                type: "success",
+                text: `${user.name} ${active ? "activated" : "deactivated"} successfully`,
+            });
+            await loadUsers();
+        } catch (requestError) {
+            setStatusMessage({
+                type: "error",
+                text: apiErrorMessage(requestError, "Unable to update user status"),
+            });
         }
     };
 
@@ -249,7 +274,7 @@ function UsersPage() {
                     <button type="button" style={S.addButton}
                         onClick={() => {
                             setForm(emptyForm);
-                            setError("");
+                            setCreateError("");
                             setSuccess("");
                             setCreateOpen(true);
                         }}>
@@ -290,7 +315,7 @@ function UsersPage() {
                                 <X size={17} />
                             </button>
                         </div>
-                        {error && <div style={S.modalError}>{error}</div>}
+                        {createError && <div style={S.modalError}>{createError}</div>}
 
                         <form onSubmit={saveUser} style={S.createForm}>
                         <Field label="Full name">
@@ -458,7 +483,7 @@ function UsersPage() {
                     <div style={S.userList}>
                         {!loading && visibleUsers.map((user) => (
                             <button key={user.id} type="button"
-                                onClick={() => { setSelectedId(user.id); setActiveTab("Overview"); }}
+                                onClick={() => setSelectedId(user.id)}
                                 style={{ ...S.userRow, ...(selectedId === user.id ? S.selectedRow : {}) }}>
                                 <div style={S.avatar}>{initials(user.name)}</div>
                                 <div style={S.userText}>
@@ -494,31 +519,28 @@ function UsersPage() {
                                         <span style={S.email}>{selectedUser.email}</span>
                                     </div>
                                 </div>
-                                <button type="button" onClick={() => openEdit(selectedUser)}
-                                    style={S.editButton}>
-                                    <Pencil size={15} /> Edit
-                                </button>
+                                {(isSuperAdmin || selectedUser.role === "CASHIER") && (
+                                    <div style={S.userActions}>
+                                        <button type="button" onClick={() => openEdit(selectedUser)}
+                                            style={S.editButton}>
+                                            <Pencil size={15} /> Edit
+                                        </button>
+                                        <button type="button" onClick={() => changeUserStatus(selectedUser)}
+                                            style={selectedUser.active ? S.deactivateButton : S.activateButton}>
+                                            {selectedUser.active ? "Deactivate" : "Activate"}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                            <Tabs active={activeTab} onChange={setActiveTab}
-                                items={["Overview", "Permissions", "Stores", "Activity", "Transactions", "History"]} />
-                            {activeTab === "Overview" ? (
-                                <div style={S.detailGrid}>
-                                    <Detail icon={<Mail size={17} />} label="Email" value={selectedUser.email} />
-                                    <Detail icon={<Phone size={17} />} label="Phone" value={selectedUser.phone} />
-                                    <Detail icon={<ShieldCheck size={17} />} label="Role" value={roleLabel(selectedUser.role)} />
-                                    <Detail icon={<Building2 size={17} />} label="Assigned Store"
-                                        value={selectedUser.storeName || "Organization"} />
-                                    <Detail icon={<Mail size={17} />} label="Email Verification"
-                                        value={selectedUser.emailVerified ? "Verified" : "Not verified"} />
-                                    <Detail icon={<UserRound size={17} />} label="Account Status"
-                                        value={selectedUser.active ? "Active" : "Inactive"} />
-                                </div>
-                            ) : (
-                                <div style={S.tabEmpty}>
-                                    <strong>{activeTab}</strong>
-                                    <span>No {activeTab.toLowerCase()} data is available for this user.</span>
-                                </div>
-                            )}
+                            <div style={S.detailGrid}>
+                                <Detail icon={<Mail size={17} />} label="Email" value={selectedUser.email} />
+                                <Detail icon={<Phone size={17} />} label="Phone" value={selectedUser.phone} />
+                                <Detail icon={<ShieldCheck size={17} />} label="Role" value={roleLabel(selectedUser.role)} />
+                                <Detail icon={<Building2 size={17} />} label="Assigned Store"
+                                    value={selectedUser.storeName || "Organization"} />
+                                <Detail icon={<UserRound size={17} />} label="Account Status"
+                                    value={selectedUser.active ? "Active" : "Inactive"} />
+                            </div>
                         </>
                     ) : <div style={S.empty}>Select a user to view details</div>}
                 </section>
@@ -541,6 +563,7 @@ function UsersPage() {
                                 <X size={17} />
                             </button>
                         </div>
+                        {editError && <div style={S.modalError}>{editError}</div>}
                         <form onSubmit={saveEdit} style={S.modalForm}>
                             <Field label="Full name">
                                 <input required style={S.input} value={editForm.name}
@@ -606,21 +629,6 @@ function UsersPage() {
                                     </select>
                                 </Field>
                             )}
-                            <div style={S.statusField}>
-                                <span style={S.label}>Account status</span>
-                                <div style={S.segmented}>
-                                    <button type="button"
-                                        onClick={() => setEditForm({ ...editForm, active: true })}
-                                        style={editForm.active ? S.segmentActive : S.segment}>
-                                        Active
-                                    </button>
-                                    <button type="button"
-                                        onClick={() => setEditForm({ ...editForm, active: false })}
-                                        style={!editForm.active ? S.segmentInactive : S.segment}>
-                                        Inactive
-                                    </button>
-                                </div>
-                            </div>
                             <div style={S.modalActions}>
                                 <button type="button" onClick={() => setEditUser(null)} style={S.cancel}>Cancel</button>
                                 <button disabled={saving} type="submit" style={S.submit}>
@@ -628,6 +636,15 @@ function UsersPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {statusMessage && (
+                <div style={S.overlay}>
+                    <div style={S.messageModal}>
+                        <strong>{statusMessage.type === "error" ? "Unable to update status" : "Status updated"}</strong>
+                        <span>{statusMessage.text}</span>
+                        <button type="button" onClick={() => setStatusMessage(null)} style={S.submit}>OK</button>
                     </div>
                 </div>
             )}
@@ -970,6 +987,15 @@ const S = {
         background: "#EFF6FF", color: "#1D4ED8", display: "flex", alignItems: "center",
         gap: 6, cursor: "pointer", fontWeight: 700,
     },
+    userActions: { display: "flex", alignItems: "center", gap: 8 },
+    deactivateButton: {
+        height: 34, padding: "0 11px", border: "1px solid #FECACA", borderRadius: 5,
+        background: "#FEF2F2", color: "#B91C1C", cursor: "pointer", fontWeight: 700,
+    },
+    activateButton: {
+        height: 34, padding: "0 11px", border: "1px solid #BBF7D0", borderRadius: 5,
+        background: "#F0FDF4", color: "#15803D", cursor: "pointer", fontWeight: 700,
+    },
     changePassword: {
         height: 39, padding: "0 12px", border: "1px solid #BFDBFE", borderRadius: 5,
         background: "#EFF6FF", color: "#1D4ED8", display: "flex", alignItems: "center",
@@ -982,6 +1008,11 @@ const S = {
     modal: {
         width: "min(680px, 100%)", maxHeight: "90vh", overflowY: "auto",
         background: "#FFFFFF", borderRadius: 7, boxShadow: "0 24px 60px rgba(15,23,42,0.24)",
+    },
+    messageModal: {
+        width: "min(400px, 100%)", display: "grid", gap: 14, padding: 20,
+        background: "#FFFFFF", borderRadius: 7, boxShadow: "0 24px 60px rgba(15,23,42,0.24)",
+        color: "#0F172A",
     },
     modalHeader: {
         display: "flex", justifyContent: "space-between", alignItems: "center",

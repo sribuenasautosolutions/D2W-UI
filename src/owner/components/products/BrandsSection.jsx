@@ -7,7 +7,6 @@ import {
   UploadCloud,
   Loader2,
   X,
-  Star,
   CheckCircle2,
 } from "lucide-react";
 import api from "../../../services/api";
@@ -57,7 +56,6 @@ function BrandsSection() {
   }, [brands, query]);
 
   const activeCount = useMemo(() => brands.filter((b) => b.active).length, [brands]);
-  const featuredCount = useMemo(() => brands.filter((b) => b.featured).length, [brands]);
   const latestBrand = brands.length ? brands[brands.length - 1].brandName : "—";
 
   const resetAddModal = () => {
@@ -159,7 +157,6 @@ function BrandsSection() {
       <div style={S.statsGrid}>
         <StatCard label="Total Brands" value={brands.length} icon={<Tag size={16} />} tint="#EEF2FF" iconColor="#4F46E5" />
         <StatCard label="Active" value={activeCount} icon={<CheckCircle2 size={16} />} tint="#ECFDF5" iconColor="#059669" />
-        <StatCard label="Featured" value={featuredCount} icon={<Star size={16} />} tint="#FFFBEB" iconColor="#D97706" />
         <StatCard label="Latest Added" value={latestBrand} icon={<Tag size={16} />} tint="#F5F3FF" iconColor="#7C3AED" small />
       </div>
 
@@ -192,7 +189,6 @@ function BrandsSection() {
                   <th style={S.th}>Brand</th>
                   <th style={S.th}>Slug</th>
                   <th style={S.th}>Status</th>
-                  <th style={S.th}>Featured</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,13 +200,6 @@ function BrandsSection() {
                       <span style={{ ...S.badge, ...(brand.active ? S.badgeActive : S.badgeInactive) }}>
                         {brand.active ? "Active" : "Inactive"}
                       </span>
-                    </td>
-                    <td style={S.td}>
-                      {brand.featured ? (
-                        <span style={{ ...S.badge, ...S.badgeFeatured }}>Featured</span>
-                      ) : (
-                        <span style={{ color: "#D1D5DB" }}>—</span>
-                      )}
                     </td>
                   </tr>
                 ))}
@@ -296,7 +285,7 @@ function BrandsSection() {
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {bulkResult.failedRows.map((f, idx) => (
                     <li key={idx} style={{ fontSize: 13, color: "#B91C1C" }}>
-                      Row {f.row}: {f.reason}
+                      Row {f.rowNumber}: {f.reason}
                     </li>
                   ))}
                 </ul>

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { CirclePlus, PackageCheck, Search, Trash2 } from "lucide-react";
 import api from "../../../services/api";
+import BulkUploadSection from "./BulkUploadSection";
 
 const emptyRow = () => ({
   key: `${Date.now()}-${Math.random()}`,
@@ -67,7 +68,7 @@ function withTrailingEmptyRow(rows) {
     : rows;
 }
 
-export default function AddStockSection() {
+function ManualStockReceipt() {
   const user = getUser();
   const isSuperAdmin = user.role === "SUPER_ADMIN";
   const [rows, setRows] = useState([emptyRow()]);
@@ -83,8 +84,8 @@ export default function AddStockSection() {
 
   const loadStores = async () => {
     if (!isSuperAdmin || stores.length) return;
-    const response = await api.get("/stores");
-    setStores((response.data || []).filter((store) => store.isActive !== false));
+    const response = await api.get("/stores", { params: { page: 0, size: 100, active: true } });
+    setStores(Array.isArray(response.data?.content) ? response.data.content : []);
   };
 
   const updateRow = (key, field, value) => {
@@ -380,6 +381,28 @@ export default function AddStockSection() {
   );
 }
 
+export default function AddStockSection() {
+  const [entryMode, setEntryMode] = useState("manual");
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div role="tablist" aria-label="Stock entry method" style={S.modeSwitch}>
+        <button type="button" role="tab" aria-selected={entryMode === "manual"}
+          onClick={() => setEntryMode("manual")}
+          style={{ ...S.modeButton, ...(entryMode === "manual" ? S.modeButtonActive : {}) }}>
+          Manual Entry
+        </button>
+        <button type="button" role="tab" aria-selected={entryMode === "bulk"}
+          onClick={() => setEntryMode("bulk")}
+          style={{ ...S.modeButton, ...(entryMode === "bulk" ? S.modeButtonActive : {}) }}>
+          Bulk Upload
+        </button>
+      </div>
+      {entryMode === "manual" ? <ManualStockReceipt /> : <BulkUploadSection />}
+    </div>
+  );
+}
+
 function CellInput({ value, onChange, placeholder, type = "text", narrow = false }) {
   return (
     <td style={S.td}>
@@ -422,6 +445,9 @@ function SuggestionInput({ row, field, placeholder, suggestions, onChange, onSel
 }
 
 const S = {
+  modeSwitch: { width: "fit-content", display: "flex", gap: 3, padding: 3, border: "1px solid #CBD5E1", borderRadius: 6, background: "#F1F5F9" },
+  modeButton: { height: 32, padding: "0 14px", border: 0, borderRadius: 4, background: "transparent", color: "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer" },
+  modeButtonActive: { background: "#FFFFFF", color: "#1D4ED8", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.12)" },
   page: { display: "grid", gap: 12 },
   toolbar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 },
   title: { margin: 0, fontSize: 17, color: "#0F172A" },

@@ -133,7 +133,8 @@ function Sidebar() {
                 >
                     <div style={{ fontSize: "30px", fontWeight: 900 }}>
                         <span style={{ color: "#FFFFFF" }}>D</span>
-                        <span style={{ color: "#F97316" }}>2W</span>
+                        <span style={{ color: "#F97316" }}>2</span>
+                        <span style={{ color: "#FFFFFF" }}>W</span>
                     </div>
                     <span
                         style={{
