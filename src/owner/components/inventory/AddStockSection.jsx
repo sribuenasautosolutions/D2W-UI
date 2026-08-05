@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CirclePlus, PackageCheck, Search, Trash2 } from "lucide-react";
 import api from "../../../services/api";
 import BulkUploadSection from "./BulkUploadSection";
@@ -19,6 +19,7 @@ const emptyRow = () => ({
   sellingManual: false,
   productId: null,
   localProductId: null,
+  selectedPartNumber: null,
   availableStock: null,
 });
 
@@ -81,6 +82,16 @@ function ManualStockReceipt() {
   const [suggestions, setSuggestions] = useState({});
   const [suggestionFocus, setSuggestionFocus] = useState(null);
   const firstInputRefs = useRef({});
+  const suggestionRequestRefs = useRef({});
+
+  useEffect(() => {
+    setRows((current) => {
+      const lastRow = current[current.length - 1];
+      return lastRow && isCompleteRow(lastRow)
+        ? [...current, emptyRow()]
+        : current;
+    });
+  }, [rows]);
 
   const loadStores = async () => {
     if (!isSuperAdmin || stores.length) return;
@@ -94,14 +105,27 @@ function ManualStockReceipt() {
         ...row,
         [field]: value,
         ...(field === "sellingPrice" ? { sellingManual: true } : {}),
+        ...(field === "partNumber" ? {
+          productId: null,
+          localProductId: null,
+          selectedPartNumber: null,
+        } : {}),
       } : row
     )));
   };
 
   const addRow = () => {
     const next = emptyRow();
-    setRows((current) => [...current, next]);
-    requestAnimationFrame(() => firstInputRefs.current[next.key]?.focus());
+    let focusKey = next.key;
+    setRows((current) => {
+      const lastRow = current[current.length - 1];
+      if (lastRow && isEmptyRow(lastRow)) {
+        focusKey = lastRow.key;
+        return current;
+      }
+      return [...current, next];
+    });
+    requestAnimationFrame(() => firstInputRefs.current[focusKey]?.focus());
   };
 
   const removeRow = (key) => {
@@ -111,6 +135,8 @@ function ManualStockReceipt() {
   };
 
   const findSuggestions = async (row, field, value) => {
+    const requestId = (suggestionRequestRefs.current[row.key] || 0) + 1;
+    suggestionRequestRefs.current[row.key] = requestId;
     setSuggestionFocus({ key: row.key, field });
     updateRow(row.key, field, field === "partNumber" ? value.toUpperCase() : value);
     if (!storeId || value.trim().length < 1) {
@@ -121,6 +147,7 @@ function ManualStockReceipt() {
       const response = await api.get("/store-inventory/suggestions", {
         params: { storeId: Number(storeId), query: value.trim() },
       });
+      if (suggestionRequestRefs.current[row.key] !== requestId) return;
       const matches = Array.isArray(response.data)
         ? response.data
         : response.data?.data || response.data?.content || [];
@@ -134,6 +161,7 @@ function ManualStockReceipt() {
       }
       setSuggestions((current) => ({ ...current, [row.key]: matches }));
     } catch (error) {
+      if (suggestionRequestRefs.current[row.key] !== requestId) return;
       setSuggestions((current) => ({ ...current, [row.key]: [] }));
       setMessage({
         type: "error",
@@ -147,6 +175,7 @@ function ManualStockReceipt() {
       ...row,
       productId: product.productId,
       localProductId: product.localProductId,
+      selectedPartNumber: product.partNumber || null,
       partNumber: product.partNumber || "",
       itemName: product.itemName || "",
       brandName: product.brandName || "",
@@ -203,8 +232,10 @@ function ManualStockReceipt() {
         priceMode,
         gstPercentage: Number(gstPercentage),
         items: rows.filter((row) => !isEmptyRow(row)).map((row) => ({
-          productId: row.productId,
-          localProductId: row.localProductId,
+          productId: row.selectedPartNumber?.trim().toUpperCase() === row.partNumber.trim().toUpperCase()
+            ? row.productId : null,
+          localProductId: row.selectedPartNumber?.trim().toUpperCase() === row.partNumber.trim().toUpperCase()
+            ? row.localProductId : null,
           partNumber: row.partNumber.trim(),
           itemName: row.itemName.trim(),
           brandName: row.brandName.trim(),
@@ -343,15 +374,16 @@ function ManualStockReceipt() {
                 </td>
                 <td style={S.td}><SuggestionInput row={row} field="itemName" placeholder="Item name"
                   suggestions={suggestionFocus?.key === row.key && suggestionFocus?.field === "itemName" ? suggestions[row.key] || [] : []} onChange={findSuggestions} onSelect={selectSuggestion} /></td>
-                <td style={S.td}><SuggestionInput row={row} field="brandName" placeholder="Brand"
-                  suggestions={suggestionFocus?.key === row.key && suggestionFocus?.field === "brandName" ? suggestions[row.key] || [] : []} onChange={findSuggestions} onSelect={selectSuggestion} /></td>
+                <CellInput value={row.brandName} placeholder="Brand"
+                  onChange={(value) => updateRow(row.key, "brandName", value)} />
                 <CellInput value={row.hsnCode} placeholder="Optional"
                   onChange={(value) => updateRow(row.key, "hsnCode", value)} />
                 <CellInput type="number" value={row.quantity} placeholder="0"
-                  onChange={(value) => updateRow(row.key, "quantity", value)} narrow />
+                  onChange={(value) => updateRow(row.key, "quantity", value)} narrow step="1" />
                 <CellInput type="number" value={row.purchasePrice} placeholder="0.00"
-                  onChange={(value) => updateRow(row.key, "purchasePrice", value)} />
+                  onChange={(value) => updateRow(row.key, "purchasePrice", value)} step="10" />
                 <CellInput type="number" value={row.mrp} placeholder="0.00"
+                  step="10"
                   onChange={(value) => {
                     setRows((current) => withTrailingEmptyRow(current.map((item) => item.key === row.key ? {
                       ...item,
@@ -362,7 +394,7 @@ function ManualStockReceipt() {
                     } : item)));
                   }} />
                 <CellInput type="number" value={row.sellingPrice} placeholder="0.00"
-                  onChange={(value) => updateRow(row.key, "sellingPrice", value)} />
+                  onChange={(value) => updateRow(row.key, "sellingPrice", value)} step="10" />
                 <CellInput value={row.rackNumber} placeholder="Optional"
                   onChange={(value) => updateRow(row.key, "rackNumber", value)} />
                 <td style={S.td}>
@@ -403,11 +435,12 @@ export default function AddStockSection() {
   );
 }
 
-function CellInput({ value, onChange, placeholder, type = "text", narrow = false }) {
+function CellInput({ value, onChange, placeholder, type = "text", narrow = false, step }) {
+  const resolvedStep = type === "number" ? (step ?? "0.01") : undefined;
   return (
     <td style={S.td}>
       <input type={type} min={type === "number" ? "0" : undefined}
-        step={type === "number" ? "0.01" : undefined}
+        step={resolvedStep}
         value={value} onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder} style={{ ...S.cellInput, ...(narrow ? S.narrowInput : {}) }} />
     </td>
