@@ -74,12 +74,10 @@ export default function CurrentStockSection() {
     api.get("/stores", { params: { page: 0, size: 100, active: true } }).then(({ data }) => {
       const active = Array.isArray(data?.content) ? data.content : [];
       setStores(active);
-      setStoreId((current) => current || (active[0]?.id ? String(active[0].id) : ""));
     }).catch(() => setError("Unable to load stores."));
   }, [isSuperAdmin]);
 
   const loadPage = useCallback(async () => {
-    if (!storeId) return;
     setLoading(true); setError("");
     try {
       const data = await getCurrentStockPage(storeId, {
@@ -96,10 +94,12 @@ export default function CurrentStockSection() {
   useEffect(() => { const timer = setTimeout(loadPage, 250); return () => clearTimeout(timer); }, [loadPage]);
 
   const loadDetails = useCallback(async () => {
-    if (!selectedId || !storeId || view !== "detail") return;
-    try { setDetails(await getProductDetails(storeId, selectedId)); }
+    if (!selectedId || view !== "detail") return;
+    const detailStoreId = storeId || result.content.find((item) => item.inventoryId === selectedId)?.storeId;
+    if (!detailStoreId) return;
+    try { setDetails(await getProductDetails(detailStoreId, selectedId)); }
     catch (requestError) { setError(errorMessage(requestError, "Unable to load product details.")); }
-  }, [selectedId, storeId, view]);
+  }, [result.content, selectedId, storeId, view]);
   useEffect(() => {
     // The request synchronizes the selected row with its backend detail resource.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -129,7 +129,7 @@ export default function CurrentStockSection() {
   };
 
   const exportStock = async () => {
-    if (!storeId || exporting) return;
+    if (exporting) return;
     setExporting(true); setError("");
     try {
       const first = await getCurrentStockPage(storeId, {
@@ -176,8 +176,8 @@ export default function CurrentStockSection() {
         <button className={view === "table" ? "active" : ""} onClick={() => { setView("table"); setPage(0); }}><Table2 size={16} />Available stock</button>
       </div>
       <div className="stock-toolbar-actions">
-        {isSuperAdmin && <select className="stock-store-select" value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">Select store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
-        <button className="stock-export-action" disabled={!storeId || exporting} onClick={exportStock}><Download size={16} />{exporting ? "Exporting..." : "Export stock"}</button>
+        {isSuperAdmin && <select className="stock-store-select" value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">All Stores</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
+        <button className="stock-export-action" disabled={exporting} onClick={exportStock}><Download size={16} />{exporting ? "Exporting..." : "Export stock"}</button>
       </div>
     </div>
     <div className="stock-global-filters">
@@ -188,8 +188,8 @@ export default function CurrentStockSection() {
     {error && <div className="stock-alert"><CircleAlert size={17} />{error}<button title="Dismiss" onClick={() => setError("")}><X size={15} /></button></div>}
 
     {view === "table" ? <div className="stock-table-view">
-      <div className="stock-table-wrap"><table><thead><tr><th>Item</th><th>Part number</th><th>Brand</th><th>Quantity</th><th>Minimum</th><th>Purchase</th><th>Selling</th><th>MRP</th><th>Status</th></tr></thead>
-        <tbody>{result.content.map((item) => { const itemStatus = statusOf(item); return <tr key={item.inventoryId} onClick={() => { setSelectedId(item.inventoryId); setView("detail"); }}><td><strong>{display(item.itemName)}</strong></td><td>{display(item.partNumber)}</td><td>{display(item.brandName)}</td><td><strong>{item.quantity}</strong></td><td>{item.minimumStock}</td><td>{money(item.purchasePrice)}</td><td>{money(item.sellingPrice)}</td><td>{money(item.mrp)}</td><td><span className={`stock-badge ${itemStatus.key}`}>{itemStatus.label}</span></td></tr>; })}{!loading && !result.content.length && <tr><td className="stock-table-empty" colSpan="9">No available stock matches these filters.</td></tr>}</tbody>
+      <div className="stock-table-wrap"><table><thead><tr>{isSuperAdmin && !storeId && <th>Store</th>}<th>Item</th><th>Part number</th><th>Brand</th><th>Quantity</th><th>Minimum</th><th>Purchase</th><th>Selling</th><th>MRP</th><th>Status</th></tr></thead>
+        <tbody>{result.content.map((item) => { const itemStatus = statusOf(item); return <tr key={item.inventoryId} onClick={() => { setSelectedId(item.inventoryId); setView("detail"); }}>{isSuperAdmin && !storeId && <td><strong>{display(item.storeName)}</strong><br /><small>{display(item.storeCode)}</small></td>}<td><strong>{display(item.itemName)}</strong></td><td>{display(item.partNumber)}</td><td>{display(item.brandName)}</td><td><strong>{item.quantity}</strong></td><td>{item.minimumStock}</td><td>{money(item.purchasePrice)}</td><td>{money(item.sellingPrice)}</td><td>{money(item.mrp)}</td><td><span className={`stock-badge ${itemStatus.key}`}>{itemStatus.label}</span></td></tr>; })}{!loading && !result.content.length && <tr><td className="stock-table-empty" colSpan={isSuperAdmin && !storeId ? 10 : 9}>No available stock matches these filters.</td></tr>}</tbody>
       </table></div>
       <Pagination result={result} page={page} size={size} setPage={setPage} setSize={setSize} />
     </div> : <div className="stock-workspace">

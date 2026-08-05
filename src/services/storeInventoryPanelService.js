@@ -20,7 +20,8 @@ export const getStoreInventory = async (storeId) => {
 };
 
 export const getCurrentStockPage = async (storeId, filters = {}) => {
-  const response = await api.get(`/store-inventory/store/${storeId}/paged`, {
+  const url = storeId ? `/store-inventory/store/${storeId}/paged` : `/store-inventory/paged`;
+  const response = await api.get(url, {
     params: filters,
   });
   return response.data;

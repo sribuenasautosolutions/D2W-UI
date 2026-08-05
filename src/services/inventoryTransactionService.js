@@ -20,8 +20,9 @@ export const createInventoryAdjustment = async (data) => {
 };
 
 export const getInventoryTransactionsPage = async (storeId, filters = {}) => {
+    const url = storeId ? `/inventory-transactions/store/${storeId}/paged` : `/inventory-transactions/paged`;
     const response = await api.get(
-        `/inventory-transactions/store/${storeId}/paged`,
+        url,
         { params: filters }
     );
     return response.data;

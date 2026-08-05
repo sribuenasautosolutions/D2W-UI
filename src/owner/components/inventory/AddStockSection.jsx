@@ -324,7 +324,7 @@ function ManualStockReceipt() {
                 recalculateAutomaticPrices(priceMode, event.target.value);
               }} style={S.gstNumber} />
           </label>
-          <button type="button" disabled={saving} onClick={receiveStock} style={S.primaryButton}>
+          <button type="button" disabled={saving || !storeId} onClick={receiveStock} style={S.primaryButton}>
             <PackageCheck size={17} /> {saving ? "Receiving..." : "Receive Stock"}
           </button>
         </div>

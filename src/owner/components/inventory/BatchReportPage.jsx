@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBatchReport } from "../../../services/inventoryService";
+import api from "../../../services/api";
 
 /* ============================================================
    CONSTANTS
@@ -546,11 +547,15 @@ function BatchReportPage() {
 
     const user = getUser();
     const isOwner = (user.role || "").toUpperCase() === "SUPER_ADMIN";
+    const [stores, setStores] = useState([]);
+    const [selectedStoreId, setSelectedStoreId] = useState(user.storeId ? String(user.storeId) : "");
 
     useEffect(() => {
-        loadBatches();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (!isOwner) return;
+        api.get("/stores", { params: { page: 0, size: 100, active: true } })
+            .then(({ data }) => setStores(Array.isArray(data?.content) ? data.content : []))
+            .catch(() => setError("Unable to load stores."));
+    }, [isOwner]);
 
     /* ---- existing data load logic (unchanged, only wrapped with loading/error UI state) ---- */
     const loadBatches = async () => {
@@ -558,8 +563,7 @@ function BatchReportPage() {
             setLoading(true);
             setError(null);
 
-            const user = JSON.parse(localStorage.getItem("user"));
-            const data = await getBatchReport(user.storeId);
+            const data = await getBatchReport(selectedStoreId);
 
             setBatches(data);
         } catch (e) {
@@ -569,6 +573,11 @@ function BatchReportPage() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadBatches();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedStoreId]);
 
     /* ---- filter dropdown option lists, derived from loaded data ---- */
     const brandOptions = useMemo(() => uniqueValues(batches, "brandName"), [batches]);
@@ -741,6 +750,21 @@ function BatchReportPage() {
                     <h1 style={S.title}>Batch Report</h1>
                 </div>
                 <div style={{ ...S.headerActions }} className="no-print">
+                    {isOwner && (
+                        <select
+                            style={S.select}
+                            value={selectedStoreId}
+                            onChange={(event) => {
+                                setSelectedStoreId(event.target.value);
+                                setPage(1);
+                            }}
+                        >
+                            <option value="">All Stores</option>
+                            {stores.map((store) => (
+                                <option key={store.id} value={store.id}>{store.storeName}</option>
+                            ))}
+                        </select>
+                    )}
                     <button style={{ ...S.btn, ...S.btnGhost }} className="btn-hover" onClick={loadBatches}>
                         <Icon.Refresh /> Refresh
                     </button>
@@ -883,7 +907,7 @@ function BatchReportPage() {
                 ) : error ? (
                     <ErrorCard message={error} onRetry={loadBatches} />
                 ) : sortedBatches.length === 0 ? (
-                    <EmptyState hasFilters={!!(searchText || brandFilter || categoryFilter || productFilter || storeFilter || statusFilter || dateFrom || dateTo)} onReset={handleReset} />
+                    <EmptyState hasFilters={!!(searchText || brandFilter || categoryFilter || productFilter || storeFilter || statusFilter || dateFrom || dateTo)} onReset={handleReset} addStockPath={isOwner ? "/owner/inventory?view=addstock" : "/store/inventory?view=addstock"} />
                 ) : (
                     <>
                         <div style={S.tableScroll}>
@@ -1058,7 +1082,7 @@ function ErrorCard({ message, onRetry }) {
     );
 }
 
-function EmptyState({ hasFilters, onReset }) {
+function EmptyState({ hasFilters, onReset, addStockPath }) {
     return (
         <div style={S.centerState}>
             <div style={{ color: COLORS.textMuted }}><Icon.Inbox /></div>
@@ -1073,7 +1097,7 @@ function EmptyState({ hasFilters, onReset }) {
                     Clear Filters
                 </button>
             ) : (
-                <button style={{ ...S.btn, ...S.btnPrimary, marginTop: "8px" }} onClick={() => (window.location.href = "/store/receive-stock")}>
+                <button style={{ ...S.btn, ...S.btnPrimary, marginTop: "8px" }} onClick={() => (window.location.href = addStockPath)}>
                     Receive Stock
                 </button>
             )}

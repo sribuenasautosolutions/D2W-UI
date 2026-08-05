@@ -37,15 +37,10 @@ export default function InventoryTransactionsSection() {
     api.get("/stores", { params: { page: 0, size: 100, active: true } }).then((response) => {
       const active = Array.isArray(response.data?.content) ? response.data.content : [];
       setStores(active);
-      if (!storeId && active.length) setStoreId(String(active[0].id));
     }).catch(() => setError("Unable to load stores"));
-  }, [isSuperAdmin, storeId]);
+  }, [isSuperAdmin]);
 
   const loadTransactions = useCallback(async () => {
-    if (!storeId) {
-      setResult({ content: [], totalElements: 0, totalPages: 0, number: 0 });
-      return;
-    }
     setLoading(true);
     setError("");
     try {
@@ -91,7 +86,7 @@ export default function InventoryTransactionsSection() {
       </div>
 
       <div style={S.filters}>
-        {isSuperAdmin && <select style={S.select} value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">Select store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
+        {isSuperAdmin && <select style={S.select} value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">All Stores</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
         <div style={S.searchWrap}><Search size={15} color="#64748B" /><input style={S.searchInput} value={searchText} onChange={(e) => setSearchText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { setAppliedSearch(searchText.trim()); setPage(0); } }} placeholder="Search item, part number or remarks" /><button style={S.searchButton} type="button" onClick={() => { setAppliedSearch(searchText.trim()); setPage(0); }}>Search</button></div>
         <select style={S.select} value={type} onChange={(e) => { setType(e.target.value); setPage(0); }}><option value="">All transaction types</option>{transactionTypes.map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select>
         <label style={S.dateField}><span>From</span><input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} /></label>

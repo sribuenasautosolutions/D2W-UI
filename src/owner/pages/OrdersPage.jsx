@@ -30,14 +30,10 @@ export default function OrdersPage() {
   }, [isSuperAdmin]);
 
   const loadOrders = useCallback(async () => {
-    if (!storeId) {
-      setOrders([]);
-      return;
-    }
     setLoading(true);
     setError("");
     try {
-      const response = await apiclient.get(`/orders/store/${storeId}`);
+      const response = await apiclient.get(storeId ? `/orders/store/${storeId}` : `/orders`);
       setOrders(Array.isArray(response.data) ? response.data : []);
     } catch (requestError) {
       setOrders([]);
@@ -60,25 +56,24 @@ export default function OrdersPage() {
     <header className="orders-heading">
       <div><span>Sales</span><h1>Store Orders</h1><p>Review invoices and payments for one store at a time.</p></div>
       {isSuperAdmin && <label className="orders-store-select"><span>Store</span><select value={storeId} onChange={(event) => setStoreId(event.target.value)}>
-        <option value="">Select a store</option>
+        <option value="">All Stores</option>
         {stores.map((store) => <option key={store.id ?? store.storeId} value={store.id ?? store.storeId}>{store.storeName} ({store.storeCode})</option>)}
       </select></label>}
     </header>
 
     <div className="orders-summary">
-      <div><FileText size={18} /><span>Selected store<strong>{selectedStore?.storeName || user?.storeName || "Select a store"}</strong></span></div>
-      <div><span>Invoices<strong>{storeId ? orders.length : "-"}</strong></span></div>
-      <div><span>Sales value<strong>{storeId ? formatMoney(orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0)) : "-"}</strong></span></div>
+      <div><FileText size={18} /><span>Store scope<strong>{selectedStore?.storeName || user?.storeName || "All Stores"}</strong></span></div>
+      <div><span>Invoices<strong>{orders.length}</strong></span></div>
+      <div><span>Sales value<strong>{formatMoney(orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0))}</strong></span></div>
     </div>
 
     <div className="orders-panel">
-      <div className="orders-tools"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search invoice, customer or phone" disabled={!storeId} /></label></div>
+      <div className="orders-tools"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search invoice, customer or phone" /></label></div>
       {error && <div className="orders-message orders-message--error">{error}</div>}
-      {!storeId ? <div className="orders-empty"><FileText size={30} /><strong>Select a store</strong><span>Choose a store above to view only its invoices.</span></div>
-        : loading ? <div className="orders-message">Loading orders...</div>
-          : <div className="orders-table-wrap"><table className="orders-table"><thead><tr><th>Invoice</th><th>Customer</th><th>Phone</th><th>Items</th><th>Payment</th><th>Amount</th><th>Date</th><th aria-label="Actions" /></tr></thead><tbody>
-            {visibleOrders.map((order) => <tr key={order.orderId}><td><strong>INV-{String(order.orderId).padStart(6, "0")}</strong><small>Order #{order.orderId}</small></td><td>{order.customerName || "-"}</td><td>{order.phone || "-"}</td><td>{order.totalItems ?? 0}</td><td><span className="orders-badge">{order.paymentMethod?.replaceAll("_", " ") || "-"}</span></td><td><strong>{formatMoney(order.totalAmount)}</strong></td><td>{formatDate(order.orderDate)}</td><td><button title="View invoice" onClick={() => navigate(`invoice/${order.orderId}`)}><Eye size={16} /></button></td></tr>)}
-            {!visibleOrders.length && <tr><td colSpan="8" className="orders-no-results">No orders found for this store.</td></tr>}
+      {loading ? <div className="orders-message">Loading orders...</div>
+          : <div className="orders-table-wrap"><table className="orders-table"><thead><tr>{isSuperAdmin && !storeId && <th>Store</th>}<th>Invoice</th><th>Customer</th><th>Phone</th><th>Items</th><th>Payment</th><th>Amount</th><th>Date</th><th aria-label="Actions" /></tr></thead><tbody>
+            {visibleOrders.map((order) => <tr key={order.orderId}>{isSuperAdmin && !storeId && <td><strong>{order.storeName || "-"}</strong><small>{order.storeCode || "-"}</small></td>}<td><strong>INV-{String(order.orderId).padStart(6, "0")}</strong><small>Order #{order.orderId}</small></td><td>{order.customerName || "-"}</td><td>{order.phone || "-"}</td><td>{order.totalItems ?? 0}</td><td><span className="orders-badge">{order.paymentMethod?.replaceAll("_", " ") || "-"}</span></td><td><strong>{formatMoney(order.totalAmount)}</strong></td><td>{formatDate(order.orderDate)}</td><td><button title="View invoice" onClick={() => navigate(`invoice/${order.orderId}`)}><Eye size={16} /></button></td></tr>)}
+            {!visibleOrders.length && <tr><td colSpan={isSuperAdmin && !storeId ? 9 : 8} className="orders-no-results">No orders match this store scope.</td></tr>}
           </tbody></table></div>}
     </div>
   </section>;

@@ -28,9 +28,8 @@ export default function InventoryAdjustmentSection() {
     api.get("/stores", { params: { page: 0, size: 100, active: true } }).then((response) => {
       const activeStores = Array.isArray(response.data?.content) ? response.data.content : [];
       setStores(activeStores);
-      if (!storeId && activeStores.length) setStoreId(String(activeStores[0].id));
     }).catch(() => setMessage({ type: "error", text: "Unable to load stores" }));
-  }, [isSuperAdmin, storeId]);
+  }, [isSuperAdmin]);
 
   const loadInventory = useCallback(async () => {
     if (!storeId) {
