@@ -5,6 +5,15 @@ import {
   getCustomerList,
 } from "../../services/reportService";
 
+/* ── auth helper ── */
+const getUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem("user"));
+  } catch {
+    return null;
+  }
+};
+
 /* ── styles ── */
 const S = {
   page:         { padding: "28px 30px", background: "#f1f5f9", minHeight: "100vh", fontFamily: "'Segoe UI', sans-serif" },
@@ -62,6 +71,7 @@ function KpiCard({ label, value, icon, iconBg, border }) {
 /* ── main ── */
 export default function CustomerReportPage() {
   const navigate = useNavigate();
+  const storeId = getUser()?.storeId;
 
   const [report,    setReport]    = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -71,12 +81,16 @@ export default function CustomerReportPage() {
   const [hoveredRow, setHoveredRow] = useState(null);
 
   const fetchAll = useCallback(async () => {
+    if (!storeId) {
+      navigate("/login");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const [reportData, customerData] = await Promise.all([
-        getCustomerReport(),
-        getCustomerList(),
+        getCustomerReport(storeId),
+        getCustomerList(storeId),
       ]);
       setReport(reportData);
       setCustomers(Array.isArray(customerData) ? customerData : []);
@@ -86,7 +100,7 @@ export default function CustomerReportPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeId, navigate]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Boxes, ChevronLeft, ChevronRight, CircleAlert, IndianRupee, Layers3,
   Download, LayoutList, MapPin, PackageSearch, Pencil, Save, Search, Table2, X,
@@ -32,9 +32,11 @@ function InfoGrid({ rows }) {
 }
 
 function Modal({ title, children, error, saving, onClose, onSave }) {
-  return <div className="stock-modal-backdrop" role="presentation">
-    <div className="stock-modal" role="dialog" aria-modal="true" aria-label={title}>
-      <header><h3>{title}</h3><button title="Close" onClick={onClose}><X size={18} /></button></header>
+  // Renders as a right-side slide-over drawer (Stripe/Linear pattern) rather than a centered
+  // dialog. Same fields, same save/close handlers — layout and motion only.
+  return <div className="stock-modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="stock-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
+      <header><h3>{title}</h3><button title="Close" aria-label="Close" onClick={onClose}><X size={18} /></button></header>
       <div className="stock-modal-body">{error && <div className="stock-modal-error" role="alert"><CircleAlert size={17} /><span>{error}</span></div>}{children}</div>
       <footer><button className="stock-secondary-action" onClick={onClose}>Cancel</button><button className="stock-primary-action" disabled={saving} onClick={onSave}><Save size={15} />{saving ? "Saving..." : "Save changes"}</button></footer>
     </div>
@@ -68,6 +70,11 @@ export default function CurrentStockSection() {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // UI-only: controls the collapsed/expanded state of the search capsule. Does not
+  // participate in the search request — `search` (below) still drives the API call.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -168,24 +175,44 @@ export default function CurrentStockSection() {
   const current = details?.inventoryId === selectedId ? details : selectedRow;
   const currentStatus = statusOf(current);
   const canEditBasic = details && (isSuperAdmin || details.productSource === "LOCAL");
+  const searchExpanded = searchOpen || search.length > 0;
 
   return <section className="current-stock-shell">
     <div className="stock-toolbar">
-      <div className="stock-view-switch" aria-label="Inventory view">
-        <button className={view === "detail" ? "active" : ""} onClick={() => { setView("detail"); setPage(0); }}><LayoutList size={16} />Detail view</button>
-        <button className={view === "table" ? "active" : ""} onClick={() => { setView("table"); setPage(0); }}><Table2 size={16} />Available stock</button>
+      <div className="stock-view-switch" role="tablist" aria-label="Inventory view">
+        <button role="tab" aria-selected={view === "detail"} className={view === "detail" ? "active" : ""} onClick={() => { setView("detail"); setPage(0); }}><LayoutList size={16} />Detail view</button>
+        <button role="tab" aria-selected={view === "table"} className={view === "table" ? "active" : ""} onClick={() => { setView("table"); setPage(0); }}><Table2 size={16} />Available stock</button>
       </div>
       <div className="stock-toolbar-actions">
-        {isSuperAdmin && <select className="stock-store-select" value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">All Stores</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
+        {isSuperAdmin && <select className="stock-store-select" aria-label="Filter by store" value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">All Stores</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
         <button className="stock-export-action" disabled={exporting} onClick={exportStock}><Download size={16} />{exporting ? "Exporting..." : "Export stock"}</button>
       </div>
     </div>
     <div className="stock-global-filters">
-      <div className="stock-search"><Search size={17} /><input value={search} onChange={changeFilter(setSearch)} placeholder="Search item, part number or brand" /></div>
-      <input className="stock-filter-input" value={brand} onChange={changeFilter(setBrand)} placeholder="Brand" />
-      <select value={status} onChange={changeFilter(setStatus)}><option value="">All status</option><option value="IN_STOCK">In stock</option><option value="LOW_STOCK">Low stock</option><option value="OUT_OF_STOCK">Out of stock</option></select>
+      <div className={`stock-search-capsule ${searchExpanded ? "expanded" : ""}`}>
+        <button
+          type="button"
+          className="stock-search-trigger"
+          aria-label={searchExpanded ? "Search field" : "Open search"}
+          onClick={() => { setSearchOpen(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }}
+        >
+          <Search size={17} />
+        </button>
+        <input
+          ref={searchInputRef}
+          value={search}
+          onChange={changeFilter(setSearch)}
+          onFocus={() => setSearchOpen(true)}
+          onBlur={() => { if (!search) setSearchOpen(false); }}
+          placeholder="Search item, part number or brand"
+          aria-hidden={!searchExpanded}
+          tabIndex={searchExpanded ? 0 : -1}
+        />
+      </div>
+      <input className="stock-filter-input" value={brand} onChange={changeFilter(setBrand)} placeholder="Brand" aria-label="Filter by brand" />
+      <select value={status} onChange={changeFilter(setStatus)} aria-label="Filter by status"><option value="">All status</option><option value="IN_STOCK">In stock</option><option value="LOW_STOCK">Low stock</option><option value="OUT_OF_STOCK">Out of stock</option></select>
     </div>
-    {error && <div className="stock-alert"><CircleAlert size={17} />{error}<button title="Dismiss" onClick={() => setError("")}><X size={15} /></button></div>}
+    {error && <div className="stock-alert" role="alert"><CircleAlert size={17} />{error}<button title="Dismiss" aria-label="Dismiss error" onClick={() => setError("")}><X size={15} /></button></div>}
 
     {view === "table" ? <div className="stock-table-view">
       <div className="stock-table-wrap"><table><thead><tr>{isSuperAdmin && !storeId && <th>Store</th>}<th>Item</th><th>Part number</th><th>Brand</th><th>Quantity</th><th>Minimum</th><th>Purchase</th><th>Selling</th><th>MRP</th><th>Status</th></tr></thead>
@@ -195,10 +222,16 @@ export default function CurrentStockSection() {
     </div> : <div className="stock-workspace">
       <aside className="stock-browser"><div className="stock-list">{result.content.map((item) => { const rowStatus = statusOf(item); return <button className={`stock-list-row ${selectedId === item.inventoryId ? "selected" : ""}`} key={item.inventoryId} onClick={() => { setSelectedId(item.inventoryId); setDetails(null); setTab("overview"); }}><span className="stock-row-icon"><Boxes size={18} /></span><span className="stock-row-copy"><strong>{display(item.itemName)}</strong><small>{display(item.brandName)} · {display(item.partNumber)}</small></span><span className="stock-row-meta"><span className={`stock-badge ${rowStatus.key}`}>{rowStatus.label}</span><strong>Qty {item.quantity}</strong></span></button>; })}{!loading && !result.content.length && <div className="stock-message">No inventory matches these filters.</div>}</div><Pagination result={result} page={page} size={size} setPage={setPage} setSize={setSize} compact /></aside>
       <div className="stock-detail-panel">{!current ? <div className="stock-empty"><PackageSearch size={30} /><strong>Select an inventory item</strong></div> : <>
-        <header className="stock-product-header"><div><div className="stock-title-line"><h2>{display(current.itemName)}</h2><span className={`stock-badge ${currentStatus.key}`}>{currentStatus.label}</span></div><p>{display(current.brandName)} · Part No. {display(current.partNumber)}</p></div><div className="stock-header-actions">{canEditBasic && <button className="stock-secondary-action" onClick={openBasic}><Pencil size={15} />Edit information</button>}{canManage && <button className="stock-primary-action" onClick={openPrices}><IndianRupee size={15} />Edit prices</button>}</div></header>
-        <nav className="stock-tabs">{TABS.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><Icon size={16} />{label}</button>)}</nav>
-        <div className="stock-tab-body">
-          {tab === "overview" && <div className="stock-section-stack"><div className="stock-section-heading"><div><h3>Product information</h3><p>Catalogue and inventory details</p></div></div><InfoGrid rows={[["Item name", current.itemName], ["Brand", current.brandName], ["Part number", current.partNumber], ["Source", current.productSource], ["Category", current.categoryName], ["Product group", current.productMasterName], ["HSN code", current.hsncode], ["GST rate", current.gstPercentage == null ? "-" : `${current.gstPercentage}%`]]} /><div className="stock-description"><span>Description</span><p>{display(current.description)}</p></div><InfoGrid rows={[["Available quantity", current.quantity || 0], ["Reserved quantity", current.reservedQuantity || 0], ["Damaged quantity", current.damagedQuantity || 0], ["Minimum stock", current.minimumStock || 0]]} /></div>}
+        <header className="stock-product-header">
+          <div className="stock-product-identity">
+            <div className="stock-product-avatar" aria-hidden="true"><Boxes size={24} /></div>
+            <div><div className="stock-title-line"><h2>{display(current.itemName)}</h2><span className={`stock-badge ${currentStatus.key}`}>{currentStatus.label}</span></div><p>{display(current.brandName)} · Part No. {display(current.partNumber)}</p></div>
+          </div>
+          <div className="stock-header-actions">{canEditBasic && <button className="stock-secondary-action" onClick={openBasic}><Pencil size={15} />Edit information</button>}{canManage && <button className="stock-primary-action" onClick={openPrices}><IndianRupee size={15} />Edit prices</button>}</div>
+        </header>
+        <nav className="stock-tabs" role="tablist">{TABS.map(({ id, label, icon: Icon }) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><Icon size={16} />{label}</button>)}</nav>
+        <div className="stock-tab-body" key={tab} role="tabpanel">
+          {tab === "overview" && <div className="stock-section-stack"><div className="stock-section-heading"><div><h3>Product information</h3><p>Catalogue and inventory details</p></div></div><InfoGrid rows={[["Item name", current.itemName], ["Brand", current.brandName], ["Part number", current.partNumber], ["Source", current.productSource], ["Category", current.categoryName], ["Subcategory ", current.productMasterName], ["HSN code", current.hsncode], ["GST rate", current.gstPercentage == null ? "-" : `${current.gstPercentage}%`]]} /><div className="stock-description"><span>Description</span><p>{display(current.description)}</p></div><InfoGrid rows={[["Available quantity", current.quantity || 0],  ["Damaged quantity", current.damagedQuantity || 0], ["Minimum stock", current.minimumStock || 0]]} /></div>}
           {tab === "pricing" && <div className="stock-price-grid"><div><span>Purchase price</span><strong>{money(current.purchasePrice)}</strong></div><div><span>Selling price</span><strong>{money(current.sellingPrice)}</strong></div><div><span>MRP</span><strong>{money(current.mrp)}</strong></div><div><span>GST rate</span><strong>{current.gstPercentage == null ? "-" : `${current.gstPercentage}%`}</strong></div></div>}
           {tab === "batches" && <BatchTable batches={batches} canManage={canManage} onEdit={openBatch} />}
           {tab === "locations" && <LocationTable locations={locations.content || []} />}
@@ -212,6 +245,6 @@ export default function CurrentStockSection() {
   </section>;
 }
 
-function Pagination({ result, page, size, setPage, setSize, compact = false }) { return <footer className="stock-pagination"><span>{result.totalElements ? `${page * size + 1}-${Math.min((page + 1) * size, result.totalElements)} of ${result.totalElements}` : "0 items"}</span><div>{!compact && <select value={size} onChange={(e) => { setSize(Number(e.target.value)); setPage(0); }}><option value="10">10 / page</option><option value="20">20 / page</option><option value="50">50 / page</option></select>}<button title="Previous page" disabled={page <= 0} onClick={() => setPage(page - 1)}><ChevronLeft size={17} /></button><strong>{page + 1}</strong><button title="Next page" disabled={page + 1 >= result.totalPages} onClick={() => setPage(page + 1)}><ChevronRight size={17} /></button></div></footer>; }
-function BatchTable({ batches, canManage, onEdit }) { return <div className="stock-table-wrap"><table><thead><tr><th>Batch</th><th>Received</th><th>Available</th><th>Purchase</th><th>Selling</th><th>MRP</th><th>Rack</th>{canManage && <th>Action</th>}</tr></thead><tbody>{batches.map((batch) => <tr key={batch.batchId}><td><strong>{batch.batchNumber}</strong></td><td>{batch.receivedDate ? new Date(batch.receivedDate).toLocaleDateString("en-IN") : "-"}</td><td>{batch.availableQuantity}</td><td>{money(batch.purchasePrice)}</td><td>{money(batch.sellingPrice)}</td><td>{money(batch.mrp)}</td><td>{display(batch.rackNumber)}</td>{canManage && <td><button className="stock-icon-action" title="Edit batch" onClick={() => onEdit(batch)}><Pencil size={15} /></button></td>}</tr>)}{!batches.length && <tr><td className="stock-table-empty" colSpan={canManage ? 8 : 7}>No batches found.</td></tr>}</tbody></table></div>; }
+function Pagination({ result, page, size, setPage, setSize, compact = false }) { return <footer className="stock-pagination"><span>{result.totalElements ? `${page * size + 1}-${Math.min((page + 1) * size, result.totalElements)} of ${result.totalElements}` : "0 items"}</span><div>{!compact && <select value={size} onChange={(e) => { setSize(Number(e.target.value)); setPage(0); }} aria-label="Rows per page"><option value="10">10 / page</option><option value="20">20 / page</option><option value="50">50 / page</option></select>}<button title="Previous page" aria-label="Previous page" disabled={page <= 0} onClick={() => setPage(page - 1)}><ChevronLeft size={17} /></button><strong>{page + 1}</strong><button title="Next page" aria-label="Next page" disabled={page + 1 >= result.totalPages} onClick={() => setPage(page + 1)}><ChevronRight size={17} /></button></div></footer>; }
+function BatchTable({ batches, canManage, onEdit }) { return <div className="stock-table-wrap"><table><thead><tr><th>Batch</th><th>Received</th><th>Available</th><th>Purchase</th><th>Selling</th><th>MRP</th><th>Rack</th>{canManage && <th>Action</th>}</tr></thead><tbody>{batches.map((batch) => <tr key={batch.batchId}><td><strong>{batch.batchNumber}</strong></td><td>{batch.receivedDate ? new Date(batch.receivedDate).toLocaleDateString("en-IN") : "-"}</td><td>{batch.availableQuantity}</td><td>{money(batch.purchasePrice)}</td><td>{money(batch.sellingPrice)}</td><td>{money(batch.mrp)}</td><td>{display(batch.rackNumber)}</td>{canManage && <td><button className="stock-icon-action" title="Edit batch" aria-label="Edit batch" onClick={() => onEdit(batch)}><Pencil size={15} /></button></td>}</tr>)}{!batches.length && <tr><td className="stock-table-empty" colSpan={canManage ? 8 : 7}>No batches found.</td></tr>}</tbody></table></div>; }
 function LocationTable({ locations }) { return <div className="stock-table-wrap"><table><thead><tr><th>Store</th><th>Store code</th><th>Quantity</th><th>Minimum</th><th>Selling</th><th>MRP</th><th>Status</th></tr></thead><tbody>{locations.map((location) => { const state = statusOf({ quantity: location.availableQuantity, minimumStock: location.minimumStock, stockStatus: location.stockStatus }); return <tr key={location.inventoryId}><td><strong>{location.storeName}</strong></td><td>{location.storeCode}</td><td>{location.availableQuantity}</td><td>{location.minimumStock}</td><td>{money(location.sellingPrice)}</td><td>{money(location.mrp)}</td><td><span className={`stock-badge ${state.key}`}>{state.label}</span></td></tr>; })}{!locations.length && <tr><td className="stock-table-empty" colSpan="7">No locations found.</td></tr>}</tbody></table></div>; }

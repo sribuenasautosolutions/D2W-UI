@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getCustomerDetails,
-  getCustomerOrders,
-} from "../../services/customerService";
+  getCustomerOrderHistory,
+} from "../../services/reportService";
 
 /* ── design tokens ── */
 const C = {
@@ -133,7 +133,7 @@ export default function CustomerDetailsPage() {
     try {
       const [cust, ords] = await Promise.all([
         getCustomerDetails(id),
-        getCustomerOrders(id),
+        getCustomerOrderHistory(id),
       ]);
       setCustomer(cust);
       setOrders(Array.isArray(ords) ? ords : []);

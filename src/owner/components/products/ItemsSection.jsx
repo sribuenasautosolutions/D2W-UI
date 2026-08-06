@@ -159,22 +159,27 @@ function ItemsSection() {
     setSaving(false);
   };
 
-  const downloadSampleFile = () => {
-    const csvContent = [
-      "BrandName,CategoryName,MasterName,ProductName,Description,PartNumber,OemNumber,Ean,HsnCode",
-      "Bosch,Braking System,Brake Pads,Front Brake Pad Set,OE quality front brake pad set,BP-1234,OEM-5678,8901234567890,8708",
-    ].join("\n");
+  const downloadTemplate = async () => {
+    try {
+      const response = await apiclient.get("/products/bulk-upload/template", {
+        responseType: "blob",
+      });
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "product_bulk_upload_sample.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "product_bulk_upload_template.xlsx";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download template", error);
+      setToast({ type: "error", msg: "Could not download template." });
+    }
   };
 
   const uploadItems = async () => {
@@ -423,14 +428,15 @@ function ItemsSection() {
             </div>
 
             <p style={S.hint}>
-              9 columns: Brand, Category, Master, Product Name, Description, Part Number, OEM
-              Number, EAN, HSN Code. Only the first four plus Part Number are
-              required — Brand/Category/Master are created automatically if they don't exist yet.
-              Pricing isn't supported in bulk upload.
+              Accepts .csv or .xlsx/.xls files with 9 columns: Brand, Category, Master, Product
+              Name, Description, Part Number, OEM Number, EAN, HSN Code. Only Brand, Category,
+              Master, Product Name and Part Number are required — Brand/Category/Master are
+              created automatically if they don't exist yet. Pricing isn't supported in bulk
+              upload.
             </p>
 
-            <button style={S.linkBtn} onClick={downloadSampleFile}>
-              <Download size={14} /> Download Sample CSV
+            <button style={S.linkBtn} onClick={downloadTemplate}>
+              <Download size={14} /> Download Excel Template
             </button>
 
             <div style={S.fileRow}>
@@ -440,6 +446,10 @@ function ItemsSection() {
                 onChange={(e) => setSelectedFile(e.target.files[0] || null)}
               />
             </div>
+
+            {selectedFile && (
+              <p style={S.selectedFileLabel}>Selected: {selectedFile.name}</p>
+            )}
 
             <div style={S.modalActions}>
               <button style={S.ghostBtn} onClick={() => setShowBulkModal(false)}>
@@ -686,6 +696,12 @@ const S = {
     marginTop: -6,
     marginBottom: 14,
     lineHeight: 1.5,
+  },
+  selectedFileLabel: {
+    fontSize: 12.5,
+    color: "#374151",
+    marginTop: 6,
+    marginBottom: 0,
   },
   fieldRow: {
     display: "flex",

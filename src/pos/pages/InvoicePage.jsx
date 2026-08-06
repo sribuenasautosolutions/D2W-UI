@@ -62,6 +62,19 @@ const paymentSummary = (payments) => {
   return methods.length ? methods.map((method) => method.replaceAll("_", " ")).join(" + ") : "Not paid";
 };
 
+// Reads the currently logged-in user's name, as stored by LoginPage.jsx
+// (localStorage.setItem("user", JSON.stringify(loginResponse))).
+const loggedInUserName = () => {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user.name || null;
+  } catch {
+    return null;
+  }
+};
+
 function InfoLine({ label, value }) {
   return <div className="invoice-info-line"><span>{label}</span><strong>{text(value)}</strong></div>;
 }
@@ -97,6 +110,7 @@ export default function InvoicePage() {
 
   const items = useMemo(() => invoice?.items || [], [invoice]);
   const payments = useMemo(() => invoice?.payments || [], [invoice]);
+  const collectedBy = useMemo(() => invoice?.collectedByName || loggedInUserName(), [invoice]);
 
   const startSale = () => {
     clearCart();
@@ -149,7 +163,7 @@ export default function InvoicePage() {
           <InfoLine label="Order Date" value={date(invoice.orderDate, true)} />
           <InfoLine label="Payment" value={paymentSummary(payments)} />
           <InfoLine label="Status" value={invoice.orderStatus?.replaceAll("_", " ")} />
-          <InfoLine label="Store Owner" value={invoice.storeOwnerName} />
+          <InfoLine label="Collected By" value={collectedBy} />
         </div>
       </section>
 
