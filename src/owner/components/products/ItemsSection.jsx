@@ -7,7 +7,6 @@ import {
   UploadCloud,
   Loader2,
   X,
-  CheckCircle2,
 } from "lucide-react";
 import apiclient from "../../../services/apiclient";
 
@@ -25,6 +24,9 @@ const EMPTY_FORM = {
 
 function ItemsSection() {
   const [items, setItems] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [masters, setMasters] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -46,8 +48,16 @@ function ItemsSection() {
     setLoading(true);
 
     try {
-      const response = await apiclient.get("/products");
-      setItems(response.data || []);
+      const [itemResponse, brandResponse, categoryResponse, masterResponse] = await Promise.all([
+        apiclient.get("/products"),
+        apiclient.get("/brands"),
+        apiclient.get("/categories"),
+        apiclient.get("/product-masters"),
+      ]);
+      setItems(itemResponse.data || []);
+      setBrands(brandResponse.data || []);
+      setCategories(categoryResponse.data || []);
+      setMasters(masterResponse.data || []);
     } catch (error) {
       console.error(error);
     }
@@ -75,24 +85,35 @@ function ItemsSection() {
     );
   }, [items, query]);
 
-  const latestItem = items.length ? items[items.length - 1].itemName : "—";
-
   const brandOptions = useMemo(
-    () => [...new Set(items.map((i) => i.brandName).filter(Boolean))],
-    [items]
+    () => brands.map((brand) => brand.brandName).filter(Boolean),
+    [brands]
   );
   const categoryOptions = useMemo(
-    () => [...new Set(items.map((i) => i.categoryName).filter(Boolean))],
-    [items]
+    () => categories.map((category) => category.categoryName).filter(Boolean),
+    [categories]
   );
   const masterOptions = useMemo(
-    () => [...new Set(items.map((i) => i.masterName).filter(Boolean))],
-    [items]
+    () => masters
+      .filter((master) => !formData.categoryName || master.categoryName === formData.categoryName)
+      .map((master) => master.masterName)
+      .filter(Boolean),
+    [formData.categoryName, masters]
   );
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      if (name === "masterName") {
+        const selectedMaster = masters.find((master) => master.masterName === value);
+        return { ...prev, masterName: value, categoryName: selectedMaster?.categoryName || prev.categoryName };
+      }
+      if (name === "categoryName") {
+        const currentMaster = masters.find((master) => master.masterName === prev.masterName);
+        return { ...prev, categoryName: value, masterName: currentMaster?.categoryName === value ? prev.masterName : "" };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const resetAddModal = () => {
@@ -138,22 +159,27 @@ function ItemsSection() {
     setSaving(false);
   };
 
-  const downloadSampleFile = () => {
-    const csvContent = [
-      "BrandName,CategoryName,MasterName,ProductName,Description,PartNumber,OemNumber,Ean,HsnCode",
-      "Bosch,Braking System,Brake Pads,Front Brake Pad Set,OE quality front brake pad set,BP-1234,OEM-5678,8901234567890,8708",
-    ].join("\n");
+  const downloadTemplate = async () => {
+    try {
+      const response = await apiclient.get("/products/bulk-upload/template", {
+        responseType: "blob",
+      });
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "product_bulk_upload_sample.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "product_bulk_upload_template.xlsx";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download template", error);
+      setToast({ type: "error", msg: "Could not download template." });
+    }
   };
 
   const uploadItems = async () => {
@@ -205,14 +231,6 @@ function ItemsSection() {
             <Plus size={15} /> Add Item
           </button>
         </div>
-      </div>
-
-      {/* Stat cards */}
-      <div style={S.statsGrid}>
-        <StatCard label="Total Items" value={items.length} icon={<Boxes size={16} />} tint="#EEF2FF" iconColor="#4F46E5" />
-        <StatCard label="Brands Used" value={new Set(items.map((i) => i.brandName)).size} icon={<CheckCircle2 size={16} />} tint="#ECFDF5" iconColor="#059669" />
-        <StatCard label="Categories Covered" value={new Set(items.map((i) => i.categoryName)).size} icon={<Boxes size={16} />} tint="#FFFBEB" iconColor="#D97706" />
-        <StatCard label="Latest Added" value={latestItem} icon={<Boxes size={16} />} tint="#F5F3FF" iconColor="#7C3AED" small />
       </div>
 
       {/* Toolbar */}
@@ -410,14 +428,15 @@ function ItemsSection() {
             </div>
 
             <p style={S.hint}>
-              9 columns: Brand, Category, Master, Product Name, Description, Part Number, OEM
-              Number, EAN, HSN Code. Only the first four plus Part Number are
-              required — Brand/Category/Master are created automatically if they don't exist yet.
-              Pricing isn't supported in bulk upload.
+              Accepts .csv or .xlsx/.xls files with 9 columns: Brand, Category, Master, Product
+              Name, Description, Part Number, OEM Number, EAN, HSN Code. Only Brand, Category,
+              Master, Product Name and Part Number are required — Brand/Category/Master are
+              created automatically if they don't exist yet. Pricing isn't supported in bulk
+              upload.
             </p>
 
-            <button style={S.linkBtn} onClick={downloadSampleFile}>
-              <Download size={14} /> Download Sample CSV
+            <button style={S.linkBtn} onClick={downloadTemplate}>
+              <Download size={14} /> Download Excel Template
             </button>
 
             <div style={S.fileRow}>
@@ -427,6 +446,10 @@ function ItemsSection() {
                 onChange={(e) => setSelectedFile(e.target.files[0] || null)}
               />
             </div>
+
+            {selectedFile && (
+              <p style={S.selectedFileLabel}>Selected: {selectedFile.name}</p>
+            )}
 
             <div style={S.modalActions}>
               <button style={S.ghostBtn} onClick={() => setShowBulkModal(false)}>
@@ -673,6 +696,12 @@ const S = {
     marginTop: -6,
     marginBottom: 14,
     lineHeight: 1.5,
+  },
+  selectedFileLabel: {
+    fontSize: 12.5,
+    color: "#374151",
+    marginTop: 6,
+    marginBottom: 0,
   },
   fieldRow: {
     display: "flex",

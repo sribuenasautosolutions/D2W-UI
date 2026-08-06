@@ -1,12 +1,27 @@
-import { useState, useEffect } from "react";
-
+import { useEffect, useRef, useState } from "react";
+import { CirclePlus, PackageCheck, Search, Trash2 } from "lucide-react";
 import api from "../../../services/api";
-import { getProductBatches } from "../../../services/productService";
-import { searchProducts } from "../../../services/productSearchService";
+import BulkUploadSection from "./BulkUploadSection";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// ── Utility ──────────────────────────────────────────────────────────────────
+const emptyRow = () => ({
+  key: `${Date.now()}-${Math.random()}`,
+  partNumber: "",
+  itemName: "",
+  brandName: "",
+  quantity: "",
+  purchasePrice: "",
+  mrp: "",
+  priceMode: "GST_INCLUSIVE",
+  gstPercentage: "18",
+  rackNumber: "",
+  hsnCode: "",
+  sellingPrice: "",
+  sellingManual: false,
+  productId: null,
+  localProductId: null,
+  selectedPartNumber: null,
+  availableStock: null,
+});
 
 function getUser() {
   try {
@@ -16,893 +31,488 @@ function getUser() {
   }
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+function calculateFromSettings(mrpValue, priceMode, gstPercentage) {
+  const mrp = Number(mrpValue);
+  const gst = Number(gstPercentage);
+  if (!Number.isFinite(mrp) || mrp <= 0) return "";
+  if (priceMode === "GST_INCLUSIVE") return mrp.toFixed(2);
+  return (mrp / (1 + (Number.isFinite(gst) ? gst : 0) / 100)).toFixed(2);
+}
 
-function FieldGroup({ label, required, hint, error, children }) {
-  return (
-    <div style={styles.fieldGroup}>
-      <label style={styles.label}>
-        {label}
-        {required && <span style={styles.required}> *</span>}
-      </label>
-      {hint && <p style={styles.hint}>{hint}</p>}
-      {children}
-      {error && <p style={styles.fieldError}>{error}</p>}
-    </div>
+function isCompleteRow(row) {
+  return Boolean(
+    row.partNumber.trim()
+    && row.itemName.trim()
+    && row.brandName.trim()
+    && Number(row.quantity) > 0
+    && row.purchasePrice !== ""
+    && Number(row.mrp) > 0
+    && Number(row.sellingPrice) > 0
   );
 }
 
-function PriceInput({ label, required, value, onChange, error, placeholder,readOnly = false }) {
-  return (
-    <div style={styles.priceCell}>
-      <FieldGroup label={label} required={required} error={error}>
-        <div style={styles.inputWrapper}>
-          <span style={styles.currencySymbol}>₹</span>
-          <input
-    type="number"
-    min="0"
-    step="0.01"
-    value={value}
-    onChange={(e) => onChange(e.target.value)}
-    readOnly={readOnly}
-    placeholder={placeholder || "0.00"}
-    style={{
-        ...styles.input,
-        paddingLeft: "2rem",
-        background: readOnly ? "#f1f5f9" : "#ffffff",
-        cursor: readOnly ? "not-allowed" : "text"
-    }}
-/>
-        </div>
-      </FieldGroup>
-    </div>
-  );
+function isEmptyRow(row) {
+  return !row.partNumber.trim()
+    && !row.itemName.trim()
+    && !row.brandName.trim()
+    && row.quantity === ""
+    && row.purchasePrice === ""
+    && row.mrp === ""
+    && row.sellingPrice === ""
+    && !row.hsnCode.trim()
+    && !row.rackNumber.trim();
 }
 
-function StatusBadge({ type, children }) {
-  const map = {
-    success: { bg: "#d1fae5", color: "#065f46", border: "#6ee7b7" },
-    error:   { bg: "#fee2e2", color: "#7f1d1d", border: "#fca5a5" },
-    info:    { bg: "#dbeafe", color: "#1e3a5f", border: "#93c5fd" },
-    warning: { bg: "#fef3c7", color: "#78350f", border: "#fcd34d" },
+function withTrailingEmptyRow(rows) {
+  return rows.length > 0 && isCompleteRow(rows.at(-1))
+    ? [...rows, emptyRow()]
+    : rows;
+}
+
+function ManualStockReceipt() {
+  const user = getUser();
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const [rows, setRows] = useState([emptyRow()]);
+  const [stores, setStores] = useState([]);
+  const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [priceMode, setPriceMode] = useState("GST_INCLUSIVE");
+  const [gstPercentage, setGstPercentage] = useState("18");
+  const [suggestions, setSuggestions] = useState({});
+  const [suggestionFocus, setSuggestionFocus] = useState(null);
+  const firstInputRefs = useRef({});
+  const suggestionRequestRefs = useRef({});
+
+  useEffect(() => {
+    setRows((current) => {
+      const lastRow = current[current.length - 1];
+      return lastRow && isCompleteRow(lastRow)
+        ? [...current, emptyRow()]
+        : current;
+    });
+  }, [rows]);
+
+  const loadStores = async () => {
+    if (!isSuperAdmin || stores.length) return;
+    const response = await api.get("/stores", { params: { page: 0, size: 100, active: true } });
+    setStores(Array.isArray(response.data?.content) ? response.data.content : []);
   };
-  const s = map[type] || map.info;
+
+  const updateRow = (key, field, value) => {
+    setRows((current) => withTrailingEmptyRow(current.map((row) =>
+      row.key === key ? {
+        ...row,
+        [field]: value,
+        ...(field === "sellingPrice" ? { sellingManual: true } : {}),
+        ...(field === "partNumber" ? {
+          productId: null,
+          localProductId: null,
+          selectedPartNumber: null,
+        } : {}),
+      } : row
+    )));
+  };
+
+  const addRow = () => {
+    const next = emptyRow();
+    let focusKey = next.key;
+    setRows((current) => {
+      const lastRow = current[current.length - 1];
+      if (lastRow && isEmptyRow(lastRow)) {
+        focusKey = lastRow.key;
+        return current;
+      }
+      return [...current, next];
+    });
+    requestAnimationFrame(() => firstInputRefs.current[focusKey]?.focus());
+  };
+
+  const removeRow = (key) => {
+    setRows((current) => current.length === 1
+      ? [emptyRow()]
+      : current.filter((row) => row.key !== key));
+  };
+
+  const findSuggestions = async (row, field, value) => {
+    const requestId = (suggestionRequestRefs.current[row.key] || 0) + 1;
+    suggestionRequestRefs.current[row.key] = requestId;
+    setSuggestionFocus({ key: row.key, field });
+    updateRow(row.key, field, field === "partNumber" ? value.toUpperCase() : value);
+    if (!storeId || value.trim().length < 1) {
+      setSuggestions((current) => ({ ...current, [row.key]: [] }));
+      return;
+    }
+    try {
+      const response = await api.get("/store-inventory/suggestions", {
+        params: { storeId: Number(storeId), query: value.trim() },
+      });
+      if (suggestionRequestRefs.current[row.key] !== requestId) return;
+      const matches = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data || response.data?.content || [];
+      const exactPart = field === "partNumber"
+        ? matches.find((product) =>
+            product.partNumber?.toLowerCase() === value.trim().toLowerCase())
+        : null;
+      if (exactPart) {
+        selectSuggestion(row.key, exactPart);
+        return;
+      }
+      setSuggestions((current) => ({ ...current, [row.key]: matches }));
+    } catch (error) {
+      if (suggestionRequestRefs.current[row.key] !== requestId) return;
+      setSuggestions((current) => ({ ...current, [row.key]: [] }));
+      setMessage({
+        type: "error",
+        text: error.response?.data?.message || "Unable to search catalogue products",
+      });
+    }
+  };
+
+  const selectSuggestion = (key, product) => {
+    setRows((current) => withTrailingEmptyRow(current.map((row) => row.key === key ? {
+      ...row,
+      productId: product.productId,
+      localProductId: product.localProductId,
+      selectedPartNumber: product.partNumber || null,
+      partNumber: product.partNumber || "",
+      itemName: product.itemName || "",
+      brandName: product.brandName || "",
+      hsnCode: product.hsnCode || "",
+      purchasePrice: product.purchasePrice ?? "",
+      sellingPrice: product.sellingPrice ?? "",
+      mrp: product.mrp ?? "",
+      availableStock: product.availableStock ?? 0,
+      sellingManual: false,
+    } : row)));
+    setSuggestions((current) => ({ ...current, [key]: [] }));
+    setSuggestionFocus(null);
+  };
+
+  const recalculateAutomaticPrices = (nextMode, nextGst) => {
+    setRows((current) => current.map((row) => row.sellingManual ? row : {
+      ...row,
+      sellingPrice: calculateFromSettings(row.mrp, nextMode, nextGst),
+    }));
+  };
+
+  const validate = () => {
+    if (!storeId) return "Select a store";
+    const receiptRows = rows.filter((row) => !isEmptyRow(row));
+    if (!receiptRows.length) return "Enter at least one stock row";
+    for (let index = 0; index < receiptRows.length; index++) {
+      const row = receiptRows[index];
+      if (!row.partNumber.trim()) return `Row ${index + 1}: Part Number is required`;
+      if (!row.itemName.trim()) return `Row ${index + 1}: Item Name is required`;
+      if (!row.brandName.trim()) return `Row ${index + 1}: Brand is required`;
+      if (Number(row.quantity) <= 0) return `Row ${index + 1}: Quantity must be greater than zero`;
+      if (Number(row.purchasePrice) < 0 || row.purchasePrice === "") return `Row ${index + 1}: Purchase Price is required`;
+      if (Number(row.mrp) <= 0) return `Row ${index + 1}: MRP must be greater than zero`;
+      if (Number(row.sellingPrice) <= 0) return `Row ${index + 1}: Selling Price is required`;
+      if (Number(row.purchasePrice) > Number(row.sellingPrice)) {
+        return `Row ${index + 1}: Purchase Price cannot exceed Selling Price`;
+      }
+      if (Number(row.sellingPrice) > Number(row.mrp)) return `Row ${index + 1}: Selling Price cannot exceed MRP`;
+    }
+    return "";
+  };
+
+  const receiveStock = async () => {
+    const error = validate();
+    if (error) {
+      setMessage({ type: "error", text: error });
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      const payload = {
+        storeId: Number(storeId),
+        priceMode,
+        gstPercentage: Number(gstPercentage),
+        items: rows.filter((row) => !isEmptyRow(row)).map((row) => ({
+          productId: row.selectedPartNumber?.trim().toUpperCase() === row.partNumber.trim().toUpperCase()
+            ? row.productId : null,
+          localProductId: row.selectedPartNumber?.trim().toUpperCase() === row.partNumber.trim().toUpperCase()
+            ? row.localProductId : null,
+          partNumber: row.partNumber.trim(),
+          itemName: row.itemName.trim(),
+          brandName: row.brandName.trim(),
+          quantity: Number(row.quantity),
+          purchasePrice: Number(row.purchasePrice),
+          sellingPrice: Number(row.sellingPrice),
+          mrp: Number(row.mrp),
+          hsnCode: row.hsnCode.trim() || null,
+          rackNumber: row.rackNumber.trim() || null,
+        })),
+      };
+      const response = await api.post("/store-inventory/manual-receipt", payload);
+      setMessage({
+        type: "success",
+        text: `${response.data.message}. ${response.data.processedRows} row(s) processed.`
+      });
+      setRows([emptyRow()]);
+    } catch (requestError) {
+      setMessage({
+        type: "error",
+        text: requestError.response?.data?.message || "Unable to receive stock",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div style={{
-      padding: "0.75rem 1rem",
-      borderRadius: "0.5rem",
-      background: s.bg,
-      color: s.color,
-      border: `1px solid ${s.border}`,
-      fontSize: "0.875rem",
-      fontWeight: 500,
-      display: "flex",
-      alignItems: "center",
-      gap: "0.5rem",
-    }}>
-      {type === "success" && "✓"}
-      {type === "error"   && "✕"}
-      {type === "warning" && "⚠"}
-      {type === "info"    && "ℹ"}
-      {children}
+    <section style={S.page}>
+      <style>{`
+        .manual-stock-table-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .manual-stock-table-scroll::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+        @media (max-width: 1050px) {
+          .manual-stock-table-scroll {
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+          }
+        }
+        .manual-stock-suggestions {
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+        }
+        .manual-stock-suggestions::-webkit-scrollbar {
+          width: 5px;
+        }
+        .manual-stock-suggestions::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 8px;
+        }
+      `}</style>
+      <div style={S.toolbar}>
+        <div>
+          <h2 style={S.title}>Manual Stock Receipt</h2>
+          <p style={S.subtitle}>Enter multiple products and receive them in one transaction.</p>
+        </div>
+        <div style={S.toolbarActions}>
+          {isSuperAdmin ? (
+            <select value={storeId} onFocus={loadStores}
+              onChange={(event) => setStoreId(event.target.value)} style={S.storeSelect}>
+              <option value="">Select store</option>
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>{store.storeName}</option>
+              ))}
+            </select>
+          ) : (
+            <span style={S.storeBadge}>{user.storeName || "Assigned Store"}</span>
+          )}
+          <select value={priceMode} onChange={(event) => {
+            setPriceMode(event.target.value);
+            recalculateAutomaticPrices(event.target.value, gstPercentage);
+          }} style={S.settingSelect}>
+            <option value="GST_INCLUSIVE">With GST</option>
+            <option value="GST_EXCLUSIVE">Without GST</option>
+          </select>
+          <label style={S.gstInput}>GST %
+            <input type="number" min="0" max="100" value={gstPercentage}
+              onChange={(event) => {
+                setGstPercentage(event.target.value);
+                recalculateAutomaticPrices(priceMode, event.target.value);
+              }} style={S.gstNumber} />
+          </label>
+          <button type="button" disabled={saving || !storeId} onClick={receiveStock} style={S.primaryButton}>
+            <PackageCheck size={17} /> {saving ? "Receiving..." : "Receive Stock"}
+          </button>
+        </div>
+      </div>
+
+      {message && <div style={message.type === "error" ? S.error : S.success}>{message.text}</div>}
+
+      <div className="manual-stock-table-scroll" style={S.tableWrap}>
+        <table style={S.table}>
+          <colgroup>
+            <col style={{ width: 30 }} />
+            <col style={{ width: 120 }} />
+            <col style={{ width: 120 }} />
+            <col style={{ width: 105 }} />
+            <col style={{ width: 88 }} />
+            <col style={{ width: 58 }} />
+            <col style={{ width: 92 }} />
+            <col style={{ width: 84 }} />
+            <col style={{ width: 94 }} />
+            <col style={{ width: 82 }} />
+            <col style={{ width: 42 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={S.th}>#</th>
+              <th style={S.th}>Part Number</th>
+              <th style={S.th}>Item Name</th>
+              <th style={S.th}>Brand</th>
+              <th style={S.th}>HSN Code</th>
+              <th style={S.th}>Qty</th>
+              <th style={S.th}>Purchase Price</th>
+              <th style={S.th}>MRP</th>
+              <th style={S.th}>Selling Price</th>
+              <th style={S.th}>Rack No.</th>
+              <th style={S.th}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={row.key}>
+                <td style={S.rowNumber}>{index + 1}</td>
+                <td style={S.td}>
+                  <SuggestionInput row={row} field="partNumber" placeholder="Part number"
+                    inputRef={(element) => { firstInputRefs.current[row.key] = element; }}
+                    suggestions={suggestionFocus?.key === row.key && suggestionFocus?.field === "partNumber" ? suggestions[row.key] || [] : []}
+                    onChange={findSuggestions} onSelect={selectSuggestion} />
+                </td>
+                <td style={S.td}><SuggestionInput row={row} field="itemName" placeholder="Item name"
+                  suggestions={suggestionFocus?.key === row.key && suggestionFocus?.field === "itemName" ? suggestions[row.key] || [] : []} onChange={findSuggestions} onSelect={selectSuggestion} /></td>
+                <CellInput value={row.brandName} placeholder="Brand"
+                  onChange={(value) => updateRow(row.key, "brandName", value)} />
+                <CellInput value={row.hsnCode} placeholder="Optional"
+                  onChange={(value) => updateRow(row.key, "hsnCode", value)} />
+                <CellInput type="number" value={row.quantity} placeholder="0"
+                  onChange={(value) => updateRow(row.key, "quantity", value)} narrow step="1" />
+                <CellInput type="number" value={row.purchasePrice} placeholder="0.00"
+                  onChange={(value) => updateRow(row.key, "purchasePrice", value)} step="10" />
+                <CellInput type="number" value={row.mrp} placeholder="0.00"
+                  step="10"
+                  onChange={(value) => {
+                    setRows((current) => withTrailingEmptyRow(current.map((item) => item.key === row.key ? {
+                      ...item,
+                      mrp: value,
+                      sellingPrice: item.sellingManual
+                        ? item.sellingPrice
+                        : calculateFromSettings(value, priceMode, gstPercentage),
+                    } : item)));
+                  }} />
+                <CellInput type="number" value={row.sellingPrice} placeholder="0.00"
+                  onChange={(value) => updateRow(row.key, "sellingPrice", value)} step="10" />
+                <CellInput value={row.rackNumber} placeholder="Optional"
+                  onChange={(value) => updateRow(row.key, "rackNumber", value)} />
+                <td style={S.td}>
+                  <button type="button" onClick={() => removeRow(row.key)}
+                    style={S.deleteButton} title="Remove row"><Trash2 size={15} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button type="button" onClick={addRow} style={S.addRowFooter}>
+        <CirclePlus size={16} /> Add another row
+      </button>
+    </section>
+  );
+}
+
+export default function AddStockSection() {
+  const [entryMode, setEntryMode] = useState("manual");
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div role="tablist" aria-label="Stock entry method" style={S.modeSwitch}>
+        <button type="button" role="tab" aria-selected={entryMode === "manual"}
+          onClick={() => setEntryMode("manual")}
+          style={{ ...S.modeButton, ...(entryMode === "manual" ? S.modeButtonActive : {}) }}>
+          Manual Entry
+        </button>
+        <button type="button" role="tab" aria-selected={entryMode === "bulk"}
+          onClick={() => setEntryMode("bulk")}
+          style={{ ...S.modeButton, ...(entryMode === "bulk" ? S.modeButtonActive : {}) }}>
+          Bulk Upload
+        </button>
+      </div>
+      {entryMode === "manual" ? <ManualStockReceipt /> : <BulkUploadSection />}
     </div>
   );
 }
 
-function ProductInfoCard({ product }) {
-  if (!product) return null;
+function CellInput({ value, onChange, placeholder, type = "text", narrow = false, step }) {
+  const resolvedStep = type === "number" ? (step ?? "0.01") : undefined;
   return (
-    <div style={styles.infoCard}>
-      <div style={styles.infoCardHeader}>Selected Product Details</div>
-      <div style={styles.infoCardGrid}>
-        {[
-          ["Part Number",  product.partNumber],
-          ["Brand",        product.brandName],
-          ["Category",     product.categoryName],
-          ["SKU",          product.sku],
-          ["HSN Code",     product.hsncode],
-          ["GST %",        product.gstPercentage != null ? `${product.gstPercentage}%` : "—"],
-        ].map(([k, v]) => (
-          <div key={k} style={styles.infoRow}>
-            <span style={styles.infoKey}>{k}</span>
-            <span style={styles.infoVal}>{v || "—"}</span>
-          </div>
-        ))}
+    <td style={S.td}>
+      <input type={type} min={type === "number" ? "0" : undefined}
+        step={resolvedStep}
+        value={value} onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder} style={{ ...S.cellInput, ...(narrow ? S.narrowInput : {}) }} />
+    </td>
+  );
+}
+
+function SuggestionInput({ row, field, placeholder, suggestions, onChange, onSelect, inputRef }) {
+  return (
+    <div style={S.suggestionWrap}>
+      <div style={S.suggestionInput}>
+        <Search size={13} color="#64748B" />
+        <input ref={inputRef} value={row[field]}
+          onChange={(event) => onChange(row, field, event.target.value)}
+          placeholder={placeholder} style={S.inputBare} />
       </div>
-      {product.inStock != null && (
-        <div style={{
-          marginTop: "0.75rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          fontSize: "0.8rem",
-          fontWeight: 600,
-          color: product.inStock ? "#065f46" : "#991b1b",
-        }}>
-          <span style={{
-            width: 8, height: 8, borderRadius: "50%",
-            background: product.inStock ? "#10b981" : "#ef4444",
-            display: "inline-block",
-          }} />
-          {product.inStock
-            ? `In Stock — ${product.quantity} unit(s) available`
-            : "Out of Stock — this will add new stock"}
+      {field === "partNumber" && row.availableStock !== null && (
+        <span style={S.availableStock}>Available: {row.availableStock}</span>
+      )}
+      {suggestions.length > 0 && (
+        <div className="manual-stock-suggestions" style={S.suggestionMenu}>
+          {suggestions.slice(0, 8).map((product) => (
+            <button type="button"
+              key={`${product.productId || "L"}-${product.localProductId || product.partNumber}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => onSelect(row.key, product)}
+              style={S.suggestionOption}>
+              <strong>{product.itemName}</strong>
+              <span>{product.partNumber} | {product.brandName || "No brand"} | Stock: {product.availableStock ?? 0}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ── Validation ────────────────────────────────────────────────────────────────
-
-function validate(form, isNewProduct, newProduct) {
-  const errors = {};
-if (isNewProduct) {
-    if (!newProduct.itemName.trim()) {
-        errors.itemName = "Item Name is required.";
-    }
-} else {
-    if (!form.productId) {
-        errors.productId = "Select a product.";
-    }
-}
-  if (!form.quantity || Number(form.quantity) <= 0) errors.quantity   = "Quantity must be greater than zero.";
-  if (!form.purchasePrice || Number(form.purchasePrice) <= 0)
-                                                  errors.purchasePrice = "Enter a valid purchase price.";
-  if (!form.sellingPrice || Number(form.sellingPrice) <= 0)
-                                                  errors.sellingPrice  = "Enter a valid selling price.";
-  if (!form.mrp || Number(form.mrp) <= 0)         errors.mrp           = "Enter a valid MRP.";
-  if (form.mrp && form.sellingPrice && Number(form.sellingPrice) > Number(form.mrp))
-                                                  errors.sellingPrice  = "Selling price cannot exceed MRP.";
-  if (form.purchasePrice && form.sellingPrice && Number(form.purchasePrice) > Number(form.sellingPrice))
-                                                  errors.purchasePrice = "Purchase price should not exceed selling price.";
-  return errors;
-}
-
-// ── Main Component ────────────────────────────────────────────────────────────
-
-export default function AddStockSection() {
-  const user = getUser();
-
-  const [products,    setProducts]    = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-const [showSuggestions, setShowSuggestions] = useState(false);
-const [searchLoading, setSearchLoading] = useState(false);
-  const [form, setForm] = useState({
-    productId:     "",
-    quantity:      "",
-    purchasePrice: "",
-    sellingPrice:  "",
-    mrp:           "",
-  });
-  const [errors,     setErrors]     = useState({});
-  const [status,     setStatus]     = useState(null); // { type, message }
-  const [loading,    setLoading]    = useState(false);
-  const [fetching,   setFetching]   = useState(true);
-
-  // Selected product enriched from store inventory (if it exists)
- const [selectedProduct, setSelectedProduct] = useState(null);
- 
- const [newProduct, setNewProduct] = useState({
-    itemName: ""
-});
-
-  // ── Load all products from store inventory (includes brand, category, etc.)
-//   useEffect(() => {
-//     (async () => {
-//       try {
-//         // Try fetching store-specific inventory first for richer data
-//         const storeId = user.storeId;
-//         const res = await api.get(`${BASE_URL}/products`);
-
-// setProducts(res.data);
-//       } catch {
-//         // Fallback to flat product list
-//         try {
-//           const res = await api.get(`${BASE_URL}/products`);
-//           console.log(res.data);
-//           setProducts(res.data);
-//           console.log(res.data);
-//         } catch (err) {
-//           console.error("Failed to load products", err);
-//         }
-//       } finally {
-//         setFetching(false);
-//       }
-//     })();
-//   }, []);
-
-  // ── When product selection changes, enrich form with existing prices
- async function handleProductSelect(product) {
-const productId = product.productId || product.id;
-setSelectedProduct(product);
-setNewProduct({
-    itemName: ""
-});
-    setErrors({});
-    setStatus(null);
-
-    if (!productId) {
-
-        setSelectedProduct(null);
-
-        setForm({
-            productId: "",
-            quantity: "",
-            purchasePrice: "",
-            sellingPrice: "",
-            mrp: ""
-        });
-
-        return;
-    }
-
- 
-
-    try {
-
-       const batches = await getProductBatches(productId);
-const latestBatch = Array.isArray(batches) && batches.length > 0 ? batches[0] : null;
-setForm({
-    productId,
-    quantity: "",
-    purchasePrice: latestBatch?.purchasePrice ?? "",
-    sellingPrice: latestBatch?.sellingPrice ?? "",
-    mrp: latestBatch?.mrp ?? ""
-});
-
-    } catch (error) {
-
-        console.error("Failed to load latest batch", error);
-
-        setForm({
-            productId,
-            quantity: "",
-            purchasePrice: "",
-            sellingPrice: "",
-            mrp: ""
-        });
-
-    }
-}
-
-  function setField(key, value) {
-    setForm(f => ({ ...f, [key]: value }));
-    if (errors[key]) setErrors(e => { const ne = { ...e }; delete ne[key]; return ne; });
-  }
-
-  async function handleSearch(value) {
-
-    setSearchQuery(value);
-    setSelectedProduct(null);
-
-    setForm({
-      productId: "",
-      quantity: "",
-      purchasePrice: "",
-      sellingPrice: "",
-      mrp: ""
-  });
-  setNewProduct({
-      itemName: ""
-    });
-      setErrors({});
-      setStatus(null);
-    setShowSuggestions(false);
-      
-
-    if (value.trim().length < 3) {
-        setSuggestions([]);
-        setShowSuggestions(false);
-        return;
-    }
-
-    try {
-
-        setSearchLoading(true);
-
-        const result = await searchProducts(
-            value,
-            user.storeId
-        );
-
-        setSuggestions(result);
-        setShowSuggestions(true);
-
-    } catch (e) {
-
-        console.error("Search failed", e);
-        setSuggestions([]);
-        setShowSuggestions(false);
-
-    } finally {
-
-        setSearchLoading(false);
-
-    }
-}
-  // ── Filtered product list
-  const filteredProducts = products.filter(p => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (p.itemName    || "").toLowerCase().includes(q) ||
-      (p.partNumber  || "").toLowerCase().includes(q) ||
-      (p.brandName   || "").toLowerCase().includes(q) ||
-      (p.sku         || "").toLowerCase().includes(q)
-    );
-  });
-
-  // ── Submit
-  async function handleSave() {
-   const errs = validate(form, isNewProduct, newProduct);
-    if (Object.keys(errs).length) { setErrors(errs); return; }
-
-    setLoading(true);
-    setStatus(null);
-
-    try {
-     let payload;
-
-if (isNewProduct) {
-
-    payload = {
-        storeId: user.storeId,
-        partNumber: searchQuery.trim(),
-        itemName: newProduct.itemName.trim(),
-        quantity: Number(form.quantity),
-        purchasePrice: Number(form.purchasePrice),
-        sellingPrice: Number(form.sellingPrice),
-        mrp: Number(form.mrp)
-    };
-
-} else {
-
-    payload = {
-        storeId: user.storeId,
-        productId: Number(form.productId),
-        quantity: Number(form.quantity),
-        purchasePrice: Number(form.purchasePrice),
-        sellingPrice: Number(form.sellingPrice),
-        mrp: Number(form.mrp)
-    };
-
-}
-
-  const res = await api.post(
-  `${BASE_URL}/store-inventory/add-product`,
-  payload
-);
-
-const response = res.data;
-
-if (response.success) {
-
-    setStatus({
-        type: "success",
-        message: response.message
-    });
-
-} else {
-
-    setStatus({
-        type: "error",
-        message: response.message
-    });
-
-    setLoading(false);
-    return;
-}
-
-      // Reset form on success
-      setForm({ productId: "", quantity: "", purchasePrice: "", sellingPrice: "", mrp: "" });
-      setSearchQuery("");
-      setSelectedProduct(null);
-
-      // Refresh product list to reflect updated quantities
-     // Reload all global products
-try {
-
-    const refreshed = await api.get(`${BASE_URL}/products`);
-
-    setProducts(refreshed.data);
-
-} catch (err) {
-
-    console.error("Failed to reload products", err);
-
-}
-
-    } catch (err) {
-      const serverMsg = err?.response?.data;
-
-setStatus({
-    type: "error",
-    message:
-        serverMsg?.message ||
-        "Failed to save stock. Check your inputs and try again."
-});
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleReset() {
-    setForm({ productId: "", quantity: "", purchasePrice: "", sellingPrice: "", mrp: "" });
-    setSearchQuery("");
-    setSelectedProduct(null);
-    setErrors({});
-    setStatus(null);
-  }
-
- const isExistingProduct =
-    selectedProduct && selectedProduct.quantity != null;
-    const isNewProduct =
-    !searchLoading &&
-    searchQuery.trim().length >= 3 &&
-    suggestions.length === 0 &&
-    !selectedProduct;
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-  return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-
-        {/* Header */}
-        <div style={styles.header}>
-          <div>
-            <h2 style={styles.title}>
-    Receive Stock
-</h2>
-          <p style={styles.subtitle}>
-    Receive new stock into inventory. Every stock receipt creates a new inventory batch.
-</p>
-          </div>
-          <div style={styles.modeBadge}>
-    <span
-        style={{
-            ...styles.modeDot,
-            background: "#10b981"
-        }}
-    />
-    Batch Receive Mode
-</div>
-        </div>
-
-        <div style={styles.divider} />
-
-        {/* Body */}
-        <div style={styles.body}>
-
-          {/* Product Search + Select */}
-          <FieldGroup
-            label="Product"
-            required
-            hint="Search by name, part number, brand, or SKU."
-            error={errors.productId}
-          >
-            <input
-              type="text"
-              placeholder="Search products…"
-              value={searchQuery}
-            onChange={(e) => {
-
-    setField("productId", "");
-    setSelectedProduct(null);
-
-    handleSearch(e.target.value);
-
-}}
-            />
-            {showSuggestions && (
-    <div
-        style={{
-            border: "1px solid #cbd5e1",
-            borderRadius: "6px",
-            maxHeight: "250px",
-            overflowY: "auto",
-            background: "#fff",
-            marginTop: "5px"
-        }}
-    >
-
-        {searchLoading && (
-            <div style={{ padding: "10px" }}>
-                Searching...
-            </div>
-        )}
-
-
-        {!searchLoading &&
-            suggestions.map(product => (
-
-                <div
-                  key={product.inventoryId || product.productId || product.id}
-                    onClick={() => {
- console.log(product);
-                        setSearchQuery(
-                            product.partNumber + " - " + product.itemName
-                        );
-
-                        setShowSuggestions(false);
-
-                        handleProductSelect(product);
-
-                    }}
-                    style={{
-                        padding: "10px",
-                        cursor: "pointer",
-                        borderBottom: "1px solid #eee"
-                    }}
-                >
-
-                    <strong>{product.partNumber}</strong>
-
-                    <br />
-
-                    {product.itemName}
-
-                    <br />
-
-                    <small>
-                        {product.brandName}
-                    </small>
-
-                </div>
-
-            ))}
-    </div>
-)}
-          </FieldGroup>
-
-          {/* Selected product info card */}
-          <ProductInfoCard product={selectedProduct} />
-          {isNewProduct && (
-    <FieldGroup
-    label="Item Name"
-    required
-    error={errors.itemName}
->
-        <input
-            type="text"
-            placeholder="Enter Item Name"
-            value={newProduct.itemName}
-            onChange={(e) =>
-                setNewProduct({
-                    ...newProduct,
-                    itemName: e.target.value
-                })
-            }
-            style={styles.input}
-        />
-    </FieldGroup>
-)}
-
-          {/* Quantity */}
-          <FieldGroup
-            label="Quantity to Add"
-            required
-           hint={isExistingProduct
-    ? `Current stock: ${selectedProduct.quantity} unit(s). This receipt will create a new batch and increase total stock.`
-    : undefined}
-            error={errors.quantity}
-          >
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={form.quantity}
-              onChange={e => setField("quantity", e.target.value)}
-              placeholder="Enter quantity"
-              style={{
-                ...styles.input,
-                borderColor: errors.quantity ? "#ef4444" : "#cbd5e1",
-              }}
-            />
-            {isExistingProduct && form.quantity && Number(form.quantity) > 0 && (
-              <p style={styles.calcHint}>
-                New total will be: <strong>{selectedProduct.quantity + Number(form.quantity)}</strong> units
-              </p>
-            )}
-          </FieldGroup>
-
-          {/* Prices — 3-column grid */}
-          <div style={styles.priceGrid}>
-            <PriceInput
-              label="Purchase Price"
-              required
-              value={form.purchasePrice}
-              onChange={v => setField("purchasePrice", v)}
-              error={errors.purchasePrice}
-              placeholder="Cost per unit"
-            />
-            <PriceInput
-              label="Selling Price"
-              required
-              value={form.sellingPrice}
-              onChange={v => setField("sellingPrice", v)}
-              error={errors.sellingPrice}
-              placeholder="Price to customer"
-            />
-           <PriceInput
-    label="MRP"
-    required
-    value={form.mrp}
-    onChange={v => setField("mrp", v)}
-    readOnly={false}
-    error={errors.mrp}
-    placeholder="Maximum retail price"
-/>
-          </div>
-
-          {/* Margin summary */}
-          {form.purchasePrice && form.sellingPrice && Number(form.purchasePrice) > 0 && Number(form.sellingPrice) > 0 && (
-            <div style={styles.marginBar}>
-              <span style={styles.marginLabel}>Margin</span>
-              <span style={styles.marginValue}>
-                {(
-                  ((Number(form.sellingPrice) - Number(form.purchasePrice)) /
-                    Number(form.purchasePrice)) * 100
-                ).toFixed(1)}%
-              </span>
-              {form.mrp && Number(form.mrp) > 0 && (
-                <>
-                  <span style={styles.marginLabel}>Discount off MRP</span>
-                  <span style={styles.marginValue}>
-                    {(
-                      ((Number(form.mrp) - Number(form.sellingPrice)) /
-                        Number(form.mrp)) * 100
-                    ).toFixed(1)}%
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Status */}
-          {status && (
-            <StatusBadge type={status.type}>{status.message}</StatusBadge>
-          )}
-
-          {/* Actions */}
-          <div style={styles.actions}>
-            <button
-              onClick={handleReset}
-              style={styles.btnSecondary}
-              disabled={loading}
-            >
-              Reset
-            </button>
-            <button
-              onClick={handleSave}
-              style={{ ...styles.btnPrimary, opacity: loading ? 0.7 : 1 }}
-              disabled={loading}
-            >
-              {loading
-    ? "Saving..."
-    : "Receive Stock"}
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const styles = {
-  page: {
-    fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-    padding: "1.5rem",
-    background: "#f1f5f9",
-    minHeight: "100vh",
-  },
-  card: {
-    background: "#ffffff",
-    borderRadius: "0.75rem",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)",
-    maxWidth: 760,
-    margin: "0 auto",
-    overflow: "hidden",
-  },
-  header: {
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    padding: "1.5rem 1.75rem 1.25rem",
-    background: "#0f172a",
-  },
-  title: {
-    margin: 0,
-    fontSize: "1.25rem",
-    fontWeight: 700,
-    color: "#f8fafc",
-    letterSpacing: "-0.01em",
-  },
-  subtitle: {
-    margin: "0.25rem 0 0",
-    fontSize: "0.8rem",
-    color: "#94a3b8",
-  },
-  modeBadge: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.4rem",
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    color: "#cbd5e1",
-    background: "rgba(255,255,255,0.08)",
-    padding: "0.35rem 0.7rem",
-    borderRadius: "999px",
-    whiteSpace: "nowrap",
-  },
-  modeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: "50%",
-    display: "inline-block",
-    flexShrink: 0,
-  },
-  divider: {
-    height: 1,
-    background: "#e2e8f0",
-  },
-  body: {
-    padding: "1.75rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.25rem",
-  },
-  fieldGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.3rem",
-  },
-  label: {
-    fontSize: "0.8rem",
-    fontWeight: 600,
-    color: "#374151",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-  },
-  required: {
-    color: "#ef4444",
-  },
-  hint: {
-    margin: 0,
-    fontSize: "0.75rem",
-    color: "#6b7280",
-  },
-  input: {
-    width: "100%",
-    padding: "0.6rem 0.75rem",
-    fontSize: "0.9rem",
-    border: "1.5px solid #cbd5e1",
-    borderRadius: "0.4rem",
-    outline: "none",
-    color: "#1e293b",
-    background: "#f8fafc",
-    boxSizing: "border-box",
-    transition: "border-color 0.15s",
-  },
-  inputWrapper: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-  },
-  currencySymbol: {
-    position: "absolute",
-    left: "0.65rem",
-    color: "#64748b",
-    fontSize: "0.875rem",
-    pointerEvents: "none",
-    userSelect: "none",
-  },
-  fieldError: {
-    margin: 0,
-    fontSize: "0.75rem",
-    color: "#ef4444",
-    fontWeight: 500,
-  },
-  infoCard: {
-    background: "#f8fafc",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: "0.5rem",
-    padding: "1rem",
-  },
-  infoCardHeader: {
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-    color: "#94a3b8",
-    marginBottom: "0.6rem",
-  },
-  infoCardGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "0.5rem 1rem",
-  },
-  infoRow: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.1rem",
-  },
-  infoKey: {
-    fontSize: "0.7rem",
-    color: "#94a3b8",
-    fontWeight: 500,
-    textTransform: "uppercase",
-    letterSpacing: "0.03em",
-  },
-  infoVal: {
-    fontSize: "0.82rem",
-    color: "#1e293b",
-    fontWeight: 600,
-  },
-  calcHint: {
-    margin: "0.25rem 0 0",
-    fontSize: "0.78rem",
-    color: "#0284c7",
-  },
-  priceGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "1rem",
-  },
-  priceCell: {
-    minWidth: 0,
-  },
-  marginBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.75rem",
-    background: "#f0fdf4",
-    border: "1.5px solid #bbf7d0",
-    borderRadius: "0.4rem",
-    padding: "0.6rem 1rem",
-    flexWrap: "wrap",
-  },
-  marginLabel: {
-    fontSize: "0.75rem",
-    color: "#166534",
-    fontWeight: 500,
-  },
-  marginValue: {
-    fontSize: "0.85rem",
-    color: "#15803d",
-    fontWeight: 700,
-    marginRight: "0.75rem",
-  },
-  actions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "0.75rem",
-    paddingTop: "0.5rem",
-  },
-  btnPrimary: {
-    padding: "0.6rem 1.5rem",
-    background: "#0f172a",
-    color: "#f8fafc",
-    border: "none",
-    borderRadius: "0.4rem",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    letterSpacing: "0.01em",
-    transition: "background 0.15s",
-  },
-  btnSecondary: {
-    padding: "0.6rem 1.25rem",
-    background: "transparent",
-    color: "#475569",
-    border: "1.5px solid #cbd5e1",
-    borderRadius: "0.4rem",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
+const S = {
+  modeSwitch: { width: "fit-content", display: "flex", gap: 3, padding: 3, border: "1px solid #CBD5E1", borderRadius: 6, background: "#F1F5F9" },
+  modeButton: { height: 32, padding: "0 14px", border: 0, borderRadius: 4, background: "transparent", color: "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer" },
+  modeButtonActive: { background: "#FFFFFF", color: "#1D4ED8", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.12)" },
+  page: { display: "grid", gap: 12 },
+  toolbar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 },
+  title: { margin: 0, fontSize: 17, color: "#0F172A" },
+  subtitle: { margin: "4px 0 0", color: "#64748B", fontSize: 12 },
+  toolbarActions: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  storeSelect: { height: 38, minWidth: 180, border: "1px solid #CBD5E1", borderRadius: 5, padding: "0 9px", background: "#FFF" },
+  storeBadge: { height: 36, padding: "0 11px", display: "flex", alignItems: "center", border: "1px solid #E2E8F0", borderRadius: 5, background: "#FFF", color: "#475569", fontSize: 12, fontWeight: 700 },
+  settingSelect: { height: 38, minWidth: 112, padding: "0 8px", border: "1px solid #CBD5E1", borderRadius: 5, background: "#FFF", fontSize: 11.5 },
+  gstInput: { height: 38, padding: "0 7px 0 9px", border: "1px solid #CBD5E1", borderRadius: 5, background: "#FFF", color: "#475569", display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700 },
+  gstNumber: { width: 45, border: 0, outline: 0, font: "inherit" },
+  primaryButton: { height: 38, padding: "0 13px", border: 0, borderRadius: 5, background: "#2563EB", color: "#FFF", display: "flex", alignItems: "center", gap: 7, fontWeight: 800, cursor: "pointer" },
+  secondaryButton: { height: 38, padding: "0 12px", border: "1px solid #BFDBFE", borderRadius: 5, background: "#EFF6FF", color: "#1D4ED8", display: "flex", alignItems: "center", gap: 7, fontWeight: 700, cursor: "pointer" },
+  error: { padding: "10px 12px", border: "1px solid #FECACA", borderRadius: 5, background: "#FEF2F2", color: "#B91C1C", fontSize: 12.5 },
+  success: { padding: "10px 12px", border: "1px solid #BBF7D0", borderRadius: 5, background: "#F0FDF4", color: "#15803D", fontSize: 12.5 },
+  tableWrap: { overflow: "visible", position: "relative", zIndex: 3, minHeight: "clamp(220px, calc(100vh - 405px), 460px)", border: "1px solid #E2E8F0", borderRadius: 7, background: "#FFF" },
+  table: { width: "100%", minWidth: 915, tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 0, fontSize: 12 },
+  th: { position: "sticky", top: 0, zIndex: 2, padding: "10px 5px", borderBottom: "1px solid #CBD5E1", background: "#F8FAFC", color: "#64748B", textAlign: "left", fontSize: 9.5, textTransform: "uppercase", whiteSpace: "nowrap" },
+  td: { padding: 5, borderBottom: "1px solid #F1F5F9", verticalAlign: "top" },
+  rowNumber: { padding: "13px 8px", borderBottom: "1px solid #F1F5F9", color: "#64748B", textAlign: "center" },
+  cellInput: { width: "100%", height: 34, padding: "0 6px", border: "1px solid #CBD5E1", borderRadius: 4, boxSizing: "border-box", font: "inherit", fontSize: 11 },
+  narrowInput: { width: "100%" },
+  suggestionWrap: { position: "relative", width: "100%" },
+  suggestionInput: { width: "100%", height: 34, padding: "0 6px", border: "1px solid #CBD5E1", borderRadius: 4, display: "flex", alignItems: "center", gap: 4, boxSizing: "border-box" },
+  inputBare: { width: "100%", minWidth: 0, border: 0, outline: 0, font: "inherit", fontSize: 11.5 },
+  suggestionMenu: { position: "absolute", zIndex: 100, top: 37, left: 0, width: 260, maxHeight: 240, overflowY: "auto", padding: 4, border: "1px solid #CBD5E1", borderRadius: 5, background: "#FFF", boxShadow: "0 12px 28px rgba(15,23,42,.16)" },
+  suggestionOption: { width: "100%", padding: "8px 9px", border: 0, borderBottom: "1px solid #F1F5F9", background: "#FFF", display: "grid", gap: 3, textAlign: "left", color: "#0F172A", fontSize: 11.5, cursor: "pointer" },
+  availableStock: { display: "block", marginTop: 3, color: "#15803D", fontSize: 9.5, fontWeight: 700 },
+  cellSelect: { width: 116, height: 34, border: "1px solid #CBD5E1", borderRadius: 4, background: "#FFF", fontSize: 11 },
+  priceCell: { padding: "15px 8px", borderBottom: "1px solid #F1F5F9", color: "#0F766E", fontWeight: 800, whiteSpace: "nowrap" },
+  lookupText: { display: "block", minHeight: 14, marginTop: 3, color: "#64748B", fontSize: 9.5 },
+  found: { display: "block", minHeight: 14, marginTop: 3, color: "#15803D", fontSize: 9.5, fontWeight: 700 },
+  newPart: { display: "block", minHeight: 14, marginTop: 3, color: "#B45309", fontSize: 9.5, fontWeight: 700 },
+  deleteButton: { width: 32, height: 32, border: "1px solid #FECACA", borderRadius: 4, background: "#FEF2F2", color: "#DC2626", display: "grid", placeItems: "center", cursor: "pointer" },
+  addRowFooter: { justifySelf: "start", height: 36, padding: "0 11px", border: "1px dashed #93C5FD", borderRadius: 5, background: "#F8FBFF", color: "#1D4ED8", display: "flex", alignItems: "center", gap: 7, fontWeight: 700, cursor: "pointer" },
 };

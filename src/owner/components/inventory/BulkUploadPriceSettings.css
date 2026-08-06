@@ -1,0 +1,118 @@
+.bulk-price-settings {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 10px;
+  padding: 11px;
+  margin-bottom: 13px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+}
+
+.bulk-price-settings label,
+.bulk-price-settings > div {
+  display: grid;
+  gap: 5px;
+}
+
+.bulk-price-settings span {
+  color: #475569;
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.bulk-price-settings select,
+.bulk-gst-input {
+  height: 36px;
+  border: 1px solid #bfdbfe;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.bulk-price-settings select {
+  padding: 0 9px;
+}
+
+.bulk-gst-input {
+  display: flex;
+  align-items: center;
+}
+
+.bulk-gst-input input {
+  width: 100%;
+  height: 32px;
+  padding: 0 9px;
+  border: 0;
+  outline: 0;
+}
+
+.bulk-gst-input b {
+  padding-right: 9px;
+  color: #475569;
+}
+
+.bulk-price-settings > div strong {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 5px;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .bulk-price-settings {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bulk-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bulk-header-setting {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.bulk-header-setting span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.bulk-header-setting select,
+.bulk-header-setting input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bulk-header-gst input {
+  width: 38px;
+}
+
+.bulk-header-gst b {
+  color: #475569;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .bulk-preview-actions {
+    flex-wrap: wrap;
+  }
+}

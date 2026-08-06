@@ -9,8 +9,6 @@ import {
    CONFIG
    ========================================================================= */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
 /* =========================================================================
    STYLES — identical token system as ItemsSection (pim-root)
    ========================================================================= */
@@ -229,14 +227,14 @@ function CrossReferenceSection() {
     }
     setSaving(true);
     try {
-      await api.post(`${API_BASE}/cross-references`, {
+      const response = await api.post("/cross-references", {
         productId: Number(selectedProductId),
         crossBrand: crossBrand.trim(),
         crossPartNumber: crossPartNumber.trim()
       });
       setCrossBrand("");
       setCrossPartNumber("");
-      setStatus({ type: "success", msg: "Cross reference saved successfully." });
+      setStatus({ type: "success", msg: response.data || "Cross reference saved successfully." });
       fetchAll();
     } catch (e) {
       setStatus({ type: "error", msg: "Failed to save cross reference. Please try again." });
@@ -247,7 +245,7 @@ function CrossReferenceSection() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this cross reference? This can't be undone.")) return;
     try {
-      await api.delete(`${API_BASE}/cross-references/${id}`);
+      await api.delete(`/cross-references/${id}`);
       setStatus({ type: "success", msg: "Cross reference deleted." });
       setAllCrossRefs((prev) => prev.filter((cr) => cr.id !== id));
     } catch (e) {
@@ -262,16 +260,16 @@ function CrossReferenceSection() {
     const data = new FormData();
     data.append("file", selectedFile);
     try {
-      const res = await api.post(`${API_BASE}/cross-references/bulk-upload`, data, {
+      const res = await api.post("/cross-references/bulk-upload", data, {
         headers: { "Content-Type": "multipart/form-data" }
       });
       setUploadResult(res.data || {});
-      const hasErrors = res.data?.errors?.length > 0;
+      const hasErrors = res.data?.failedRows?.length > 0;
       setStatus({
         type: hasErrors ? "error" : "success",
         msg: hasErrors
-          ? `Upload done with errors. Inserted: ${res.data.insertedRows} | Skipped: ${res.data.skippedRows}`
-          : `Upload complete. Inserted: ${res.data.insertedRows} | Skipped: ${res.data.skippedRows}`
+          ? `Upload done with errors. Inserted: ${res.data.successRows} | Skipped: ${res.data.skippedRows}`
+          : `Upload complete. Inserted: ${res.data.successRows} | Skipped: ${res.data.skippedRows}`
       });
       if (!hasErrors) setSelectedFile(null);
       fetchAll();
@@ -279,6 +277,16 @@ function CrossReferenceSection() {
       setStatus({ type: "error", msg: "Bulk upload failed. Check the file and try again." });
     }
     setUploading(false);
+  };
+
+  const downloadTemplate = () => {
+    const csv = "Part Number,Cross Brand,Cross Part Number\nBRK-1234,Valeo,VP-00123\n";
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "cross-reference-template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   // Enrich cross refs with product info for display
@@ -462,13 +470,13 @@ function CrossReferenceSection() {
             <div style={{ marginTop: 14 }}>
               <div className="cr-upload-stats">
                 <span className="cr-upload-stat">Total: {uploadResult.totalRows ?? "—"}</span>
-                <span className="cr-upload-stat inserted">Inserted: {uploadResult.insertedRows ?? "—"}</span>
+                <span className="cr-upload-stat inserted">Inserted: {uploadResult.successRows ?? "—"}</span>
                 <span className="cr-upload-stat skipped">Skipped: {uploadResult.skippedRows ?? "—"}</span>
               </div>
-              {Array.isArray(uploadResult.errors) && uploadResult.errors.length > 0 && (
+              {Array.isArray(uploadResult.failedRows) && uploadResult.failedRows.length > 0 && (
                 <div className="cr-upload-error">
-                  <strong>Error:</strong> {uploadResult.errors[0]}
-                  {uploadResult.errors.length > 1 && ` (+${uploadResult.errors.length - 1} more)`}
+                  <strong>Error:</strong> {uploadResult.failedRows[0]?.reason}
+                  {uploadResult.failedRows.length > 1 && ` (+${uploadResult.failedRows.length - 1} more)`}
                 </div>
               )}
             </div>
@@ -479,9 +487,7 @@ function CrossReferenceSection() {
               {uploading ? <Loader2 className="cr-spin" /> : <UploadCloud />}
               {uploading ? "Uploading…" : "Upload Cross References"}
             </button>
-            <a href="/cross-reference-template.csv" download>
-              <button type="button" className="cr-btn cr-btn-ghost"><Download /> Download Template</button>
-            </a>
+            <button type="button" className="cr-btn cr-btn-ghost" onClick={downloadTemplate}><Download /> Download Template</button>
           </div>
         </div>
 

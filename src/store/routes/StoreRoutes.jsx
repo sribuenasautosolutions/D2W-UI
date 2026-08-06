@@ -5,6 +5,7 @@ import DashboardLayout from "../../owner/layouts/DashboardLayout";
 import DashboardHome from "../../owner/pages/DashboardHome";
 import InventoryPage from "../../owner/pages/InventoryPage";
 import OrdersPage from "../../owner/pages/OrdersPage";
+import UsersPage from "../../owner/pages/UsersPage";
 
 // FIX: reuse the existing, fully-built InvoicePage from the POS module.
 // CartProvider wraps the whole app in main.jsx, so useCart() inside
@@ -47,6 +48,15 @@ function StoreRoutes() {
                 element={
                     <DashboardLayout>
                         <OrdersPage />
+                    </DashboardLayout>
+                }
+            />
+
+            <Route
+                path="/users"
+                element={
+                    <DashboardLayout>
+                        <UsersPage />
                     </DashboardLayout>
                 }
             />

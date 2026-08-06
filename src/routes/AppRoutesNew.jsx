@@ -34,7 +34,7 @@ function AppRoutesNew() {
       <Route
         path="/owner/*"
         element={
-          <ProtectedRoute allowedRoles={["OWNER"]}>
+          <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
             <OwnerRoutes />
           </ProtectedRoute>
         }
@@ -43,7 +43,7 @@ function AppRoutesNew() {
       <Route
         path="/store/*"
         element={
-          <ProtectedRoute allowedRoles={["MAINSTORE_MANAGER"]}>
+          <ProtectedRoute allowedRoles={["STORE_OWNER"]}>
             <StoreRoutes />
           </ProtectedRoute>
         }
@@ -52,7 +52,7 @@ function AppRoutesNew() {
       <Route
         path="/pos/*"
         element={
-          <ProtectedRoute allowedRoles={["Admin"]}>
+          <ProtectedRoute allowedRoles={["CASHIER"]}>
             <POSRoutes />
           </ProtectedRoute>
         }

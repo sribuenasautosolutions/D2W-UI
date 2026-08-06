@@ -1,783 +1,226 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Download, Printer, Plus } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 import apiclient from "../../services/apiclient";
 import { useCart } from "../context/CartContext";
+import "./InvoicePage.css";
 
+const money = (value) => Number(value || 0).toLocaleString("en-IN", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
-const COLORS = {
-  ink: "#152B3D",          // primary text
-  inkSoft: "#4B5D6B",      // secondary text
-  steel: "#1B3A5C",        // primary brand blue (header, buttons)
-  steelDeep: "#0F2740",    // pressed/hover state
-  accent: "#2E6DA4",       // mid blue accent (rules, badges)
-  accentSoft: "#E7EEF5",   // pale blue fills (row bands, boxes)
-  line: "#D3DCE3",         // hairline borders
-  lineSoft: "#E7ECEF",     // faint borders inside tables
-  paper: "#FFFFFF",
-  canvas: "#EEF1F4",       // screen-only page backdrop
-  danger: "#A22B2B",       // balance due
-  success: "#1E6B45",      // paid / success
-  warn: "#8A5A00",
+const date = (value, withTime = false) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  const formatted = parsed.toLocaleDateString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+  return withTime
+    ? `${formatted}, ${parsed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`
+    : formatted;
 };
 
-const FONT_DISPLAY = "'Oswald', 'Arial Narrow', sans-serif";
-const FONT_BODY = "'Inter', 'Segoe UI', Helvetica, Arial, sans-serif";
-const FONT_MONO = "'Roboto Mono', 'Consolas', monospace";
-
-/* ----------------------------------------------------------------------------
-   Formatting helpers (display-only — no math performed here beyond
-   presentation formatting of numbers already computed by the backend)
-   -------------------------------------------------------------------------- */
-
-// Formats a BigDecimal-as-number into Indian-grouped currency, e.g. 1,23,456.00
-const formatINR = (value) => {
-  const num = value === null || value === undefined || value === "" ? 0 : Number(value);
-  if (Number.isNaN(num)) return "—";
-  return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const wordsBelowThousand = (number) => {
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  if (!number) return "";
+  if (number < 20) return ones[number];
+  if (number < 100) return `${tens[Math.floor(number / 10)]} ${ones[number % 10]}`.trim();
+  return `${ones[Math.floor(number / 100)]} Hundred ${wordsBelowThousand(number % 100)}`.trim();
 };
 
-// Splits a line item's combined gstAmount into CGST / SGST for display.
-// NOTE: InvoiceItemDTO (backend) does not currently expose a per-item
-// gstType, so an inter-state (IGST) line can't be distinguished from an
-// intra-state (CGST+SGST) line at the row level — only the invoice-level
-// totals (invoice.cgstAmount / sgstAmount / igstAmount) carry that split.
-// This assumes the standard intra-state CGST+SGST half/half split, which
-// mirrors the backend's own calculateGST() logic for GST_xx types. If you
-// also do inter-state sales, add gstType (or separate cgstAmount/
-// sgstAmount fields) to InvoiceItemDTO so this can be exact per row.
-const splitGst = (item) => {
-  const gstAmount = Number(item?.gstAmount ?? 0) || 0;
-  const half = gstAmount / 2;
-  return { cgst: half, sgst: half };
-};
-
-const formatPercent = (value) => {
-  if (value === null || value === undefined || value === "") return "—";
-  const num = Number(value);
-  if (Number.isNaN(num)) return "—";
-  // Trim trailing .00 but keep genuine decimals like 2.5
-  return `${Number(num.toFixed(2))}%`;
-};
-
-const formatDate = (isoString) => {
-  if (!isoString) return "—";
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-const formatDateTime = (isoString) => {
-  if (!isoString) return "—";
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}, ${d.toLocaleTimeString(
-    "en-IN",
-    { hour: "2-digit", minute: "2-digit" }
-  )}`;
-};
-
-// Enterprise pattern: the invoice/order header must never claim to know
-// "how" an invoice was paid — that fact only exists in the payment ledger,
-// because a single invoice can be paid in one shot, in installments, or via
-// more than one method (e.g. part cash + part UPI). orders.paymentMethod is
-// written once at invoice-creation time (before any money has moved) and is
-// never updated afterward, so it is not a trustworthy source for this field.
-// This derives the displayed value from the actual payment records instead.
-const summarizePaymentMethod = (payments) => {
-  if (!payments || payments.length === 0) {
-    return "Not yet paid";
-  }
-  const distinctMethods = [
-    ...new Set(
-      payments
-        .map((p) => p.paymentMethod)
-        .filter(Boolean)
-    ),
+const amountInWords = (value) => {
+  let amount = Math.floor(Number(value || 0));
+  if (!amount) return "Indian Rupees Zero Only";
+  const groups = [
+    [10000000, "Crore"], [100000, "Lakh"], [1000, "Thousand"],
   ];
-  if (distinctMethods.length === 0) return "Not yet paid";
-  if (distinctMethods.length === 1) return distinctMethods[0].replace(/_/g, " ");
-  return distinctMethods.map((m) => m.replace(/_/g, " ")).join(" + ");
+  const result = [];
+  groups.forEach(([unit, label]) => {
+    const count = Math.floor(amount / unit);
+    if (count) result.push(`${wordsBelowThousand(count)} ${label}`);
+    amount %= unit;
+  });
+  if (amount) result.push(wordsBelowThousand(amount));
+  return `Indian Rupees ${result.join(" ")} Only`;
 };
 
-const orderStatusLabel = (status) => {
-  if (!status) return "—";
-  return status.replace(/_/g, " ");
+const text = (value) => value === null || value === undefined || value === "" ? "-" : value;
+
+const fullAddress = (invoice) => [
+  invoice.storeAddress,
+  invoice.storeCity,
+  invoice.storeState,
+  invoice.storePincode,
+  invoice.storeCountry,
+].filter(Boolean).join(", ");
+
+const paymentSummary = (payments) => {
+  const methods = [...new Set((payments || []).map((payment) => payment.paymentMethod).filter(Boolean))];
+  return methods.length ? methods.map((method) => method.replaceAll("_", " ")).join(" + ") : "Not paid";
 };
 
-const orderStatusTone = (status) => {
-  switch (status) {
-    case "COMPLETED":
-    case "PAID":
-      return COLORS.success;
-    case "PENDING_PAYMENT":
-      return COLORS.warn;
-    case "CANCELLED":
-      return COLORS.danger;
-    default:
-      return COLORS.accent;
+// Reads the currently logged-in user's name, as stored by LoginPage.jsx
+// (localStorage.setItem("user", JSON.stringify(loginResponse))).
+const loggedInUserName = () => {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user.name || null;
+  } catch {
+    return null;
   }
 };
 
-// Indian numbering system (lakh/crore) amount-in-words converter.
-// Pure presentation utility — converts the backend's totalAmount into words,
-// it does not recompute or alter the amount itself.
-const NUM_WORDS = [
-  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-  "Seventeen", "Eighteen", "Nineteen",
-];
-const TENS_WORDS = [
-  "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety",
-];
-
-function threeDigitsToWords(n) {
-  let str = "";
-  if (n >= 100) {
-    str += `${NUM_WORDS[Math.floor(n / 100)]} Hundred `;
-    n %= 100;
-  }
-  if (n >= 20) {
-    str += `${TENS_WORDS[Math.floor(n / 10)]} `;
-    n %= 10;
-  }
-  if (n > 0) {
-    str += `${NUM_WORDS[n]} `;
-  }
-  return str.trim();
+function InfoLine({ label, value }) {
+  return <div className="invoice-info-line"><span>{label}</span><strong>{text(value)}</strong></div>;
 }
 
-function numberToIndianWords(num) {
-  const whole = Math.floor(Math.abs(num));
-  if (whole === 0) return "Zero";
-
-  const crore = Math.floor(whole / 10000000);
-  const lakh = Math.floor((whole % 10000000) / 100000);
-  const thousand = Math.floor((whole % 100000) / 1000);
-  const hundred = whole % 1000;
-
-  const parts = [];
-  if (crore) parts.push(`${threeDigitsToWords(crore)} Crore`);
-  if (lakh) parts.push(`${threeDigitsToWords(lakh)} Lakh`);
-  if (thousand) parts.push(`${threeDigitsToWords(thousand)} Thousand`);
-  if (hundred) parts.push(threeDigitsToWords(hundred));
-
-  return parts.join(" ").trim();
+function TotalLine({ label, value, subtract = false, strong = false }) {
+  return <div className={`invoice-total-line${strong ? " is-strong" : ""}`}>
+    <span>{label}</span><strong>{subtract ? "(-) " : ""}{"\u20B9"} {money(value)}</strong>
+  </div>;
 }
 
-function amountInWords(value) {
-  const num = Number(value);
-  if (Number.isNaN(num)) return "—";
-  const rupees = Math.floor(num);
-  const paise = Math.round((num - rupees) * 100);
-  let words = `Rupees ${numberToIndianWords(rupees)} Only`;
-  if (paise > 0) {
-    words = `Rupees ${numberToIndianWords(rupees)} and ${threeDigitsToWords(paise)} Paise Only`;
-  }
-  return words;
-}
-
-/* ----------------------------------------------------------------------------
-   Small presentational atoms
-   -------------------------------------------------------------------------- */
-
-const FieldRow = ({ label, value, mono }) => (
-  <div style={S.fieldRow}>
-    <span style={S.fieldLabel}>{label}</span>
-    <span style={{ ...S.fieldValue, ...(mono ? { fontFamily: FONT_MONO } : {}) }}>
-      {value ?? "—"}
-    </span>
-  </div>
-);
-
-const SummaryRow = ({ label, value, emphasis, negative, tone }) => (
-  <div
-    style={{
-      ...S.summaryRow,
-      ...(emphasis ? S.summaryRowEmphasis : {}),
-    }}
-  >
-    <span style={{ ...S.summaryLabel, ...(emphasis ? { fontWeight: 700 } : {}) }}>{label}</span>
-    <span
-      style={{
-        ...S.summaryValue,
-        ...(emphasis ? { fontSize: 18, fontWeight: 700 } : {}),
-        ...(tone ? { color: tone } : {}),
-      }}
-    >
-      {negative ? "(-) " : ""}
-      {"\u20B9"} {formatINR(value)}
-    </span>
-  </div>
-);
-
-/* ============================================================================
-   Main component
-   ============================================================================ */
 export default function InvoicePage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { clearCart } = useCart();
-
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
-  const fetchInvoice = useCallback(async () => {
+  const loadInvoice = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError("");
     try {
       const response = await apiclient.get(`/orders/${orderId}`);
       setInvoice(response.data);
-    } catch (err) {
-      setError(
-        err?.response?.data?.message ||
-          "Could not load this invoice. Please check the order id and try again."
-      );
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to load this invoice.");
     } finally {
       setLoading(false);
     }
   }, [orderId]);
 
-  useEffect(() => {
-    fetchInvoice();
-  }, [fetchInvoice]);
+  useEffect(() => { loadInvoice(); }, [loadInvoice]);
 
-  const handlePrint = () => window.print();
-  const handleNewSale = () => {
+  const items = useMemo(() => invoice?.items || [], [invoice]);
+  const payments = useMemo(() => invoice?.payments || [], [invoice]);
+  const collectedBy = useMemo(() => invoice?.collectedByName || loggedInUserName(), [invoice]);
+
+  const startSale = () => {
     clearCart();
     navigate("/pos");
   };
 
-  if (loading) {
-    return (
-      <div style={S.stateScreen}>
-        <div style={S.stateCard}>Loading invoice…</div>
+  if (loading) return <div className="invoice-state">Loading invoice...</div>;
+  if (error || !invoice) return <div className="invoice-state invoice-state--error">{error || "Invoice not found."}</div>;
+
+  return <main className="invoice-page">
+    <nav className="invoice-toolbar">
+      <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}><ArrowLeft size={16} />Back</button>
+      <div>
+        <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Printer size={16} />Print</button>
+        <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Download size={16} />Save PDF</button>
+        <button className="invoice-button invoice-button--primary" onClick={startSale}><Plus size={16} />New Sale</button>
       </div>
-    );
-  }
+    </nav>
 
-  if (error || !invoice) {
-    return (
-      <div style={S.stateScreen}>
-        <div style={{ ...S.stateCard, color: COLORS.danger }}>
-          {error || "Invoice not found."}
-        </div>
-      </div>
-    );
-  }
-
-  const items = invoice.items || [];
-  const payments = invoice.payments || [];
-  const paymentMethodSummary = summarizePaymentMethod(payments);
-
-  return (
-    <div style={S.pageBackdrop}>
-      {/* Print stylesheet: hides toolbar, strips shadows/backdrop for A4 print */}
-      <style>{`
-        @media print {
-          .d2w-toolbar { display: none !important; }
-          .d2w-backdrop { background: #fff !important; padding: 0 !important; }
-          .d2w-sheet { box-shadow: none !important; margin: 0 !important; }
-          @page { size: A4; margin: 12mm; }
-        }
-      `}</style>
-
-      {/* ===================== TOOLBAR (screen only) ===================== */}
-      <div className="d2w-toolbar" style={S.toolbar}>
-        <button style={S.btnPrimary} onClick={handleNewSale}>
-          + Start New Sale
-        </button>
-        <div style={{ display: "flex", gap: 12 }}>
-          <button style={S.btnSecondary} onClick={handlePrint}>
-            Print Invoice
-          </button>
-          <button style={S.btnSecondary} title="Coming soon">
-            Download PDF
-          </button>
-        </div>
-      </div>
-
-      {/* ===================== INVOICE SHEET (A4) ===================== */}
-      <div className="d2w-sheet" style={S.sheet}>
-        {/* ---------- Header ---------- */}
-        <div style={S.headerBlock}>
-          <div style={S.brandBlock}>
-            <div style={S.logoMark}>D2W</div>
-            <div>
-              <div style={S.brandName}>Deals2Wheels</div>
-              <div style={S.brandTagline}>One Stop Solution For All Automobile Needs</div>
-              {/* NOTE: store name / address / GSTIN / phone / email / website are
-                  franchise-specific fields not yet present on InvoiceResponseDTO.
-                  Rendered as placeholders until the backend DTO exposes them —
-                  no fabricated store data is shown. */}
-              <div style={S.storeMeta}>
-                <div>Store: —</div>
-                <div>GSTIN: —</div>
-              </div>
-            </div>
-          </div>
-
-          <div style={S.invoiceBadgeBlock}>
-            <div style={S.invoiceBadge}>TAX INVOICE</div>
-            <div style={S.invoiceNumberLine}>
-              <span style={S.fieldLabel}>Invoice No.</span>
-              <span style={S.invoiceNumberValue}>{invoice.invoiceNumber || "—"}</span>
-            </div>
-            <div style={S.invoiceNumberLine}>
-              <span style={S.fieldLabel}>Order ID</span>
-              <span style={{ fontFamily: FONT_MONO }}>#{invoice.orderId ?? "—"}</span>
-            </div>
+    <article className="invoice-sheet">
+      <header className="invoice-header">
+        <div className="invoice-brand">
+          <div className="invoice-logo"><span>D</span><b>2</b><span>W</span></div>
+          <div className="invoice-store-copy">
+            <h1>{text(invoice.storeName)}</h1>
+            <p className="invoice-store-code">D2W - Deals 2 Wheels <span>{text(invoice.storeCode)}</span></p>
+            <p>{text(fullAddress(invoice))}</p>
+            <p>{invoice.storePhone && `Phone: ${invoice.storePhone}`}{invoice.storePhone && invoice.storeEmail && "  |  "}{invoice.storeEmail && `Email: ${invoice.storeEmail}`}</p>
+            <p className="invoice-gstin"><span>GSTIN</span>{text(invoice.storeGstno)}</p>
           </div>
         </div>
-
-        <div style={S.hairline} />
-
-        {/* ---------- Invoice + Customer details ---------- */}
-        <div style={S.detailsGrid}>
-          <div style={S.detailsCol}>
-            <div style={S.sectionLabel}>Invoice Details</div>
-            <FieldRow label="Invoice Date" value={formatDate(invoice.orderDate)} />
-            <FieldRow label="Order Date" value={formatDateTime(invoice.orderDate)} />
-            <FieldRow label="Payment Method" value={paymentMethodSummary} />
-            <FieldRow
-              label="Order Status"
-              value={
-                <span
-                  style={{
-                    ...S.statusPill,
-                    color: orderStatusTone(invoice.orderStatus),
-                    borderColor: orderStatusTone(invoice.orderStatus),
-                  }}
-                >
-                  {orderStatusLabel(invoice.orderStatus)}
-                </span>
-              }
-            />
-          </div>
-
-          <div style={S.detailsCol}>
-            <div style={S.sectionLabel}>Bill To</div>
-            <FieldRow label="Customer Name" value={invoice.customerName} />
-            <FieldRow label="Mobile Number" value={invoice.phone} mono />
-            <FieldRow label="Address" value={invoice.customerAddress} />
-            <FieldRow label="GSTIN" value="—" />
-          </div>
+        <div className="invoice-title-block">
+          <h2>TAX INVOICE</h2>
+          <InfoLine label="Invoice No." value={invoice.invoiceNumber} />
+          <InfoLine label="Invoice Date" value={date(invoice.orderDate)} />
+          <InfoLine label="Order No." value={`#${invoice.orderId}`} />
+          <InfoLine label="Store Type" value={invoice.storeType?.replaceAll("_", " ")} />
         </div>
+      </header>
 
-        {/* ---------- Product Table ---------- */}
-        <div style={S.sectionLabel}>Items</div>
-        <table style={S.table}>
-          <thead>
-            <tr>
-              <th style={{ ...S.th, width: "26%", textAlign: "left" }}>Item Name</th>
-              <th style={{ ...S.th, width: "6%" }}>Qty</th>
-              <th style={{ ...S.th, width: "10%" }}>MRP</th>
-              <th style={{ ...S.th, width: "10%" }}>Disc</th>
-              <th style={{ ...S.th, width: "13%" }}>Taxable Amt</th>
-              <th style={{ ...S.th, width: "10%" }}>CGST</th>
-              <th style={{ ...S.th, width: "10%" }}>SGST</th>
-              <th style={{ ...S.th, width: "15%" }}>Amount</th>
-            </tr>
-          </thead>
+      <section className="invoice-party-grid">
+        <div className="invoice-party">
+          <h3>BILL TO</h3>
+          <strong className="invoice-customer-name">{text(invoice.customerName)}</strong>
+          <p>{text(invoice.customerAddress)}</p>
+          <p>Mobile: {text(invoice.phone)}</p>
+        </div>
+        <div className="invoice-meta">
+          <h3>INVOICE DETAILS</h3>
+          <InfoLine label="Order Date" value={date(invoice.orderDate, true)} />
+          <InfoLine label="Payment" value={paymentSummary(payments)} />
+          <InfoLine label="Status" value={invoice.orderStatus?.replaceAll("_", " ")} />
+          <InfoLine label="Collected By" value={collectedBy} />
+        </div>
+      </section>
+
+      <section className="invoice-items-wrap">
+        <table className="invoice-items">
+          <thead><tr><th>#</th><th>Part No.</th><th>Item Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Discount</th><th>GST</th><th>Amount</th></tr></thead>
           <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td style={S.tdEmpty} colSpan={8}>
-                  No items on this invoice.
-                </td>
-              </tr>
-            )}
-            {items.map((item, idx) => {
-              const hasDiscount = Number(item.discountAmount) > 0;
-              const { cgst, sgst } = splitGst(item);
-              return (
-                <tr key={item.batchId ? `${item.batchId}-${idx}` : idx} style={idx % 2 === 1 ? S.trBand : undefined}>
-                  <td style={S.tdLeft}>
-                    <div style={{ fontWeight: 600 }}>{item.itemName || item.productName || "—"}</div>
-                    <div style={{ fontSize: 10, color: COLORS.inkSoft, fontFamily: FONT_MONO }}>
-                      HSN: {item.hsncode || "—"}
-                    </div>
-                    <div style={{ fontSize: 10, color: COLORS.inkSoft, fontFamily: FONT_MONO }}>
-                      Part No: {item.partNumber || "—"}
-                    </div>
-                  </td>
-                  <td style={S.tdCenter}>{item.quantity ?? "—"}</td>
-                  <td style={S.tdNum}>{formatINR(item.mrp)}</td>
-                  <td style={S.tdNum}>{hasDiscount ? formatPercent(item.discountPercentage) : "—"}</td>
-                  <td style={S.tdNum}>{formatINR(item.taxableAmount)}</td>
-                  <td style={S.tdNum}>{formatINR(cgst)}</td>
-                  <td style={S.tdNum}>{formatINR(sgst)}</td>
-                  <td style={{ ...S.tdNum, fontWeight: 600 }}>{formatINR(item.totalPrice)}</td>
-                </tr>
-              );
-            })}
+            {items.map((item, index) => <tr key={`${item.batchId || "item"}-${index}`}>
+              <td>{index + 1}</td>
+              <td className="invoice-mono">{text(item.partNumber)}</td>
+              <td><strong>{text(item.itemName || item.productName)}</strong>{item.brandName && <small>{item.brandName}</small>}</td>
+              <td>{text(item.hsncode)}</td>
+              <td>{text(item.quantity)}</td>
+              <td>{money(item.sellingPrice)}</td>
+              <td>{Number(item.discountAmount || 0) > 0 ? `${money(item.discountAmount)} (${Number(item.discountPercentage || 0)}%)` : "-"}</td>
+              <td>{Number(item.gstPercentage || 0)}%</td>
+              <td><strong>{money(item.totalPrice)}</strong></td>
+            </tr>)}
+            {!items.length && <tr><td colSpan="9" className="invoice-empty">No invoice items found.</td></tr>}
           </tbody>
+          <tfoot><tr><td colSpan="4">Total Items: {items.length}</td><td>{items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</td><td colSpan="4" /></tr></tfoot>
         </table>
+      </section>
 
-        {/* ---------- Payment History ---------- */}
-        {payments.length > 0 && (
-          <>
-            <div style={{ ...S.sectionLabel, marginTop: 22 }}>Payment History</div>
-            <table style={S.table}>
-              <thead>
-                <tr>
-                  <th style={{ ...S.th, width: "18%" }}>Date</th>
-                  <th style={{ ...S.th, width: "16%" }}>Payment Method</th>
-                  <th style={{ ...S.th, width: "20%" }}>Transaction No.</th>
-                  <th style={{ ...S.th, width: "16%" }}>Collected By</th>
-                  <th style={{ ...S.th, width: "18%", textAlign: "left" }}>Remarks</th>
-                  <th style={{ ...S.th, width: "12%" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((p, idx) => (
-                  <tr key={p.id ?? idx} style={idx % 2 === 1 ? S.trBand : undefined}>
-                    <td style={{ ...S.tdCenter, fontFamily: FONT_MONO }}>{formatDateTime(p.paymentDate)}</td>
-                    <td style={S.tdCenter}>{p.paymentMethod || "—"}</td>
-                    <td style={{ ...S.tdCenter, fontFamily: FONT_MONO }}>{p.transactionNumber || "—"}</td>
-                    <td style={S.tdCenter}>{p.collectedBy || "—"}</td>
-                    <td style={S.tdLeft}>{p.remarks || "—"}</td>
-                    <td style={{ ...S.tdNum, fontWeight: 600 }}>{formatINR(p.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-
-        {/* ---------- Financial Summary + Amount in Words ---------- */}
-        <div style={S.summaryGrid}>
-          <div style={S.wordsBlock}>
-            <div style={S.sectionLabel}>Amount In Words</div>
-            <div style={S.wordsText}>{amountInWords(invoice.totalAmount)}</div>
-
-            <div style={{ ...S.sectionLabel, marginTop: 26 }}>Terms &amp; Conditions</div>
-            <ul style={S.termsList}>
-              <li>Warranty as per manufacturer / brand policy only; D2W does not extend a separate warranty.</li>
-              <li>Goods once sold cannot be returned or exchanged.</li>
-              <li>Any dispute is subject to the jurisdiction of the store's registered local courts only.</li>
-              <li>This is a computer-generated invoice and does not require a physical signature to be valid.</li>
-            </ul>
-          </div>
-
-          <div style={S.ledgerBlock}>
-            <SummaryRow label="Gross Amount" value={invoice.grossAmount} />
-            {Number(invoice.itemDiscountAmount) > 0 && (
-              <SummaryRow label="Item Discount" value={invoice.itemDiscountAmount} negative />
-            )}
-            {Number(invoice.billDiscountAmount) > 0 && (
-              <SummaryRow
-                label={`Bill Discount ${
-                  invoice.billDiscountPercentage != null ? `(${formatPercent(invoice.billDiscountPercentage)})` : ""
-                }`}
-                value={invoice.billDiscountAmount}
-                negative
-              />
-            )}
-            <SummaryRow label="Taxable Amount" value={invoice.taxableAmount} />
-            <SummaryRow label="CGST" value={invoice.cgstAmount} />
-            <SummaryRow label="SGST" value={invoice.sgstAmount} />
-            <SummaryRow label="IGST" value={invoice.igstAmount} />
-            <SummaryRow label="Round Off" value={invoice.roundOffAmount} />
-
-            <div style={S.ledgerDivider} />
-
-            <SummaryRow label="Grand Total" value={invoice.totalAmount} emphasis />
-            <SummaryRow label="Paid Amount" value={invoice.paidAmount} tone={COLORS.success} />
-            <SummaryRow
-              label="Balance Due"
-              value={invoice.balanceAmount}
-              tone={Number(invoice.balanceAmount) > 0 ? COLORS.danger : COLORS.success}
-              emphasis
-            />
-          </div>
+      <section className="invoice-summary-grid">
+        <div className="invoice-lower-left">
+          <div className="invoice-words"><h3>AMOUNT IN WORDS</h3><p>{amountInWords(invoice.totalAmount)}</p></div>
+          {payments.length > 0 && <div className="invoice-payment-block">
+            <h3>PAYMENT DETAILS</h3>
+            {payments.map((payment, index) => <div className="invoice-payment-row" key={payment.id || index}>
+              <span>{date(payment.paymentDate)} - {text(payment.paymentMethod)?.replaceAll?.("_", " ") || "-"}</span>
+              <strong>{"\u20B9"} {money(payment.amount)}</strong>
+              {payment.transactionNumber && <small>{payment.transactionNumber}</small>}
+            </div>)}
+          </div>}
+          <div className="invoice-terms"><h3>TERMS &amp; CONDITIONS</h3><ol><li>Goods once sold cannot be returned or exchanged.</li><li>Warranty is subject to the manufacturer or brand policy.</li><li>Disputes are subject to the store's local jurisdiction.</li></ol></div>
         </div>
-
-        {/* ---------- Signatures ---------- */}
-        <div style={S.signatureRow}>
-          <div style={S.signatureBox}>
-            <div style={S.signatureLine} />
-            <div style={S.signatureLabel}>Customer Signature</div>
-          </div>
-          <div style={S.signatureBox}>
-            <div style={S.signatureLine} />
-            <div style={S.signatureLabel}>Authorised Signatory — Deals2Wheels</div>
-          </div>
+        <div className="invoice-totals">
+          <TotalLine label="Gross Amount" value={invoice.grossAmount} />
+          {Number(invoice.itemDiscountAmount) > 0 && <TotalLine label="Item Discount" value={invoice.itemDiscountAmount} subtract />}
+          {Number(invoice.billDiscountAmount) > 0 && <TotalLine label={`Bill Discount (${Number(invoice.billDiscountPercentage || 0)}%)`} value={invoice.billDiscountAmount} subtract />}
+          <TotalLine label="Taxable Amount" value={invoice.taxableAmount} strong />
+          {Number(invoice.cgstAmount) > 0 && <TotalLine label="CGST" value={invoice.cgstAmount} />}
+          {Number(invoice.sgstAmount) > 0 && <TotalLine label="SGST" value={invoice.sgstAmount} />}
+          {Number(invoice.igstAmount) > 0 && <TotalLine label="IGST" value={invoice.igstAmount} />}
+          <TotalLine label="Round Off" value={invoice.roundOffAmount} />
+          <div className="invoice-grand-total"><span>GRAND TOTAL</span><strong>{"\u20B9"} {money(invoice.totalAmount)}</strong></div>
+          <TotalLine label="Paid Amount" value={invoice.paidAmount} />
+          <TotalLine label="Balance Due" value={invoice.balanceAmount} strong />
         </div>
+      </section>
 
-        <div style={S.footerNote}>This is a computer-generated invoice.</div>
-      </div>
-    </div>
-  );
+      <footer className="invoice-footer">
+        <div><span>Customer Signature</span></div>
+        <div><p>For {text(invoice.storeName)}</p><span>Authorized Signatory</span></div>
+      </footer>
+      <p className="invoice-generated">This is a computer-generated invoice.</p>
+    </article>
+  </main>;
 }
-
-/* ============================================================================
-   Inline style objects
-   ============================================================================ */
-const S = {
-  pageBackdrop: {
-    fontFamily: FONT_BODY,
-    background: COLORS.canvas,
-    minHeight: "100vh",
-    padding: "24px 0 60px",
-    color: COLORS.ink,
-  },
-  toolbar: {
-    maxWidth: 960,
-    margin: "0 auto 18px",
-    padding: "0 4px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  btnPrimary: {
-    background: COLORS.steel,
-    color: "#fff",
-    border: "none",
-    borderRadius: 4,
-    padding: "10px 18px",
-    fontFamily: FONT_BODY,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  btnSecondary: {
-    background: "#fff",
-    color: COLORS.steel,
-    border: `1px solid ${COLORS.line}`,
-    borderRadius: 4,
-    padding: "10px 18px",
-    fontFamily: FONT_BODY,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  sheet: {
-    width: "210mm",
-    minHeight: "297mm",
-    margin: "0 auto",
-    background: COLORS.paper,
-    boxShadow: "0 2px 14px rgba(21,43,61,0.12)",
-    padding: "16mm 14mm",
-    boxSizing: "border-box",
-  },
-  headerBlock: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 24,
-  },
-  brandBlock: { display: "flex", gap: 14, alignItems: "flex-start" },
-  logoMark: {
-    width: 52,
-    height: 52,
-    borderRadius: 6,
-    background: COLORS.steel,
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: FONT_DISPLAY,
-    fontWeight: 600,
-    fontSize: 18,
-    letterSpacing: 1,
-    flexShrink: 0,
-  },
-  brandName: {
-    fontFamily: FONT_DISPLAY,
-    fontSize: 24,
-    fontWeight: 600,
-    letterSpacing: 0.5,
-    color: COLORS.steel,
-    lineHeight: 1.1,
-  },
-  brandTagline: {
-    fontSize: 11.5,
-    color: COLORS.inkSoft,
-    marginTop: 3,
-    fontStyle: "italic",
-  },
-  storeMeta: {
-    marginTop: 8,
-    fontSize: 11,
-    color: COLORS.inkSoft,
-    display: "flex",
-    gap: 14,
-  },
-  invoiceBadgeBlock: { textAlign: "right", minWidth: 210 },
-  invoiceBadge: {
-    display: "inline-block",
-    fontFamily: FONT_DISPLAY,
-    fontSize: 15,
-    letterSpacing: 2,
-    color: "#fff",
-    background: COLORS.steel,
-    padding: "6px 14px",
-    borderRadius: 3,
-    marginBottom: 10,
-  },
-  invoiceNumberLine: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 8,
-    fontSize: 12.5,
-    marginTop: 4,
-  },
-  invoiceNumberValue: { fontFamily: FONT_MONO, fontWeight: 600, color: COLORS.ink },
-  hairline: { height: 2, background: COLORS.steel, margin: "16px 0 18px" },
-  detailsGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 28,
-    marginBottom: 22,
-    background: COLORS.accentSoft,
-    border: `1px solid ${COLORS.line}`,
-    borderRadius: 4,
-    padding: "14px 18px",
-  },
-  detailsCol: {},
-  sectionLabel: {
-    fontFamily: FONT_DISPLAY,
-    fontSize: 12.5,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: COLORS.accent,
-    borderBottom: `1px solid ${COLORS.line}`,
-    paddingBottom: 5,
-    marginBottom: 8,
-  },
-  fieldRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    fontSize: 12.5,
-    padding: "3px 0",
-  },
-  fieldLabel: { color: COLORS.inkSoft },
-  fieldValue: { color: COLORS.ink, fontWeight: 500, textAlign: "right" },
-  statusPill: {
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 0.5,
-    border: "1px solid",
-    borderRadius: 3,
-    padding: "1px 8px",
-    textTransform: "uppercase",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: 11,
-    tableLayout: "fixed",
-  },
-  th: {
-    background: COLORS.steel,
-    color: "#fff",
-    fontFamily: FONT_BODY,
-    fontWeight: 600,
-    fontSize: 10.5,
-    textAlign: "center",
-    padding: "7px 4px",
-    border: `1px solid ${COLORS.steelDeep}`,
-  },
-  trBand: { background: COLORS.accentSoft },
-  tdCenter: {
-    textAlign: "center",
-    padding: "6px 4px",
-    border: `1px solid ${COLORS.lineSoft}`,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  tdLeft: {
-    textAlign: "left",
-    padding: "6px 4px",
-    border: `1px solid ${COLORS.lineSoft}`,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  tdNum: {
-    textAlign: "right",
-    padding: "6px 6px",
-    border: `1px solid ${COLORS.lineSoft}`,
-    fontFamily: FONT_MONO,
-    whiteSpace: "nowrap",
-  },
-  tdEmpty: {
-    textAlign: "center",
-    padding: "18px 4px",
-    border: `1px solid ${COLORS.lineSoft}`,
-    color: COLORS.inkSoft,
-  },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "1.15fr 0.85fr",
-    gap: 26,
-    marginTop: 24,
-    alignItems: "start",
-  },
-  wordsBlock: {},
-  wordsText: {
-    fontSize: 12.5,
-    fontWeight: 600,
-    color: COLORS.ink,
-    background: COLORS.accentSoft,
-    border: `1px solid ${COLORS.line}`,
-    borderRadius: 4,
-    padding: "10px 12px",
-  },
-  termsList: {
-    margin: 0,
-    paddingLeft: 18,
-    fontSize: 10.5,
-    color: COLORS.inkSoft,
-    lineHeight: 1.6,
-  },
-  ledgerBlock: {
-    border: `1px solid ${COLORS.line}`,
-    borderRadius: 4,
-    padding: "14px 16px",
-  },
-  summaryRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 12.5,
-    padding: "4px 0",
-  },
-  summaryRowEmphasis: { padding: "8px 0" },
-  summaryLabel: { color: COLORS.inkSoft },
-  summaryValue: { fontFamily: FONT_MONO, color: COLORS.ink },
-  ledgerDivider: { height: 1, background: COLORS.line, margin: "8px 0" },
-  signatureRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: 60,
-    padding: "0 20px",
-  },
-  signatureBox: { width: 220, textAlign: "center" },
-  signatureLine: { borderTop: `1px solid ${COLORS.ink}`, marginBottom: 6 },
-  signatureLabel: { fontSize: 11, color: COLORS.inkSoft },
-  footerNote: {
-    textAlign: "center",
-    fontSize: 10.5,
-    color: COLORS.inkSoft,
-    marginTop: 30,
-    fontStyle: "italic",
-  },
-  stateScreen: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: COLORS.canvas,
-    fontFamily: FONT_BODY,
-  },
-  stateCard: {
-    background: "#fff",
-    padding: "24px 32px",
-    borderRadius: 6,
-    border: `1px solid ${COLORS.line}`,
-    fontSize: 14,
-  },
-};

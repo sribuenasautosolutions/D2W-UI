@@ -27,6 +27,9 @@ function LoginPage() {
     const [loading, setLoading] =
         useState(false);
 
+    const [loginError, setLoginError] =
+        useState("");
+
     const handleLogin =
         async (e) => {
 
@@ -35,6 +38,7 @@ function LoginPage() {
             try {
 
                 setLoading(true);
+                setLoginError("");
 
                 const response =
                     await loginUser({
@@ -51,17 +55,17 @@ function LoginPage() {
                 );
 
 
-                if (response.role === "OWNER") {
+                if (response.role === "SUPER_ADMIN") {
 
     navigate("/owner/dashboard");
 
 }
-else if (response.role === "MAINSTORE_MANAGER") {
+else if (response.role === "STORE_OWNER") {
 
     navigate("/store/dashboard");
 
 }
-else if (response.role === "Admin") {
+else if (response.role === "CASHIER") {
 
     navigate("/pos");
 
@@ -70,9 +74,10 @@ else if (response.role === "Admin") {
 
             } catch(error) {
 
-                console.error(error);
-
-                alert("Invalid Credentials");
+                setLoginError(
+                    error.response?.data?.message ||
+                    "Unable to sign in. Please try again."
+                );
 
             } finally {
 
@@ -141,6 +146,20 @@ else if (response.role === "Admin") {
 
                 <form onSubmit={handleLogin}>
 
+                    {loginError && (
+                        <div style={{
+                            marginBottom: "18px",
+                            padding: "12px 14px",
+                            border: "1px solid #fecaca",
+                            borderRadius: "8px",
+                            background: "#fef2f2",
+                            color: "#b91c1c",
+                            fontSize: "14px"
+                        }}>
+                            {loginError}
+                        </div>
+                    )}
+
                     <div
                         style={{
                             marginBottom: "22px"
@@ -161,6 +180,7 @@ else if (response.role === "Admin") {
                         </label>
 
                         <input
+                            required
                             type="email"
                             placeholder="Enter your email"
                             value={email}
@@ -200,6 +220,7 @@ else if (response.role === "Admin") {
                         </label>
 
                         <input
+                            required
                             type="password"
                             placeholder="Enter your password"
                             value={password}

@@ -1,7 +1,9 @@
+import api from "./api";
+
 export const getInvoice = async (orderId) => {
 
     const response =
-        await axios.get(
+        await api.get(
             `/orders/${orderId}`
         );
 

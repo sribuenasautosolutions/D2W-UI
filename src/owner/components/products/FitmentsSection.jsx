@@ -706,9 +706,10 @@ export default function ProductFitmentEnterprise() {
                   <div style={styles.productDetailGrid}>
                     <ReadOnlyValue label="Part Number" value={foundProduct.partNumber} />
                     <ReadOnlyValue label="Product Name" value={foundProduct.itemName} />
-                    <ReadOnlyValue label="Brand" value={foundProduct.partBrand?.brandName} />
+                    <ReadOnlyValue label="Brand" value={foundProduct.brandName} />
                     <ReadOnlyValue label="OEM Number" value={foundProduct.oemNumber} />
-                    <ReadOnlyValue label="Master" value={foundProduct.partMaster?.masterName} />
+                    <ReadOnlyValue label="Category" value={foundProduct.categoryName} />
+                    <ReadOnlyValue label="Master" value={foundProduct.masterName} />
                     <ReadOnlyValue label="EAN" value={foundProduct.ean} />
                     <ReadOnlyValue label="HSN" value={foundProduct.hsnCode} />
                     <ReadOnlyValue label="GST" value={foundProduct.gstPercentage} />

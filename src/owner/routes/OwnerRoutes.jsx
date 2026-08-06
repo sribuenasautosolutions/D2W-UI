@@ -75,11 +75,7 @@ function OwnerRoutes() {
   
       <Route
         path="/orders/invoice/:orderId"
-        element={
-          <DashboardLayout>
-            <InvoicePage />
-          </DashboardLayout>
-        }
+        element={<InvoicePage />}
       />
 
       <Route

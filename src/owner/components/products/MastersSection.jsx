@@ -8,7 +8,6 @@ import {
   Loader2,
   X,
   CheckCircle2,
-  Star,
 } from "lucide-react";
 import api from "../../../services/api";
 
@@ -73,7 +72,6 @@ function MastersSection() {
   }, [masters, query]);
 
   const activeCount = useMemo(() => masters.filter((m) => m.active).length, [masters]);
-  const featuredCount = useMemo(() => masters.filter((m) => m.featured).length, [masters]);
   const latestMaster = masters.length ? masters[masters.length - 1].masterName : "—";
 
   const resetAddModal = () => {
@@ -191,7 +189,6 @@ function MastersSection() {
       <div style={S.statsGrid}>
         <StatCard label="Total Masters" value={masters.length} icon={<Package size={16} />} tint="#EEF2FF" iconColor="#4F46E5" />
         <StatCard label="Active" value={activeCount} icon={<CheckCircle2 size={16} />} tint="#ECFDF5" iconColor="#059669" />
-        <StatCard label="Featured" value={featuredCount} icon={<Star size={16} />} tint="#FFFBEB" iconColor="#D97706" />
         <StatCard label="Latest Added" value={latestMaster} icon={<Package size={16} />} tint="#F5F3FF" iconColor="#7C3AED" small />
       </div>
 
@@ -225,7 +222,6 @@ function MastersSection() {
                   <th style={S.th}>Category</th>
                   <th style={S.th}>Slug</th>
                   <th style={S.th}>Status</th>
-                  <th style={S.th}>Featured</th>
                 </tr>
               </thead>
               <tbody>
@@ -238,13 +234,6 @@ function MastersSection() {
                       <span style={{ ...S.badge, ...(master.active ? S.badgeActive : S.badgeInactive) }}>
                         {master.active ? "Active" : "Inactive"}
                       </span>
-                    </td>
-                    <td style={S.td}>
-                      {master.featured ? (
-                        <span style={{ ...S.badge, ...S.badgeFeatured }}>Featured</span>
-                      ) : (
-                        <span style={{ color: "#D1D5DB" }}>—</span>
-                      )}
                     </td>
                   </tr>
                 ))}
@@ -349,7 +338,7 @@ function MastersSection() {
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {bulkResult.failedRows.map((f, idx) => (
                     <li key={idx} style={{ fontSize: 13, color: "#B91C1C" }}>
-                      Row {f.row}: {f.reason}
+                      Row {f.rowNumber}: {f.reason}
                     </li>
                   ))}
                 </ul>

@@ -67,8 +67,6 @@ function PendingApprovalSection({
         (product.brand || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const distinctBrands = new Set(pendingProducts.map((p) => p.brand).filter(Boolean)).size;
-
     const statusTone = (status) => {
         const normalized = (status || "").toLowerCase();
         if (normalized.includes("approve")) return "green";
@@ -82,9 +80,6 @@ function PendingApprovalSection({
 
             <div className="vm-stats-row">
                 <VehicleStatCard label="Total pending" value={pendingProducts.length} icon="📥" tone="blue" />
-                <VehicleStatCard label="Matching search" value={filteredProducts.length} icon="🔎" tone="green" />
-                <VehicleStatCard label="Distinct brands" value={distinctBrands} icon="🏷" tone="amber" />
-                <VehicleStatCard label="Workflow step" value="1 of 4" icon="🧭" tone="gray" />
             </div>
 
             <div className="vm-action-bar">

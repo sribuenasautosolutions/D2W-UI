@@ -85,12 +85,10 @@ export const getProfitReport = async (storeId) => {
   return response.data;
 };
 export const getBatchReport = async (storeId) => {
-  
-
-    const response =
-        await api.get(
-            `/store-inventory/batches/store/${storeId}`
-        );
+    const url = storeId
+        ? `/store-inventory/batches/store/${storeId}`
+        : `/store-inventory/batches`;
+    const response = await api.get(url);
 
     return response.data;
 };
