@@ -4,6 +4,7 @@ import DashboardLayout from "../../owner/layouts/DashboardLayout";
 
 import DashboardHome from "../../owner/pages/DashboardHome";
 import InventoryPage from "../../owner/pages/InventoryPage";
+import PurchasesPage from "../../owner/pages/PurchasesPage";
 import OrdersPage from "../../owner/pages/OrdersPage";
 import UsersPage from "../../owner/pages/UsersPage";
 
@@ -39,6 +40,15 @@ function StoreRoutes() {
                 element={
                     <DashboardLayout>
                         <InventoryPage />
+                    </DashboardLayout>
+                }
+            />
+
+            <Route
+                path="/purchases"
+                element={
+                    <DashboardLayout>
+                        <PurchasesPage />
                     </DashboardLayout>
                 }
             />

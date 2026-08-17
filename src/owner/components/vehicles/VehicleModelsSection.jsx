@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CarFront, Download, Filter, Plus, Search } from "lucide-react";
 
 import api from "../../../services/api";
 import VehicleDrawer from "./VehicleDrawer";
@@ -25,8 +26,9 @@ function VehicleModelsSection() {
     // ===== NEW UI-ONLY STATE =====
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [drawerMakeId, setDrawerMakeId] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     // ===== ORIGINAL HANDLERS — unchanged =====
     const loadMakes = async () => {
@@ -188,57 +190,71 @@ function VehicleModelsSection() {
         <div>
 
             <div className="vm-stats-row">
-                <VehicleStatCard label="Total models" value={models.length} icon="🚙" tone="blue" />
-                <VehicleStatCard label="Matching search" value={filteredModels.length} icon="🔎" tone="green" />
-                <VehicleStatCard label="Makes covered" value={new Set(models.map((m) => m.vehicleMake?.id)).size} icon="🏷" tone="amber" />
-                <VehicleStatCard label="Hierarchy level" value="2 of 4" icon="🧭" tone="gray" />
+                <VehicleStatCard label="Total models" value={models.length} tone="blue" />
+                <VehicleStatCard label="Active models" value={models.filter((model) => model.isActive !== false).length} tone="green" />
+                <VehicleStatCard label="Makes covered" value={new Set(models.map((m) => m.vehicleMake?.id)).size} tone="amber" />
+                <VehicleStatCard label="Matching results" value={filteredModels.length} tone="purple" />
             </div>
 
             <div className="vm-action-bar">
-                <div className="vm-search-wrap">
-                    <span className="vm-search-icon">🔍</span>
+                {searchOpen && <div className="vm-search-wrap">
+                    <span className="vm-search-icon"><Search size={15} /></span>
                     <input
                         className="vm-search-input"
                         placeholder="Search models…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                </div>
+                </div>}
 
                 <div className="vm-action-buttons">
-                    <select
-                        className="vm-select"
-                        style={{ minWidth: 170 }}
-                        value={selectedMakeId}
-                        onChange={(e) => {
-                            setSelectedMakeId(e.target.value);
-                            loadModels(e.target.value);
-                        }}
+                    <button
+                        className={`vm-btn vm-btn-secondary vm-btn-icon${searchOpen ? " is-active" : ""}`}
+                        onClick={() => setSearchOpen((open) => !open)}
+                        aria-label="Search models"
+                        title="Search"
                     >
-                        <option value="">All makes</option>
-                        {makes.map((make) => (
-                            <option key={make.id} value={make.id}>
-                                {make.makeName}
-                            </option>
-                        ))}
-                    </select>
-
+                        <Search size={16} />
+                    </button>
+                    <button className="vm-btn vm-btn-secondary" onClick={() => setFiltersOpen((open) => !open)}>
+                        <Filter size={16} /> Filters
+                    </button>
                     <button className="vm-btn vm-btn-secondary" onClick={exportCsv}>
-                        ⬇ Export
+                        <Download size={16} /> Export
                     </button>
                     <button
                         className="vm-btn vm-btn-primary"
                         onClick={() => {
                         setMessage(null);
                         setModelName("");
-                        setDrawerMakeId(selectedMakeId);
                         setIsDrawerOpen(true);
                         }}
                     >
-                        + Add Model
+                        <Plus size={17} /> Add Model
                     </button>
                 </div>
             </div>
+
+            {filtersOpen && (
+                <div className="vm-filter-panel">
+                    <div className="vm-field">
+                        <label className="vm-label">Brand / make</label>
+                        <select
+                            className="vm-select"
+                            value={selectedMakeId}
+                            onChange={(e) => {
+                                setSelectedMakeId(e.target.value);
+                                loadModels(e.target.value);
+                            }}
+                        >
+                            <option value="">All makes</option>
+                            {makes.map((make) => (
+                                <option key={make.id} value={make.id}>{make.makeName}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            )}
 
             {message && !isDrawerOpen && (
                 <div className={`vm-alert vm-alert-${message.type}`}>
@@ -250,7 +266,7 @@ function VehicleModelsSection() {
             <div className="vm-panel">
                 {filteredModels.length === 0 ? (
                     <div className="vm-empty">
-                        <div className="vm-empty-icon">🚙</div>
+                        <div className="vm-empty-icon"><CarFront size={30} /></div>
                         <div className="vm-empty-title">No models found</div>
                         <div>{models.length === 0 ? "Add your first model to get started." : "Try a different search or make filter."}</div>
                     </div>
@@ -261,6 +277,7 @@ function VehicleModelsSection() {
                                 <tr>
                                     <th>Make</th>
                                     <th>Model</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -270,6 +287,11 @@ function VehicleModelsSection() {
                                             <span className="vm-badge vm-badge-blue">{model.vehicleMake?.makeName}</span>
                                         </td>
                                         <td className="vm-cell-strong">{model.modelName}</td>
+                                        <td>
+                                            <span className={`vm-badge ${model.isActive !== false ? "vm-badge-green" : "vm-badge-gray"}`}>
+                                                {model.isActive !== false ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -318,6 +340,7 @@ function VehicleModelsSection() {
 
             <VehicleDrawer
                 open={isDrawerOpen}
+                size="medium"
                 onClose={() => setIsDrawerOpen(false)}
                 icon="🚙"
                 title="Add New Model"

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CarFront, Download, Filter, Plus, Search } from "lucide-react";
 
 import api from "../../../services/api";
 import VehicleDrawer from "./VehicleDrawer";
@@ -18,6 +19,9 @@ function VehicleMakesSection() {
     // ===== NEW UI-ONLY STATE (no API / business-logic impact) =====
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [statusFilter, setStatusFilter] = useState("all");
 
     useEffect(() => {
 
@@ -89,10 +93,18 @@ function VehicleMakesSection() {
     }
 
     
-    const filteredMakes = makes.filter((make) =>
-        (make.makeName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (make.slug || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredMakes = makes.filter((make) => {
+        const matchesSearch =
+            (make.makeName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (make.slug || "").toLowerCase().includes(searchTerm.toLowerCase());
+        const isActive = make.isActive !== false;
+        const matchesStatus = statusFilter === "all" ||
+            (statusFilter === "active" && isActive) ||
+            (statusFilter === "inactive" && !isActive);
+        return matchesSearch && matchesStatus;
+    });
+
+    const activeMakes = makes.filter((make) => make.isActive !== false).length;
 
     const exportCsv = () => {
         const rows = [["Make", "Slug"], ...makes.map((m) => [m.makeName, m.slug])];
@@ -110,26 +122,37 @@ function VehicleMakesSection() {
         <div>
 
             <div className="vm-stats-row">
-                <VehicleStatCard label="Total makes" value={makes.length} icon="🚗" tone="blue" />
-                <VehicleStatCard label="Matching search" value={filteredMakes.length} icon="🔎" tone="green" />
-                <VehicleStatCard label="Latest added" value={makes.length ? makes[makes.length - 1].makeName : "—"} icon="🆕" tone="amber" />
-                <VehicleStatCard label="Hierarchy level" value="1 of 4" icon="🧭" tone="gray" />
+                <VehicleStatCard label="Total makes" value={makes.length} tone="blue" />
+                <VehicleStatCard label="Active makes" value={activeMakes} tone="green" />
+                <VehicleStatCard label="Inactive makes" value={makes.length - activeMakes} tone="amber" />
+                <VehicleStatCard label="Latest added" value={makes.length ? makes[makes.length - 1].makeName : "—"} tone="purple" />
             </div>
 
             <div className="vm-action-bar">
-                <div className="vm-search-wrap">
-                    <span className="vm-search-icon">🔍</span>
+                {searchOpen && <div className="vm-search-wrap">
+                    <span className="vm-search-icon"><Search size={15} /></span>
                     <input
                         className="vm-search-input"
                         placeholder="Search makes…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                </div>
+                </div>}
 
                 <div className="vm-action-buttons">
+                    <button
+                        className={`vm-btn vm-btn-secondary vm-btn-icon${searchOpen ? " is-active" : ""}`}
+                        onClick={() => setSearchOpen((open) => !open)}
+                        aria-label="Search makes"
+                        title="Search"
+                    >
+                        <Search size={16} />
+                    </button>
+                    <button className="vm-btn vm-btn-secondary" onClick={() => setFiltersOpen((open) => !open)}>
+                        <Filter size={16} /> Filters
+                    </button>
                     <button className="vm-btn vm-btn-secondary" onClick={exportCsv}>
-                        ⬇ Export
+                        <Download size={16} /> Export
                     </button>
                     <button
                         className="vm-btn vm-btn-primary"
@@ -138,10 +161,23 @@ function VehicleMakesSection() {
                             setIsDrawerOpen(true);
                         }}
                     >
-                        + Add Make
+                        <Plus size={17} /> Add Make
                     </button>
                 </div>
             </div>
+
+            {filtersOpen && (
+                <div className="vm-filter-panel">
+                    <div className="vm-field">
+                        <label className="vm-label">Make status</label>
+                        <select className="vm-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                            <option value="all">All makes</option>
+                            <option value="active">Active makes</option>
+                            <option value="inactive">Inactive makes</option>
+                        </select>
+                    </div>
+                </div>
+            )}
 
             {message && !isDrawerOpen && (
                 <div className={`vm-alert vm-alert-${message.type}`}>
@@ -153,7 +189,7 @@ function VehicleMakesSection() {
             <div className="vm-panel">
                 {filteredMakes.length === 0 ? (
                     <div className="vm-empty">
-                        <div className="vm-empty-icon">🚗</div>
+                        <div className="vm-empty-icon"><CarFront size={30} /></div>
                         <div className="vm-empty-title">No makes found</div>
                         <div>{makes.length === 0 ? "Add your first make to get started." : "Try a different search term."}</div>
                     </div>
@@ -164,6 +200,7 @@ function VehicleMakesSection() {
                                 <tr>
                                     <th>Make</th>
                                     <th>Slug</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -171,6 +208,11 @@ function VehicleMakesSection() {
                                     <tr key={make.id}>
                                         <td className="vm-cell-strong">{make.makeName}</td>
                                         <td className="vm-cell-mono">{make.slug}</td>
+                                        <td>
+                                            <span className={`vm-badge ${make.isActive !== false ? "vm-badge-green" : "vm-badge-gray"}`}>
+                                                {make.isActive !== false ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -185,6 +227,7 @@ function VehicleMakesSection() {
 
             <VehicleDrawer
                 open={isDrawerOpen}
+                size="medium"
                 onClose={() => setIsDrawerOpen(false)}
                 icon="🚗"
                 title="Add New Make"

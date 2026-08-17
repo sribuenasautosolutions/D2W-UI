@@ -63,7 +63,6 @@ const getUser = () => {
 const statusColor = (status) => {
   const s = (status || "").toUpperCase();
   if (s === "PAID") return { bg: "#d1fae5", color: "#065f46", border: "#6ee7b7" };
-  if (s === "PARTIALLY_PAID") return { bg: "#fef3c7", color: "#92400e", border: "#fcd34d" };
   if (s === "CANCELLED" || s === "RETURNED") return { bg: "#fee2e2", color: "#991b1b", border: "#fca5a5" };
   return { bg: "#eff6ff", color: "#1e40af", border: "#93c5fd" }; // PENDING_PAYMENT
 };

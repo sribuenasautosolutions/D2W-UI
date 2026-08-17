@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
-import AddStockSection from "../components/inventory/AddStockSection";
 import BatchReportSection from "../components/inventory/BatchReportPage";
+import BulkUploadSection from "../components/inventory/BulkUploadSection";
 import CurrentStockSection from "../components/inventory/CurrentStockSection";
 import InventoryAdjustmentSection from "../components/inventory/InventoryAdjustmentSection";
 import InventoryTransactionsSection from "../components/inventory/InventoryTransactionSection";
@@ -11,10 +11,10 @@ const INVENTORY_VIEWS = {
         description: "Review available inventory for the selected store.",
         Component: CurrentStockSection,
     },
-    addstock: {
-        title: "Add Stock",
-        description: "Add a catalogue product or receive new stock into the store.",
-        Component: AddStockSection,
+    bulkstock: {
+        title: "Opening & Bulk Stock",
+        description: "Import opening inventory or perform an approved bulk stock entry.",
+        Component: BulkUploadSection,
     },
     transactions: {
         title: "Inventory Transactions",

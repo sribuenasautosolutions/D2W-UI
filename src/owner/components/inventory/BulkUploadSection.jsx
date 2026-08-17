@@ -7,8 +7,9 @@ import "./BulkUploadPriceSettings.css";
 const CHUNK_SIZE = 100;
 const editableFields = [
   ["partNumber", "Part Number"], ["itemName", "Item Name"], ["brandName", "Brand"],
+  ["categoryName", "Category"], ["masterName", "Subcategory"],
   ["quantity", "Qty"], ["purchasePrice", "Purchase Price"], ["sellingPrice", "Selling Price"],
-  ["mrp", "MRP"], ["hsnCode", "HSN Code"], ["rackNumber", "Rack No."],
+  ["mrp", "MRP"], ["hsnCode", "HSN Code"], ["gstPercentage", "GST %"], ["rackNumber", "Rack No."],
 ];
 
 function currentUser() {
@@ -49,11 +50,13 @@ function validateEditedRow(row) {
   if (!String(row.partNumber || "").trim()) errors.push("Part Number is required");
   if (!String(row.itemName || "").trim()) errors.push("Item Name is required");
   if (!String(row.brandName || "").trim()) errors.push("Brand is required");
+  if (row.productMatch === "NEW" && !String(row.categoryName || "").trim()) errors.push("Category is required for a new item");
+  if (row.productMatch === "NEW" && !String(row.masterName || "").trim()) errors.push("Subcategory is required for a new item");
   if (!Number.isInteger(Number(row.quantity)) || Number(row.quantity) <= 0) errors.push("Quantity must be a whole number above zero");
   if (row.purchasePrice === "" || Number(row.purchasePrice) < 0) errors.push("Purchase Price is required and cannot be negative");
   if (Number(row.sellingPrice) <= 0) errors.push("Selling Price must be greater than zero");
   if (Number(row.mrp) <= 0) errors.push("MRP must be greater than zero");
-  if (Number(row.purchasePrice) > Number(row.sellingPrice)) errors.push("Purchase Price cannot exceed Selling Price");
+ 
   if (Number(row.sellingPrice) > Number(row.mrp)) errors.push("Selling Price cannot exceed MRP");
   if (row.hsnCode && !/^\d{4,8}$/.test(String(row.hsnCode).trim())) errors.push("HSN Code must contain 4 to 8 digits");
   return errors;
@@ -133,11 +136,14 @@ export default function BulkUploadSection() {
       partNumber: "",
       itemName: "",
       brandName: "",
+      categoryName: "",
+      masterName: "",
       quantity: "",
       purchasePrice: "",
       sellingPrice: "",
       mrp: "",
       hsnCode: "",
+      gstPercentage: gstPercentage,
       rackNumber: "",
       storeId: fixedStoreId || null,
       storeName: user.storeName || "",
