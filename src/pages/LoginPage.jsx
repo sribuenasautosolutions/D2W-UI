@@ -9,6 +9,11 @@ import {
 from "react-router-dom";
 
 import {
+    Eye, EyeOff
+}
+from "lucide-react";
+
+import {
     loginUser
 }
 from "../services/authService";
@@ -23,6 +28,9 @@ function LoginPage() {
 
     const [password, setPassword] =
         useState("");
+
+    const [showPassword, setShowPassword] =
+        useState(false);
 
     const [loading, setLoading] =
         useState(false);
@@ -219,24 +227,59 @@ else if (response.role === "CASHIER") {
 
                         </label>
 
-                        <input
-                            required
-                            type="password"
-                            placeholder="Enter your password"
-                            value={password}
-                            onChange={(e) =>
-                                setPassword(e.target.value)
-                            }
+                        <div
                             style={{
-                                width: "100%",
-                                padding: "15px",
-                                borderRadius: "12px",
-                                border: "1px solid #d1d5db",
-                                fontSize: "15px",
-                                outline: "none",
-                                boxSizing: "border-box"
+                                position: "relative"
                             }}
-                        />
+                        >
+
+                            <input
+                                required
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Enter your password"
+                                value={password}
+                                onChange={(e) =>
+                                    setPassword(e.target.value)
+                                }
+                                style={{
+                                    width: "100%",
+                                    padding: "15px",
+                                    paddingRight: "46px",
+                                    borderRadius: "12px",
+                                    border: "1px solid #d1d5db",
+                                    fontSize: "15px",
+                                    outline: "none",
+                                    boxSizing: "border-box"
+                                }}
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowPassword((current) => !current)
+                                }
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                style={{
+                                    position: "absolute",
+                                    right: "12px",
+                                    top: "50%",
+                                    transform: "translateY(-50%)",
+                                    border: "none",
+                                    background: "none",
+                                    padding: "4px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "#6b7280",
+                                    cursor: "pointer"
+                                }}
+                            >
+
+                                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+
+                            </button>
+
+                        </div>
 
                     </div>
 

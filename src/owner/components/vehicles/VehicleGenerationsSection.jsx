@@ -1,9 +1,18 @@
 import { useState, useEffect } from "react";
+import { CalendarRange, Download, Filter, Plus, Search } from "lucide-react";
 import api from "../../../services/api";
 import VehicleDrawer from "./VehicleDrawer";
 import VehicleStatCard from "./VehicleStatCard";
 import "./styles/vehicle-management.css";
 import "./styles/VehicleGenerationsSection.css";
+
+// Supports records returned by both the corrected API and an older running
+// backend. This can be removed after every environment uses the corrected DTO.
+const getGenerationStartYear = (generation) =>
+    generation.productionStartYear ?? generation.gproductionStartYear;
+
+const getGenerationEndYear = (generation) =>
+    generation.productionEndYear ?? generation.gproductionEndYear;
 
 function VehicleGenerationsSection() {
 
@@ -27,6 +36,8 @@ function VehicleGenerationsSection() {
     // ===== NEW UI-ONLY STATE =====
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     // ===== NEW: pagination state =====
     const [currentPage, setCurrentPage] = useState(1);
@@ -107,8 +118,8 @@ function VehicleGenerationsSection() {
                 generationNumber: generationNumber,
                 facelift: facelift,
                 bodyType: bodyType,
-                gproductionStartYear: startYear,
-                gproductionEndYear: endYear,
+                productionStartYear: startYear,
+                productionEndYear: endYear,
                 vehicleModel: {
                     id: selectedModelId
                 }
@@ -215,8 +226,8 @@ function VehicleGenerationsSection() {
     g.generationName,
     g.generationNumber,
     g.bodyType,
-    g.gproductionStartYear,
-    g.gproductionEndYear,
+    g.productionStartYear,
+    g.productionEndYear,
     g.facelift ? "Yes" : "No",
 ]),
         ];
@@ -234,54 +245,37 @@ function VehicleGenerationsSection() {
         <div>
 
             <div className="vm-stats-row">
-                <VehicleStatCard label="Total generations" value={generations.length} icon="📅" tone="blue" />
-                <VehicleStatCard label="Matching search" value={filteredGenerations.length} icon="🔎" tone="green" />
-                <VehicleStatCard label="Facelift versions" value={faceliftCount} icon="✨" tone="amber" />
-                <VehicleStatCard label="Hierarchy level" value="3 of 4" icon="🧭" tone="gray" />
+                <VehicleStatCard label="Total generations" value={generations.length} tone="blue" />
+                <VehicleStatCard label="Active generations" value={generations.filter((item) => item.isActive !== false).length} tone="green" />
+                <VehicleStatCard label="Facelift versions" value={faceliftCount} tone="amber" />
+                <VehicleStatCard label="Matching results" value={filteredGenerations.length} tone="purple" />
             </div>
 
             <div className="vm-action-bar">
-                <div className="vm-search-wrap">
-                    <span className="vm-search-icon">🔍</span>
+                {searchOpen && <div className="vm-search-wrap">
+                    <span className="vm-search-icon"><Search size={15} /></span>
                     <input
                         className="vm-search-input"
                         placeholder="Search generations…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                </div>
+                </div>}
 
                 <div className="vm-action-buttons">
-                    <select
-                        className="vm-select"
-                        style={{ minWidth: 160 }}
-                        value={selectedMakeId}
-                        onChange={(e) => handleFilterMakeChange(e.target.value)}
+                    <button
+                        className={`vm-btn vm-btn-secondary vm-btn-icon${searchOpen ? " is-active" : ""}`}
+                        onClick={() => setSearchOpen((open) => !open)}
+                        aria-label="Search generations"
+                        title="Search"
                     >
-                        <option value="">All makes</option>
-                        {makes.map((make) => (
-                            <option key={make.id} value={make.id}>
-                                {make.makeName}
-                            </option>
-                        ))}
-                    </select>
-
-                    <select
-                        className="vm-select"
-                        style={{ minWidth: 200 }}
-                        value={selectedModelId}
-                        onChange={(e) => handleFilterModelChange(e.target.value)}
-                    >
-                        <option value="">All models</option>
-                        {filterBarModels.map((model) => (
-                            <option key={model.id} value={model.id}>
-                                {model.vehicleMake?.makeName} → {model.modelName}
-                            </option>
-                        ))}
-                    </select>
-
+                        <Search size={16} />
+                    </button>
+                    <button className="vm-btn vm-btn-secondary" onClick={() => setFiltersOpen((open) => !open)}>
+                        <Filter size={16} /> Filters
+                    </button>
                     <button className="vm-btn vm-btn-secondary" onClick={exportCsv}>
-                        ⬇ Export
+                        <Download size={16} /> Export
                     </button>
                     <button
                         className="vm-btn vm-btn-primary"
@@ -302,10 +296,31 @@ function VehicleGenerationsSection() {
                             setIsDrawerOpen(true);
                         }}
                     >
-                        + Add Generation
+                        <Plus size={17} /> Add Generation
                     </button>
                 </div>
             </div>
+
+            {filtersOpen && (
+                <div className="vm-filter-panel">
+                    <div className="vm-field">
+                        <label className="vm-label">Brand / make</label>
+                        <select className="vm-select" value={selectedMakeId} onChange={(e) => handleFilterMakeChange(e.target.value)}>
+                            <option value="">All makes</option>
+                            {makes.map((make) => <option key={make.id} value={make.id}>{make.makeName}</option>)}
+                        </select>
+                    </div>
+                    <div className="vm-field">
+                        <label className="vm-label">Model</label>
+                        <select className="vm-select" value={selectedModelId} onChange={(e) => handleFilterModelChange(e.target.value)}>
+                            <option value="">All models</option>
+                            {filterBarModels.map((model) => (
+                                <option key={model.id} value={model.id}>{model.vehicleMake?.makeName} → {model.modelName}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            )}
 
             {message && !isDrawerOpen && (
                 <div className={`vm-alert vm-alert-${message.type}`}>
@@ -317,7 +332,7 @@ function VehicleGenerationsSection() {
             <div className="vm-panel">
                 {filteredGenerations.length === 0 ? (
                     <div className="vm-empty">
-                        <div className="vm-empty-icon">📅</div>
+                        <div className="vm-empty-icon"><CalendarRange size={30} /></div>
                         <div className="vm-empty-title">No generations found</div>
                         <div>{generations.length === 0 ? "Add your first generation to get started." : "Try a different search or model filter."}</div>
                     </div>
@@ -333,6 +348,7 @@ function VehicleGenerationsSection() {
                                     <th>Body Type</th>
                                     <th>Start Year</th>
                                     <th>End Year</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -354,8 +370,13 @@ function VehicleGenerationsSection() {
                                         </td>
                                         <td className="vm-cell-mono">{generation.generationNumber || "—"}</td>
                                         <td>{generation.bodyType || "—"}</td>
-                                        <td className="vm-cell-mono">{generation.gproductionStartYear}</td>
-                                        <td className="vm-cell-mono">{generation.gproductionEndYear}</td>
+                                        <td className="vm-cell-mono">{getGenerationStartYear(generation) ?? "—"}</td>
+                                        <td className="vm-cell-mono">{getGenerationEndYear(generation) ?? "—"}</td>
+                                        <td>
+                                            <span className={`vm-badge ${generation.isActive !== false ? "vm-badge-green" : "vm-badge-gray"}`}>
+                                                {generation.isActive !== false ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -405,6 +426,7 @@ function VehicleGenerationsSection() {
 
             <VehicleDrawer
                 open={isDrawerOpen}
+                size="wide"
                 onClose={() => setIsDrawerOpen(false)}
                 icon="📅"
                 title="Add New Generation"

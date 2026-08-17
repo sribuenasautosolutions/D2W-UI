@@ -907,7 +907,7 @@ function BatchReportPage() {
                 ) : error ? (
                     <ErrorCard message={error} onRetry={loadBatches} />
                 ) : sortedBatches.length === 0 ? (
-                    <EmptyState hasFilters={!!(searchText || brandFilter || categoryFilter || productFilter || storeFilter || statusFilter || dateFrom || dateTo)} onReset={handleReset} addStockPath={isOwner ? "/owner/inventory?view=addstock" : "/store/inventory?view=addstock"} />
+                    <EmptyState hasFilters={!!(searchText || brandFilter || categoryFilter || productFilter || storeFilter || statusFilter || dateFrom || dateTo)} onReset={handleReset} addStockPath={isOwner ? "/owner/purchases?view=bills" : "/store/purchases?view=bills"} />
                 ) : (
                     <>
                         <div style={S.tableScroll}>

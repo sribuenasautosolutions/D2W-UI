@@ -1,9 +1,24 @@
 import { useState, useEffect } from "react";
+import { Download, Filter, Plus, Search, Tags } from "lucide-react";
 import api from "../../../services/api";
 import VehicleDrawer from "./VehicleDrawer";
 import VehicleStatCard from "./VehicleStatCard";
 import "./styles/vehicle-management.css";
 import "./styles/VehicleVariantsSection.css";
+
+// Temporary response compatibility for environments still running the old
+// misspelled DTO fields. Corrected names remain the first choice.
+const getGenerationStartYear = (generation) =>
+    generation.productionStartYear ?? generation.gproductionStartYear;
+
+const getGenerationEndYear = (generation) =>
+    generation.productionEndYear ?? generation.gproductionEndYear;
+
+const getVariantEndYear = (variant) =>
+    variant.variantEndYear ?? variant.varaintEndYear;
+
+const getEngineCapacity = (variant) =>
+    variant.engineCapacity ?? variant.enginecapacity;
 
 // fixed vocab lists — kept at module level so they don't re-create on every render
 const FUEL_TYPES = ["Petrol", "Diesel", "CNG", "Electric", "Hybrid", "LPG"];
@@ -33,16 +48,16 @@ function VehicleVariantsSection() {
     // variant form fields
     const [variantName, setVariantName] = useState("");
     const [variantStartYear, setVariantStartYear] = useState("");
-    const [varaintEndYear, setVaraintEndYear] = useState("");
+    const [variantEndYear, setVariantEndYear] = useState("");
     const [doors, setDoors] = useState("");
     const [engineType, setEngineType] = useState("");
     const [engineCode, setEngineCode] = useState("");
-    const [enginecapacity, setEnginecapacity] = useState("");
-    const [emssionStandard, setEmssionStandard] = useState("");
+    const [engineCapacity, setEngineCapacity] = useState("");
+    const [emissionStandard, setEmissionStandard] = useState("");
     const [fuelType, setFuelType] = useState("");
     const [transmission, setTransmission] = useState("");
     const [chassisCode, setChassisCode] = useState("");
-    const [vinprefix, setVinprefix] = useState("");
+    const [vinPrefix, setVinPrefix] = useState("");
     const [region, setRegion] = useState("");
 
     const [variants, setVariants] = useState([]);
@@ -51,7 +66,9 @@ function VehicleVariantsSection() {
     // ===== NEW UI-ONLY STATE =====
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     // ===== ORIGINAL HANDLERS — unchanged =====
     const loadMakes = async () => {
@@ -128,11 +145,11 @@ function VehicleVariantsSection() {
             setMessage({ type: "error", text: "Variant start year is required" });
             return;
         }
-        if (!varaintEndYear) {
+        if (!variantEndYear) {
             setMessage({ type: "error", text: "Variant end year is required" });
             return;
         }
-        if (Number(variantStartYear) > Number(varaintEndYear)) {
+        if (Number(variantStartYear) > Number(variantEndYear)) {
             setMessage({ type: "error", text: "Start year cannot be greater than end year" });
             return;
         }
@@ -144,7 +161,7 @@ function VehicleVariantsSection() {
             setMessage({ type: "error", text: "Please select transmission" });
             return;
         }
-        if (!enginecapacity.trim()) {
+        if (!engineCapacity.trim()) {
             setMessage({ type: "error", text: "Engine capacity is required" });
             return;
         }
@@ -157,16 +174,16 @@ function VehicleVariantsSection() {
             const response = await api.post("/vehicle-variants", {
                 variantName: variantName,
                 variantStartYear: variantStartYear,
-                varaintEndYear: varaintEndYear,
+                variantEndYear: variantEndYear,
                 doors: doors || null,
                 engineType: engineType,
                 engineCode: engineCode || null,
-                enginecapacity: enginecapacity,
-                emssionStandard: emssionStandard,
+                engineCapacity: engineCapacity,
+                emissionStandard: emissionStandard,
                 fuelType: fuelType,
                 transmission: transmission,
                 chassisCode: chassisCode,
-                vinprefix: vinprefix,
+                vinPrefix: vinPrefix,
                 region: region,
                 vehicleGeneration: { id: selectedGenerationId }
             });
@@ -177,16 +194,16 @@ function VehicleVariantsSection() {
             // selected so the user can add another variant to the same generation
             setVariantName("");
             setVariantStartYear("");
-            setVaraintEndYear("");
+            setVariantEndYear("");
             setDoors("");
             setEngineType("");
             setEngineCode("");
-            setEnginecapacity("");
-            setEmssionStandard("");
+            setEngineCapacity("");
+            setEmissionStandard("");
             setFuelType("");
             setTransmission("");
             setChassisCode("");
-            setVinprefix("");
+            setVinPrefix("");
             setRegion("");
 
             // refresh whatever is currently being viewed (a specific
@@ -238,7 +255,7 @@ function VehicleVariantsSection() {
     const exportCsv = () => {
         const rows = [
             ["Variant", "Fuel", "Transmission", "Start Year", "End Year"],
-            ...variants.map((v) => [v.variantName, v.fuelType, v.transmission, v.variantStartYear, v.varaintEndYear]),
+            ...variants.map((v) => [v.variantName, v.fuelType, v.transmission, v.variantStartYear, getVariantEndYear(v)]),
         ];
         const csv = rows.map((r) => r.map((c) => `"${(c ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -254,26 +271,37 @@ function VehicleVariantsSection() {
         <div>
 
             <div className="vm-stats-row">
-                <VehicleStatCard label="Total variants" value={variants.length} icon="🏷" tone="blue" />
-                <VehicleStatCard label="Matching search" value={filteredVariants.length} icon="🔎" tone="green" />
-                <VehicleStatCard label="Electric / Hybrid" value={electrifiedCount} icon="⚡" tone="amber" />
-                <VehicleStatCard label="Hierarchy level" value="4 of 4" icon="🧭" tone="gray" />
+                <VehicleStatCard label="Total variants" value={variants.length} tone="blue" />
+                <VehicleStatCard label="Active variants" value={variants.filter((item) => item.isActive !== false).length} tone="green" />
+                <VehicleStatCard label="Electric / Hybrid" value={electrifiedCount} tone="amber" />
+                <VehicleStatCard label="Matching results" value={filteredVariants.length} tone="purple" />
             </div>
 
             <div className="vm-action-bar">
-                <div className="vm-search-wrap">
-                    <span className="vm-search-icon">🔍</span>
+                {searchOpen && <div className="vm-search-wrap">
+                    <span className="vm-search-icon"><Search size={15} /></span>
                     <input
                         className="vm-search-input"
                         placeholder="Search variants…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                </div>
+                </div>}
 
                 <div className="vm-action-buttons">
+                    <button
+                        className={`vm-btn vm-btn-secondary vm-btn-icon${searchOpen ? " is-active" : ""}`}
+                        onClick={() => setSearchOpen((open) => !open)}
+                        aria-label="Search variants"
+                        title="Search"
+                    >
+                        <Search size={16} />
+                    </button>
+                    <button className="vm-btn vm-btn-secondary" onClick={() => setFiltersOpen((open) => !open)}>
+                        <Filter size={16} /> Filters
+                    </button>
                     <button className="vm-btn vm-btn-secondary" onClick={exportCsv}>
-                        ⬇ Export
+                        <Download size={16} /> Export
                     </button>
                     <button
                         className="vm-btn vm-btn-primary"
@@ -282,12 +310,12 @@ function VehicleVariantsSection() {
                             setIsDrawerOpen(true);
                         }}
                     >
-                        + Add Variant
+                        <Plus size={17} /> Add Variant
                     </button>
                 </div>
             </div>
 
-            <div className="vm-panel" style={{ marginBottom: 16, padding: "16px 18px" }}>
+            {filtersOpen && <div className="vm-filter-panel">
                 <div className="vm-grid-3">
                     <div className="vm-field">
                         <label className="vm-label">
@@ -346,13 +374,13 @@ function VehicleVariantsSection() {
                             <option value="">All generations</option>
                             {generations.map((gen) => (
                                 <option key={gen.id} value={gen.id}>
-                                    {gen.generationName} ({gen.gproductionStartYear}–{gen.gproductionEndYear})
+                                    {gen.generationName} ({getGenerationStartYear(gen) ?? "—"}–{getGenerationEndYear(gen) ?? "—"})
                                 </option>
                             ))}
                         </select>
                     </div>
                 </div>
-            </div>
+            </div>}
 
             {message && !isDrawerOpen && (
                 <div className={`vm-alert vm-alert-${message.type}`}>
@@ -364,7 +392,7 @@ function VehicleVariantsSection() {
             <div className="vm-panel">
                 {filteredVariants.length === 0 ? (
                     <div className="vm-empty">
-                        <div className="vm-empty-icon">🏷</div>
+                        <div className="vm-empty-icon"><Tags size={30} /></div>
                         <div className="vm-empty-title">No variants found</div>
                         <div>
                             {variants.length === 0
@@ -383,6 +411,7 @@ function VehicleVariantsSection() {
                                     <th>Engine</th>
                                     <th>Years</th>
                                     <th>Region</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -407,13 +436,18 @@ function VehicleVariantsSection() {
                                         </td>
                                         <td className="vm-cell-mono">
                                             {variant.engineCode || "—"}
-                                            {variant.enginecapacity ? ` · ${variant.enginecapacity}` : ""}
+                                            {getEngineCapacity(variant) ? ` · ${getEngineCapacity(variant)}` : ""}
                                         </td>
                                         <td className="vm-cell-mono">
                                             {variant.variantStartYear}
-                                            {variant.varaintEndYear ? `–${variant.varaintEndYear}` : "–present"}
+                                            {getVariantEndYear(variant) ? `–${getVariantEndYear(variant)}` : "–present"}
                                         </td>
                                         <td>{variant.region}</td>
+                                        <td>
+                                            <span className={`vm-badge ${variant.isActive !== false ? "vm-badge-green" : "vm-badge-gray"}`}>
+                                                {variant.isActive !== false ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -462,6 +496,7 @@ function VehicleVariantsSection() {
 
             <VehicleDrawer
                 open={isDrawerOpen}
+                size="wide"
                 onClose={() => setIsDrawerOpen(false)}
                 icon="🏷"
                 title="Add New Variant"
@@ -486,7 +521,7 @@ function VehicleVariantsSection() {
 
                 <div className="vm-divider">Vehicle hierarchy</div>
 
-                <div className="vm-grid-1" style={{ marginTop: 12, marginBottom: 8 }}>
+                <div className="vm-grid-2" style={{ marginTop: 12, marginBottom: 8 }}>
 
                     <div className="vm-field">
                         <label className="vm-label">
@@ -527,7 +562,7 @@ function VehicleVariantsSection() {
                         </select>
                     </div>
 
-                    <div className="vm-field">
+                    <div className="vm-field vm-span-2">
                         <label className="vm-label">
                             Generation <span className="vm-req">*</span>
                         </label>
@@ -543,7 +578,7 @@ function VehicleVariantsSection() {
                             <option value="">Select generation</option>
                             {generations.map((gen) => (
                                 <option key={gen.id} value={gen.id}>
-                                    {gen.generationName} ({gen.gproductionStartYear}–{gen.gproductionEndYear})
+                                    {gen.generationName} ({getGenerationStartYear(gen) ?? "—"}–{getGenerationEndYear(gen) ?? "—"})
                                 </option>
                             ))}
                         </select>
@@ -608,8 +643,8 @@ function VehicleVariantsSection() {
                                 min={MIN_YEAR}
                                 max={MAX_YEAR}
                                 step="1"
-                                value={varaintEndYear}
-                                onChange={(e) => setVaraintEndYear(e.target.value)}
+                                value={variantEndYear}
+                                onChange={(e) => setVariantEndYear(e.target.value)}
                             />
                         </div>
 
@@ -671,8 +706,8 @@ function VehicleVariantsSection() {
                                 type="text"
                                 className="vm-input vm-mono"
                                 placeholder="e.g. 1197cc"
-                                value={enginecapacity}
-                                onChange={(e) => setEnginecapacity(e.target.value)}
+                                value={engineCapacity}
+                                onChange={(e) => setEngineCapacity(e.target.value)}
                             />
                         </div>
                     </div>
@@ -680,7 +715,7 @@ function VehicleVariantsSection() {
                     <div className="vm-grid-2">
                         <div className="vm-field">
                             <label className="vm-label">Emission standard</label>
-                            <select className="vm-select" value={emssionStandard} onChange={(e) => setEmssionStandard(e.target.value)}>
+                            <select className="vm-select" value={emissionStandard} onChange={(e) => setEmissionStandard(e.target.value)}>
                                 <option value="">Select</option>
                                 {EMISSION_STANDARDS.map((e) => (
                                     <option key={e} value={e}>{e}</option>
@@ -707,8 +742,8 @@ function VehicleVariantsSection() {
                                 type="text"
                                 className="vm-input vm-mono"
                                 placeholder="e.g. MA3EJKD1S"
-                                value={vinprefix}
-                                onChange={(e) => setVinprefix(e.target.value)}
+                                value={vinPrefix}
+                                onChange={(e) => setVinPrefix(e.target.value)}
                             />
                         </div>
                     </div>

@@ -4,6 +4,7 @@ import DashboardHome from "../pages/DashboardHome";
 import ProductPage from "../pages/ProductPage";
 import VehicleManagement from "../components/vehicles/VehicleManagement";
 import InventoryPage from "../pages/InventoryPage";
+import PurchasesPage from "../pages/PurchasesPage";
 import OrdersPage from "../pages/OrdersPage";
 import ReportsPage from "../pages/ReportsPage";
 import StoresPage from "../pages/StoresPage";
@@ -59,6 +60,15 @@ function OwnerRoutes() {
         element={
           <DashboardLayout>
             <InventoryPage />
+          </DashboardLayout>
+        }
+      />
+
+      <Route
+        path="/purchases"
+        element={
+          <DashboardLayout>
+            <PurchasesPage />
           </DashboardLayout>
         }
       />

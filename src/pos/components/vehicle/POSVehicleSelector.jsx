@@ -338,8 +338,8 @@ function POSVehicleSelector({
                             key={variant.id}
                             value={variant.id}
                         >
-                            {variant.veachilefullName ||
-                                variant.variantfullname ||
+                            {variant.vehicleFullName ||
+                                variant.variantFullName ||
                                 variant.variantName}
                         </option>
 
@@ -382,8 +382,8 @@ function POSVehicleSelector({
 
                             <div className="vehicle-name">
 
-                                {selectedVariantObj?.veachilefullName ||
-                                    selectedVariantObj?.variantfullname}
+                                {selectedVariantObj?.vehicleFullName ||
+                                    selectedVariantObj?.variantFullName}
 
                             </div>
                         </>

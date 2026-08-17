@@ -15,10 +15,14 @@ import {
     LogOut,
     PackageSearch,
     ReceiptText,
+    ShoppingCart,
     SlidersHorizontal,
+    Truck,
     UserRound,
+    UsersRound,
+    Upload,
 } from "lucide-react";
-
+import logo from "../../assets/NEW LOGO D2W.png";
 function getStoredUser() {
     try {
         return JSON.parse(localStorage.getItem("user"));
@@ -34,10 +38,33 @@ function Sidebar() {
     const inventoryBase = isOwner
         ? "/owner/inventory"
         : "/store/inventory";
+    const purchasesBase = isOwner
+        ? "/owner/purchases"
+        : "/store/purchases";
     const isInventoryRoute = location.pathname === inventoryBase;
+    const isPurchasesRoute = location.pathname === purchasesBase;
     const inventoryView =
         new URLSearchParams(location.search).get("view") || "stock";
+    const requestedPurchasesView =
+        new URLSearchParams(location.search).get("view") || "vendors";
+    const purchasesView = requestedPurchasesView === "vendorpurchases"
+        ? "bills"
+        : requestedPurchasesView;
     const [inventoryOpen, setInventoryOpen] = useState(isInventoryRoute);
+    const [purchasesOpen, setPurchasesOpen] = useState(isPurchasesRoute);
+    const displayName = user?.name || "D2W User";
+    const email = user?.email || "Email not available";
+    const initials = displayName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("") || "DU";
+    const roleLabel = {
+        SUPER_ADMIN: "Super Admin",
+        STORE_OWNER: "Store Owner",
+        CASHIER: "Cashier",
+    }[user?.role] || "User";
 
     const linkStyle = (to, danger = false) => {
         const isActive = location.pathname === to;
@@ -71,19 +98,25 @@ function Sidebar() {
 
     const inventoryItems = [
         { key: "stock", label: "Current Stock", icon: PackageSearch },
-        { key: "addstock", label: "Add Stock", icon: CirclePlus },
+        { key: "bulkstock", label: "Opening & Bulk Stock", icon: Upload },
         { key: "transactions", label: "Transactions", icon: History },
         { key: "adjustment", label: "Adjustments", icon: SlidersHorizontal },
         { key: "batchreport", label: "Batch Report", icon: ClipboardList },
     ];
 
-    const inventoryLinkStyle = (view) => ({
+    const purchaseItems = [
+        { key: "vendors", label: "Vendors", icon: UsersRound },
+        { key: "bills", label: "Bills", icon: CirclePlus },
+        { key: "requestd2w", label: "D2W Stock Requests", icon: Truck },
+    ];
+
+    const moduleLinkStyle = (routeActive, currentView, view) => ({
         display: "flex",
         alignItems: "center",
         gap: "10px",
         minHeight: "34px",
         color:
-            isInventoryRoute && inventoryView === view
+            routeActive && currentView === view
                 ? "#FFFFFF"
                 : "#94A3B8",
         textDecoration: "none",
@@ -91,24 +124,34 @@ function Sidebar() {
         borderRadius: "6px",
         fontSize: "13px",
         fontWeight:
-            isInventoryRoute && inventoryView === view
+            routeActive && currentView === view
                 ? 700
                 : 500,
         background:
-            isInventoryRoute && inventoryView === view
+            routeActive && currentView === view
                 ? "rgba(37, 99, 235, 0.72)"
                 : "transparent",
         boxSizing: "border-box",
     });
 
     return (
+        <>
+        <style>{`
+            .app-sidebar-nav {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            .app-sidebar-nav::-webkit-scrollbar {
+                display: none;
+            }
+        `}</style>
         <aside
             style={{
-                width: "252px",
-                background: "#0F172A",
+                width: "238px",
+                background: "linear-gradient(180deg, #111C33 0%, #0A1428 100%)",
                 color: "#FFFFFF",
                 minHeight: "100vh",
-                padding: "20px 14px",
+                padding: "18px 14px 14px",
                 display: "flex",
                 flexDirection: "column",
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif",
@@ -121,37 +164,33 @@ function Sidebar() {
                 style={{
                     display: "flex",
                     alignItems: "center",
-                    padding: "4px 10px 22px",
+                    padding: "0 10px 16px",
                 }}
             >
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        lineHeight: 1,
-                    }}
-                >
-                    <div style={{ fontSize: "30px", fontWeight: 900 }}>
-                        <span style={{ color: "#FFFFFF" }}>D</span>
-                        <span style={{ color: "#fd8e01" }}>2</span>
-                        <span style={{ color: "#FFFFFF" }}>W</span>
-                    </div>
-                    <span
-                        style={{
-                            marginTop: "20px",
-                            color: "#fd8e01",
-                            fontSize: "8px",
-                            fontWeight: 700,
-                            letterSpacing: "2px",
-                        }}
-                    >
-                        DEALS 2 WHEELS
-                    </span>
-                </div>
+               <div
+    style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        width: "100%",
+    }}
+>
+    <img
+        src={logo}
+        alt="Deals2Wheels"
+        style={{
+            width: "170px",
+            height: "auto",
+            objectFit: "contain",
+        }}
+    />
+</div>
             </div>
 
-            <nav style={{ flex: 1, overflowY: "auto" }}>
-                <div style={sectionLabelStyle}>Overview</div>
+            <nav
+                className="app-sidebar-nav"
+                style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+            >
 
                 <Link
                     to={isOwner ? "/owner/dashboard" : "/store/dashboard"}
@@ -244,7 +283,7 @@ function Sidebar() {
                                         <Link
                                             key={item.key}
                                             to={`${inventoryBase}?view=${item.key}`}
-                                            style={inventoryLinkStyle(item.key)}
+                                            style={moduleLinkStyle(isInventoryRoute, inventoryView, item.key)}
                                         >
                                             <Icon size={15} />
                                             <span>{item.label}</span>
@@ -255,6 +294,50 @@ function Sidebar() {
                         </div>
                     )
                 }
+
+                <button
+                    type="button"
+                    onClick={() => setPurchasesOpen((open) => !open)}
+                    aria-expanded={purchasesOpen}
+                    style={{
+                        width: "100%",
+                        minHeight: "40px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        color: isPurchasesRoute ? "#FFFFFF" : "#94A3B8",
+                        padding: "8px 12px",
+                        border: 0,
+                        borderRadius: "6px",
+                        background: isPurchasesRoute ? "rgba(217, 119, 6, 0.22)" : "transparent",
+                        fontFamily: "inherit",
+                        fontSize: "13.5px",
+                        fontWeight: isPurchasesRoute ? 700 : 600,
+                        cursor: "pointer",
+                    }}
+                >
+                    <ShoppingCart size={17} />
+                    <span style={{ flex: 1, textAlign: "left" }}>Purchases</span>
+                    {purchasesOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+
+                {purchasesOpen && (
+                    <div style={{ display: "grid", gap: "2px", margin: "3px 0 7px" }}>
+                        {purchaseItems.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                                <Link
+                                    key={item.key}
+                                    to={`${purchasesBase}?view=${item.key}`}
+                                    style={moduleLinkStyle(isPurchasesRoute, purchasesView, item.key)}
+                                >
+                                    <Icon size={15} />
+                                    <span>{item.label}</span>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                )}
 
                 <Link
                     to={isOwner ? "/owner/orders" : "/store/orders"}
@@ -308,20 +391,76 @@ function Sidebar() {
             <div
                 style={{
                     borderTop: "1px solid rgba(255,255,255,0.08)",
-                    paddingTop: "12px",
+                    paddingTop: "14px",
                     marginTop: "12px",
                 }}
             >
-                <Link
-                    to="/login"
-                    style={linkStyle("/login", true)}
-                    onClick={() => localStorage.removeItem("user")}
-                >
-                    <LogOut size={17} />
-                    <span>Logout</span>
-                </Link>
+                <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "32px minmax(0, 1fr) 30px",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "7px 8px",
+                    borderRadius: "10px",
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                }}>
+                    <div style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "8px",
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#FFFFFF",
+                        background: "#3158D4",
+                        fontSize: "10.5px",
+                        fontWeight: 800,
+                    }}>
+                        {initials}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{
+                            fontSize: "11.5px",
+                            fontWeight: 750,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                        }}>
+                            {displayName}
+                        </div>
+                        <div style={{
+                            marginTop: "2px",
+                            color: "#8EA0BE",
+                            fontSize: "9px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                        }} title={email}>
+                            {roleLabel} · {email}
+                        </div>
+                    </div>
+                    <Link
+                        to="/login"
+                        onClick={() => localStorage.removeItem("user")}
+                        aria-label="Logout"
+                        title="Logout"
+                        style={{
+                            width: "30px",
+                            height: "30px",
+                            display: "grid",
+                            placeItems: "center",
+                            borderRadius: "7px",
+                            color: "#FCA5A5",
+                            background: "rgba(248,113,113,0.08)",
+                            textDecoration: "none",
+                        }}
+                    >
+                        <LogOut size={15} />
+                    </Link>
+                </div>
             </div>
         </aside>
+        </>
     );
 }
 

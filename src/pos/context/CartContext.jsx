@@ -151,13 +151,10 @@ const existingItem =
 
                 const updatedCart =
                     cartItems.filter(
-
-                        (item) =>
-                            item.inventoryId !== inventoryId
-                        &&
-                         item.batchId === batchId
-                       
-                       
+                        (item) => !(
+                            item.inventoryId === inventoryId &&
+                            item.batchId === batchId
+                        )
                     );
 
                 setCartItems(updatedCart);

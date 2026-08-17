@@ -49,14 +49,6 @@ const amountInWords = (value) => {
 
 const text = (value) => value === null || value === undefined || value === "" ? "-" : value;
 
-const fullAddress = (invoice) => [
-  invoice.storeAddress,
-  invoice.storeCity,
-  invoice.storeState,
-  invoice.storePincode,
-  invoice.storeCountry,
-].filter(Boolean).join(", ");
-
 const paymentSummary = (payments) => {
   const methods = [...new Set((payments || []).map((payment) => payment.paymentMethod).filter(Boolean))];
   return methods.length ? methods.map((method) => method.replaceAll("_", " ")).join(" + ") : "Not paid";
@@ -75,6 +67,18 @@ const loggedInUserName = () => {
   }
 };
 
+// Per-item taxable amount: use the value from the API if present,
+// otherwise derive it from rate * qty minus the discount.
+const itemTaxable = (item) => {
+  if (item.taxableAmount !== undefined && item.taxableAmount !== null) return item.taxableAmount;
+  const gross = Number(item.sellingPrice || 0) * Number(item.quantity || 0);
+  return gross - Number(item.discountAmount || 0);
+};
+
+// The HSN code has shown up under a couple of different field names
+// depending on the API response, so check all of them before falling back.
+const itemHsn = (item) => item.hsncode ?? item.hsnCode ?? item.hsn_code ?? item.hsn;
+
 function InfoLine({ label, value }) {
   return <div className="invoice-info-line"><span>{label}</span><strong>{text(value)}</strong></div>;
 }
@@ -84,6 +88,13 @@ function TotalLine({ label, value, subtract = false, strong = false }) {
     <span>{label}</span><strong>{subtract ? "(-) " : ""}{"\u20B9"} {money(value)}</strong>
   </div>;
 }
+
+// Column widths for the items table, kept as a single source of truth so the
+// <colgroup> always matches however many columns are actually rendered.
+// HSN is folded into the Item Description cell rather than given its own
+// column, since a dedicated column was too narrow and wrapped the code.
+const COLUMN_WIDTHS_WITH_DISCOUNT = [4, 30, 8, 5, 8, 8, 8, 9, 7, 13];
+const COLUMN_WIDTHS_NO_DISCOUNT = [4, 35, 8, 5, 9, 9, 10, 7, 13];
 
 export default function InvoicePage() {
   const { orderId } = useParams();
@@ -112,6 +123,14 @@ export default function InvoicePage() {
   const payments = useMemo(() => invoice?.payments || [], [invoice]);
   const collectedBy = useMemo(() => invoice?.collectedByName || loggedInUserName(), [invoice]);
 
+  // Only show the Discount column if at least one line item actually has a discount.
+  const hasDiscount = useMemo(
+    () => items.some((item) => Number(item.discountAmount || 0) > 0),
+    [items]
+  );
+  const colWidths = hasDiscount ? COLUMN_WIDTHS_WITH_DISCOUNT : COLUMN_WIDTHS_NO_DISCOUNT;
+  const columnCount = colWidths.length;
+
   const startSale = () => {
     clearCart();
     navigate("/pos");
@@ -133,13 +152,12 @@ export default function InvoicePage() {
     <article className="invoice-sheet">
       <header className="invoice-header">
         <div className="invoice-brand">
-          <div className="invoice-logo"><span>D</span><b>2</b><span>W</span></div>
+          <div className="invoice-logo">D2W</div>
           <div className="invoice-store-copy">
             <h1>{text(invoice.storeName)}</h1>
-            <p className="invoice-store-code">D2W - Deals 2 Wheels <span>{text(invoice.storeCode)}</span></p>
-            <p>{text(fullAddress(invoice))}</p>
+            <p className="invoice-store-code">Deals 2 Wheels <span>{text(invoice.storeCode)}</span></p>
             <p>{invoice.storePhone && `Phone: ${invoice.storePhone}`}{invoice.storePhone && invoice.storeEmail && "  |  "}{invoice.storeEmail && `Email: ${invoice.storeEmail}`}</p>
-            <p className="invoice-gstin"><span>GSTIN</span>{text(invoice.storeGstno)}</p>
+            <p className="invoice-gstin"><span>GSTIN:</span> {text(invoice.storeGstno)}</p>
           </div>
         </div>
         <div className="invoice-title-block">
@@ -147,7 +165,6 @@ export default function InvoicePage() {
           <InfoLine label="Invoice No." value={invoice.invoiceNumber} />
           <InfoLine label="Invoice Date" value={date(invoice.orderDate)} />
           <InfoLine label="Order No." value={`#${invoice.orderId}`} />
-          <InfoLine label="Store Type" value={invoice.storeType?.replaceAll("_", " ")} />
         </div>
       </header>
 
@@ -155,7 +172,6 @@ export default function InvoicePage() {
         <div className="invoice-party">
           <h3>BILL TO</h3>
           <strong className="invoice-customer-name">{text(invoice.customerName)}</strong>
-          <p>{text(invoice.customerAddress)}</p>
           <p>Mobile: {text(invoice.phone)}</p>
         </div>
         <div className="invoice-meta">
@@ -169,28 +185,49 @@ export default function InvoicePage() {
 
       <section className="invoice-items-wrap">
         <table className="invoice-items">
-          <thead><tr><th>#</th><th>Part No.</th><th>Item Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Discount</th><th>GST</th><th>Amount</th></tr></thead>
+          <colgroup>
+            {colWidths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}
+          </colgroup>
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Item Description</th>
+              <th>Brand</th>
+              <th className="invoice-num">Qty</th>
+              <th className="invoice-num">MRP</th>
+              <th className="invoice-num">Rate</th>
+              {hasDiscount && <th className="invoice-num">Discount</th>}
+              <th className="invoice-num">Taxable</th>
+              <th className="invoice-num">GST %</th>
+              <th className="invoice-num">Amount</th>
+            </tr>
+          </thead>
           <tbody>
             {items.map((item, index) => <tr key={`${item.batchId || "item"}-${index}`}>
               <td>{index + 1}</td>
-              <td className="invoice-mono">{text(item.partNumber)}</td>
-              <td><strong>{text(item.itemName || item.productName)}</strong>{item.brandName && <small>{item.brandName}</small>}</td>
-              <td>{text(item.hsncode)}</td>
-              <td>{text(item.quantity)}</td>
-              <td>{money(item.sellingPrice)}</td>
-              <td>{Number(item.discountAmount || 0) > 0 ? `${money(item.discountAmount)} (${Number(item.discountPercentage || 0)}%)` : "-"}</td>
-              <td>{Number(item.gstPercentage || 0)}%</td>
-              <td><strong>{money(item.totalPrice)}</strong></td>
+              <td>
+                <strong>{text(item.itemName || item.productName)}</strong>
+                <small className="invoice-partno">Part No: {text(item.partNumber)} &nbsp;|&nbsp; HSN: {text(itemHsn(item))}</small>
+              </td>
+              <td>{text(item.brandName)}</td>
+              <td className="invoice-num">{text(item.quantity)}</td>
+              <td className="invoice-num">{money(item.mrp ?? item.sellingPrice)}</td>
+              <td className="invoice-num">{money(item.sellingPrice)}</td>
+              {hasDiscount && (
+                <td className="invoice-num">{Number(item.discountAmount || 0) > 0 ? `${money(item.discountAmount)} (${Number(item.discountPercentage || 0)}%)` : "-"}</td>
+              )}
+              <td className="invoice-num">{money(itemTaxable(item))}</td>
+              <td className="invoice-num">{Number(item.gstPercentage || 0)}%</td>
+              <td className="invoice-num"><strong>{money(item.totalPrice)}</strong></td>
             </tr>)}
-            {!items.length && <tr><td colSpan="9" className="invoice-empty">No invoice items found.</td></tr>}
+            {!items.length && <tr><td colSpan={columnCount} className="invoice-empty">No invoice items found.</td></tr>}
           </tbody>
-          <tfoot><tr><td colSpan="4">Total Items: {items.length}</td><td>{items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</td><td colSpan="4" /></tr></tfoot>
         </table>
+        <div className="invoice-items-count">Total Items: {items.length}</div>
       </section>
 
       <section className="invoice-summary-grid">
         <div className="invoice-lower-left">
-          <div className="invoice-words"><h3>AMOUNT IN WORDS</h3><p>{amountInWords(invoice.totalAmount)}</p></div>
           {payments.length > 0 && <div className="invoice-payment-block">
             <h3>PAYMENT DETAILS</h3>
             {payments.map((payment, index) => <div className="invoice-payment-row" key={payment.id || index}>
@@ -211,6 +248,7 @@ export default function InvoicePage() {
           {Number(invoice.igstAmount) > 0 && <TotalLine label="IGST" value={invoice.igstAmount} />}
           <TotalLine label="Round Off" value={invoice.roundOffAmount} />
           <div className="invoice-grand-total"><span>GRAND TOTAL</span><strong>{"\u20B9"} {money(invoice.totalAmount)}</strong></div>
+          <div className="invoice-words"><h3>AMOUNT IN WORDS</h3><p>{amountInWords(invoice.totalAmount)}</p></div>
           <TotalLine label="Paid Amount" value={invoice.paidAmount} />
           <TotalLine label="Balance Due" value={invoice.balanceAmount} strong />
         </div>
@@ -218,7 +256,7 @@ export default function InvoicePage() {
 
       <footer className="invoice-footer">
         <div><span>Customer Signature</span></div>
-        <div><p>For {text(invoice.storeName)}</p><span>Authorized Signatory</span></div>
+        <div><span>Authorized Signatory</span></div>
       </footer>
       <p className="invoice-generated">This is a computer-generated invoice.</p>
     </article>

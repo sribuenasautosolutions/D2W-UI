@@ -34,7 +34,7 @@ function triggerBlobDownload(blob, filename) {
 }
 
 function fitmentVehicleLabel(f) {
-  return f.vehicleVariant?.variantfullname || f.vehicleVariant?.veachilefullName || "—";
+  return f.vehicleVariant?.variantFullName || f.vehicleVariant?.vehicleFullName || "—";
 }
 
 function fitmentProductName(f) {
@@ -795,7 +795,7 @@ export default function ProductFitmentEnterprise() {
                       <option value="">Select Variant</option>
                       {variants.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.variantfullname || v.veachilefullName}
+                          {v.variantFullName || v.vehicleFullName}
                         </option>
                       ))}
                     </select>
