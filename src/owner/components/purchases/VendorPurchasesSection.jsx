@@ -44,6 +44,14 @@ function getUser() {
   }
 }
 
+// GST is treated as a free-form string, not a strict GSTIN structure:
+// letters and numbers only, up to 15 characters, blank allowed.
+function isValidGstValue(value) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return true;
+  return /^[A-Za-z0-9]{1,15}$/.test(trimmed);
+}
+
 // Fixed pricing rule for the whole file:
 //   - MRP is always GST-inclusive.
 //   - Selling Price is always GST-exclusive.
@@ -219,6 +227,8 @@ function ManualStockReceipt() {
   const [remarks, setRemarks] = useState("");
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [vendorSaving, setVendorSaving] = useState(false);
+  const [vendorModalMessage, setVendorModalMessage] = useState(null);
+  const [vendorModalStoreId, setVendorModalStoreId] = useState("");
   const [vendorForm, setVendorForm] = useState({
     vendorName: "", phone: "", email: "", gstNumber: "", address: "",
     contactPerson: "", state: "", pincode: "",
@@ -228,7 +238,31 @@ function ManualStockReceipt() {
   const firstInputRefs = useRef({});
   const suggestionRequestRefs = useRef({});
   const importInputRef = useRef(null);
+  const filterRef = useRef(null);
+  const moreRef = useRef(null);
   const currentRowDefaults = { priceMode, gstPercentage };
+
+  // Only ONE of Filter / More can be open at a time; outside click and
+  // Escape close whichever is open.
+  useEffect(() => {
+    if (!filterOpen && !moreMenuOpen) return;
+    const handleClick = (event) => {
+      if (filterOpen && filterRef.current && !filterRef.current.contains(event.target)) setFilterOpen(false);
+      if (moreMenuOpen && moreRef.current && !moreRef.current.contains(event.target)) setMoreMenuOpen(false);
+    };
+    const handleKey = (event) => {
+      if (event.key === "Escape") { setFilterOpen(false); setMoreMenuOpen(false); }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [filterOpen, moreMenuOpen]);
+
+  const toggleFilter = () => { setMoreMenuOpen(false); setFilterOpen((open) => !open); };
+  const toggleMore = () => { setFilterOpen(false); setMoreMenuOpen((open) => !open); };
 
   useEffect(() => {
     setRows((current) => {
@@ -267,15 +301,31 @@ function ManualStockReceipt() {
       .catch(() => setPurchases([]));
   }, [storeId]);
 
+  const openVendorModal = () => {
+    setVendorForm({ vendorName: "", phone: "", email: "", gstNumber: "", address: "", contactPerson: "", state: "", pincode: "" });
+    setVendorModalStoreId(storeId || "");
+    setVendorModalMessage(null);
+    setVendorModalOpen(true);
+  };
+
+  const closeVendorModal = () => {
+    if (vendorSaving) return;
+    setVendorModalOpen(false);
+    setVendorModalMessage(null);
+  };
+
   const createVendor = async () => {
-    if (!storeId) return setMessage({ type: "error", text: "Select a store before adding a vendor" });
-    if (!vendorForm.vendorName.trim()) return setMessage({ type: "error", text: "Vendor name is required" });
-    if (!/^\d{10}$/.test(vendorForm.phone)) return setMessage({ type: "error", text: "Vendor phone must contain 10 digits" });
+    if (isSuperAdmin && !vendorModalStoreId) return setVendorModalMessage({ type: "error", text: "Please select a store." });
+    const targetStoreId = isSuperAdmin ? vendorModalStoreId : storeId;
+    if (!targetStoreId) return setVendorModalMessage({ type: "error", text: "Please select a store." });
+    if (!vendorForm.vendorName.trim()) return setVendorModalMessage({ type: "error", text: "Vendor name is required" });
+    if (!/^\d{10}$/.test(vendorForm.phone)) return setVendorModalMessage({ type: "error", text: "Vendor phone must contain 10 digits" });
+    if (!isValidGstValue(vendorForm.gstNumber)) return setVendorModalMessage({ type: "error", text: "GST number can contain only letters and numbers, up to 15 characters" });
     setVendorSaving(true);
     try {
       await api.post("/vendors", {
         ...vendorForm,
-        storeId: Number(storeId),
+        storeId: Number(targetStoreId),
         email: vendorForm.email.trim() || null,
         gstNumber: vendorForm.gstNumber.trim().toUpperCase(),
         address: vendorForm.address.trim() || null,
@@ -283,16 +333,21 @@ function ManualStockReceipt() {
         state: vendorForm.state.trim() || null,
         pincode: vendorForm.pincode.trim(),
       });
-      const response = await api.get("/vendors", { params: { storeId: Number(storeId), activeOnly: true } });
-      const data = Array.isArray(response.data) ? response.data : [];
-      setVendors(data);
-      const created = data.find((vendor) => vendor.vendorName.toLowerCase() === vendorForm.vendorName.trim().toLowerCase());
-      setVendorId(created ? String(created.id) : "");
+      // If the vendor was created for the store currently selected on the
+      // bill, refresh the vendor dropdown and preselect it.
+      if (String(targetStoreId) === String(storeId)) {
+        const response = await api.get("/vendors", { params: { storeId: Number(storeId), activeOnly: true } });
+        const data = Array.isArray(response.data) ? response.data : [];
+        setVendors(data);
+        const created = data.find((vendor) => vendor.vendorName.toLowerCase() === vendorForm.vendorName.trim().toLowerCase());
+        setVendorId(created ? String(created.id) : "");
+      }
       setVendorModalOpen(false);
+      setVendorModalMessage(null);
       setVendorForm({ vendorName: "", phone: "", email: "", gstNumber: "", address: "", contactPerson: "", state: "", pincode: "" });
       setMessage({ type: "success", text: "Vendor created successfully" });
     } catch (error) {
-      setMessage({ type: "error", text: error.response?.data?.message || "Unable to create vendor" });
+      setVendorModalMessage({ type: "error", text: error.response?.data?.message || "Unable to create vendor" });
     } finally {
       setVendorSaving(false);
     }
@@ -774,7 +829,7 @@ function ManualStockReceipt() {
 
   const handleVendorChange = (value) => {
     if (value === "__add_vendor__") {
-      setVendorModalOpen(true);
+      openVendorModal();
       return;
     }
     setVendorId(value);
@@ -995,8 +1050,12 @@ function ManualStockReceipt() {
             <h1 style={S.pageTitle}>All Bills</h1>
             <div style={S.listHeaderActions}>
               <button type="button" style={S.iconButton} title="Search bills" onClick={() => setSearchOpen((open) => !open)}><Search size={17} /></button>
-              <div style={S.relativeControl}>
-                <button type="button" style={S.iconButton} title="Filter bills" onClick={() => setFilterOpen((open) => !open)}><Filter size={17} /></button>
+              {isSuperAdmin && <select value={storeId} onFocus={loadStores} onChange={(event) => setStoreId(event.target.value)} style={S.storeFilterSelect} aria-label="Store filter">
+                <option value="">Select store</option>
+                {stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}
+              </select>}
+              <div ref={filterRef} style={S.relativeControl}>
+                <button type="button" style={S.iconButton} title="Filter bills" onClick={toggleFilter}><Filter size={17} /></button>
                 {filterOpen && <div style={S.filterMenu}>
                   <label style={S.filterLabel}>Status
                     <select style={S.filterSelect} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
@@ -1004,17 +1063,10 @@ function ManualStockReceipt() {
                       <option value="UNPAID">Unpaid</option><option value="DRAFT">Draft</option>
                     </select>
                   </label>
-                  {isSuperAdmin && <label style={S.filterLabel}>Store
-                    <select value={storeId} onFocus={loadStores} onChange={(event) => setStoreId(event.target.value)} style={S.filterSelect}>
-                      <option value="">Select store</option>
-                      {stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}
-                    </select>
-                  </label>}
                 </div>}
               </div>
-              <button type="button" disabled={!storeId} onClick={startNewBill} style={S.primaryButton}><CirclePlus size={16} /> New Bill</button>
-              <div style={S.relativeControl}>
-                <button type="button" style={S.iconButton} title="More bill actions" onClick={() => setMoreMenuOpen((open) => !open)}><MoreHorizontal size={18} /></button>
+              <div ref={moreRef} style={S.relativeControl}>
+                <button type="button" style={S.iconButton} title="More bill actions" onClick={toggleMore}><MoreHorizontal size={18} /></button>
                 {moreMenuOpen && <div className="bill-more-menu" style={S.moreMenu}>
                   <button type="button" onClick={() => importInputRef.current?.click()}><Upload size={15} /> Import Bills</button>
                   <button type="button" onClick={() => { setSortMode((mode) => mode === "NEWEST" ? "OLDEST" : mode === "OLDEST" ? "AMOUNT_HIGH" : mode === "AMOUNT_HIGH" ? "AMOUNT_LOW" : "NEWEST"); setMoreMenuOpen(false); }}>
@@ -1023,6 +1075,7 @@ function ManualStockReceipt() {
                   <button type="button" onClick={exportBills}><Download size={15} /> Export Bills</button>
                 </div>}
               </div>
+              <button type="button" onClick={startNewBill} style={S.primaryButton}><CirclePlus size={16} /> New Bill</button>
               <input ref={importInputRef} type="file" accept=".csv" hidden onChange={importBills} />
             </div>
           </header>
@@ -1048,7 +1101,7 @@ function ManualStockReceipt() {
                 <th style={{ ...S.listTh, textAlign: "right" }}>Balance Due</th>
               </tr></thead>
               <tbody>
-                {!storeId ? <tr><td colSpan="7" style={S.emptyBills}>Select a store from Filters to view bills.</td></tr>
+                {!storeId ? <tr><td colSpan="7" style={S.emptyBills}>Select a store to view bills.</td></tr>
                   : visiblePurchases.length === 0 ? <tr><td colSpan="7" style={S.emptyBills}>No bills found.</td></tr>
                   : visiblePurchases.map((bill) => <tr key={bill.receiptId} onClick={() => viewBill(bill.receiptId)} style={S.clickableRow}>
                     <td style={S.listTd}>{formatDate(bill.invoiceDate)}</td>
@@ -1658,20 +1711,32 @@ function ManualStockReceipt() {
         </div>
       </> : null}
 
-      {vendorModalOpen && <div style={S.modalBackdrop} role="presentation" onMouseDown={() => !vendorSaving && setVendorModalOpen(false)}>
+      {vendorModalOpen && <div style={S.modalBackdrop} role="presentation" onMouseDown={closeVendorModal}>
         <div style={S.vendorModal} role="dialog" aria-modal="true" aria-label="Add vendor" onMouseDown={(event) => event.stopPropagation()}>
-          <div style={S.modalHeader}><div><h3 style={S.modalTitle}>Add Vendor</h3><p style={S.modalSubtitle}>This vendor will be available for the selected store.</p></div><button type="button" style={S.closeButton} onClick={() => setVendorModalOpen(false)}><X size={18} /></button></div>
+          <div style={S.modalHeader}><div><h3 style={S.modalTitle}>Add Vendor</h3><p style={S.modalSubtitle}>This vendor will be available for the selected store.</p></div><button type="button" style={S.closeButton} onClick={closeVendorModal}><X size={18} /></button></div>
+
+          {vendorModalMessage && <div style={{ ...S.vendorModalMessage, ...(vendorModalMessage.type === "error" ? S.error : S.success) }}>{vendorModalMessage.text}</div>}
+
           <div style={S.vendorFormGrid}>
+            {isSuperAdmin && (
+              <label style={{ ...S.metaField, gridColumn: "1 / -1" }}>
+                <span style={S.requiredLabel}>Store *</span>
+                <select style={S.metaInput} value={vendorModalStoreId} onFocus={loadStores} onChange={(event) => setVendorModalStoreId(event.target.value)}>
+                  <option value="">Select Store</option>
+                  {stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}
+                </select>
+              </label>
+            )}
             <label style={S.metaField}><span style={S.requiredLabel}>Vendor Name *</span><input autoFocus style={S.metaInput} value={vendorForm.vendorName} onChange={(event) => setVendorForm({ ...vendorForm, vendorName: event.target.value })} /></label>
             <label style={S.metaField}><span style={S.requiredLabel}>Phone *</span><input style={S.metaInput} maxLength="10" value={vendorForm.phone} onChange={(event) => setVendorForm({ ...vendorForm, phone: event.target.value.replace(/\D/g, "") })} /></label>
             <label style={S.metaField}><span>Contact Person</span><input style={S.metaInput} value={vendorForm.contactPerson} onChange={(event) => setVendorForm({ ...vendorForm, contactPerson: event.target.value })} /></label>
             <label style={S.metaField}><span>Email</span><input type="email" style={S.metaInput} value={vendorForm.email} onChange={(event) => setVendorForm({ ...vendorForm, email: event.target.value })} /></label>
-            <label style={S.metaField}><span>GST Number</span><input style={S.metaInput} value={vendorForm.gstNumber} onChange={(event) => setVendorForm({ ...vendorForm, gstNumber: event.target.value.toUpperCase() })} /></label>
+            <label style={S.metaField}><span>GST Number</span><input style={S.metaInput} maxLength="15" value={vendorForm.gstNumber} onChange={(event) => setVendorForm({ ...vendorForm, gstNumber: event.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 15) })} /></label>
             <label style={S.metaField}><span>State</span><input style={S.metaInput} value={vendorForm.state} onChange={(event) => setVendorForm({ ...vendorForm, state: event.target.value })} /></label>
             <label style={S.metaField}><span>Pincode</span><input style={S.metaInput} maxLength="6" value={vendorForm.pincode} onChange={(event) => setVendorForm({ ...vendorForm, pincode: event.target.value.replace(/\D/g, "") })} /></label>
             <label style={{ ...S.metaField, gridColumn: "1 / -1" }}><span>Address</span><textarea style={S.metaTextarea} value={vendorForm.address} onChange={(event) => setVendorForm({ ...vendorForm, address: event.target.value })} /></label>
           </div>
-          <div style={S.modalActions}><button type="button" style={S.cancelButton} onClick={() => setVendorModalOpen(false)} disabled={vendorSaving}>Cancel</button><button type="button" style={S.primaryButton} onClick={createVendor} disabled={vendorSaving}>{vendorSaving ? "Saving..." : "Save Vendor"}</button></div>
+          <div style={S.modalActions}><button type="button" style={S.cancelButton} onClick={closeVendorModal} disabled={vendorSaving}>Cancel</button><button type="button" style={S.primaryButton} onClick={createVendor} disabled={vendorSaving}>{vendorSaving ? "Saving..." : "Save Vendor"}</button></div>
         </div>
       </div>}
     </section>
@@ -2171,6 +2236,7 @@ const S = {
   listHeader: { minHeight: 70, padding: "0 28px", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, boxSizing: "border-box" },
   listHeaderActions: { display: "flex", alignItems: "center", gap: 10 },
   iconButton: { width: 38, height: 38, border: "1px solid #D5DAE2", borderRadius: 3, background: "#FFFFFF", color: "#4B5563", display: "grid", placeItems: "center", cursor: "pointer" },
+  storeFilterSelect: { height: 38, minWidth: 170, padding: "0 10px", border: "1px solid #D5DAE2", borderRadius: 3, background: "#FFFFFF", color: "#374151" },
   relativeControl: { position: "relative" },
   filterMenu: { position: "absolute", zIndex: 50, top: 44, right: 0, width: 220, padding: 12, border: "1px solid #D8DDE6", borderRadius: 4, background: "#FFFFFF", boxShadow: "0 10px 28px rgba(15,23,42,.14)", display: "grid", gap: 12 },
   filterLabel: { display: "grid", gap: 6, color: "#4B5563", fontSize: 11.5 },
@@ -2225,6 +2291,7 @@ const S = {
   modalTitle: { margin: 0, color: "#111827", fontSize: 18, fontWeight: 600 },
   modalSubtitle: { margin: "4px 0 0", color: "#64748B", fontSize: 12 },
   closeButton: { width: 32, height: 32, border: 0, borderRadius: 5, display: "grid", placeItems: "center", background: "#F1F5F9", color: "#475569", cursor: "pointer" },
+  vendorModalMessage: { margin: "14px 20px 0", padding: "10px 12px", borderLeft: "3px solid #DC2626", borderRadius: 3, fontSize: 12.5 },
   vendorFormGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, padding: 20 },
   modalActions: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "13px 20px", borderTop: "1px solid #E2E8F0", background: "#F8FAFC" },
   cancelButton: { height: 38, padding: "0 15px", border: "1px solid #C3C6D7", borderRadius: 4, background: "#FFFFFF", color: "#191C1E", fontSize: 12, fontWeight: 500, cursor: "pointer" },
