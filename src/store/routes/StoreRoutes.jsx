@@ -19,6 +19,8 @@ import SalesReportPage from "../pages/SalesReportPage";
 import LowStockReportPage from "../pages/LowStockReportPage";
 import CustomerReportPage from "../pages/CustomerReportPage";
 import CustomerDetailsPage from "../pages/CustomerDetailsPage";
+import SalesPage from "../../sales/pages/SalesPage";
+import NewSalePage from "../../sales/pages/NewSalePage";
 
 function StoreRoutes() {
 
@@ -58,6 +60,24 @@ function StoreRoutes() {
                 element={
                     <DashboardLayout>
                         <OrdersPage />
+                    </DashboardLayout>
+                }
+            />
+
+            <Route
+                path="/sales"
+                element={
+                    <DashboardLayout>
+                        <SalesPage />
+                    </DashboardLayout>
+                }
+            />
+
+            <Route
+                path="/sales/new"
+                element={
+                    <DashboardLayout>
+                        <NewSalePage />
                     </DashboardLayout>
                 }
             />

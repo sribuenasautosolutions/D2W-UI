@@ -10,6 +10,8 @@ import ReportsPage from "../pages/ReportsPage";
 import StoresPage from "../pages/StoresPage";
 import UsersPage from "../pages/UsersPage";
 import ProductApprovalPage from "../pages/ProductApprovalPage";
+import SalesPage from "../../sales/pages/SalesPage";
+import NewSalePage from "../../sales/pages/NewSalePage";
 
 
 import InvoicePage from "../../pos/pages/InvoicePage";
@@ -82,11 +84,29 @@ function OwnerRoutes() {
         }
       />
 
+      <Route
+        path="/sales"
+        element={
+          <DashboardLayout>
+            <SalesPage />
+          </DashboardLayout>
+        }
+      />
+
+      <Route
+        path="/sales/new"
+        element={
+          <DashboardLayout>
+            <NewSalePage />
+          </DashboardLayout>
+        }
+      />
+
   
       <Route
-        path="/orders/invoice/:orderId"
-        element={<InvoicePage />}
-      />
+  path="/sales/invoice/:orderId"
+  element={<InvoicePage />}
+/>
 
       <Route
         path="/reports"

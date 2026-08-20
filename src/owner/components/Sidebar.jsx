@@ -41,6 +41,9 @@ function Sidebar() {
     const purchasesBase = isOwner
         ? "/owner/purchases"
         : "/store/purchases";
+        const salesBase = isOwner
+    ? "/owner/sales"
+    : "/store/sales";
     const isInventoryRoute = location.pathname === inventoryBase;
     const isPurchasesRoute = location.pathname === purchasesBase;
     const inventoryView =
@@ -50,8 +53,11 @@ function Sidebar() {
     const purchasesView = requestedPurchasesView === "vendorpurchases"
         ? "bills"
         : requestedPurchasesView;
-    const [inventoryOpen, setInventoryOpen] = useState(isInventoryRoute);
-    const [purchasesOpen, setPurchasesOpen] = useState(isPurchasesRoute);
+const [inventoryOpen, setInventoryOpen] = useState(isInventoryRoute);
+const [purchasesOpen, setPurchasesOpen] = useState(isPurchasesRoute);
+const [salesOpen, setSalesOpen] = useState(
+    location.pathname.startsWith(salesBase)
+);
     const displayName = user?.name || "D2W User";
     const email = user?.email || "Email not available";
     const initials = displayName
@@ -346,6 +352,91 @@ function Sidebar() {
                     <ReceiptText size={17} />
                     <span>Orders</span>
                 </Link>
+
+               <button
+    type="button"
+    onClick={() => setSalesOpen((open) => !open)}
+    aria-expanded={salesOpen}
+    style={{
+        width: "100%",
+        minHeight: "40px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        color: location.pathname.startsWith(salesBase)
+            ? "#FFFFFF"
+            : "#94A3B8",
+        padding: "8px 12px",
+        border: 0,
+        borderRadius: "6px",
+        background: location.pathname.startsWith(salesBase)
+            ? "rgba(37, 99, 235, 0.34)"
+            : "transparent",
+        fontFamily: "inherit",
+        fontSize: "13.5px",
+        fontWeight: location.pathname.startsWith(salesBase)
+            ? 700
+            : 600,
+        cursor: "pointer",
+    }}
+>
+    <ReceiptText size={17} />
+
+    <span
+        style={{
+            flex: 1,
+            textAlign: "left",
+        }}
+    >
+        Sales
+    </span>
+
+    {salesOpen ? (
+        <ChevronDown size={16} />
+    ) : (
+        <ChevronRight size={16} />
+    )}
+</button>
+
+{salesOpen && (
+    <div
+        style={{
+            display: "grid",
+            gap: "2px",
+            margin: "3px 0 7px",
+        }}
+    >
+        <Link
+            to={salesBase}
+            style={{
+                ...moduleLinkStyle(
+                    location.pathname === salesBase,
+                    "",
+                    ""
+                ),
+                paddingLeft: "40px",
+            }}
+        >
+            <ReceiptText size={15} />
+            <span>Sales Invoices</span>
+        </Link>
+
+        <Link
+            to={`${salesBase}/new`}
+            style={{
+                ...moduleLinkStyle(
+                    location.pathname === `${salesBase}/new`,
+                    "",
+                    ""
+                ),
+                paddingLeft: "40px",
+            }}
+        >
+            <CirclePlus size={15} />
+            <span>New Sale</span>
+        </Link>
+    </div>
+)}
 
                 <Link
                     to={isOwner ? "/owner/reports" : "/store/reports"}
