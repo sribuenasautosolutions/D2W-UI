@@ -1722,7 +1722,7 @@ function ManualStockReceipt() {
               <label style={{ ...S.metaField, gridColumn: "1 / -1" }}>
                 <span style={S.requiredLabel}>Store *</span>
                 <select style={S.metaInput} value={vendorModalStoreId} onFocus={loadStores} onChange={(event) => setVendorModalStoreId(event.target.value)}>
-                  <option value="">Select Store</option>
+                   <option value="">Select Store</option>
                   {stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}
                 </select>
               </label>

@@ -29,6 +29,11 @@ function displayBillStatus(bill) {
   return bill?.status === "DRAFT" ? "DRAFT" : (bill?.paymentStatus || "UNPAID");
 }
 
+function formatStatus(status) {
+  if (!status) return "";
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
 function statusStyle(status) {
   if (status === "PAID") return S.paidBadge;
   if (status === "DRAFT") return S.draftBadge;
@@ -36,9 +41,9 @@ function statusStyle(status) {
 }
 
 function statusDotStyle(status) {
-  if (status === "PAID") return { ...S.statusDot, background: "#12805C" };
-  if (status === "DRAFT") return { ...S.statusDot, background: "#B7791F" };
-  return { ...S.statusDot, background: "#C23B3B" };
+  if (status === "PAID") return { ...S.statusDot, background: "#0F6E3F" };
+  if (status === "DRAFT") return { ...S.statusDot, background: "#93630B" };
+  return { ...S.statusDot, background: "#B23030" };
 }
 
 
@@ -58,14 +63,14 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
       <style>{`
         .d2w-noscroll{scrollbar-width:none;-ms-overflow-style:none;}
         .d2w-noscroll::-webkit-scrollbar{display:none;}
-        .d2w-row:hover{background:#FAFBFC;}
+        .d2w-row:hover{background:#F8FAFC;}
       `}</style>
 
       <header style={S.detailHeader}>
         <div style={S.headerTitleGroup}>
           <button type="button" onClick={onBack} style={S.backButton}><ArrowLeft size={17} /></button>
           <div>
-            <span style={S.headerEyebrow}>All Bills</span>
+            <span style={S.headerEyebrow}>All bills</span>
             <h1 style={S.headerTitle}>{bill.vendorInvoiceNumber}</h1>
           </div>
         </div>
@@ -74,7 +79,7 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
           <button type="button" style={S.plainAction} onClick={onPrint}><Printer size={14} /> PDF / Print</button>
           {bill.status === "DRAFT" && (
             <button type="button" disabled={saving} style={S.primaryAction} onClick={() => onOpenDraft(bill.receiptId)}>
-              <PackageCheck size={14} /> Open &amp; Receive Stock
+              <PackageCheck size={14} /> Open &amp; receive stock
             </button>
           )}
         </div>
@@ -132,7 +137,7 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
               )}
               <div style={S.factCell}>
                 <span style={S.factLabel}>Status</span>
-                <span style={statusStyle(status)}><i style={statusDotStyle(status)} />{status}</span>
+                <span style={statusStyle(status)}><i style={statusDotStyle(status)} />{formatStatus(status)}</span>
               </div>
             </div>
           </div>
@@ -144,16 +149,16 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
             <thead>
               <tr>
                 <th style={S.th}>S.No</th>
-                <th style={{ ...S.th, textAlign: "left" }}>Part No / Part Name</th>
+                <th style={{ ...S.th, textAlign: "left" }}>Part no / part name</th>
                 <th style={S.th}>HSN</th>
                 <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
                 <th style={{ ...S.th, textAlign: "right" }}>MRP</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Purchase Price</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Selling Price</th>
+                <th style={{ ...S.th, textAlign: "right" }}>Purchase price</th>
+                <th style={{ ...S.th, textAlign: "right" }}>Selling price</th>
                 <th style={{ ...S.th, textAlign: "right" }}>Discount</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Taxable Value</th>
+                <th style={{ ...S.th, textAlign: "right" }}>Taxable value</th>
                 <th style={{ ...S.th, textAlign: "right" }}>GST</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Line Total</th>
+                <th style={{ ...S.th, textAlign: "right" }}>Line total</th>
               </tr>
             </thead>
             <tbody>
@@ -227,64 +232,82 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
   );
 }
 
+
+const COLOR = {
+  bg: "#FFFFFF",
+  bgMuted: "#F8FAFC",
+  border: "#E5E7EB",
+  textPrimary: "#111827",
+  textSecondary: "#6B7280",
+  textMuted: "#9297A1",
+  accent: "#2563EB",
+  accentSoft: "#EFF4FE",
+  success: "#0F6E3F",
+  successSoft: "#E7F7EF",
+  warning: "#93630B",
+  warningSoft: "#FFF4DD",
+  danger: "#B23030",
+  dangerSoft: "#FDECEC",
+};
+
 const S = {
-  detailPage: { minHeight: "calc(100vh - 28px)", paddingBottom: 48, background: "#F6F7F9", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  detailPage: { minHeight: "calc(100vh - 28px)", paddingBottom: 48, background: COLOR.bgMuted, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
 
-  detailHeader: { minHeight: 64, padding: "0 24px", borderBottom: "1px solid #E7E9EE", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, position: "sticky", top: 0, zIndex: 5 },
+  detailHeader: { minHeight: 64, padding: "0 24px", borderBottom: `1px solid ${COLOR.border}`, background: COLOR.bg, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, position: "sticky", top: 0, zIndex: 5 },
   headerTitleGroup: { display: "flex", alignItems: "center", gap: 14 },
-  backButton: { width: 34, height: 34, border: "1px solid #E1E4EA", borderRadius: 8, background: "#FFFFFF", color: "#40454E", display: "grid", placeItems: "center", cursor: "pointer", transition: "background .15s, border-color .15s" },
-  headerEyebrow: { color: "#8A8F98", fontSize: 10.5, fontWeight: 600, letterSpacing: ".3px", textTransform: "uppercase" },
-  headerTitle: { margin: "2px 0 0", color: "#14161A", fontSize: 17, fontWeight: 600, letterSpacing: "-.1px" },
+  backButton: { width: 34, height: 34, border: `1px solid ${COLOR.border}`, borderRadius: 8, background: COLOR.bg, color: COLOR.textSecondary, display: "grid", placeItems: "center", cursor: "pointer" },
+  headerEyebrow: { color: COLOR.textMuted, fontSize: 10.5, fontWeight: 500, letterSpacing: ".03em", textTransform: "uppercase" },
+  headerTitle: { margin: "2px 0 0", color: COLOR.textPrimary, fontSize: 17, fontWeight: 500, letterSpacing: "-.1px" },
   headerActions: { display: "flex", alignItems: "center", gap: 8 },
-  plainAction: { height: 36, padding: "0 13px", border: "1px solid #E1E4EA", borderRadius: 8, background: "#FFFFFF", color: "#40454E", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
-  primaryAction: { height: 36, padding: "0 15px", border: "1px solid #1E4FD6", borderRadius: 8, background: "#2451D6", color: "#FFFFFF", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(36,81,214,.25)" },
+  plainAction: { height: 36, padding: "0 13px", border: `1px solid ${COLOR.border}`, borderRadius: 8, background: COLOR.bg, color: COLOR.textSecondary, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
+  primaryAction: { height: 36, padding: "0 15px", border: "none", borderRadius: 8, background: COLOR.accent, color: "#FFFFFF", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
 
-  sheet: { width: "min(1020px, calc(100% - 56px))", margin: "28px auto", padding: "38px 44px 42px", borderRadius: 14, border: "1px solid #EAEBEF", background: "#FFFFFF", boxShadow: "0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.05)", boxSizing: "border-box", overflowX: "auto" },
+  sheet: { width: "min(1020px, calc(100% - 56px))", margin: "28px auto", padding: "38px 44px 42px", borderRadius: 12, border: `1px solid ${COLOR.border}`, background: COLOR.bg, boxSizing: "border-box", overflowX: "auto" },
 
-  sectionLabel: { display: "block", marginBottom: 8, color: "#9297A1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".5px" },
-  entityName: { display: "block", marginBottom: 4, color: "#14161A", fontSize: 14.5, fontWeight: 700 },
-  entityNameLg: { display: "block", marginBottom: 4, color: "#14161A", fontSize: 17, fontWeight: 700, letterSpacing: "-.2px" },
-  metaLine: { display: "block", marginTop: 2, color: "#6B7280", fontSize: 12.5 },
-  metaLineRight: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5, color: "#565C68", fontSize: 12 },
-  inlineIcon: { color: "#9297A1", flexShrink: 0 },
+  sectionLabel: { display: "block", marginBottom: 8, color: COLOR.textMuted, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".04em" },
+  entityName: { display: "block", marginBottom: 4, color: COLOR.textPrimary, fontSize: 14.5, fontWeight: 500 },
+  entityNameLg: { display: "block", marginBottom: 4, color: COLOR.textPrimary, fontSize: 17, fontWeight: 500, letterSpacing: "-.2px" },
+  metaLine: { display: "block", marginTop: 2, color: COLOR.textSecondary, fontSize: 12.5 },
+  metaLineRight: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5, color: COLOR.textSecondary, fontSize: 12 },
+  inlineIcon: { color: COLOR.textMuted, flexShrink: 0 },
 
-  vendorTop: { display: "flex", alignItems: "flex-start", gap: 14, paddingBottom: 22, borderBottom: "1px solid #EEF0F3" },
-  vendorIconWrap: { width: 40, height: 40, borderRadius: 9, background: "#EAF0FF", color: "#2451D6", display: "grid", placeItems: "center", flexShrink: 0 },
+  vendorTop: { display: "flex", alignItems: "flex-start", gap: 14, paddingBottom: 22, borderBottom: `1px solid ${COLOR.border}` },
+  vendorIconWrap: { width: 40, height: 40, borderRadius: 9, background: COLOR.accentSoft, color: COLOR.accent, display: "grid", placeItems: "center", flexShrink: 0 },
   vendorMain: { flex: 1, minWidth: 0 },
   vendorSide: { display: "grid", gap: 5, justifyItems: "end", textAlign: "right", paddingTop: 24 },
 
-  topRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 40, marginTop: 22, paddingBottom: 26, borderBottom: "1px solid #EEF0F3" },
+  topRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 40, marginTop: 22, paddingBottom: 26, borderBottom: `1px solid ${COLOR.border}` },
   receiverBlock: { display: "grid", gap: 2, minWidth: 220 },
   invoiceDetailsBlock: { minWidth: 280 },
   detailsGrid: { display: "grid", gridTemplateColumns: "repeat(2, auto)", columnGap: 32, rowGap: 14 },
   factCell: { display: "grid", gap: 6, justifyItems: "start" },
-  factLabel: { color: "#9297A1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".4px" },
-  factValue: { color: "#20232A", fontSize: 13.5 },
+  factLabel: { color: COLOR.textMuted, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".04em" },
+  factValue: { color: COLOR.textPrimary, fontSize: 13.5 },
   statusDot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block" },
 
-  tableWrap: { marginTop: 28, overflowX: "auto", borderRadius: 10, border: "1px solid #EAEBEF" },
+  tableWrap: { marginTop: 28, overflowX: "auto", borderRadius: 10, border: `1px solid ${COLOR.border}` },
   table: { width: "100%", minWidth: 920, borderCollapse: "collapse", fontSize: 11.5 },
-  th: { padding: "11px 10px", background: "#F7F8FA", color: "#5C616B", textAlign: "center", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".3px", whiteSpace: "nowrap", borderBottom: "1px solid #EAEBEF" },
-  tr: { borderBottom: "1px solid #F1F2F5", transition: "background .1s" },
-  tdCenter: { padding: "11px 8px", textAlign: "center", color: "#40454E", verticalAlign: "top" },
-  tdRight: { padding: "11px 8px", textAlign: "right", color: "#14161A", verticalAlign: "top", whiteSpace: "nowrap" },
-  tdRightStrong: { padding: "11px 8px", textAlign: "right", color: "#14161A", fontWeight: 700, verticalAlign: "top", whiteSpace: "nowrap" },
+  th: { padding: "11px 10px", background: COLOR.bgMuted, color: COLOR.textSecondary, textAlign: "center", fontSize: 9.5, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".03em", whiteSpace: "nowrap", borderBottom: `1px solid ${COLOR.border}` },
+  tr: { borderBottom: `1px solid ${COLOR.border}` },
+  tdCenter: { padding: "11px 8px", textAlign: "center", color: COLOR.textSecondary, verticalAlign: "top" },
+  tdRight: { padding: "11px 8px", textAlign: "right", color: COLOR.textPrimary, verticalAlign: "top", whiteSpace: "nowrap" },
+  tdRightStrong: { padding: "11px 8px", textAlign: "right", color: COLOR.textPrimary, fontWeight: 500, verticalAlign: "top", whiteSpace: "nowrap" },
   tdPart: { padding: "11px 8px", textAlign: "left", verticalAlign: "top" },
-  partNumber: { display: "block", color: "#14161A", fontSize: 12 },
-  partName: { display: "block", marginTop: 2, color: "#8A8F98", fontSize: 11 },
-  subValue: { display: "block", marginTop: 2, color: "#A3A8B1", fontSize: 10 },
+  partNumber: { display: "block", color: COLOR.textPrimary, fontSize: 12 },
+  partName: { display: "block", marginTop: 2, color: COLOR.textMuted, fontSize: 11 },
+  subValue: { display: "block", marginTop: 2, color: COLOR.textMuted, fontSize: 10 },
 
   summaryRow: { marginTop: 28, display: "flex", justifyContent: "flex-end" },
-  summaryCard: { width: "min(360px, 100%)", border: "1px solid #EAEBEF", borderRadius: 10, overflow: "hidden" },
-  summaryCardTitle: { display: "block", padding: "11px 16px", background: "#F7F8FA", borderBottom: "1px solid #EAEBEF", color: "#40454E", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".3px" },
-  summaryLine: { display: "flex", justifyContent: "space-between", padding: "8px 16px", borderBottom: "1px solid #F5F6F8", color: "#565C68", fontSize: 12.5 },
-  summaryLineTotal: { display: "flex", justifyContent: "space-between", padding: "12px 16px", background: "#EAF0FF", color: "#1E3FA8", fontSize: 14, fontWeight: 700 },
+  summaryCard: { width: "min(360px, 100%)", border: `1px solid ${COLOR.border}`, borderRadius: 10, overflow: "hidden" },
+  summaryCardTitle: { display: "block", padding: "11px 16px", background: COLOR.bgMuted, borderBottom: `1px solid ${COLOR.border}`, color: COLOR.textSecondary, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".03em" },
+  summaryLine: { display: "flex", justifyContent: "space-between", padding: "8px 16px", borderBottom: `1px solid ${COLOR.bgMuted}`, color: COLOR.textSecondary, fontSize: 12.5 },
+  summaryLineTotal: { display: "flex", justifyContent: "space-between", padding: "12px 16px", background: COLOR.accentSoft, color: COLOR.accent, fontSize: 14, fontWeight: 500 },
 
-  notes: { marginTop: 26, paddingTop: 18, borderTop: "1px solid #EEF0F3", display: "grid", gap: 6 },
-  notesText: { color: "#40454E", fontSize: 12.5, lineHeight: 1.6 },
-  auditNote: { marginTop: 16, padding: "11px 14px", borderLeft: "3px solid #E4A94F", borderRadius: "0 8px 8px 0", background: "#FFF9EE", color: "#7A5416", fontSize: 11.5 },
+  notes: { marginTop: 26, paddingTop: 18, borderTop: `1px solid ${COLOR.border}`, display: "grid", gap: 6 },
+  notesText: { color: COLOR.textSecondary, fontSize: 12.5, lineHeight: 1.6 },
+  auditNote: { marginTop: 16, padding: "11px 14px", borderRadius: 8, border: `1px solid ${COLOR.warningSoft}`, background: COLOR.warningSoft, color: COLOR.warning, fontSize: 11.5 },
 
-  paidBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: "#E7F7EF", color: "#0F6E3F", fontSize: 11.5, fontWeight: 600 },
-  draftBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: "#FFF4DD", color: "#93630B", fontSize: 11.5, fontWeight: 600 },
-  unpaidBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: "#FDECEC", color: "#B23030", fontSize: 11.5, fontWeight: 600 },
+  paidBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: COLOR.successSoft, color: COLOR.success, fontSize: 11.5, fontWeight: 500 },
+  draftBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: COLOR.warningSoft, color: COLOR.warning, fontSize: 11.5, fontWeight: 500 },
+  unpaidBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: COLOR.dangerSoft, color: COLOR.danger, fontSize: 11.5, fontWeight: 500 },
 };
