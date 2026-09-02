@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, CirclePlus, Download, Filter, MoreHorizontal,
-  PackageCheck, Pencil, Printer, Search, Trash2, Upload, X,
+  AlertTriangle, ArrowLeft, CirclePlus, Download, Filter, MoreHorizontal,
+  PackageCheck, ReceiptText, Search, Trash2, Upload, X,
 } from "lucide-react";
 import api from "../../../services/api";
+import VendorBillBulkUploader from "./VendorBillBulkUploader";
 import VendorPurchaseInvoiceView from "./VendorPurchaseInvoiceView";
 
 const emptyRow = () => ({
@@ -58,6 +59,46 @@ function isValidGstValue(value) {
 //   - Purchase Price = MRP after discount, expressed as a GST-exclusive
 //     (taxable) rate, since it feeds directly into the taxable amount /
 //     GST calculations below.
+// function computeRowAmounts(row) {
+//   const acceptedQuantity = Math.max(
+//     0,
+//     Number(row.quantity || 0)
+//       - Number(row.damagedQuantity || 0)
+//       - Number(row.rejectedQuantity || 0)
+//   );
+
+//   const discountPercentage = Math.min(
+//     99.99,
+//     Math.max(0, Number(row.discountPercentage || 0))
+//   );
+// const sellingPrice = Math.max(0, Number(row.sellingPrice || 0));
+// const gstRate = Math.max(0, Number(row.gstPercentage || 0)) / 100;
+
+// const discountPerUnit = sellingPrice * discountPercentage / 100;
+// const purchasePrice = sellingPrice - discountPerUnit;
+
+// const grossAmount = Number(
+//   (acceptedQuantity * sellingPrice).toFixed(2)
+// );
+
+// const discountAmount = Number(
+//   (acceptedQuantity * discountPerUnit).toFixed(2)
+// );
+
+// const lineTotal = Number(
+//   (acceptedQuantity * sellingPrice
+//     * (1 - discountPercentage / 100)).toFixed(2)
+// );
+
+//   return {
+//     acceptedQuantity,
+//     purchasePrice,
+//     discountPercentage,
+//     grossAmount,
+//     discountAmount,
+//     lineTotal,
+//   };
+// }
 function computeRowAmounts(row) {
   const acceptedQuantity = Math.max(
     0,
@@ -70,26 +111,197 @@ function computeRowAmounts(row) {
     99.99,
     Math.max(0, Number(row.discountPercentage || 0))
   );
-  const mrp = Math.max(0, Number(row.mrp || 0));
-  const gstRate = Math.max(0, Number(row.gstPercentage || 0)) / 100;
-  // MRP always includes GST, so the taxable base rate always removes it.
-  const baseRate = gstRate > 0 ? mrp / (1 + gstRate) : mrp;
-  const discountPerUnit = baseRate * discountPercentage / 100;
-  const purchasePrice = baseRate - discountPerUnit;
-  const grossAmount = Number((acceptedQuantity * baseRate).toFixed(2));
-  const discountAmount = Number((acceptedQuantity * discountPerUnit).toFixed(2));
-  const lineTotal = Number((acceptedQuantity * baseRate
-    * (1 - discountPercentage / 100)).toFixed(2));
+
+  const sellingPrice = Math.max(
+    0,
+    Number(row.sellingPrice || 0)
+  );
+
+  const gstRate = Math.max(
+    0,
+    Number(row.gstPercentage || 0)
+  ) / 100;
+
+  const priceMode = row.priceMode || "GST_EXCLUSIVE";
+
+  let taxableRate;
+  let grossRate;
+
+  if (priceMode === "GST_INCLUSIVE") {
+    // Selling Price already contains GST.
+    grossRate = sellingPrice;
+    taxableRate = gstRate > 0
+      ? sellingPrice / (1 + gstRate)
+      : sellingPrice;
+  } else {
+    // Selling Price does NOT contain GST.
+    taxableRate = sellingPrice;
+    grossRate = gstRate > 0
+      ? sellingPrice * (1 + gstRate)
+      : sellingPrice;
+  }
+
+  const discountPerUnit = taxableRate * discountPercentage / 100;
+
+  const taxableRateAfterDiscount =
+    taxableRate - discountPerUnit;
+
+  const grossAmount = Number(
+    (acceptedQuantity * taxableRate).toFixed(2)
+  );
+
+  const discountAmount = Number(
+    (acceptedQuantity * discountPerUnit).toFixed(2)
+  );
+
+  const taxableAmount = Number(
+    (acceptedQuantity * taxableRateAfterDiscount).toFixed(2)
+  );
+
+  const gstAmount = Number(
+    (taxableAmount * gstRate).toFixed(2)
+  );
+
+  const lineTotal = priceMode === "GST_INCLUSIVE"
+    ? Number(
+        (acceptedQuantity * sellingPrice
+          - discountAmount * (1 + gstRate)).toFixed(2)
+      )
+    : Number(
+        (taxableAmount + gstAmount).toFixed(2)
+      );
 
   return {
     acceptedQuantity,
-    purchasePrice,
+    purchasePrice: taxableRateAfterDiscount,
     discountPercentage,
     grossAmount,
     discountAmount,
+    taxableAmount,
+    gstAmount,
     lineTotal,
   };
 }
+function calculatePricesFromSource(row, source, sourceValue) {
+  const sourcePrice = Number(sourceValue);
+
+  const discount = Math.min(
+    99.99,
+    Math.max(0, Number(row.discountPercentage || 0))
+  );
+
+  const gst = Math.min(
+    100,
+    Math.max(0, Number(row.gstPercentage || 0))
+  );
+
+  const gstFactor = 1 + gst / 100;
+
+  if (!Number.isFinite(sourcePrice) || sourcePrice <= 0) {
+    return null;
+  }
+
+  const discountFactor = 1 - discount / 100;
+
+  let mrp;
+  let sellingPrice;
+  let purchasePrice;
+
+  const priceMode = row.priceMode || "GST_EXCLUSIVE";
+
+  if (source === "SELLING_PRICE") {
+    sellingPrice = sourcePrice;
+
+    if (priceMode === "GST_INCLUSIVE") {
+      // Entered selling price already includes GST.
+      mrp = sourcePrice;
+      purchasePrice =
+        sourcePrice / gstFactor * discountFactor;
+    } else {
+      // Entered selling price excludes GST.
+      mrp = sourcePrice * gstFactor;
+      purchasePrice =
+        sourcePrice * discountFactor;
+    }
+  }
+
+  else if (source === "MRP") {
+    mrp = sourcePrice;
+
+    if (priceMode === "GST_INCLUSIVE") {
+      sellingPrice = sourcePrice;
+      purchasePrice =
+        sourcePrice / gstFactor * discountFactor;
+    } else {
+      sellingPrice =
+        sourcePrice / gstFactor;
+      purchasePrice =
+        sellingPrice * discountFactor;
+    }
+  }
+
+  else if (source === "PURCHASE_PRICE") {
+    purchasePrice = sourcePrice;
+
+    if (priceMode === "GST_INCLUSIVE") {
+      sellingPrice =
+        sourcePrice / discountFactor * gstFactor;
+
+      mrp = sellingPrice;
+    } else {
+      sellingPrice =
+        sourcePrice / discountFactor;
+
+      mrp = sellingPrice * gstFactor;
+    }
+  }
+
+  else {
+    return null;
+  }
+
+  return {
+    mrp: Number(mrp || 0).toFixed(2),
+    sellingPrice: Number(sellingPrice || 0).toFixed(2),
+    purchasePrice: Number(purchasePrice || 0).toFixed(2),
+  };
+}
+
+// function calculatePricesFromSource(row, source, sourceValue) {
+//   const sourcePrice = Number(sourceValue);
+//   const discount = Math.min(99.99, Math.max(0, Number(row.discountPercentage || 0)));
+//   const gst = Math.min(100, Math.max(0, Number(row.gstPercentage || 0)));
+//   if (!Number.isFinite(sourcePrice) || sourcePrice <= 0) return null;
+
+//   const discountFactor = 1 - discount / 100;
+//   const gstFactor = 1 + gst / 100;
+//   let mrp;
+//   let sellingPrice;
+//   let purchasePrice;
+
+//   if (source === "MRP") {
+//     mrp = sourcePrice;
+//     purchasePrice = mrp * discountFactor;
+//     sellingPrice = mrp / gstFactor;
+//   } else if (source === "SELLING_PRICE") {
+//     sellingPrice = sourcePrice;
+//     mrp = sellingPrice * gstFactor;
+//     purchasePrice = sellingPrice * discountFactor * gstFactor;
+//   } else if (source === "PURCHASE_PRICE") {
+//     if (discountFactor <= 0) return null;
+//     purchasePrice = sourcePrice;
+//     mrp = purchasePrice / discountFactor;
+//     sellingPrice = mrp / gstFactor;
+//   } else {
+//     return null;
+//   }
+
+//   return {
+//     mrp: mrp.toFixed(2),
+//     sellingPrice: sellingPrice.toFixed(2),
+//     purchasePrice: purchasePrice.toFixed(2),
+//   };
+// }
 
 // Live purchase summary for the NEW / EDIT bill editor. GST is extracted
 // from inclusive prices and added to exclusive prices. Each row keeps its
@@ -106,27 +318,17 @@ function calculatePurchaseSummary(rows, paymentStatus, priceMode, gstMode) {
     if (isEmptyRow(row)) return;
 
     const amounts = computeRowAmounts(row);
-    const lineBase = amounts.lineTotal;
-    const gstRate = Math.max(0, Number(row.gstPercentage || 0));
-    const rate = gstRate / 100;
-    let lineTaxable = lineBase;
-    let linePayable = lineBase;
+    const lineTaxable = amounts.taxableAmount;
+    const lineGst = amounts.gstAmount;
+    const linePayable = amounts.lineTotal;
 
     if (gstMode === "IGST") {
-      let lineIgst = 0;
-      if (lineBase > 0 && rate > 0) {
-        lineIgst = Number((lineBase * rate).toFixed(2));
-        linePayable = Number((lineBase + lineIgst).toFixed(2));
-      }
-      igstAmount += lineIgst;
+      igstAmount += lineGst;
     } else {
-      let lineHalfTax = 0;
-      if (lineBase > 0 && rate > 0) {
-        lineHalfTax = Number((lineBase * (rate / 2)).toFixed(2));
-        linePayable = Number((lineBase + lineHalfTax * 2).toFixed(2));
-      }
-      cgstAmount += lineHalfTax;
-      sgstAmount += lineHalfTax;
+      const lineCgst = Number((lineGst / 2).toFixed(2));
+      const lineSgst = Number((lineGst - lineCgst).toFixed(2));
+      cgstAmount += lineCgst;
+      sgstAmount += lineSgst;
     }
 
     acceptedQuantity += amounts.acceptedQuantity;
@@ -209,7 +411,6 @@ function ManualStockReceipt() {
   const [purchases, setPurchases] = useState([]);
   const [screen, setScreen] = useState("list");
   const [billSearch, setBillSearch] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [sortMode, setSortMode] = useState("NEWEST");
@@ -237,9 +438,10 @@ function ManualStockReceipt() {
   const [suggestionFocus, setSuggestionFocus] = useState(null);
   const firstInputRefs = useRef({});
   const suggestionRequestRefs = useRef({});
-  const importInputRef = useRef(null);
   const filterRef = useRef(null);
   const moreRef = useRef(null);
+  const messageRef = useRef(null);
+  const [importPreview, setImportPreview] = useState(null);
   const currentRowDefaults = { priceMode, gstPercentage };
 
   // Only ONE of Filter / More can be open at a time; outside click and
@@ -260,6 +462,13 @@ function ManualStockReceipt() {
       document.removeEventListener("keydown", handleKey);
     };
   }, [filterOpen, moreMenuOpen]);
+
+  useEffect(() => {
+    if (screen !== "editor" || message?.type !== "error") return;
+    requestAnimationFrame(() => {
+      messageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [message, screen]);
 
   const toggleFilter = () => { setMoreMenuOpen(false); setFilterOpen((open) => !open); };
   const toggleMore = () => { setFilterOpen(false); setMoreMenuOpen((open) => !open); };
@@ -384,12 +593,14 @@ function ManualStockReceipt() {
           return {
             ...row,
             [field]: value,
+            importErrors: [],
 
             ...(field === "partNumber"
               ? {
                   productId: null,
                   localProductId: null,
                   selectedPartNumber: null,
+                  ...(row.importStatus ? { importStatus: "NEW" } : {}),
                 }
               : {}),
           };
@@ -419,46 +630,6 @@ function ManualStockReceipt() {
       PURCHASE_PRICE: "purchasePrice",
     };
 
-    const calculatePrices = (row, source, sourceValue) => {
-      const sourcePrice = Number(sourceValue);
-      const discount = Math.min(99.99, Math.max(0, Number(row.discountPercentage || 0)));
-      const gst = Math.min(100, Math.max(0, Number(row.gstPercentage || 0)));
-      if (!Number.isFinite(sourcePrice) || sourcePrice <= 0) return null;
-
-      const discountFactor = 1 - discount / 100;
-      const gstFactor = 1 + gst / 100;
-
-      let mrp;
-      let sellingPrice;
-      let purchasePrice;
-
-      if (source === "MRP") {
-        // MRP is the GST-inclusive starting point.
-        mrp = sourcePrice;
-        purchasePrice = mrp * discountFactor;
-        sellingPrice = mrp / gstFactor;
-      } else if (source === "SELLING_PRICE") {
-        // Selling Price is GST-exclusive; add GST back to reach MRP.
-        sellingPrice = sourcePrice;
-        mrp = sellingPrice * gstFactor;
-        purchasePrice = mrp * discountFactor;
-      } else if (source === "PURCHASE_PRICE") {
-        // Purchase Price is MRP after discount; reverse the discount.
-        if (discountFactor <= 0) return null;
-        purchasePrice = sourcePrice;
-        mrp = purchasePrice / discountFactor;
-        sellingPrice = mrp / gstFactor;
-      } else {
-        return null;
-      }
-
-      return {
-        mrp: mrp.toFixed(2),
-        sellingPrice: sellingPrice.toFixed(2),
-        purchasePrice: purchasePrice.toFixed(2),
-      };
-    };
-
     setRows((current) => withTrailingEmptyRow(current.map((row) => {
       if (row.key !== key) return row;
 
@@ -479,17 +650,17 @@ function ManualStockReceipt() {
           };
         }
 
-        const calculated = calculatePrices(row, source, value);
+        const calculated = calculatePricesFromSource(row, source, value);
         return calculated
-          ? { ...row, ...calculated, [field]: value, priceSource: source }
-          : { ...row, [field]: value, priceSource: source };
+          ? { ...row, ...calculated, [field]: value, priceSource: source, importErrors: [] }
+          : { ...row, [field]: value, priceSource: source, importErrors: [] };
       }
 
       if (field === "discountPercentage" || field === "gstPercentage") {
         const nextRow = { ...row, [field]: value };
         const sourceField = fieldBySource[row.priceSource];
         if (!sourceField) return nextRow;
-        const calculated = calculatePrices(nextRow, row.priceSource, nextRow[sourceField]);
+        const calculated = calculatePricesFromSource(nextRow, row.priceSource, nextRow[sourceField]);
         return calculated ? { ...nextRow, ...calculated } : nextRow;
       }
 
@@ -498,7 +669,6 @@ function ManualStockReceipt() {
   };
 
   const applyPriceSettings = (nextMode, nextGstPercentage) => {
-    const gst = Math.min(100, Math.max(0, Number(nextGstPercentage || 0)));
     setPriceMode(nextMode);
     setGstPercentage(nextGstPercentage);
 
@@ -508,17 +678,18 @@ function ManualStockReceipt() {
         priceMode: nextMode,
         gstPercentage: nextGstPercentage,
       };
-      const mrp = Number(row.mrp || 0);
-      if (!Number.isFinite(mrp) || mrp <= 0) return updatedRow;
-
-      // MRP always includes GST, so Selling Price always removes it.
-      const sellingPrice = mrp / (1 + gst / 100);
-
-      return {
-        ...updatedRow,
-        sellingPrice: sellingPrice.toFixed(2),
-        priceSource: "MRP",
-      };
+      const sourceField = {
+        MRP: "mrp",
+        SELLING_PRICE: "sellingPrice",
+        PURCHASE_PRICE: "purchasePrice",
+      }[row.priceSource];
+      if (!sourceField) return updatedRow;
+      const calculated = calculatePricesFromSource(
+        updatedRow,
+        row.priceSource,
+        updatedRow[sourceField]
+      );
+      return calculated ? { ...updatedRow, ...calculated } : updatedRow;
     }));
   };
 
@@ -598,6 +769,9 @@ function ManualStockReceipt() {
       mrp: product.mrp ?? "",
       priceSource: product.priceSource || "MANUAL",
       availableStock: product.availableStock ?? 0,
+      ...(row.importStatus
+        ? { importStatus: "EXISTING", importErrors: [] }
+        : {}),
       sellingManual: false,
       mrpManual: false,
       purchaseManual: false,
@@ -621,6 +795,8 @@ function ManualStockReceipt() {
       if (!row.partNumber.trim()) return `Row ${index + 1}: Part Number is required`;
       if (!row.itemName.trim()) return `Row ${index + 1}: Item Name is required`;
       if (!row.brandName.trim()) return `Row ${index + 1}: Brand is required`;
+      if (row.importStatus === "NEW" && !row.hsnCode.trim())
+        return `Row ${index + 1}: HSN is required for a new imported item`;
       if (Number(row.quantity) <= 0) return `Row ${index + 1}: Quantity must be greater than zero`;
       const unavailable = Number(row.damagedQuantity || 0) + Number(row.rejectedQuantity || 0);
       if (unavailable >= Number(row.quantity)) return `Row ${index + 1}: accepted quantity must be greater than zero`;
@@ -707,6 +883,7 @@ function ManualStockReceipt() {
       setEditReason("");
       setEditingBillId(null);
       setSelectedBill(null);
+      setImportPreview(null);
       setScreen("list");
     } catch (requestError) {
       setMessage({
@@ -752,6 +929,7 @@ function ManualStockReceipt() {
     setGstMode("CGST_SGST");
     setGstPercentage("18");
     setRows([emptyRow()]);
+    setImportPreview(null);
     setMessage(null);
     setScreen("editor");
   };
@@ -851,40 +1029,150 @@ function ManualStockReceipt() {
     setMoreMenuOpen(false);
   };
 
-  const importBills = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
+  const openBillImport = () => {
+    setMoreMenuOpen(false);
+    if (!storeId) {
+      setMessage({ type: "error", text: "Select a store before importing bill items." });
+      return;
+    }
+    setMessage(null);
+    setScreen("import");
+  };
+
+  const findImportedProducts = async (importedRows) => {
+    const partNumbers = [...new Set(importedRows
+      .map((row) => String(row.partNumber || "").trim().toUpperCase())
+      .filter(Boolean))];
+    const exactMatches = new Map();
+
+    for (let start = 0; start < partNumbers.length; start += 10) {
+      const batch = partNumbers.slice(start, start + 10);
+      const batchResults = await Promise.all(batch.map(async (partNumber) => {
+        try {
+          const response = await api.get("/store-inventory/suggestions", {
+            params: { storeId: Number(storeId), query: partNumber },
+          });
+          const suggestions = Array.isArray(response.data)
+            ? response.data
+            : response.data?.data || response.data?.content || [];
+          return suggestions.find((item) =>
+            item.partNumber?.trim().toUpperCase() === partNumber) || null;
+        } catch {
+          return null;
+        }
+      }));
+      batchResults.forEach((product, index) => {
+        if (product) exactMatches.set(batch[index], product);
+      });
+    }
+    return exactMatches;
+  };
+
+  const loadImportedItems = async (uploadResult) => {
     setSaving(true);
     setMessage(null);
     try {
-      const records = parseBillCsv(await file.text());
-      let imported = 0;
-      for (const record of records) {
-        const vendor = vendors.find((item) => item.vendorName.trim().toLowerCase() === record.vendorName.toLowerCase());
-        if (!vendor) throw new Error(`Vendor '${record.vendorName}' is not available. Create the vendor before importing.`);
-        await api.post("/vendor-purchases", {
-          storeId: Number(storeId), vendorId: vendor.id,
-          vendorInvoiceNumber: record.invoiceNumber,
-          invoiceDate: record.invoiceDate, dueDate: record.dueDate || record.invoiceDate,
-          paymentStatus: record.paymentStatus, paymentMethod: record.paymentStatus === "PAID" ? record.paymentMethod : null,
-          remarks: record.remarks || null, status: record.status,
-          items: record.items,
-        });
-        imported++;
-      }
-      const response = await api.get("/vendor-purchases", { params: { storeId: Number(storeId) } });
-      setPurchases(Array.isArray(response.data) ? response.data : []);
-      setMessage({ type: "success", text: `${imported} bill(s) imported successfully` });
+      const importedRows = Array.isArray(uploadResult?.rows) ? uploadResult.rows : [];
+      const exactMatches = await findImportedProducts(importedRows);
+      let existingCount = 0;
+      let newCount = 0;
+
+      const preparedRows = importedRows.map((imported) => {
+        const normalizedPart = String(imported.partNumber || "").trim().toUpperCase();
+        const product = exactMatches.get(normalizedPart) || null;
+        if (product) existingCount++;
+        else newCount++;
+
+        const rowGst = imported.gstPercentage ?? product?.gstPercentage ?? 18;
+        const baseRow = {
+          ...emptyRow(),
+          productId: product?.productId ?? null,
+          localProductId: product?.localProductId ?? null,
+          selectedPartNumber: product?.partNumber || null,
+          partNumber: product?.partNumber || normalizedPart,
+          itemName: product?.itemName || imported.itemName || "",
+          brandName: product?.brandName || imported.brandName || "",
+          categoryName: product?.categoryName || "",
+          masterName: product?.masterName || "",
+          description: product?.description || "",
+          oemNumber: product?.oemNumber || "",
+          hsnCode: product?.hsnCode || imported.hsnCode || "",
+          quantity: imported.quantity == null ? "" : String(imported.quantity),
+          purchasePrice: imported.purchasePrice == null ? "" : String(imported.purchasePrice),
+          mrp: imported.mrp == null ? "" : String(imported.mrp),
+          sellingPrice: imported.sellingPrice == null ? "" : String(imported.sellingPrice),
+          discountPercentage: imported.discountPercentage == null ? "0" : String(imported.discountPercentage),
+          gstPercentage: String(rowGst),
+          rackNumber: imported.rackNumber || "",
+          priceMode: "GST_INCLUSIVE",
+          priceSource: imported.priceSource || "MANUAL",
+          availableStock: product?.availableStock ?? 0,
+          importStatus: imported.errors?.length ? "ERROR" : product ? "EXISTING" : "NEW",
+          importErrors: imported.errors || [],
+          importRowNumber: imported.rowNumber,
+        };
+
+        const sourceField = {
+          MRP: "mrp",
+          SELLING_PRICE: "sellingPrice",
+          PURCHASE_PRICE: "purchasePrice",
+        }[baseRow.priceSource];
+        if (!sourceField) return baseRow;
+        const calculated = calculatePricesFromSource(
+          baseRow,
+          baseRow.priceSource,
+          baseRow[sourceField]
+        );
+        return calculated ? { ...baseRow, ...calculated } : baseRow;
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      setEditingBillId(null);
+      setSelectedBill(null);
+      setVendorId("");
+      setInvoiceNumber("");
+      setInvoiceDate(today);
+      setDueDate(today);
+      setPaymentStatus("UNPAID");
+      setPaymentMethod("CASH");
+      setPaymentReference("");
+      setRemarks("");
+      setEditReason("");
+      setPriceMode("GST_INCLUSIVE");
+      setGstMode("CGST_SGST");
+      setGstPercentage("18");
+      setRows(preparedRows.length
+        ? [...preparedRows, { ...emptyRow(), gstPercentage: "18", priceMode: "GST_INCLUSIVE" }]
+        : [{ ...emptyRow(), gstPercentage: "18", priceMode: "GST_INCLUSIVE" }]);
+      setImportPreview({
+        fileName: uploadResult.fileName,
+        totalRows: uploadResult.totalRows,
+        invalidRows: uploadResult.invalidRows,
+        existingCount,
+        newCount,
+      });
+      setMessage({
+        type: uploadResult.invalidRows > 0 ? "error" : "success",
+        text: uploadResult.invalidRows > 0
+          ? `${uploadResult.invalidRows} imported row(s) need correction before saving.`
+          : `${uploadResult.totalRows} item row(s) loaded. Complete the bill details and review the prices.`,
+      });
+      setScreen("editor");
     } catch (error) {
-      setMessage({ type: "error", text: error.response?.data?.message || error.message || "Unable to import bills" });
+      setMessage({ type: "error", text: error.response?.data?.message || error.message || "Unable to prepare the bill preview" });
+      throw error;
     } finally {
       setSaving(false);
-      setMoreMenuOpen(false);
     }
   };
 
   const enteredRows = rows.filter((row) => !isEmptyRow(row));
+  const importedRowErrors = rows
+    .map((row, index) => ({
+      rowNumber: row.importRowNumber || index + 1,
+      errors: row.importErrors || [],
+    }))
+    .filter((row) => row.errors.length > 0);
   // Live purchase summary for the editor (per-row GST extraction).
   // Used by the "New Bill" / "Edit Bill" totals card so the user can see
   // the expected total before saving. The saved-bill DETAIL screen keeps
@@ -921,6 +1209,10 @@ function ManualStockReceipt() {
         .vendor-bill-editor button:disabled { opacity: .55; cursor: not-allowed; }
         .vendor-bill-editor input::placeholder { color: #8A8F9C; }
         .vendor-bill-editor select, .vendor-bill-editor input { transition: border-color .15s ease, box-shadow .15s ease; }
+        .sr-only {
+          position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+          overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
         @media (max-width: 1050px) {
           .vendor-bill-editor .bill-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
         }
@@ -1015,6 +1307,8 @@ function ManualStockReceipt() {
         }
         @media (max-width: 1050px) {
           .bill-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .bill-entry-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .bill-item-toolbar { justify-content: flex-start !important; }
           .manual-stock-table-scroll {
             overflow-x: auto !important;
             overflow-y: visible !important;
@@ -1026,12 +1320,11 @@ function ManualStockReceipt() {
         @media (max-width: 720px) {
           .bill-meta-grid { grid-template-columns: 1fr !important; }
           .bill-meta-grid > label:first-child { grid-column: auto; }
+          .bill-entry-grid { grid-template-columns: 1fr !important; }
+          .bill-entry-grid > label { grid-column: auto !important; }
+          .bill-item-toolbar { width: 100%; }
         }
-        @media print {
-          body * { visibility: hidden !important; }
-          .bill-print-area, .bill-print-area * { visibility: visible !important; }
-          .bill-print-area { position: absolute !important; inset: 0 !important; width: 100% !important; box-shadow: none !important; border: 0 !important; }
-        }
+
         .manual-stock-suggestions {
           scrollbar-width: thin;
           scrollbar-color: #cbd5e1 transparent;
@@ -1047,15 +1340,29 @@ function ManualStockReceipt() {
       {screen === "list" && (
         <div style={S.listPage}>
           <header style={S.listHeader}>
-            <h1 style={S.pageTitle}>All Bills</h1>
+            <div style={S.listTitleGroup}>
+              <div style={S.listTitleIcon}><ReceiptText size={21} /></div>
+              <div>
+                <span style={S.listEyebrow}>Purchases</span>
+                <h1 style={S.pageTitle}>Vendor bills</h1>
+                <p style={S.pageSubtitle}>Review supplier invoices, payment status and stock receipts.</p>
+              </div>
+            </div>
             <div style={S.listHeaderActions}>
-              <button type="button" style={S.iconButton} title="Search bills" onClick={() => setSearchOpen((open) => !open)}><Search size={17} /></button>
-              {isSuperAdmin && <select value={storeId} onFocus={loadStores} onChange={(event) => setStoreId(event.target.value)} style={S.storeFilterSelect} aria-label="Store filter">
-                <option value="">Select store</option>
-                {stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}
-              </select>}
+              <div className="bill-list-search" style={S.listSearch}>
+                <Search size={16} />
+                <input value={billSearch} onChange={(event) => setBillSearch(event.target.value)} placeholder="Search bills or vendors" aria-label="Search bills" />
+                {billSearch && <button type="button" onClick={() => setBillSearch("")} aria-label="Clear search"><X size={14} /></button>}
+              </div>
+              {isSuperAdmin && <label style={S.storeFilterField}>
+                <span>Store</span>
+                <select value={storeId} onFocus={loadStores} onChange={(event) => setStoreId(event.target.value)} style={S.storeFilterSelect} aria-label="Store filter">
+                  <option value="">Select store</option>
+                  {stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}
+                </select>
+              </label>}
               <div ref={filterRef} style={S.relativeControl}>
-                <button type="button" style={S.iconButton} title="Filter bills" onClick={toggleFilter}><Filter size={17} /></button>
+                <button type="button" style={{ ...S.toolbarButton, ...(statusFilter !== "ALL" ? S.toolbarButtonActive : {}) }} onClick={toggleFilter}><Filter size={16} /> Filter</button>
                 {filterOpen && <div style={S.filterMenu}>
                   <label style={S.filterLabel}>Status
                     <select style={S.filterSelect} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
@@ -1066,9 +1373,9 @@ function ManualStockReceipt() {
                 </div>}
               </div>
               <div ref={moreRef} style={S.relativeControl}>
-                <button type="button" style={S.iconButton} title="More bill actions" onClick={toggleMore}><MoreHorizontal size={18} /></button>
+                <button type="button" style={S.toolbarButton} onClick={toggleMore}><MoreHorizontal size={17} /> More</button>
                 {moreMenuOpen && <div className="bill-more-menu" style={S.moreMenu}>
-                  <button type="button" onClick={() => importInputRef.current?.click()}><Upload size={15} /> Import Bills</button>
+                  <button type="button" onClick={openBillImport}><Upload size={15} /> Import Bills</button>
                   <button type="button" onClick={() => { setSortMode((mode) => mode === "NEWEST" ? "OLDEST" : mode === "OLDEST" ? "AMOUNT_HIGH" : mode === "AMOUNT_HIGH" ? "AMOUNT_LOW" : "NEWEST"); setMoreMenuOpen(false); }}>
                     <Filter size={15} /> Sort: {sortLabel(sortMode)}
                   </button>
@@ -1076,18 +1383,23 @@ function ManualStockReceipt() {
                 </div>}
               </div>
               <button type="button" onClick={startNewBill} style={S.primaryButton}><CirclePlus size={16} /> New Bill</button>
-              <input ref={importInputRef} type="file" accept=".csv" hidden onChange={importBills} />
             </div>
           </header>
 
           <div className="bill-financial-summary" style={S.financialSummary}>
-            <div style={S.financialMetric}><span>Paid Bills</span><strong>{formatMoney(paidValue)}</strong><small>{paidBills.length} bill{paidBills.length === 1 ? "" : "s"}</small></div>
-            <div style={S.financialMetric}><span>Balance Due</span><strong>{formatMoney(balanceValue)}</strong><small>{balanceBills.length} unpaid bill{balanceBills.length === 1 ? "" : "s"}</small></div>
+            <div style={S.financialMetric}>
+              <div style={{ ...S.metricIcon, ...S.metricIconPaid }}><PackageCheck size={18} /></div>
+              <div><span>Paid bills</span><strong>{formatMoney(paidValue)}</strong><small>{paidBills.length} completed bill{paidBills.length === 1 ? "" : "s"}</small></div>
+            </div>
+            <div style={S.financialMetric}>
+              <div style={{ ...S.metricIcon, ...S.metricIconDue }}><AlertTriangle size={18} /></div>
+              <div><span>Balance due</span><strong>{formatMoney(balanceValue)}</strong><small>{balanceBills.length} unpaid bill{balanceBills.length === 1 ? "" : "s"}</small></div>
+            </div>
           </div>
 
-          {(searchOpen || statusFilter !== "ALL") && <div style={S.listTools}>
-            {searchOpen && <div className="bill-list-search" style={S.listSearch}><Search size={16} /><input autoFocus value={billSearch}
-              onChange={(event) => setBillSearch(event.target.value)} placeholder="Search bill number, vendor or status" /><button type="button" onClick={() => { setBillSearch(""); setSearchOpen(false); }}><X size={14} /></button></div>}
+          {statusFilter !== "ALL" && <div style={S.listTools}>
+            <span>Showing status: <strong>{statusFilter}</strong></span>
+            <button type="button" onClick={() => setStatusFilter("ALL")}>Clear filter</button>
             <span style={S.resultCount}>{visiblePurchases.length} result{visiblePurchases.length === 1 ? "" : "s"}</span>
           </div>}
           {message && <div style={message.type === "error" ? S.error : S.success}>{message.text}</div>}
@@ -1101,8 +1413,8 @@ function ManualStockReceipt() {
                 <th style={{ ...S.listTh, textAlign: "right" }}>Balance Due</th>
               </tr></thead>
               <tbody>
-                {!storeId ? <tr><td colSpan="7" style={S.emptyBills}>Select a store to view bills.</td></tr>
-                  : visiblePurchases.length === 0 ? <tr><td colSpan="7" style={S.emptyBills}>No bills found.</td></tr>
+                {!storeId ? <tr><td colSpan="7" style={S.emptyBills}><div style={S.emptyState}><div style={S.emptyStateIcon}><ReceiptText size={24} /></div><strong>Select a store</strong><span>Choose a store above to view its vendor bills and balances.</span></div></td></tr>
+                  : visiblePurchases.length === 0 ? <tr><td colSpan="7" style={S.emptyBills}><div style={S.emptyState}><div style={S.emptyStateIcon}><ReceiptText size={24} /></div><strong>No vendor bills yet</strong><span>Create a new bill or import supplier items to begin receiving stock.</span><button type="button" onClick={startNewBill} style={S.emptyStateButton}><CirclePlus size={15} /> Create first bill</button></div></td></tr>
                   : visiblePurchases.map((bill) => <tr key={bill.receiptId} onClick={() => viewBill(bill.receiptId)} style={S.clickableRow}>
                     <td style={S.listTd}>{formatDate(bill.invoiceDate)}</td>
                     <td style={S.listTd}><button type="button" style={S.billLink} onClick={(event) => { event.stopPropagation(); viewBill(bill.receiptId); }}>{bill.vendorInvoiceNumber}</button></td>
@@ -1118,15 +1430,22 @@ function ManualStockReceipt() {
         </div>
       )}
 
-      {screen === "detail" && selectedBill && (
-        <VendorPurchaseInvoiceView
-          bill={selectedBill}
+      {screen === "import" && (
+        <VendorBillBulkUploader
+          storeId={storeId}
           onBack={() => setScreen("list")}
-          onEdit={beginEdit}
-          onPrint={() => window.print()}
-          onOpenDraft={openDraft}
-          saving={saving}
+          onParsed={loadImportedItems}
         />
+      )}
+
+      {screen === "detail" && selectedBill && (
+       <VendorPurchaseInvoiceView
+  bill={selectedBill}
+  onBack={() => setScreen("list")}
+  onEdit={beginEdit}
+  onOpenDraft={openDraft}
+  saving={saving}
+/>
       )}
 
       {screen === "editor" ? <>
@@ -1143,39 +1462,35 @@ function ManualStockReceipt() {
               </button>
 
               <div>
-                <div style={S.breadcrumb}>
-                  <span>Purchases</span>
-                  <span style={S.breadcrumbChevron}>›</span>
-                  <span>Bills</span>
-                </div>
+                <span style={S.editorEyebrow}>Purchase entry</span>
                 <h1 style={S.editorPageTitle}>
                   {editingBillId ? "Edit Bill" : "New Bill"}
                 </h1>
+                <span style={S.editorSubheading}>
+                  {importPreview ? `Imported from ${importPreview.fileName}` : "Supplier invoice and stock receipt"}
+                </span>
               </div>
             </div>
 
             <div style={S.editorHeaderRight}>
-              <p style={S.editorHeaderHint}>
-                {editingBillId
-                  ? "Update the bill and provide a reason for the change."
-                  : "Enter the vendor invoice and received item details."}
-              </p>
-
               {isSuperAdmin && (
-                <select
-                  value={storeId}
-                  onFocus={loadStores}
-                  onChange={(event) => setStoreId(event.target.value)}
-                  style={S.headerStoreSelect}
-                  aria-label="Store"
-                >
-                  <option value="">Select store</option>
-                  {stores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.storeName}
-                    </option>
-                  ))}
-                </select>
+                <label style={S.headerStoreField}>
+                  <span>Receiving store</span>
+                  <select
+                    value={storeId}
+                    onFocus={loadStores}
+                    onChange={(event) => setStoreId(event.target.value)}
+                    style={S.headerStoreSelect}
+                    aria-label="Store"
+                  >
+                    <option value="">Select store</option>
+                    {stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.storeName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               )}
 
               <button
@@ -1207,9 +1522,9 @@ function ManualStockReceipt() {
 
           <main style={S.editorCanvas}>
             <div style={S.editorContent}>
-              <section style={S.formCard}>
-                <div style={S.formGridThree}>
-                  <label style={S.metaField}>
+              <section className="bill-information-section" style={S.billInformationSection}>
+                <div className="bill-entry-grid" style={S.billEntryGrid}>
+                  <label className="bill-primary-field bill-vendor-field" style={{ ...S.metaField, ...S.vendorField }}>
                     <span style={S.fieldLabel}>
                       Vendor Name <span style={S.requiredStar}>*</span>
                     </span>
@@ -1228,7 +1543,7 @@ function ManualStockReceipt() {
                     </select>
                   </label>
 
-                  <label style={S.metaField}>
+                  <label className="bill-primary-field" style={S.metaField}>
                     <span style={S.fieldLabel}>
                       Bill Number <span style={S.requiredStar}>*</span>
                     </span>
@@ -1240,7 +1555,7 @@ function ManualStockReceipt() {
                     />
                   </label>
 
-                  <label style={S.metaField}>
+                  <label className="bill-primary-field" style={S.metaField}>
                     <span style={S.fieldLabel}>
                       Bill Date <span style={S.requiredStar}>*</span>
                     </span>
@@ -1251,24 +1566,8 @@ function ManualStockReceipt() {
                       onChange={(event) => setInvoiceDate(event.target.value)}
                     />
                   </label>
-                </div>
-              </section>
 
-              <section style={S.formCard}>
-                <div style={S.formGridFour}>
-                  <label style={S.metaField}>
-                    <span style={S.fieldLabel}>
-                      Due Date <span style={S.requiredStar}>*</span>
-                    </span>
-                    <input
-                      type="date"
-                      style={S.metaInput}
-                      value={dueDate}
-                      onChange={(event) => setDueDate(event.target.value)}
-                    />
-                  </label>
-
-                  <label style={S.metaField}>
+                  <label className="bill-primary-field" style={S.metaField}>
                     <span style={S.fieldLabel}>
                       Payment Status <span style={S.requiredStar}>*</span>
                     </span>
@@ -1282,8 +1581,20 @@ function ManualStockReceipt() {
                     </select>
                   </label>
 
+                  <label className="bill-primary-field" style={S.metaField}>
+                    <span style={S.fieldLabel}>
+                      Due Date <span style={S.requiredStar}>*</span>
+                    </span>
+                    <input
+                      type="date"
+                      style={S.metaInput}
+                      value={dueDate}
+                      onChange={(event) => setDueDate(event.target.value)}
+                    />
+                  </label>
+
                   {paymentStatus === "PAID" && (
-                    <label style={S.metaField}>
+                    <label className="bill-secondary-field" style={S.metaField}>
                       <span style={S.fieldLabel}>
                         Payment Method <span style={S.requiredStar}>*</span>
                       </span>
@@ -1303,7 +1614,7 @@ function ManualStockReceipt() {
                     </label>
                   )}
 
-                  <label style={S.metaField}>
+                  <label className="bill-secondary-field" style={S.metaField}>
                     <span style={S.fieldLabel}>Payment Reference</span>
                     <input
                       style={S.metaInput}
@@ -1313,7 +1624,7 @@ function ManualStockReceipt() {
                     />
                   </label>
 
-                  <label style={S.metaField}>
+                  <label className="bill-secondary-field" style={{ ...S.metaField, ...S.remarksField }}>
                     <span style={S.fieldLabel}>Remarks</span>
                     <input
                       style={S.metaInput}
@@ -1322,11 +1633,9 @@ function ManualStockReceipt() {
                       placeholder="Optional"
                     />
                   </label>
-                </div>
 
                 {editingBillId && (
-                  <div style={S.fullWidthField}>
-                    <label style={S.metaField}>
+                    <label className="bill-secondary-field" style={{ ...S.metaField, ...S.editReasonField }}>
                       <span style={S.fieldLabel}>
                         Reason for Editing <span style={S.requiredStar}>*</span>
                       </span>
@@ -1337,64 +1646,53 @@ function ManualStockReceipt() {
                         placeholder="Explain why this saved bill is being changed"
                       />
                     </label>
-                  </div>
                 )}
+                </div>
               </section>
 
               {message && (
-                <div style={message.type === "error" ? S.error : S.success}>
-                  {message.text}
+                <div
+                  ref={messageRef}
+                  role={message.type === "error" ? "alert" : "status"}
+                  aria-live={message.type === "error" ? "assertive" : "polite"}
+                  style={{
+                    ...S.editorMessage,
+                    ...(message.type === "error" ? S.editorMessageError : S.editorMessageSuccess),
+                  }}
+                >
+                  {message.type === "error" && <AlertTriangle size={20} />}
+                  <div style={S.editorMessageCopy}>
+                    <strong>{message.type === "error" ? "Bill cannot be saved yet" : "Completed"}</strong>
+                    <span>{message.text}</span>
+                  </div>
                 </div>
               )}
 
-              <section style={S.taxCard}>
-                <h3 style={S.taxTitle}>Tax settings</h3>
-
-                <div style={S.taxControls}>
-                  <label style={S.taxField}>
-                    <span>Price type</span>
-                    <select
-                      value={priceMode}
-                      onChange={(event) => applyPriceSettings(
-                        event.target.value,
-                        gstPercentage
-                      )}
-                      style={S.settingSelect}
-                    >
-                      <option value="GST_INCLUSIVE">GST Inclusive</option>
-                      <option value="GST_EXCLUSIVE">GST Exclusive</option>
-                    </select>
-                  </label>
-
-                  <label style={S.taxField}>
-                    <span>Tax type</span>
-                    <select
-                      value={gstMode}
-                      onChange={(event) => setGstMode(event.target.value)}
-                      style={S.settingSelect}
-                    >
-                      <option value="CGST_SGST">CGST + SGST</option>
-                      <option value="IGST">IGST</option>
-                    </select>
-                  </label>
-
-                  <label style={S.taxField}>
-                    <span>GST %</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={gstPercentage}
-                      onChange={(event) => applyPriceSettings(
-                        priceMode,
-                        event.target.value
-                      )}
-                      onWheel={(event) => event.currentTarget.blur()}
-                      style={S.gstStandaloneInput}
-                    />
-                  </label>
+              {importPreview && (
+                <div style={S.importSummary}>
+                  <div><strong>{importPreview.totalRows}</strong><span>Imported rows</span></div>
+                  <div><strong>{importPreview.existingCount}</strong><span>Existing items</span></div>
+                  <div><strong>{importPreview.newCount}</strong><span>New items</span></div>
+                  <div><strong style={importPreview.invalidRows ? { color: "#b42318" } : undefined}>{importPreview.invalidRows}</strong><span>File warnings</span></div>
+                  <p style={S.importSummaryNote}>Imported data is only a preview. Inventory changes after you select <b>Receive Stock</b>.</p>
                 </div>
-              </section>
+              )}
+
+              {importedRowErrors.length > 0 && (
+                <div style={S.importErrorPanel} role="alert">
+                  <AlertTriangle size={19} />
+                  <div>
+                    <strong style={S.importErrorTitle}>Correct these imported rows</strong>
+                    <ul style={S.importErrorList}>
+                      {importedRowErrors.map((row) => (
+                        <li key={`${row.rowNumber}-${row.errors.join("-")}`}>
+                          Row {row.rowNumber}: {row.errors.join("; ")}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
 
               <section style={S.itemsCard}>
                 <div style={S.itemsHeading}>
@@ -1404,9 +1702,61 @@ function ManualStockReceipt() {
                       Search an existing part or enter a new item.
                     </span>
                   </div>
-                  <span style={S.itemsCount}>
-                    {enteredRows.length} item row{enteredRows.length === 1 ? "" : "s"}
-                  </span>
+
+                  <div className="bill-item-toolbar" style={S.itemToolbar}>
+                    <label style={S.compactSettingField}>
+                      <span className="sr-only">Tax split</span>
+                      <select
+                        value={gstMode}
+                        onChange={(event) => setGstMode(event.target.value)}
+                        style={S.itemSettingSelect}
+                        aria-label="Tax split"
+                      >
+                        <option value="CGST_SGST">GST</option>
+                        <option value="IGST">IGST</option>
+                      </select>
+                    </label>
+
+                    <label style={S.compactSettingField}>
+                      <span className="sr-only">Price basis</span>
+                      <select
+                        value={priceMode}
+                        onChange={(event) => applyPriceSettings(
+                          event.target.value,
+                          gstPercentage
+                        )}
+                        style={S.itemSettingSelect}
+                        aria-label="Price basis"
+                      >
+                        <option value="GST_EXCLUSIVE">Exclusive</option>
+                        <option value="GST_INCLUSIVE">Inclusive</option>
+                      </select>
+                    </label>
+
+                    <label style={S.inlineGstField}>
+                      <span>GST %</span>
+                      <div style={S.gstRateInput}>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={gstPercentage}
+                          onChange={(event) => applyPriceSettings(
+                            priceMode,
+                            event.target.value
+                          )}
+                          onWheel={(event) => event.currentTarget.blur()}
+                          style={S.gstRateNumber}
+                        />
+                        <span>%</span>
+                      </div>
+                    </label>
+
+                    <button type="button" onClick={addRow} style={S.addItemButton}>
+                      <CirclePlus size={17} />
+                      Add Item
+                    </button>
+                  </div>
                 </div>
 
                 <div className="manual-stock-table-scroll" style={S.tableWrap}>
@@ -1447,8 +1797,22 @@ function ManualStockReceipt() {
 
                     <tbody>
                       {rows.map((row, index) => (
-                        <tr key={row.key}>
-                          <td style={S.rowNumber}>{index + 1}</td>
+                        <tr key={row.key} style={row.importStatus === "ERROR" ? S.importErrorRow : undefined}>
+                          <td style={S.rowNumber} title={row.importErrors?.join("\n") || ""}>
+                            {index + 1}
+                            {row.importStatus && !isEmptyRow(row) && (
+                              <span style={{
+                                ...S.importRowBadge,
+                                ...(row.importStatus === "EXISTING"
+                                  ? S.importExistingBadge
+                                  : row.importStatus === "NEW"
+                                    ? S.importNewBadge
+                                    : S.importErrorBadge),
+                              }}>
+                                {row.importStatus === "EXISTING" ? "Found" : row.importStatus === "NEW" ? "New" : "Fix"}
+                              </span>
+                            )}
+                          </td>
 
                           <td style={S.td}>
                             <SuggestionInput
@@ -1587,22 +1951,19 @@ function ManualStockReceipt() {
                   </table>
                 </div>
 
-                <button type="button" onClick={addRow} style={S.addRowFooter}>
-                  <CirclePlus size={16} />
-                  Add Row
-                </button>
               </section>
 
               <section style={S.summaryFooter}>
                 <div style={S.summaryCard}>
+                  <h3 style={S.summaryTitle}>Payment Summary</h3>
                   <div style={S.summaryRows}>
                     <div style={S.summaryRow}>
-                      <span>Total Accepted Qty</span>
-                      <strong>{purchaseSummary.acceptedQuantity}</strong>
+                      <span>Total Items</span>
+                      <strong>{enteredRows.length}</strong>
                     </div>
 
                     <div style={S.summaryRow}>
-                      <span>Taxable Amount</span>
+                      <span>Sub Total</span>
                       <strong>{formatMoney(purchaseSummary.taxableAmount)}</strong>
                     </div>
 
@@ -1626,13 +1987,6 @@ function ManualStockReceipt() {
                     <div style={S.summaryRow}>
                       <span>Total GST</span>
                       <strong>{formatMoney(purchaseSummary.totalGstAmount)}</strong>
-                    </div>
-
-                    <div style={S.summaryDivider}></div>
-
-                    <div style={S.summaryRow}>
-                      <span>Total Before Round Off</span>
-                      <strong>{formatMoney(purchaseSummary.totalBeforeRoundOff)}</strong>
                     </div>
 
                     <div style={S.summaryRow}>
@@ -1780,81 +2134,6 @@ function csvValue(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-function parseCsvRows(text) {
-  const rows = [];
-  let row = [];
-  let value = "";
-  let quoted = false;
-  for (let index = 0; index < text.length; index++) {
-    const character = text[index];
-    if (character === '"' && quoted && text[index + 1] === '"') {
-      value += '"';
-      index++;
-    } else if (character === '"') quoted = !quoted;
-    else if (character === "," && !quoted) { row.push(value.trim()); value = ""; }
-    else if ((character === "\n" || character === "\r") && !quoted) {
-      if (character === "\r" && text[index + 1] === "\n") index++;
-      row.push(value.trim());
-      if (row.some(Boolean)) rows.push(row);
-      row = []; value = "";
-    } else value += character;
-  }
-  row.push(value.trim());
-  if (row.some(Boolean)) rows.push(row);
-  return rows;
-}
-
-function normalizeImportDate(value) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  const parts = value.split(/[/-]/);
-  if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-  throw new Error(`Invalid date '${value}'. Use YYYY-MM-DD or DD/MM/YYYY.`);
-}
-
-function parseBillCsv(text) {
-  const rows = parseCsvRows(text);
-  if (rows.length < 2) throw new Error("The import file has no bill rows");
-  const headers = rows[0].map((header) => header.toLowerCase().replace(/[^a-z0-9]/g, ""));
-  const get = (row, names) => {
-    const index = names.map((name) => headers.indexOf(name)).find((position) => position >= 0);
-    return index === undefined ? "" : String(row[index] || "").trim();
-  };
-  const bills = new Map();
-  rows.slice(1).forEach((row, index) => {
-    const invoiceNumber = get(row, ["billnumber", "invoicenumber", "vendorinvoicenumber"]);
-    const vendorName = get(row, ["vendorname", "vendor"]);
-    const partNumber = get(row, ["partnumber", "partno"]);
-    if (!invoiceNumber || !vendorName || !partNumber) throw new Error(`Row ${index + 2}: Bill Number, Vendor Name and Part Number are required`);
-    const key = `${vendorName.toLowerCase()}|${invoiceNumber.toLowerCase()}`;
-    if (!bills.has(key)) {
-      const invoiceDate = normalizeImportDate(get(row, ["billdate", "invoicedate"]));
-      bills.set(key, {
-        invoiceNumber, vendorName, invoiceDate,
-        dueDate: get(row, ["duedate"]) ? normalizeImportDate(get(row, ["duedate"])) : invoiceDate,
-        paymentStatus: (get(row, ["paymentstatus"]) || "UNPAID").toUpperCase(),
-        paymentMethod: (get(row, ["paymentmethod"]) || "CASH").toUpperCase(),
-        status: (get(row, ["status"]) || "OPEN").toUpperCase(),
-        remarks: get(row, ["remarks", "notes"]), items: [],
-      });
-    }
-    const quantity = Number(get(row, ["quantity", "qty"]));
-    const purchasePrice = Number(get(row, ["purchaseprice", "rate"]));
-    const mrp = Number(get(row, ["mrp"]));
-    const sellingPrice = Number(get(row, ["sellingprice"]));
-    const discountRaw = get(row, ["discount", "discountpercentage", "discountpercent", "discount%"]);
-    const discountPercentage = discountRaw === "" ? 0 : Number(discountRaw);
-    if (!(quantity > 0) || purchasePrice < 0 || !(mrp > 0) || !(sellingPrice > 0)) throw new Error(`Row ${index + 2}: Quantity, Purchase Price, MRP and Selling Price are invalid`);
-    if (Number.isNaN(discountPercentage) || discountPercentage < 0 || discountPercentage >= 101) throw new Error(`Row ${index + 2}: Discount % must be between 0 and 100`);
-    bills.get(key).items.push({
-      partNumber, itemName: get(row, ["itemname", "item"]), brandName: get(row, ["brand", "brandname"]),
-      hsnCode: get(row, ["hsn", "hsncode"]) || null, receivedQuantity: quantity,
-      damagedQuantity: 0, rejectedQuantity: 0, purchasePrice, mrp, sellingPrice, discountPercentage,
-      gstPercentage: Number(get(row, ["gst", "gstpercentage"]) || 0), rackNumber: get(row, ["rack", "racknumber"]) || null,
-    });
-  });
-  return [...bills.values()];
-}
-
 function CellInput({
   value,
   onChange,
@@ -1924,18 +2203,17 @@ const S = {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
   },
   editorHeader: {
-    minHeight: 64,
-    padding: "0 24px",
-    borderBottom: "1px solid #C3C6D7",
+    minHeight: 88,
+    padding: "14px 28px",
+    borderBottom: "1px solid #E1E5EA",
     background: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 20,
     boxSizing: "border-box",
-    position: "sticky",
-    top: 0,
-    zIndex: 40,
+    position: "relative",
+    zIndex: 4,
   },
   editorHeaderLeft: {
     display: "flex",
@@ -1949,10 +2227,11 @@ const S = {
     justifyContent: "flex-end",
     gap: 10,
     minWidth: 0,
+    flexWrap: "wrap",
   },
   editorHeaderHint: {
     margin: 0,
-    color: "#434655",
+    color: "#687385",
     fontSize: 12,
     whiteSpace: "nowrap",
   },
@@ -1972,14 +2251,17 @@ const S = {
   editorPageTitle: {
     margin: 0,
     color: "#191C1E",
-    fontSize: 20,
-    lineHeight: "26px",
+    fontSize: 22,
+    lineHeight: "25px",
     fontWeight: 600,
     letterSpacing: "-0.01em",
   },
+  editorEyebrow: { display: "none" },
+  editorSubheading: { display: "block", marginTop: 2, color: "#7A8494", fontSize: 10.5 },
+  headerStoreField: { display: "grid", gap: 3, color: "#667085", fontSize: 9.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".35px" },
   headerStoreSelect: {
-    height: 36,
-    minWidth: 160,
+    height: 34,
+    minWidth: 180,
     padding: "0 10px",
     border: "1px solid #C3C6D7",
     borderRadius: 4,
@@ -1988,24 +2270,33 @@ const S = {
     fontSize: 12,
   },
   editorCanvas: {
-    flex: 1,
-    overflowY: "auto",
-    padding: 24,
+    padding: "26px 28px 30px",
     boxSizing: "border-box",
   },
   editorContent: {
-    width: "min(1200px, 100%)",
-    margin: "0 auto",
+    width: "100%",
+    margin: 0,
     display: "grid",
-    gap: 18,
+    gap: 0,
   },
   formCard: {
     background: "#FFFFFF",
-    border: "1px solid #C3C6D7",
-    borderRadius: 6,
-    padding: 24,
-    boxShadow: "0 1px 3px rgba(15,23,42,.05)",
+    border: 0,
+    borderBottom: "1px solid #E6E9EE",
+    borderRadius: 0,
+    padding: "22px 28px",
+    boxShadow: "none",
   },
+  billInformationSection: { padding: "22px 28px", border: "1px solid #DDE4ED", borderRadius: 8, background: "#FFFFFF", boxSizing: "border-box", boxShadow: "0 1px 2px rgba(15, 23, 42, .02)" },
+  billInformationHeading: { display: "flex", minWidth: 0, flexDirection: "column", justifyContent: "space-between", gap: 16, paddingTop: 1 },
+  billInformationTitle: { margin: 0, color: "#202938", fontSize: 15, lineHeight: "20px", fontWeight: 600 },
+  billInformationSubtitle: { margin: "4px 0 0", color: "#7A8494", fontSize: 10.5, lineHeight: 1.45 },
+  requiredHint: { color: "#7A8494", fontSize: 10 },
+  billEntryGrid: { minWidth: 0, display: "grid", gridTemplateColumns: "1.35fr repeat(4, minmax(0, 1fr))", columnGap: 18, rowGap: 16, alignItems: "start" },
+  vendorField: { gridColumn: "auto" },
+  remarksField: { gridColumn: "span 2" },
+  editReasonField: { gridColumn: "1 / -1" },
+  fieldHelp: { color: "#8A93A3", fontSize: 9.5, lineHeight: 1.3 },
   formGridThree: {
     display: "grid",
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -2022,7 +2313,7 @@ const S = {
   },
   fieldLabel: {
     display: "block",
-    marginBottom: 7,
+    marginBottom: 0,
     color: "#434655",
     fontSize: 11,
     lineHeight: "16px",
@@ -2031,54 +2322,60 @@ const S = {
   requiredStar: {
     color: "#BA1A1A",
   },
-  taxCard: {
-    minHeight: 58,
-    padding: "0 24px",
-    background: "#FFFFFF",
-    border: "1px solid #C3C6D7",
-    borderRadius: 6,
-    boxShadow: "0 1px 3px rgba(15,23,42,.04)",
-    display: "flex",
-    alignItems: "center",
-    gap: 24,
+  taxCard: { display: "none" },
+  taxHeading: {
+    display: "grid",
+    gap: 2,
+    flexShrink: 0,
   },
   taxTitle: {
     margin: 0,
-    color: "#191C1E",
-    fontSize: 16,
-    lineHeight: "22px",
+    color: "#202938",
+    fontSize: 14,
+    lineHeight: "20px",
     fontWeight: 600,
   },
+  taxSubtitle: { color: "#7A8494", fontSize: 10.5 },
   taxControls: {
     display: "flex",
     alignItems: "center",
-    gap: 20,
+    justifyContent: "flex-end",
+    gap: 18,
     flexWrap: "wrap",
   },
   taxField: {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    color: "#434655",
+    color: "#505B6B",
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 500,
   },
+  gstRateInput: { height: 40, width: 78, padding: "0 9px", border: "1px solid #C9D4E2", borderRadius: 6, background: "#FFFFFF", display: "flex", alignItems: "center", gap: 4, color: "#687385", boxSizing: "border-box" },
+  gstRateNumber: { width: 44, minWidth: 0, border: 0, outline: 0, background: "transparent", color: "#273142", fontSize: 12 },
+  taxModeSwitch: { display: "flex", padding: 2, border: "1px solid #C9D0DA", borderRadius: 5, background: "#E9EDF3" },
+  taxModeButton: { height: 28, padding: "0 11px", border: 0, borderRadius: 3, background: "transparent", color: "#657184", fontSize: 10.5, fontWeight: 500, cursor: "pointer" },
+  taxModeButtonActive: { background: "#FFFFFF", color: "#2459B7", boxShadow: "0 1px 2px rgba(15,23,42,.12)" },
   itemsCard: {
+    minHeight: 340,
+    marginTop: 24,
     background: "#FFFFFF",
-    border: "1px solid #C3C6D7",
-    borderRadius: 6,
-    boxShadow: "0 1px 3px rgba(15,23,42,.05)",
+    border: "1px solid #DDE4ED",
+    borderBottom: 0,
+    borderRadius: "8px 8px 0 0",
+    boxShadow: "none",
     overflow: "hidden",
   },
   itemsHeading: {
-    minHeight: 62,
-    padding: "0 16px",
-    borderBottom: "1px solid #C3C6D7",
-    background: "#F7F9FB",
+    minHeight: 96,
+    padding: "14px 18px",
+    borderBottom: "1px solid #DDE2E8",
+    background: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 16,
+    gap: 24,
+    flexWrap: "wrap",
     boxSizing: "border-box",
   },
   itemsTitle: {
@@ -2099,23 +2396,37 @@ const S = {
     fontSize: 11,
     whiteSpace: "nowrap",
   },
+  itemToolbar: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, flexWrap: "wrap", flex: 1 },
+  compactSettingField: { display: "block" },
+  itemSettingSelect: { height: 40, minWidth: 130, padding: "0 12px", border: "1px solid #A9C3F8", borderRadius: 6, background: "#FFFFFF", color: "#1F2937", fontSize: 12.5, fontWeight: 500 },
+  inlineGstField: { display: "flex", alignItems: "center", gap: 9, color: "#53627A", fontSize: 11.5, fontWeight: 600, whiteSpace: "nowrap" },
+  addItemButton: { height: 40, padding: "0 15px", marginLeft: "auto", border: "1px solid #7FA7F5", borderRadius: 6, background: "#FFFFFF", color: "#1762E7", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
   summaryFooter: {
+    minHeight: 320,
     display: "flex",
+    alignItems: "flex-end",
     justifyContent: "flex-end",
-    padding: "4px 0 28px",
+    padding: "24px 20px 20px",
+    border: "1px solid #DDE4ED",
+    borderTop: 0,
+    borderRadius: "0 0 8px 8px",
+    background: "#FFFFFF",
   },
   summaryCard: {
-    width: "min(440px, 100%)",
+    width: "min(360px, 100%)",
     background: "#FFFFFF",
-    border: "1px solid #C3C6D7",
-    borderRadius: 6,
-    padding: 20,
-    boxShadow: "0 1px 3px rgba(15,23,42,.05)",
+    border: "1px solid #D5DDE8",
+    borderRadius: 7,
+    padding: 0,
+    overflow: "hidden",
+    boxShadow: "none",
   },
+  summaryTitle: { margin: 0, padding: "15px 16px 10px", color: "#1F2A3D", fontSize: 13.5, fontWeight: 600 },
   summaryRows: {
     display: "grid",
-    gap: 9,
-    marginBottom: 20,
+    gap: 10,
+    padding: "4px 16px 12px",
+    marginBottom: 0,
   },
   summaryRow: {
     display: "flex",
@@ -2140,10 +2451,9 @@ const S = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: 20,
-    padding: "11px 0",
-    borderTop: "1px solid #C3C6D7",
-    borderBottom: "1px solid #C3C6D7",
-    color: "#191C1E",
+    padding: "13px 0 2px",
+    borderTop: "1px solid #D9E1EB",
+    color: "#075EEA",
     fontSize: 16,
     lineHeight: "22px",
     fontWeight: 600,
@@ -2153,6 +2463,9 @@ const S = {
     justifyContent: "flex-end",
     alignItems: "center",
     gap: 8,
+    padding: "12px 16px",
+    borderTop: "1px solid #E4E9EF",
+    background: "#FAFBFD",
     flexWrap: "wrap",
   },
   secondarySaveButton: {
@@ -2183,7 +2496,7 @@ const S = {
   subtitle: { margin: "3px 0 0", color: "#6B7280", fontSize: 12, fontWeight: 400 },
   toolbarActions: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
   purchaseMeta: { display: "grid", gridTemplateColumns: "repeat(4, minmax(150px, 1fr))", gap: "18px 24px", padding: "24px 28px 26px", borderBottom: "1px solid #E5E7EB", background: "#FFFFFF" },
-  metaField: { minWidth: 0, display: "grid", alignContent: "start", gap: 7, color: "#374151", fontSize: 12, fontWeight: 400 },
+  metaField: { minWidth: 0, display: "grid", alignContent: "start", gap: 5, color: "#374151", fontSize: 12, fontWeight: 400 },
   requiredLabel: { color: "#DC2626", fontWeight: 400 },
   metaInput: { width: "100%", height: 38, padding: "0 10px", border: "1px solid #C9CED8", borderRadius: 3, background: "#FFF", boxSizing: "border-box", color: "#111827", fontSize: 13, fontWeight: 400 },
   metaTextarea: { width: "100%", minHeight: 68, padding: 10, border: "1px solid #C9CED8", borderRadius: 3, background: "#FFF", boxSizing: "border-box", resize: "vertical", fontSize: 13, fontWeight: 400 },
@@ -2198,6 +2511,20 @@ const S = {
   secondaryButton: { height: 38, padding: "0 12px", border: "1px solid #BFDBFE", borderRadius: 5, background: "#EFF6FF", color: "#1D4ED8", display: "flex", alignItems: "center", gap: 7, fontWeight: 700, cursor: "pointer" },
   error: { margin: "14px 28px 0", padding: "10px 12px", borderLeft: "3px solid #DC2626", background: "#FEF2F2", color: "#B91C1C", fontSize: 12.5 },
   success: { margin: "14px 28px 0", padding: "10px 12px", borderLeft: "3px solid #16A34A", background: "#F0FDF4", color: "#15803D", fontSize: 12.5 },
+  editorMessage: { margin: "16px 28px", padding: "13px 15px", borderRadius: 5, display: "flex", alignItems: "flex-start", gap: 10, fontSize: 12.5 },
+  editorMessageError: { border: "1px solid #F1AAA5", borderLeft: "4px solid #D92D20", background: "#FFF1F0", color: "#A61B1B" },
+  editorMessageSuccess: { border: "1px solid #A9D9BA", borderLeft: "4px solid #178A4B", background: "#F1FBF5", color: "#157347" },
+  editorMessageCopy: { display: "grid", gap: 3 },
+  importSummary: { margin: "14px 28px 0", padding: "14px 16px", borderTop: "1px solid #D7DEE9", borderBottom: "1px solid #D7DEE9", background: "#F8FAFC", display: "grid", gridTemplateColumns: "repeat(4, minmax(100px, 1fr))", gap: 14, color: "#475467", fontSize: 11.5 },
+  importSummaryNote: { gridColumn: "1 / -1", margin: 0, color: "#667085" },
+  importErrorPanel: { margin: "12px 28px", padding: "13px 15px", border: "1px solid #F1AAA5", borderLeft: "4px solid #D92D20", borderRadius: 5, background: "#FFF7F6", color: "#A61B1B", display: "flex", alignItems: "flex-start", gap: 10, fontSize: 12 },
+  importErrorTitle: { display: "block", marginBottom: 5, fontWeight: 600 },
+  importErrorList: { margin: 0, paddingLeft: 18, display: "grid", gap: 3 },
+  importErrorRow: { background: "#FFF8F7" },
+  importRowBadge: { display: "block", width: "fit-content", margin: "3px auto 0", padding: "1px 4px", borderRadius: 3, fontSize: 8, lineHeight: 1.4, fontWeight: 600 },
+  importExistingBadge: { background: "#EAF7EF", color: "#18794E" },
+  importNewBadge: { background: "#EAF2FF", color: "#2459B7" },
+  importErrorBadge: { background: "#FEECEB", color: "#B42318" },
   gstSettingsBar: { minHeight: 58, padding: "0 28px", display: "flex", alignItems: "center", gap: 20, borderBottom: "1px solid #E5E7EB", color: "#4B5563", fontSize: 12 },
   gstStandaloneInput: { width: 72, height: 34, marginLeft: 7, padding: "0 8px", border: "1px solid #C9CED8", borderRadius: 3 },
   tableWrap: { overflowX: "auto", overflowY: "visible", position: "relative", zIndex: 3, minHeight: "250px", borderBottom: "1px solid #C3C6D7", background: "#FFF" },
@@ -2232,26 +2559,35 @@ const S = {
   billTotalsLabelNet: { padding: "8px 16px", borderTop: "1px solid #E5E7EB", background: "#F0FDF4", color: "#15803D", fontWeight: 700, textAlign: "left", whiteSpace: "nowrap" },
   billTotalsValueNet: { padding: "8px 16px", borderTop: "1px solid #E5E7EB", background: "#F0FDF4", color: "#15803D", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" },
   footerActions: { display: "flex", alignItems: "center", gap: 8 },
-  listPage: { minHeight: "calc(100vh - 28px)", background: "#FFFFFF" },
-  listHeader: { minHeight: 70, padding: "0 28px", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, boxSizing: "border-box" },
-  listHeaderActions: { display: "flex", alignItems: "center", gap: 10 },
+  listPage: { minHeight: "calc(100vh - 28px)", background: "#FFFFFF", color: "#202938" },
+  listHeader: { minHeight: 96, padding: "16px 28px", borderBottom: "1px solid #E1E6ED", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap", boxSizing: "border-box" },
+  listTitleGroup: { display: "flex", alignItems: "center", gap: 13, minWidth: 240 },
+  listTitleIcon: { width: 42, height: 42, borderRadius: 9, background: "#EAF1FF", color: "#2459B7", display: "grid", placeItems: "center", flexShrink: 0 },
+  listEyebrow: { display: "block", marginBottom: 1, color: "#667085", fontSize: 9.5, fontWeight: 600, letterSpacing: ".65px", textTransform: "uppercase" },
+  listHeaderActions: { display: "flex", alignItems: "flex-end", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", flex: 1 },
   iconButton: { width: 38, height: 38, border: "1px solid #D5DAE2", borderRadius: 3, background: "#FFFFFF", color: "#4B5563", display: "grid", placeItems: "center", cursor: "pointer" },
-  storeFilterSelect: { height: 38, minWidth: 170, padding: "0 10px", border: "1px solid #D5DAE2", borderRadius: 3, background: "#FFFFFF", color: "#374151" },
+  toolbarButton: { height: 38, padding: "0 12px", border: "1px solid #D1D7E0", borderRadius: 5, background: "#FFFFFF", color: "#475467", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: 11.5, fontWeight: 500, cursor: "pointer" },
+  toolbarButtonActive: { borderColor: "#9AB8F7", background: "#EFF5FF", color: "#2459B7" },
+  storeFilterField: { display: "grid", gap: 3, color: "#667085", fontSize: 9.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".35px" },
+  storeFilterSelect: { height: 38, minWidth: 180, padding: "0 10px", border: "1px solid #C9D0DA", borderRadius: 5, background: "#FFFFFF", color: "#273142", fontSize: 12 },
   relativeControl: { position: "relative" },
   filterMenu: { position: "absolute", zIndex: 50, top: 44, right: 0, width: 220, padding: 12, border: "1px solid #D8DDE6", borderRadius: 4, background: "#FFFFFF", boxShadow: "0 10px 28px rgba(15,23,42,.14)", display: "grid", gap: 12 },
   filterLabel: { display: "grid", gap: 6, color: "#4B5563", fontSize: 11.5 },
   filterSelect: { width: "100%", height: 34, border: "1px solid #C9CED8", borderRadius: 3, background: "#FFFFFF", padding: "0 8px", color: "#374151" },
   moreMenu: { position: "absolute", zIndex: 50, top: 44, right: 0, width: 190, padding: "5px 0", border: "1px solid #D8DDE6", borderRadius: 4, background: "#FFFFFF", boxShadow: "0 10px 28px rgba(15,23,42,.14)", overflow: "hidden" },
-  pageTitle: { margin: 0, color: "#111827", fontSize: 20, fontWeight: 600 },
-  pageSubtitle: { margin: "3px 0 0", color: "#6B7280", fontSize: 12, fontWeight: 400 },
-  financialSummary: { minHeight: 92, margin: "0 28px", display: "grid", gridTemplateColumns: "repeat(2, minmax(220px, 1fr))", alignItems: "center", borderBottom: "1px solid #E5E7EB" },
-  financialMetric: { minHeight: 55, padding: "0 26px", borderRight: "1px solid #E5E7EB", display: "grid", alignContent: "center", color: "#6B7280", fontSize: 12 },
+  pageTitle: { margin: 0, color: "#182230", fontSize: 20, lineHeight: "25px", fontWeight: 650 },
+  pageSubtitle: { margin: "3px 0 0", color: "#667085", fontSize: 11.5, fontWeight: 400 },
+  financialSummary: { padding: "14px 28px", display: "grid", gridTemplateColumns: "repeat(2, minmax(220px, 1fr))", gap: 12, borderBottom: "1px solid #E6EAF0", background: "#F8FAFC" },
+  financialMetric: { minHeight: 66, padding: "10px 15px", border: "1px solid #E0E5EC", borderRadius: 7, background: "#FFFFFF", display: "flex", alignItems: "center", gap: 12, color: "#667085", fontSize: 10.5, boxSizing: "border-box" },
+  metricIcon: { width: 36, height: 36, borderRadius: 8, display: "grid", placeItems: "center", flexShrink: 0 },
+  metricIconPaid: { background: "#EAF8F0", color: "#16834A" },
+  metricIconDue: { background: "#FFF3E8", color: "#B65D16" },
   summaryStrip: { minHeight: 94, margin: "0 28px", display: "grid", gridTemplateColumns: "1.5fr repeat(3, 1fr)", alignItems: "center", borderBottom: "1px solid #E5E7EB", background: "#FFFFFF" },
   summaryLead: { minHeight: 54, display: "flex", alignItems: "center", gap: 12, paddingRight: 24, borderRight: "1px solid #E5E7EB", color: "#6B7280", fontSize: 12 },
   summaryIcon: { width: 38, height: 38, borderRadius: "50%", display: "grid", placeItems: "center", color: "#A36117", background: "#FBE7C2" },
   summaryMetric: { minHeight: 54, padding: "0 22px", borderRight: "1px solid #E5E7EB", display: "grid", alignContent: "center", gap: 7, color: "#6B7280", fontSize: 12 },
-  listTools: { minHeight: 62, padding: "0 28px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderBottom: "1px solid #E5E7EB" },
-  listSearch: { width: "min(380px, 55vw)", height: 36, padding: "0 10px", border: "1px solid #D3D7DE", borderRadius: 3, display: "flex", alignItems: "center", gap: 8, color: "#7B8492", boxSizing: "border-box" },
+  listTools: { minHeight: 46, padding: "0 28px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #E5E7EB", color: "#667085", fontSize: 11.5 },
+  listSearch: { width: 245, height: 38, padding: "0 10px", border: "1px solid #C9D0DA", borderRadius: 5, background: "#FFFFFF", display: "flex", alignItems: "center", gap: 8, color: "#7B8492", boxSizing: "border-box" },
   resultCount: { color: "#7B8492", fontSize: 12 },
   billTableWrap: { overflowX: "auto", background: "#FFFFFF" },
   billTable: { width: "100%", minWidth: 900, borderCollapse: "collapse", color: "#273142", fontSize: 12.5 },
@@ -2261,6 +2597,9 @@ const S = {
   billLink: { padding: 0, border: 0, background: "transparent", color: "#3568D4", fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
   billNumber: { display: "block", color: "#3367D6", fontWeight: 500 },
   receiptNumber: { display: "block", marginTop: 4, color: "#8A93A3", fontSize: 10.5 },
+  emptyState: { minHeight: 270, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, color: "#7A8494", fontSize: 11.5 },
+  emptyStateIcon: { width: 52, height: 52, marginBottom: 3, borderRadius: 12, background: "#EEF3FA", color: "#56708F", display: "grid", placeItems: "center" },
+  emptyStateButton: { height: 36, marginTop: 8, padding: "0 13px", border: "1px solid #9AB8F7", borderRadius: 5, background: "#EFF5FF", color: "#2459B7", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, fontWeight: 600, cursor: "pointer" },
   openStatus: { display: "inline-flex", padding: "4px 8px", borderRadius: 10, background: "#E9F7EF", color: "#16834A", fontSize: 10.5, fontWeight: 500 },
   draftStatus: { display: "inline-flex", padding: "4px 8px", borderRadius: 10, background: "#FFF4DD", color: "#A15C00", fontSize: 10.5, fontWeight: 500 },
   paidStatus: { display: "inline-flex", padding: "4px 8px", borderRadius: 10, background: "#E9F7EF", color: "#16834A", fontSize: 10.5, fontWeight: 500 },

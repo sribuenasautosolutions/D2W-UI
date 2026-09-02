@@ -56,3 +56,15 @@ export const getCustomerOrders = async (customerId) => {
 
     return response.data;
 };
+
+export const searchCustomersByStore = async (storeId, search = "") => {
+    const response = await api.get("/customers/search", {
+        params: { storeId, search },
+    });
+    return response.data;
+};
+
+export const updateCustomer = async (customerId, customer) => {
+    const response = await api.put(`/customers/${customerId}`, customer);
+    return response.data;
+};

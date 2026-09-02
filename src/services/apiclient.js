@@ -28,9 +28,8 @@ import axios from "axios";
  * the authentication endpoint before any token exists, so it needs its
  * own unauthenticated request (plain axios.post, not this client).
  *
- * A 401/403 response from any endpoint called through this client means
- * the session is invalid or expired: the stored session is cleared and
- * the user is sent back to the login screen.
+ * A 401 means the session is invalid or expired. A 403 is an access
+ * restriction and must not log out an otherwise authenticated user.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
@@ -66,7 +65,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401 || status === 403) {
+    if (status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       if (typeof window !== "undefined" && window.location.pathname !== "/login") {

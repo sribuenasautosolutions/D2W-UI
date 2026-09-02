@@ -5,13 +5,15 @@ import ProductPage from "../pages/ProductPage";
 import VehicleManagement from "../components/vehicles/VehicleManagement";
 import InventoryPage from "../pages/InventoryPage";
 import PurchasesPage from "../pages/PurchasesPage";
-import OrdersPage from "../pages/OrdersPage";
 import ReportsPage from "../pages/ReportsPage";
 import StoresPage from "../pages/StoresPage";
 import UsersPage from "../pages/UsersPage";
 import ProductApprovalPage from "../pages/ProductApprovalPage";
 import SalesPage from "../../sales/pages/SalesPage";
 import NewSalePage from "../../sales/pages/NewSalePage";
+import ProformaListPage from "../../sales/pages/ProformaListPage";
+import ProformaViewPage from "../../sales/pages/ProformaViewPage";
+import PaymentPage from "../../pos/pages/PaymentPageor";
 
 
 import InvoicePage from "../../pos/pages/InvoicePage";
@@ -76,15 +78,6 @@ function OwnerRoutes() {
       />
 
       <Route
-        path="/orders"
-        element={
-          <DashboardLayout>
-            <OrdersPage />
-          </DashboardLayout>
-        }
-      />
-
-      <Route
         path="/sales"
         element={
           <DashboardLayout>
@@ -95,14 +88,18 @@ function OwnerRoutes() {
 
       <Route
         path="/sales/new"
-        element={
-          <DashboardLayout>
-            <NewSalePage />
-          </DashboardLayout>
-        }
+        element={<NewSalePage />}
       />
+      <Route path="/sales/proforma" element={<DashboardLayout><ProformaListPage /></DashboardLayout>} />
+      <Route path="/sales/proforma/new" element={<NewSalePage documentMode="PROFORMA" />} />
+      <Route path="/sales/proforma/:id/edit" element={<NewSalePage documentMode="PROFORMA" />} />
+      <Route path="/sales/proforma/:id" element={<ProformaViewPage />} />
 
   
+      <Route
+  path="/sales/payment/:orderId"
+  element={<PaymentPage />}
+/>
       <Route
   path="/sales/invoice/:orderId"
   element={<InvoicePage />}

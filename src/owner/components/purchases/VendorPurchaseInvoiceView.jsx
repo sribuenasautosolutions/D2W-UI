@@ -1,5 +1,11 @@
-import { ArrowLeft, PackageCheck, Pencil, Printer, Building2, Phone, Mail } from "lucide-react";
+import { useEffect } from "react";
+import { ArrowLeft, PackageCheck, Pencil, Printer, Phone, Mail } from "lucide-react";
 
+// ASSUMPTION: adjust this import to match the actual D2W logo file already
+// present in your project's assets folder (e.g. "../../assets/d2w-logo.png"
+// or "../../assets/logo/d2w-logo.svg"). Point it at whatever primary D2W
+// logo asset is already used elsewhere in the app (e.g. the sidebar/header).
+import d2wLogo from "../../../assets/deals2wheels-logo100.png";
 
 function formatMoney(value) {
   return new Intl.NumberFormat("en-IN", {
@@ -25,34 +31,188 @@ function formatDateTime(value) {
   });
 }
 
-function displayBillStatus(bill) {
-  return bill?.status === "DRAFT" ? "DRAFT" : (bill?.paymentStatus || "UNPAID");
+// NEW: line-item amount = quantity * mrp, using the same quantity fallback
+// (acceptedQuantity -> receivedQuantity) already used for display elsewhere
+// in this component. Guards against null/undefined/0/NaN inputs.
+// function computeLineAmount(item) {
+//   const qtyRaw = item.acceptedQuantity ?? item.receivedQuantity;
+//   const mrpRaw = item.mrp;
+
+//   const qty = Number(qtyRaw);
+//   const mrp = Number(mrpRaw);
+
+//   if (!Number.isFinite(qty) || !Number.isFinite(mrp)) return 0;
+
+//   return qty * mrp;
+// }
+function computeLineAmount(item) {
+  const qtyRaw = item.acceptedQuantity ?? item.receivedQuantity;
+  const sellingPriceRaw = item.sellingPrice;
+
+  const qty = Number(qtyRaw);
+  const sellingPrice = Number(sellingPriceRaw);
+
+  if (!Number.isFinite(qty) || !Number.isFinite(sellingPrice)) return 0;
+
+  return qty * sellingPrice;
 }
 
-function formatStatus(status) {
-  if (!status) return "";
-  return status.charAt(0) + status.slice(1).toLowerCase();
-}
 
-function statusStyle(status) {
-  if (status === "PAID") return S.paidBadge;
-  if (status === "DRAFT") return S.draftBadge;
-  return S.unpaidBadge;
-}
-
-function statusDotStyle(status) {
-  if (status === "PAID") return { ...S.statusDot, background: "#0F6E3F" };
-  if (status === "DRAFT") return { ...S.statusDot, background: "#93630B" };
-  return { ...S.statusDot, background: "#B23030" };
-}
-
-
-export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrint, onOpenDraft, saving }) {
+export default function VendorPurchaseInvoiceView({
+  bill,
+  onBack,
+  onEdit,
+  onOpenDraft,
+  saving
+}) {
   if (!bill) return null;
 
   const items = bill.items || [];
+  const handlePrint = () => {
+  const invoice = document.querySelector(".bill-print-area");
+  if (!invoice) {
+    console.error("Invoice print area not found");
+    return;
+  }
+  const printWindow = window.open(
+    "",
+    "_blank",
+    "width=1000,height=800"
+  );
+  if (!printWindow) {
+    alert("Please allow pop-ups to print the invoice.");
+    return;
+  }
+  const invoiceHtml = invoice.outerHTML;
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>
+          Invoice - ${bill.vendorInvoiceNumber || ""}
+        </title>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
+          }
+          html,
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            background: #ffffff !important;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          .bill-print-area {
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            min-width: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+          }
+          .bill-print-area > div {
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+          }
+          table {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            height: auto !important;
+            border-collapse: collapse !important;
+            table-layout: fixed !important;
+          }
+          thead {
+            display: table-header-group !important;
+          }
+          tbody {
+            display: table-row-group !important;
+          }
+          tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          th,
+          td {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            overflow: visible !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+          }
+          img {
+            max-width: 100% !important;
+          }
+          .d2w-noscroll {
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            height: auto !important;
+            max-height: none !important;
+          }
+        </style>
+      </head>
+      <body>
+        ${invoiceHtml}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  // Wait until the invoice is actually rendered.
+  setTimeout(() => {
+    const printedRows =
+      printWindow.document.querySelectorAll(
+        ".bill-print-area tbody tr"
+      ).length;
+    console.log(
+      "Rows sent to print window:",
+      printedRows
+    );
+    if (printedRows === 0) {
+      console.error(
+        "No invoice rows found in print window"
+      );
+      return;
+    }
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  }, 500);
+};
+  
   const isIgst = bill.gstMode === "IGST";
-  const status = displayBillStatus(bill);
+
+  // NEW: reflect "Performa Invoice" (plus bill number) in the browser tab
+  // title too, not just the on-page heading. Restores the previous title
+  // on unmount so navigating away doesn't leave a stale tab title.
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = bill.vendorInvoiceNumber
+      ? `Invoice · ${bill.vendorInvoiceNumber}`
+      : " Invoice";
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [bill.vendorInvoiceNumber]);
 
   const totalItemDiscount = items.reduce(
     (total, item) => total + Number(item.discountAmount || 0) * Number(item.acceptedQuantity || 0), 0
@@ -61,22 +221,33 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
   return (
     <div style={S.detailPage}>
       <style>{`
-        .d2w-noscroll{scrollbar-width:none;-ms-overflow-style:none;}
-        .d2w-noscroll::-webkit-scrollbar{display:none;}
-        .d2w-row:hover{background:#F8FAFC;}
-      `}</style>
+  .d2w-noscroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .d2w-noscroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .d2w-row:hover {
+    background: #F8FAFC;
+  }
+`}</style>
 
       <header style={S.detailHeader}>
         <div style={S.headerTitleGroup}>
           <button type="button" onClick={onBack} style={S.backButton}><ArrowLeft size={17} /></button>
           <div>
-            <span style={S.headerEyebrow}>All bills</span>
-            <h1 style={S.headerTitle}>{bill.vendorInvoiceNumber}</h1>
+            {/* CHANGED: "PERFORMA INVOICE" is now the prominent title,
+                bill number moved below it as a secondary line. */}
+            <h1 style={S.headerTitle}>Invoice</h1>
+            <span style={S.headerSubtitle}>{bill.vendorInvoiceNumber}</span>
           </div>
         </div>
         <div style={S.headerActions}>
           <button type="button" style={S.plainAction} onClick={onEdit}><Pencil size={14} /> Edit</button>
-          <button type="button" style={S.plainAction} onClick={onPrint}><Printer size={14} /> PDF / Print</button>
+          <button type="button" style={S.plainAction} onClick={handlePrint}><Printer size={14} /> PDF / Print</button>
           {bill.status === "DRAFT" && (
             <button type="button" disabled={saving} style={S.primaryAction} onClick={() => onOpenDraft(bill.receiptId)}>
               <PackageCheck size={14} /> Open &amp; receive stock
@@ -86,60 +257,59 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
       </header>
 
       <div className="bill-print-area d2w-noscroll" style={S.sheet}>
-        {/* ============ TOP: vendor (sender) identity ============ */}
-        <div style={S.vendorTop}>
-          <div style={S.vendorIconWrap}><Building2 size={18} /></div>
+        <h1 style={S.invoiceTitle}>INVOICE</h1>
+        {/* ============ LETTERHEAD: vendor identity (left) + logo (top-right) ============ */}
+        <div style={S.letterhead}>
           <div style={S.vendorMain}>
             <span style={S.sectionLabel}>Bill from</span>
             <strong style={S.entityNameLg}>{bill.vendorName}</strong>
             {bill.vendorAddress && <span style={S.metaLine}>{bill.vendorAddress}</span>}
+            {bill.vendorGstNumber && <span style={S.metaLine}>GSTIN {bill.vendorGstNumber}</span>}
+            {bill.vendorPhone && (
+              <span style={S.metaLine}><Phone size={11} style={S.inlineIcon} />{bill.vendorPhone}</span>
+            )}
+            {bill.vendorEmail && (
+              <span style={S.metaLine}><Mail size={11} style={S.inlineIcon} />{bill.vendorEmail}</span>
+            )}
           </div>
-          <div style={S.vendorSide}>
-            {bill.vendorGstNumber && <span style={S.metaLineRight}>GSTIN {bill.vendorGstNumber}</span>}
-            {bill.vendorPhone && <span style={S.metaLineRight}><Phone size={11} style={S.inlineIcon} />{bill.vendorPhone}</span>}
-            {bill.vendorEmail && <span style={S.metaLineRight}><Mail size={11} style={S.inlineIcon} />{bill.vendorEmail}</span>}
-          </div>
+<div style={S.logoInvoiceBox}>
+  <div style={S.logoBox}>
+    {bill.vendorLogoUrl ? (
+      <img
+        src={bill.vendorLogoUrl}
+        alt={`${bill.vendorName || "Vendor"} logo`}
+        style={S.logoImg}
+      />
+    ) : (
+      <img
+        src={d2wLogo}
+        alt="D2W"
+        style={S.logoImg}
+      />
+    )}
+  </div>
+
+  <div style={S.invoiceMeta}>
+    <div style={S.invoiceMetaRow}>
+      <span>Invoice Number</span>
+      <strong>{bill.vendorInvoiceNumber || "—"}</strong>
+    </div>
+
+    <div style={S.invoiceMetaRow}>
+      <span>Invoice Date</span>
+      <strong>{formatDate(bill.invoiceDate)}</strong>
+    </div>
+  </div>
+</div>
         </div>
 
-        {/* ============ RECEIVER (left) + INVOICE DETAILS (right) ============ */}
+        {/* ============ RECEIVER (bill to) ============ */}
         <div style={S.topRow}>
           <div style={S.receiverBlock}>
             <span style={S.sectionLabel}>Bill to</span>
             <strong style={S.entityName}>{bill.storeName}</strong>
             {bill.storeAddress && <span style={S.metaLine}>{bill.storeAddress}</span>}
             {bill.storeGstNumber && <span style={S.metaLine}>GSTIN {bill.storeGstNumber}</span>}
-          </div>
-
-          <div style={S.invoiceDetailsBlock}>
-            <span style={S.sectionLabel}>Invoice details</span>
-            <div style={S.detailsGrid}>
-              <div style={S.factCell}>
-                <span style={S.factLabel}>Receipt #</span>
-                <strong style={S.factValue}>{bill.receiptNumber || "—"}</strong>
-              </div>
-              <div style={S.factCell}>
-                <span style={S.factLabel}>Vendor invoice #</span>
-                <strong style={S.factValue}>{bill.vendorInvoiceNumber}</strong>
-              </div>
-              <div style={S.factCell}>
-                <span style={S.factLabel}>Invoice date</span>
-                <strong style={S.factValue}>{formatDate(bill.invoiceDate)}</strong>
-              </div>
-              <div style={S.factCell}>
-                <span style={S.factLabel}>Due date</span>
-                <strong style={S.factValue}>{formatDate(bill.dueDate)}</strong>
-              </div>
-              {bill.paymentMethod && (
-                <div style={S.factCell}>
-                  <span style={S.factLabel}>Payment method</span>
-                  <strong style={S.factValue}>{bill.paymentMethod}</strong>
-                </div>
-              )}
-              <div style={S.factCell}>
-                <span style={S.factLabel}>Status</span>
-                <span style={statusStyle(status)}><i style={statusDotStyle(status)} />{formatStatus(status)}</span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -149,16 +319,14 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
             <thead>
               <tr>
                 <th style={S.th}>S.No</th>
-                <th style={{ ...S.th, textAlign: "left" }}>Part no / part name</th>
+                <th style={{ ...S.th, textAlign: "left" }}>Item description</th>
                 <th style={S.th}>HSN</th>
                 <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
+                <th style={{ ...S.th, textAlign: "right" }}>Rate</th>
                 <th style={{ ...S.th, textAlign: "right" }}>MRP</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Purchase price</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Selling price</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Discount</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Taxable value</th>
-                <th style={{ ...S.th, textAlign: "right" }}>GST</th>
-                <th style={{ ...S.th, textAlign: "right" }}>Line total</th>
+                <th style={{ ...S.th, textAlign: "right" }}>GST amount</th>
+                {/* NEW */}
+                <th style={{ ...S.th, textAlign: "right" }}>Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -166,24 +334,21 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
                 <tr key={item.itemId || index} className="d2w-row" style={S.tr}>
                   <td style={S.tdCenter}>{index + 1}</td>
                   <td style={S.tdPart}>
-                    <strong style={S.partNumber}>{item.partNumber}</strong>
+                    { <strong style={S.partNumber}>{item.partNumber}</strong> }
                     <span style={S.partName}>{item.itemName}</span>
                   </td>
                   <td style={S.tdCenter}>{item.hsnCode || "—"}</td>
                   <td style={S.tdRight}>{item.acceptedQuantity ?? item.receivedQuantity}</td>
-                  <td style={S.tdRight}>{formatMoney(item.mrp)}</td>
-                  <td style={S.tdRight}>{formatMoney(item.purchasePrice)}</td>
-                  <td style={S.tdRight}>{formatMoney(item.sellingPrice)}</td>
                   <td style={S.tdRight}>
-                    <span>{Number(item.discountPercentage || 0)}%</span>
-                    <span style={S.subValue}>{formatMoney(item.discountAmount)}</span>
-                  </td>
-                  <td style={S.tdRight}>{formatMoney(item.taxableValue)}</td>
+   {formatMoney(item.sellingPrice)}
+</td>
+                  <td style={S.tdRight}>{formatMoney(item.mrp)}</td>
                   <td style={S.tdRight}>
                     <span>{Number(item.gstPercentage || 0)}%</span>
                     <span style={S.subValue}>{formatMoney(item.gstAmount)}</span>
                   </td>
-                  <td style={S.tdRightStrong}>{formatMoney(item.lineTotal)}</td>
+                  {/* NEW: quantity * mrp, independent of GST */}
+                  <td style={S.tdRight}>{formatMoney(computeLineAmount(item))}</td>
                 </tr>
               ))}
             </tbody>
@@ -236,6 +401,10 @@ export default function VendorPurchaseInvoiceView({ bill, onBack, onEdit, onPrin
 const COLOR = {
   bg: "#FFFFFF",
   bgMuted: "#F8FAFC",
+  // NEW: light tint used for the invoice sheet itself. Deliberately a shade
+  // darker than near-white (not #FBFCFE) so a white/transparent-white logo
+  // in the letterhead stays visible against it instead of disappearing.
+  sheetBg: "#EEF2F7",
   border: "#E5E7EB",
   textPrimary: "#111827",
   textSecondary: "#6B7280",
@@ -257,41 +426,75 @@ const S = {
   headerTitleGroup: { display: "flex", alignItems: "center", gap: 14 },
   backButton: { width: 34, height: 34, border: `1px solid ${COLOR.border}`, borderRadius: 8, background: COLOR.bg, color: COLOR.textSecondary, display: "grid", placeItems: "center", cursor: "pointer" },
   headerEyebrow: { color: COLOR.textMuted, fontSize: 10.5, fontWeight: 500, letterSpacing: ".03em", textTransform: "uppercase" },
-  headerTitle: { margin: "2px 0 0", color: COLOR.textPrimary, fontSize: 17, fontWeight: 500, letterSpacing: "-.1px" },
+  headerTitle: { margin: 0, color: COLOR.textPrimary, fontSize: 17, fontWeight: 600, letterSpacing: "-.1px", textTransform: "uppercase" },
+  // NEW: secondary line under the "Performa Invoice" title, for the bill number
+  headerSubtitle: { display: "block", marginTop: 2, color: COLOR.textSecondary, fontSize: 12.5, fontWeight: 500 },
   headerActions: { display: "flex", alignItems: "center", gap: 8 },
   plainAction: { height: 36, padding: "0 13px", border: `1px solid ${COLOR.border}`, borderRadius: 8, background: COLOR.bg, color: COLOR.textSecondary, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
   primaryAction: { height: 36, padding: "0 15px", border: "none", borderRadius: 8, background: COLOR.accent, color: "#FFFFFF", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
-
-  sheet: { width: "min(1020px, calc(100% - 56px))", margin: "28px auto", padding: "38px 44px 42px", borderRadius: 12, border: `1px solid ${COLOR.border}`, background: COLOR.bg, boxSizing: "border-box", overflowX: "auto" },
+ invoiceTitle: {
+    margin: "0 0 24px",
+    color: COLOR.textPrimary,
+    fontSize: 24,
+    fontWeight: 700,
+    textAlign: "center",
+    letterSpacing: "0.5px",
+    textTransform: "uppercase",
+  },
+  // CHANGED: background switched from pure white (COLOR.bg) to a light tint (COLOR.sheetBg)
+  sheet: { width: "min(1020px, calc(100% - 56px))", margin: "28px auto", padding: "38px 44px 42px", borderRadius: 12, border: `1px solid ${COLOR.border}`, background: COLOR.sheetBg, boxSizing: "border-box", overflowX: "auto" },
 
   sectionLabel: { display: "block", marginBottom: 8, color: COLOR.textMuted, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".04em" },
   entityName: { display: "block", marginBottom: 4, color: COLOR.textPrimary, fontSize: 14.5, fontWeight: 500 },
   entityNameLg: { display: "block", marginBottom: 4, color: COLOR.textPrimary, fontSize: 17, fontWeight: 500, letterSpacing: "-.2px" },
   metaLine: { display: "block", marginTop: 2, color: COLOR.textSecondary, fontSize: 12.5 },
-  metaLineRight: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5, color: COLOR.textSecondary, fontSize: 12 },
-  inlineIcon: { color: COLOR.textMuted, flexShrink: 0 },
+  inlineIcon: { color: COLOR.textMuted, flexShrink: 0, marginRight: 4, verticalAlign: "middle" },
 
-  vendorTop: { display: "flex", alignItems: "flex-start", gap: 14, paddingBottom: 22, borderBottom: `1px solid ${COLOR.border}` },
-  vendorIconWrap: { width: 40, height: 40, borderRadius: 9, background: COLOR.accentSoft, color: COLOR.accent, display: "grid", placeItems: "center", flexShrink: 0 },
+  letterhead: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, paddingBottom: 22, borderBottom: `1px solid ${COLOR.border}` },
   vendorMain: { flex: 1, minWidth: 0 },
-  vendorSide: { display: "grid", gap: 5, justifyItems: "end", textAlign: "right", paddingTop: 24 },
+
+  logoBox: { width: 110, height: 64, flexShrink: 0, display: "grid", placeItems: "center" },
+  logoInvoiceBox: {
+  width: 280,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: 10,
+},
+
+invoiceMeta: {
+  width: "100%",
+  display: "grid",
+  gap: 6,
+},
+
+invoiceMetaRow: {
+  display: "grid",
+  gridTemplateColumns: "110px 1fr",
+  gap: 10,
+  alignItems: "center",
+  fontSize: 11.5,
+  color: COLOR.textSecondary,
+},
+
+invoiceMetaValue: {
+  color: COLOR.textPrimary,
+  fontWeight: 500,
+  textAlign: "right",
+},
+  logoImg: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" },
+  logoPlaceholder: { width: "100%", height: "100%", border: `1px dashed ${COLOR.border}`, borderRadius: 8, display: "grid", placeItems: "center", color: COLOR.textMuted, fontSize: 11 },
 
   topRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 40, marginTop: 22, paddingBottom: 26, borderBottom: `1px solid ${COLOR.border}` },
   receiverBlock: { display: "grid", gap: 2, minWidth: 220 },
-  invoiceDetailsBlock: { minWidth: 280 },
-  detailsGrid: { display: "grid", gridTemplateColumns: "repeat(2, auto)", columnGap: 32, rowGap: 14 },
-  factCell: { display: "grid", gap: 6, justifyItems: "start" },
-  factLabel: { color: COLOR.textMuted, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".04em" },
-  factValue: { color: COLOR.textPrimary, fontSize: 13.5 },
-  statusDot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block" },
 
   tableWrap: { marginTop: 28, overflowX: "auto", borderRadius: 10, border: `1px solid ${COLOR.border}` },
-  table: { width: "100%", minWidth: 920, borderCollapse: "collapse", fontSize: 11.5 },
+  // CHANGED: minWidth bumped from 640 -> 720 to comfortably fit the new Amount column
+  table: { width: "100%", minWidth: 720, borderCollapse: "collapse", fontSize: 11.5 },
   th: { padding: "11px 10px", background: COLOR.bgMuted, color: COLOR.textSecondary, textAlign: "center", fontSize: 9.5, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".03em", whiteSpace: "nowrap", borderBottom: `1px solid ${COLOR.border}` },
   tr: { borderBottom: `1px solid ${COLOR.border}` },
   tdCenter: { padding: "11px 8px", textAlign: "center", color: COLOR.textSecondary, verticalAlign: "top" },
   tdRight: { padding: "11px 8px", textAlign: "right", color: COLOR.textPrimary, verticalAlign: "top", whiteSpace: "nowrap" },
-  tdRightStrong: { padding: "11px 8px", textAlign: "right", color: COLOR.textPrimary, fontWeight: 500, verticalAlign: "top", whiteSpace: "nowrap" },
   tdPart: { padding: "11px 8px", textAlign: "left", verticalAlign: "top" },
   partNumber: { display: "block", color: COLOR.textPrimary, fontSize: 12 },
   partName: { display: "block", marginTop: 2, color: COLOR.textMuted, fontSize: 11 },
@@ -306,8 +509,4 @@ const S = {
   notes: { marginTop: 26, paddingTop: 18, borderTop: `1px solid ${COLOR.border}`, display: "grid", gap: 6 },
   notesText: { color: COLOR.textSecondary, fontSize: 12.5, lineHeight: 1.6 },
   auditNote: { marginTop: 16, padding: "11px 14px", borderRadius: 8, border: `1px solid ${COLOR.warningSoft}`, background: COLOR.warningSoft, color: COLOR.warning, fontSize: 11.5 },
-
-  paidBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: COLOR.successSoft, color: COLOR.success, fontSize: 11.5, fontWeight: 500 },
-  draftBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: COLOR.warningSoft, color: COLOR.warning, fontSize: 11.5, fontWeight: 500 },
-  unpaidBadge: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: COLOR.dangerSoft, color: COLOR.danger, fontSize: 11.5, fontWeight: 500 },
 };

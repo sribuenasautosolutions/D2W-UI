@@ -165,6 +165,9 @@ const existingItem =
 
                 setCartItems([]);
             };
+        const replaceCart = (items) => {
+            setCartItems(Array.isArray(items) ? items : []);
+        };
 const updateDiscount =
     (inventoryId,batchId, discount )  => {
 
@@ -198,6 +201,7 @@ const updateDiscount =
     increaseQuantity,
     decreaseQuantity,
     clearCart,
+    replaceCart,
     updateDiscount
 }}
             >

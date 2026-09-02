@@ -345,14 +345,6 @@ const [salesOpen, setSalesOpen] = useState(
                     </div>
                 )}
 
-                <Link
-                    to={isOwner ? "/owner/orders" : "/store/orders"}
-                    style={linkStyle(isOwner ? "/owner/orders" : "/store/orders")}
-                >
-                    <ReceiptText size={17} />
-                    <span>Orders</span>
-                </Link>
-
                <button
     type="button"
     onClick={() => setSalesOpen((open) => !open)}
@@ -422,18 +414,18 @@ const [salesOpen, setSalesOpen] = useState(
         </Link>
 
         <Link
-            to={`${salesBase}/new`}
-            style={{
-                ...moduleLinkStyle(
-                    location.pathname === `${salesBase}/new`,
-                    "",
-                    ""
-                ),
-                paddingLeft: "40px",
-            }}
+            to="/pos"
+            style={{ ...moduleLinkStyle(false, "", ""), paddingLeft: "40px" }}
         >
-            <CirclePlus size={15} />
-            <span>New Sale</span>
+            <ShoppingCart size={15} />
+            <span>POS</span>
+        </Link>
+        <Link
+            to={`${salesBase}/proforma`}
+            style={{ ...moduleLinkStyle(location.pathname.startsWith(`${salesBase}/proforma`), "", ""), paddingLeft: "40px" }}
+        >
+            <ReceiptText size={15} />
+            <span>Proforma Invoices</span>
         </Link>
     </div>
 )}

@@ -51,7 +51,7 @@ function LoginPage() {
                 const response =
                     await loginUser({
 
-                        email,
+                        email: email.trim().toLowerCase(),
                         password
                     });
 
@@ -82,8 +82,11 @@ else if (response.role === "CASHIER") {
 
             } catch(error) {
 
+                const data = error.response?.data;
                 setLoginError(
-                    error.response?.data?.message ||
+                    data?.message || data?.error ||
+                    (Array.isArray(data?.errors) ? data.errors.join(", ") : "") ||
+                    (typeof data === "string" ? data : "") ||
                     "Unable to sign in. Please try again."
                 );
 

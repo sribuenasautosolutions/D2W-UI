@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getInvoice } from "../../services/orderService";
 import { calculatePayment, addPayment } from "../../services/paymentService";
 import { useCart } from "../context/CartContext";
@@ -90,12 +90,6 @@ const saveHeldPayments = (list) => {
   localStorage.setItem(HELD_PAYMENTS_KEY, JSON.stringify(list));
 };
 
-const addHeldPayment = (entry) => {
-  const list = getHeldPayments().filter((x) => String(x.orderId) !== String(entry.orderId));
-  list.unshift(entry);
-  saveHeldPayments(list);
-};
-
 const removeHeldPayment = (orderId) => {
   saveHeldPayments(getHeldPayments().filter((x) => String(x.orderId) !== String(orderId)));
 };
@@ -104,9 +98,15 @@ const removeHeldPayment = (orderId) => {
    COMPONENT
    ============================================================ */
 
-function PaymentPage() {
-  const { orderId } = useParams();
+function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInvoice, onNewSale, onCancel }) {
+  const { orderId: routeOrderId } = useParams();
+  const orderId = orderIdOverride || routeOrderId;
   const navigate = useNavigate();
+  const location = useLocation();
+  const salesBase = location.pathname.startsWith("/owner/") ? "/owner/sales"
+    : location.pathname.startsWith("/store/") ? "/store/sales" : null;
+  const invoicePath = `${salesBase || "/pos"}/invoice/${orderId}`;
+  const newSalePath = salesBase ? `${salesBase}/new` : "/pos";
   const { clearCart } = useCart();
   const user = getUser();
 
@@ -157,6 +157,7 @@ function PaymentPage() {
       .then((data) => {
         if (cancelled) return;
         setInvoice(data);
+        setSaved(data.orderStatus === "PAID");
         setLoading(false);
       })
       .catch((err) => {
@@ -210,7 +211,10 @@ function PaymentPage() {
      ============================================================ */
 
   useEffect(() => {
+    const requestId = ++requestIdRef.current;
     if (!invoice || saved) return;
+    setCalc(null);
+    setCalcLoading(false);
 
     // Any edit to the rows invalidates a previous change-return
     // confirmation — force the cashier to re-confirm against the new
@@ -227,7 +231,6 @@ function PaymentPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(async () => {
-      const requestId = ++requestIdRef.current;
       setCalcLoading(true);
       setCalcError("");
       try {
@@ -243,7 +246,10 @@ function PaymentPage() {
       }
     }, CALC_DEBOUNCE_MS);
 
-    return () => clearTimeout(debounceRef.current);
+    return () => {
+      clearTimeout(debounceRef.current);
+      requestIdRef.current += 1;
+    };
   }, [rows, orderId, invoice, saved, buildPaymentsPayload]);
 
   /* ============================================================
@@ -311,7 +317,9 @@ function PaymentPage() {
   // change involved), this is skipped entirely.
   const needsChangeConfirmation = Number(calc?.changeReturn ?? 0) > 0;
 
-  const canSave = fullyCovered && (!needsChangeConfirmation || changeConfirmed);
+  const locked = ["PAID", "CANCELLED", "RETURNED"].includes(invoice?.orderStatus);
+  const canSave = !locked && !calcLoading && !calcError && !hasIncompleteRow
+    && fullyCovered && (!needsChangeConfirmation || changeConfirmed);
 
   /* ============================================================
      SAVE PAYMENT — POST /sales-payments
@@ -326,8 +334,8 @@ function PaymentPage() {
      so it's a safe no-op if the cart is already empty.
      ============================================================ */
 
-  const handleSavePayment = async () => {
-    if (saving || saved) return;
+  const handleSavePayment = async (nextAction) => {
+    if (saving || saved || locked || calcLoading) return;
 
     const payments = buildPaymentsPayload();
     if (payments.length === 0) {
@@ -387,7 +395,21 @@ function PaymentPage() {
       // this is the correct moment to clear the cart, not before (Checkout
       // still needs it) and not deferred to a separate "New Sale" click
       // (which left the cart re-billable if the cashier hit Back instead).
-      clearCart();
+      if (!salesBase) clearCart();
+      if (embedded && nextAction === "INVOICE" && onInvoice) {
+        onInvoice(orderId);
+        return;
+      }
+      if (embedded && nextAction === "NEW_SALE" && onNewSale) {
+        onNewSale();
+        return;
+      }
+      if (salesBase) {
+        navigate(invoicePath, {
+          replace: true,
+          state: { autoPrint: location.state?.autoPrint === true },
+        });
+      }
     } catch (error) {
       alert(extractError(error));
     } finally {
@@ -414,14 +436,7 @@ function PaymentPage() {
       );
       if (!confirmHold) return;
     }
-    addHeldPayment({
-      orderId,
-      customerName: invoice?.customerName,
-      totalAmount: invoice?.totalAmount,
-      balanceAmount: invoice?.balanceAmount,
-      heldAt: new Date().toISOString(),
-    });
-    navigate(`/pos`);
+    navigate(salesBase || "/pos");
   };
 
   /* ============================================================
@@ -429,7 +444,11 @@ function PaymentPage() {
      ============================================================ */
 
   const handleViewInvoice = () => {
-    navigate(`/pos/invoice/${orderId}`);
+    if (embedded && onInvoice) {
+      onInvoice(orderId);
+      return;
+    }
+    navigate(invoicePath);
   };
 
   /* ============================================================
@@ -437,8 +456,12 @@ function PaymentPage() {
      ============================================================ */
 
   const handleNewSale = () => {
-    clearCart();
-    navigate("/pos");
+    if (!salesBase) clearCart();
+    if (embedded && onNewSale) {
+      onNewSale();
+      return;
+    }
+    navigate(newSalePath);
   };
 
   /* ============================================================
@@ -479,9 +502,9 @@ function PaymentPage() {
   const sc = statusColor(invoice?.orderStatus);
 
   return (
-    <div style={pageStyle}>
+    <div style={compact ? { padding: "18px", background: "#fff", fontFamily: "sans-serif" } : pageStyle}>
       {/* ================= TOP BAR ================= */}
-      <div style={topBarStyle}>
+      {!compact && <div style={topBarStyle}>
         <div>
           <div style={{ fontSize: "16px", fontWeight: 700, color: "#0f172a" }}>Automobile ERP</div>
           <div style={{ fontSize: "12px", color: "#94a3b8" }}>
@@ -496,10 +519,10 @@ function PaymentPage() {
             &nbsp;&nbsp;Order #{orderId}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* ================= MAIN GRID ================= */}
-      <div style={mainGridStyle}>
+      {!compact && <div style={mainGridStyle}>
         {/* -------- LEFT: INVOICE SUMMARY -------- */}
         <div style={cardStyle}>
           <SectionHeader icon="🧾" title="Invoice Summary" subtitle="From server" />
@@ -587,14 +610,14 @@ function PaymentPage() {
             </>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ================= ADD PAYMENT ================= */}
-      <div style={{ ...cardStyle, marginTop: "16px" }}>
+      <div style={compact ? { padding: "4px" } : { ...cardStyle, marginTop: "16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#2563eb", display: "inline-block" }} />
-            <span style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>ADD PAYMENT</span>
+            <span style={{ fontSize: "16px", fontWeight: 700, color: "#0f172a" }}>Payment · {money(invoiceTotal)}</span>
           </div>
           <div style={{ fontSize: "12px", color: "#94a3b8" }}>
             Collected by:&nbsp;
@@ -610,7 +633,7 @@ function PaymentPage() {
             ✓ Payment recorded successfully. This invoice's payment methods are now locked.
           </div>
         )}
-        {!saved && !fullyCovered && (
+        {!compact && !saved && !fullyCovered && (
           <div style={infoBannerStyle}>
             ℹ Partial payments aren't allowed — entered payments must add up to the full balance before you can save.
           </div>
@@ -621,17 +644,17 @@ function PaymentPage() {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 1fr 1fr 32px", gap: "12px", marginBottom: "6px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: compact ? "120px 1fr 1fr 32px" : "140px 1fr 1fr 1fr 32px", gap: "10px", marginBottom: "6px" }}>
           <div style={colLabelStyle}>METHOD</div>
           <div style={colLabelStyle}>AMOUNT (₹)</div>
           <div style={colLabelStyle}>TRANSACTION / CHEQUE NO.</div>
-          <div style={colLabelStyle}>REMARKS</div>
+          {!compact && <div style={colLabelStyle}>REMARKS</div>}
           <div />
         </div>
 
         {rows.map((row) => (
           <div key={row.rowId} style={{ marginBottom: "10px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 1fr 1fr 32px", gap: "12px", alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: compact ? "120px 1fr 1fr 32px" : "140px 1fr 1fr 1fr 32px", gap: "10px", alignItems: "start" }}>
               <select
                 value={row.method}
                 disabled={saved}
@@ -673,14 +696,14 @@ function PaymentPage() {
                 </div>
               )}
 
-              <input
+              {!compact && <input
                 type="text"
                 placeholder="Optional remarks"
                 value={row.remarks}
                 disabled={saved}
                 onChange={(e) => updateRow(row.rowId, { remarks: e.target.value })}
                 style={inputStyle}
-              />
+              />}
 
               {!saved && rows.length > 1 && (
                 <button onClick={() => removeRow(row.rowId)} style={removeRowBtnStyle} aria-label="Remove payment row">✕</button>
@@ -713,9 +736,9 @@ function PaymentPage() {
         <Divider style={{ margin: "18px 0" }} />
 
         {/* -------- STAT BOXES -------- */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: compact ? "repeat(3, 1fr)" : "repeat(4, 1fr)", gap: "12px" }}>
           <StatBox label="Invoice Total" value={money(invoiceTotal)} />
-          <StatBox label="Already Paid" value={money(alreadyPaid)} />
+          {!compact && <StatBox label="Already Paid" value={money(alreadyPaid)} />}
           <StatBox label="Current Payment" value={money(currentPayment)} highlight />
           <StatBox label="Remaining Balance" value={money(remainingBalance)} color={Number(remainingBalance) > 0 ? "#ef4444" : "#16a34a"} />
         </div>
@@ -726,19 +749,20 @@ function PaymentPage() {
           After payment is saved: ONLY View Invoice / New Sale.
           The two sets are mutually exclusive — no Back, Hold, or
           Save Payment button exists once `saved` is true. */}
-      <div style={footerBarStyle}>
+      <div style={compact ? { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "18px", paddingTop: "14px", borderTop: "1px solid #e2e8f0" } : footerBarStyle}>
         {!saved ? (
           <>
-            <button style={backFooterBtnStyle} onClick={() => navigate(-1)}>← Back</button>
+            {compact && <button style={backFooterBtnStyle} onClick={onCancel || handleHoldPayment}>Cancel</button>}
+            {!embedded && <button style={backFooterBtnStyle} onClick={() => navigate(-1)}>← Back</button>}
             <div style={{ display: "flex", gap: "10px" }}>
-              <button style={holdBtnStyle} onClick={handleHoldPayment}>Hold Payment</button>
+              {!embedded && <button style={holdBtnStyle} onClick={handleHoldPayment}>Hold Payment</button>}
               <button
                 style={{
                   ...saveBtnStyle,
                   opacity: saving || !canSave ? 0.6 : 1,
                   cursor: saving || !canSave ? "not-allowed" : "pointer",
                 }}
-                onClick={handleSavePayment}
+                onClick={() => handleSavePayment(compact ? "INVOICE" : undefined)}
                 disabled={saving || !canSave}
                 title={
                   !fullyCovered
@@ -748,8 +772,13 @@ function PaymentPage() {
                     : undefined
                 }
               >
-                {saving ? "Saving…" : "Save Payment"}
+                {saving ? "Saving…" : compact ? "Save & Show Invoice" : "Save Payment"}
               </button>
+              {compact && <button
+                style={{ ...newSaleBtnStyle, opacity: saving || !canSave ? 0.6 : 1 }}
+                onClick={() => handleSavePayment("NEW_SALE")}
+                disabled={saving || !canSave}
+              >Save & New Sale</button>}
             </div>
           </>
         ) : (

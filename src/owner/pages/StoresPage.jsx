@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, ChevronLeft, ChevronRight, MapPin, Pencil, Plus, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Pencil, Plus, Search, X } from "lucide-react";
 import api from "../../services/api";
 
 
@@ -70,10 +70,12 @@ function StoresPage() {
             warehouse: response.data?.warehouses || 0,
         });
         setSelectedId((current) =>
-            data.some((store) => store.id === current) ? current : data[0]?.id || null
+            data.some((store) => store.id === current) ? current : null
         );
     };
 
+    // Store loading is intentionally refreshed by the paging and filter values below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         const timer = window.setTimeout(async () => {
             try {
@@ -216,7 +218,7 @@ function StoresPage() {
                 <Stat label="Warehouses" value={summary.warehouse} color={COLORS.navy} />
             </div>
 
-            <div style={S.workspace}>
+            <div style={{ ...S.workspace, gridTemplateColumns: selected ? "35fr 65fr" : "1fr" }}>
                 <section style={S.list}>
                     <div style={S.listTools}>
                         <div style={S.listCaption}>
@@ -231,16 +233,17 @@ function StoresPage() {
                             <option value="INACTIVE">Inactive</option>
                         </select>
                     </div>
+                    <div style={S.tableHeader}><span>Store</span><span>Code / City</span><span>Status</span></div>
                     <div style={S.storeList}>
                         {stores.map((store) => (
                             <button key={store.id} type="button"
                                 onClick={() => { setSelectedId(store.id); setActiveTab("Overview"); }}
                                 style={{ ...S.storeRow, ...(selectedId === store.id ? S.selectedRow : {}) }}>
-                                <div style={S.storeIcon}><Building2 size={17} /></div>
                                 <div style={S.storeText}>
                                     <strong>{store.storeName}</strong>
-                                    <span>{store.storeCode} · {store.city}</span>
+                                    <span>{store.ownerName || "No owner"}</span>
                                 </div>
+                                <span style={S.storeLocation}>{store.storeCode}<small>{store.city || "-"}</small></span>
                                 <span style={store.isActive === false ? S.inactive : S.active}>
                                     {store.isActive === false ? "Inactive" : "Active"}
                                 </span>
@@ -253,7 +256,7 @@ function StoresPage() {
                         onPageSize={(size) => { setPageSize(size); setPage(1); }} />
                 </section>
 
-                <section style={S.details}>
+                {selected && <section style={S.details}>
                     {selected ? (
                         <>
                             <div style={S.detailHeader}>
@@ -267,6 +270,7 @@ function StoresPage() {
                                     <span style={S.code}>{selected.storeCode}</span>
                                 </div>
                                 <div style={S.actions}>
+                                    <button type="button" onClick={() => setSelectedId(null)} style={S.secondary}>Back to table</button>
                                     <button type="button" onClick={openEdit} style={S.secondary}>
                                         <Pencil size={14} /> Edit
                                     </button>
@@ -307,7 +311,7 @@ function StoresPage() {
                             )}
                         </>
                     ) : <div style={S.empty}>Select a store to view details</div>}
-                </section>
+                </section>}
             </div>
 
             {modal && (
@@ -458,11 +462,13 @@ const S = {
     listTools: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 9, padding: 13, borderBottom: `1px solid ${COLORS.hairline}` },
     listCaption: { display: "grid", gap: 2, color: COLORS.navy, fontSize: 12.5, fontFamily: FONT_DISPLAY, fontWeight: 700 },
     filterSelect: { height: 34, minWidth: 112, padding: "0 26px 0 9px", border: `1px solid ${COLORS.hairline}`, borderRadius: 6, background: COLORS.paper, color: COLORS.ink, fontSize: 11.5, fontFamily: FONT_BODY },
-    storeList: { overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 4, padding: 8 },
-    storeRow: { width: "100%", minHeight: 62, border: "1px solid transparent", borderRadius: 8, background: "transparent", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BODY },
+    tableHeader: { display: "grid", gridTemplateColumns: "2fr 1fr 110px", gap: 12, padding: "9px 18px", borderBottom: `1px solid ${COLORS.hairline}`, background: COLORS.slateFill, color: COLORS.inkSoft, fontSize: 10, fontWeight: 700, textTransform: "uppercase" },
+    storeList: { overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+    storeRow: { width: "100%", minHeight: 62, border: 0, borderBottom: `1px solid ${COLORS.hairline}`, background: "transparent", display: "grid", gridTemplateColumns: "2fr 1fr 110px", alignItems: "center", gap: 12, padding: "9px 18px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BODY },
     selectedRow: { background: COLORS.brassSoft, border: `1px solid ${COLORS.brass}` },
     storeIcon: { width: 36, height: 36, borderRadius: 7, background: COLORS.slateFill, color: COLORS.navy, display: "grid", placeItems: "center", flexShrink: 0 },
     storeText: { display: "grid", gap: 3, minWidth: 0, flex: 1, fontSize: 13, color: COLORS.ink },
+    storeLocation: { display: "grid", gap: 3, color: COLORS.ink, fontSize: 12, fontFamily: FONT_MONO },
     active: { padding: "3px 8px", borderRadius: 20, background: COLORS.successSoft, color: COLORS.success, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase" },
     inactive: { padding: "3px 8px", borderRadius: 20, background: COLORS.dangerSoft, color: COLORS.danger, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase" },
     details: { border: `1px solid ${COLORS.hairline}`, borderRadius: 10, background: COLORS.paper, overflow: "hidden", alignSelf: "start", boxShadow: "0 1px 6px rgba(21,48,77,0.05)" },

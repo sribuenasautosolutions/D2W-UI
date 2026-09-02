@@ -62,11 +62,14 @@ function POSLayout({
     children,
     searchText,
     onSearchChange,
-    onHomeClick
+    onHomeClick,
+    onHeldBills,
+    heldBillsCount = 0,
+    stores = [], selectedStoreId = "", onStoreChange
 }) {
     const user = JSON.parse(localStorage.getItem("user"));
     const {
-    cartItems,
+    cartItems, clearCart,
 } = useCart();
 
 
@@ -91,19 +94,26 @@ const navigate=useNavigate();
                         <p style={S.brandSub}>{user?.storeName}</p>
                     </div>
                 </div>
-                <div style={S.searchWrap}>
+                <div style={{...S.searchWrap,maxWidth:"720px"}}>
                     <input
                         type="text"
                         placeholder="Search by Part Number, Brand, Product Name, SKU..."
                         value={searchText}
                         onChange={(e) => onSearchChange(e.target.value)}
                         style={S.searchInput}
+                        disabled={!selectedStoreId}
                     />
                     <button style={S.searchBtn}>Search</button>
                 </div>
                 <div style={S.navRight}>
+                    {user?.role === "SUPER_ADMIN" && <select aria-label="POS store" value={selectedStoreId} onChange={(e)=>onStoreChange?.(e.target.value)} style={{width:150,height:32,borderRadius:6,padding:"0 7px",fontSize:11,border:"1px solid #475569",background:"#fff",color:"#0f172a"}}><option value="">Select store</option>{stores.map(s=><option key={s.id} value={s.id}>{s.storeName}</option>)}</select>}
+                    {user?.role === "STORE_OWNER" && <span style={{fontSize:12,color:"#dbeafe",background:"#1e3a5f",border:"1px solid #31527e",padding:"8px 10px",borderRadius:6}}>Store: {user?.storeName || "Assigned store"}</span>}
+                    <button style={{ ...S.searchBtn, background: "#f59e0b" }} onClick={onHeldBills}>
+                        Held Bills ({heldBillsCount})
+                    </button>
                    
                     <span style={S.welcomeTxt}>Welcome, {user?.name}</span>
+                    {user?.role !== "CASHIER" && <button style={{...S.logoutBtn,borderColor:"#94a3b8",color:"#e2e8f0"}} onClick={()=>navigate(user?.role==="SUPER_ADMIN"?"/owner/dashboard":"/store/dashboard")}>Back to Admin</button>}
                     <button style={S.logoutBtn} onClick={() => { localStorage.clear(); window.location.href = "/login"; }}>
                         Logout
                     </button>
@@ -129,7 +139,10 @@ const navigate=useNavigate();
              
                     </div>
                     <button
-    onClick={() => navigate("/pos/checkout")}
+    onClick={() => {
+        const draftId = localStorage.getItem("pos_active_draft_id");
+        navigate(draftId ? `/pos/checkout?draftId=${encodeURIComponent(draftId)}` : "/pos/checkout");
+    }}
     style={{
         position: "fixed",
         right: "25px",
@@ -148,6 +161,7 @@ const navigate=useNavigate();
 >
     🛒 Cart ({cartItems.length})
 </button>
+{cartItems.length > 0 && <button onClick={()=>{if(window.confirm("Clear all items from this cart?")) clearCart();}} style={{position:"fixed",right:"25px",bottom:"82px",background:"#fff",color:"#dc2626",border:"1px solid #fecaca",borderRadius:"8px",padding:"8px 14px",cursor:"pointer",zIndex:999}}>Clear Cart</button>}
                 </div>
             
         

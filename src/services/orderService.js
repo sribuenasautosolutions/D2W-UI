@@ -89,3 +89,32 @@ export const calculateOrder = async (orderCalculationRequestDTO) => {
   const response = await apiclient.post("/orders/recalculate", orderCalculationRequestDTO);
   return response.data;
 };
+
+export const previewSalesBulkUpload = async (file, storeId) => {
+  const formData = new FormData();
+
+  formData.append("file", file);
+  formData.append("storeId", storeId);
+
+  const response = await apiclient.post(
+    "/orders/bulk-upload-preview",
+    formData,
+    {
+      headers: {
+        "Content-Type": undefined,
+      },
+    }
+  );
+
+  return response.data;
+};
+export const downloadSalesBulkUploadTemplate = async () => {
+  const response = await apiclient.get(
+    "/orders/bulk-upload-template",
+    {
+      responseType: "blob",
+    }
+  );
+
+  return response.data;
+};

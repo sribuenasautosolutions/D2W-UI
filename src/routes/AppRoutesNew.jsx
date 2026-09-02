@@ -53,7 +53,7 @@ function AppRoutesNew() {
         path="/pos/*"
         element={
           <ProtectedRoute 
-          allowedRoles={["SUPER_ADMIN","CASHIER"]}>
+          allowedRoles={["SUPER_ADMIN","STORE_OWNER","CASHIER"]}>
             <POSRoutes />
           </ProtectedRoute>
         }

@@ -3,8 +3,9 @@ import { useParams } from "react-router-dom";
 import { getInventoryDetails, getCompatibleVehicles } from "../../services/productService";
 import { useCart } from "../context/CartContext";
 
-function ProductDetailsPage() {
-    const { id } = useParams();
+function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
+    const { id: routeId } = useParams();
+    const id = inventoryId || routeId;
     console.log("route product id=", id);
 
     const [product, setProduct] = useState(null);
@@ -69,7 +70,7 @@ function ProductDetailsPage() {
     return (
         <div>
             <div style={{ padding: "15px 20px" }}>
-                <button
+                {!embedded && <button
                     onClick={() => window.history.back()}
                     style={{
                         padding: "10px 20px",
@@ -81,7 +82,8 @@ function ProductDetailsPage() {
                     }}
                 >
                     ← Back
-                </button>
+                </button>}
+                {embedded && <button onClick={onClose} style={{ float: "right", padding: "8px 14px", border: "none", borderRadius: "6px", background: "#ef4444", color: "white", cursor: "pointer" }}>Close</button>}
             </div>
 
             {/* MAIN SECTION */}
@@ -273,7 +275,7 @@ function ProductDetailsPage() {
                     </div>
 
                     {/* BUTTONS */}
-                    <div style={{ display: "flex", gap: "16px" }}>
+                    {!embedded && <div style={{ display: "flex", gap: "16px" }}>
                         <button
                             onClick={() => {
                                 console.log("PRODUCT BEFORE CART", product);
@@ -292,7 +294,7 @@ function ProductDetailsPage() {
                         >
                             Add To Cart
                         </button>
-                    </div>
+                    </div>}
                 </div>
             </div>
 

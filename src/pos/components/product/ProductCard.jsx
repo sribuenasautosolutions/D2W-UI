@@ -10,8 +10,7 @@ function ProductCard({ product }) {
    const { addToCart } = useCart();
 
 const [openBatchModal, setOpenBatchModal] = useState(false);
-
-    const navigate = useNavigate();
+const navigate = useNavigate();
 
 
     const isAvailable =
@@ -79,27 +78,13 @@ const [openBatchModal, setOpenBatchModal] = useState(false);
         gap: "8px"
     }}
 >
-    
-
     <button
-       onClick={() =>
-   navigate(
-     `/pos/product/${product.inventoryId}`
-)
-}
-        style={{
-            flex: 1,
-            height: "32px",
-            border: "1px solid #64748b",
-            borderRadius: "6px",
-            background: "#ffffff",
-            color: "#64748b",
-            cursor: "pointer",
-            fontSize: "13px"
-        }}
+        onClick={() => navigate(`/pos/product/${product.inventoryId}`)}
+        style={{ flex: 1, height: "32px", border: "1px solid #64748b", borderRadius: "6px", background: "#fff", color: "#64748b", cursor: "pointer", fontSize: "13px" }}
     >
         View
     </button>
+    
 
     <button
         onClick={() =>
