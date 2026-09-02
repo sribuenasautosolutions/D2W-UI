@@ -62,7 +62,7 @@ function UsersPage() {
         const data = Array.isArray(response.data) ? response.data : [];
         setUsers(data);
         setSelectedId((current) =>
-            data.some((user) => user.id === current) ? current : data[0]?.id || null
+            data.some((user) => user.id === current) ? current : null
         );
     };
 
@@ -443,7 +443,7 @@ function UsersPage() {
                 </div>
             )}
 
-            <div style={S.workspace}>
+            <div style={{ ...S.workspace, gridTemplateColumns: selectedUser ? "35fr 65fr" : "1fr" }}>
                 <section style={S.listPanel}>
                     <div style={S.userFilters}>
                         <div style={S.listCaption}>
@@ -480,16 +480,17 @@ function UsersPage() {
                             </select>
                         </div>
                     </div>
+                    <div style={S.tableHeader}><span>User</span><span>Role / Store</span><span>Status</span></div>
                     <div style={S.userList}>
                         {!loading && visibleUsers.map((user) => (
                             <button key={user.id} type="button"
                                 onClick={() => setSelectedId(user.id)}
                                 style={{ ...S.userRow, ...(selectedId === user.id ? S.selectedRow : {}) }}>
-                                <div style={S.avatar}>{initials(user.name)}</div>
                                 <div style={S.userText}>
                                     <strong>{user.name}</strong>
-                                    <span>{roleLabel(user.role)} | {user.storeName || "Organization"}</span>
+                                    <span>{user.email}</span>
                                 </div>
+                                <span style={S.userAssignment}>{roleLabel(user.role)}<small>{user.storeName || "Organization"}</small></span>
                                 <span style={user.active ? S.activeBadge : S.inactiveBadge}>
                                     {user.active ? "Active" : "Inactive"}
                                 </span>
@@ -503,7 +504,7 @@ function UsersPage() {
                         onPageSize={(size) => { setPageSize(size); setPage(1); }} />
                 </section>
 
-                <section style={S.detailsPanel}>
+                {selectedUser && <section style={S.detailsPanel}>
                     {selectedUser ? (
                         <>
                             <div style={S.detailHeader}>
@@ -521,6 +522,7 @@ function UsersPage() {
                                 </div>
                                 {(isSuperAdmin || selectedUser.role === "CASHIER") && (
                                     <div style={S.userActions}>
+                                        <button type="button" onClick={() => setSelectedId(null)} style={S.editButton}>Back to table</button>
                                         <button type="button" onClick={() => openEdit(selectedUser)}
                                             style={S.editButton}>
                                             <Pencil size={15} /> Edit
@@ -543,7 +545,7 @@ function UsersPage() {
                             </div>
                         </>
                     ) : <div style={S.empty}>Select a user to view details</div>}
-                </section>
+                </section>}
             </div>
 
             {editUser && editForm && (
@@ -682,19 +684,6 @@ function Detail({ icon, label, value }) {
     );
 }
 
-function Tabs({ active, onChange, items }) {
-    return (
-        <div style={S.tabs}>
-            {items.map((item) => (
-                <button key={item} type="button" onClick={() => onChange(item)}
-                    style={active === item ? S.activeTab : S.tab}>
-                    {item}
-                </button>
-            ))}
-        </div>
-    );
-}
-
 function Pagination({ page, totalPages, pageSize, total, onPage, onPageSize }) {
     return (
         <div style={S.pagination}>
@@ -805,10 +794,11 @@ const S = {
         gap: 8,
     },
     userList: { overflowY: "auto", flex: 1, minHeight: 0 },
+    tableHeader: { display: "grid", gridTemplateColumns: "2fr 1fr 100px", gap: 12, padding: "9px 14px", borderBottom: "1px solid #E2E8F0", background: "#F8FAFC", color: "#64748B", fontSize: 10, fontWeight: 800, textTransform: "uppercase" },
     userRow: {
-        width: "100%", minHeight: 72, padding: "10px 11px", border: 0,
+        width: "100%", minHeight: 66, padding: "10px 14px", border: 0,
         borderBottom: "1px solid #F1F5F9", background: "#FFFFFF",
-        display: "flex", alignItems: "center", gap: 10, textAlign: "left",
+        display: "grid", gridTemplateColumns: "2fr 1fr 100px", alignItems: "center", gap: 12, textAlign: "left",
         cursor: "pointer",
     },
     selectedRow: { background: "#EFF6FF", boxShadow: "inset 3px 0 #2563EB" },
@@ -826,6 +816,7 @@ const S = {
         display: "grid", gap: 4, minWidth: 0, flex: 1, color: "#0F172A",
         fontSize: 13,
     },
+    userAssignment: { display: "grid", gap: 3, color: "#334155", fontSize: 12 },
     detailsPanel: {
         minWidth: 0, background: "#FFFFFF", border: "1px solid #E2E8F0",
         borderRadius: 7, overflow: "hidden", alignSelf: "start",

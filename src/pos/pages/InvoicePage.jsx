@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Download, Printer, Plus } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import apiclient from "../../services/apiclient";
 import { useCart } from "../context/CartContext";
 import "./InvoicePage.css";
@@ -96,9 +96,12 @@ function TotalLine({ label, value, subtract = false, strong = false }) {
 const COLUMN_WIDTHS_WITH_DISCOUNT = [4, 30, 8, 5, 8, 8, 8, 9, 7, 13];
 const COLUMN_WIDTHS_NO_DISCOUNT = [4, 35, 8, 5, 9, 9, 10, 7, 13];
 
-export default function InvoicePage() {
-  const { orderId } = useParams();
+export default function InvoicePage({ orderIdOverride, embedded = false, onNewSale }) {
+  const { orderId: routeOrderId } = useParams();
+  const orderId = orderIdOverride || routeOrderId;
   const navigate = useNavigate();
+  const location = useLocation();
+  const printedOrder = useRef(null);
   const { clearCart } = useCart();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +122,23 @@ export default function InvoicePage() {
 
   useEffect(() => { loadInvoice(); }, [loadInvoice]);
 
+  useEffect(() => {
+    if (!location.state?.autoPrint || loading || error || !invoice
+        || String(invoice.orderId) !== String(orderId)
+        || printedOrder.current === orderId) return;
+    // Run after the invoice has rendered. Cleanup also avoids duplicate
+    // dialogs during React StrictMode's effect setup/cleanup cycle.
+    const timer = window.setTimeout(() => {
+      printedOrder.current = orderId;
+      navigate(location.pathname, {
+        replace: true,
+        state: { ...location.state, autoPrint: false },
+      });
+      window.print();
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [invoice, loading, error, orderId, location.pathname, location.state, navigate]);
+
   const items = useMemo(() => invoice?.items || [], [invoice]);
   const payments = useMemo(() => invoice?.payments || [], [invoice]);
   const collectedBy = useMemo(() => invoice?.collectedByName || loggedInUserName(), [invoice]);
@@ -133,7 +153,12 @@ export default function InvoicePage() {
 
   const startSale = () => {
     clearCart();
-    navigate("/pos");
+    if (embedded && onNewSale) {
+      onNewSale();
+      return;
+    }
+    navigate(location.pathname.startsWith("/owner/") ? "/owner/sales/new"
+      : location.pathname.startsWith("/store/") ? "/store/sales/new" : "/pos");
   };
 
   if (loading) return <div className="invoice-state">Loading invoice...</div>;
@@ -141,8 +166,15 @@ export default function InvoicePage() {
 
   return <main className="invoice-page">
     <nav className="invoice-toolbar">
-      <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}><ArrowLeft size={16} />Back</button>
+      {!embedded && <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}><ArrowLeft size={16} />Back</button>}
       <div>
+        {invoice.orderStatus === "PENDING_PAYMENT" && Number(invoice.balanceAmount) > 0 && (
+          <button className="invoice-button invoice-button--primary" onClick={() => {
+            const base = location.pathname.startsWith("/owner/") ? "/owner/sales"
+              : location.pathname.startsWith("/store/") ? "/store/sales" : "/pos";
+            navigate(`${base}/payment/${orderId}`);
+          }}>Collect Payment</button>
+        )}
         <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Printer size={16} />Print</button>
         <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Download size={16} />Save PDF</button>
         <button className="invoice-button invoice-button--primary" onClick={startSale}><Plus size={16} />New Sale</button>
@@ -173,6 +205,14 @@ export default function InvoicePage() {
           <h3>BILL TO</h3>
           <strong className="invoice-customer-name">{text(invoice.customerName)}</strong>
           <p>Mobile: {text(invoice.phone)}</p>
+          {invoice.saleType === "B2B" && <>
+            <p>GSTIN: {text(invoice.customerGstin)}</p>
+            <p>Registration: {text(invoice.customerGstRegistrationType)?.replaceAll?.("_", " ")}</p>
+            <p>State / Place of Supply: {text(invoice.placeOfSupply || invoice.customerState)}</p>
+            <p>Billing Address: {text(invoice.billingAddress || invoice.customerAddress)}</p>
+            {invoice.shippingAddress && <p>Shipping Address: {invoice.shippingAddress}</p>}
+            {invoice.customerEmail && <p>Email: {invoice.customerEmail}</p>}
+          </>}
         </div>
         <div className="invoice-meta">
           <h3>INVOICE DETAILS</h3>

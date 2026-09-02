@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Boxes, ChevronLeft, ChevronRight, CircleAlert, IndianRupee, Layers3,
   Download, LayoutList, MapPin, PackageSearch, Pencil, Save, Search, Table2, X,
 } from "lucide-react";
 import api from "../../../services/api";
+import { getAllBrands } from "../../../services/brandService";
 import {
   getCurrentStockPage, getManagementBatches, getProductDetails, getProductLocations,
   updateInventoryBatch, updateInventoryPrices, updateProductBasicInformation,
@@ -44,14 +46,17 @@ function Modal({ title, children, error, saving, onClose, onSave }) {
 }
 
 function Field({ label, ...props }) { return <label className="stock-form-field"><span>{label}</span><input {...props} /></label>; }
+function SelectField({ label, children, ...props }) { return <label className="stock-form-field"><span>{label}</span><select {...props}>{children}</select></label>; }
 
 export default function CurrentStockSection() {
+  const navigate = useNavigate();
   const [user] = useState(readUser);
   const isSuperAdmin = user.role === "SUPER_ADMIN";
   const canManage = isSuperAdmin || user.role === "STORE_OWNER";
   const [stores, setStores] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
-  const [view, setView] = useState("detail");
+  const [view, setView] = useState("table");
   const [result, setResult] = useState({ content: [], totalElements: 0, totalPages: 1, number: 0, size: 20 });
   const [selectedId, setSelectedId] = useState(null);
   const [details, setDetails] = useState(null);
@@ -83,6 +88,11 @@ export default function CurrentStockSection() {
       setStores(active);
     }).catch(() => setError("Unable to load stores."));
   }, [isSuperAdmin]);
+
+  useEffect(() => {
+    getAllBrands().then((data) => setBrands(Array.isArray(data) ? data : data?.content || []))
+      .catch(() => setBrands([]));
+  }, []);
 
   const loadPage = useCallback(async () => {
     setLoading(true); setError("");
@@ -118,15 +128,16 @@ export default function CurrentStockSection() {
     if (tab === "locations") getProductLocations(selectedId, 0, 100).then(setLocations).catch((e) => setError(errorMessage(e, "Unable to load locations.")));
   }, [selectedId, tab, view]);
 
-  const openBasic = () => { setModalError(""); setForm({ itemName: details.itemName || "", partNumber: details.partNumber || "", description: details.description || "", hsnCode: details.hsncode || "", gstPercentage: details.gstPercentage ?? "", brandName: details.brandName || "", categoryName: details.categoryName || "", masterName: details.productMasterName || "" }); setModal("basic"); };
-  const openPrices = () => { setModalError(""); setForm({ sellingPrice: details.sellingPrice ?? "", mrp: details.mrp ?? "" }); setModal("prices"); };
+  const openEdit = () => { setModalError(""); setForm({ itemName: details.itemName || "", partNumber: details.partNumber || "", description: details.description || "", hsnCode: details.hsncode || "", gstPercentage: details.gstPercentage ?? "", brandName: details.brandName || "", categoryName: details.categoryName || "", masterName: details.productMasterName || "", sellingPrice: details.sellingPrice ?? "", mrp: details.mrp ?? "" }); setModal("edit"); };
   const openBatch = (batch) => { setModalError(""); setForm({ batchId: batch.batchId, purchasePrice: batch.purchasePrice ?? "", sellingPrice: batch.sellingPrice ?? "", mrp: batch.mrp ?? "", rackNumber: batch.rackNumber || "" }); setModal("batch"); };
 
   const saveModal = async () => {
     setSaving(true); setModalError("");
     try {
-      if (modal === "basic") await updateProductBasicInformation(selectedId, { ...form, gstPercentage: form.gstPercentage === "" ? null : Number(form.gstPercentage) });
-      if (modal === "prices") await updateInventoryPrices(selectedId, { sellingPrice: Number(form.sellingPrice), mrp: Number(form.mrp) });
+      if (modal === "edit") {
+        if (canEditBasic) await updateProductBasicInformation(selectedId, { ...form, gstPercentage: form.gstPercentage === "" ? null : Number(form.gstPercentage) });
+        await updateInventoryPrices(selectedId, { sellingPrice: Number(form.sellingPrice), mrp: Number(form.mrp) });
+      }
       if (modal === "batch") await updateInventoryBatch(form.batchId, { purchasePrice: Number(form.purchasePrice), sellingPrice: Number(form.sellingPrice), mrp: Number(form.mrp), rackNumber: form.rackNumber });
       setModal(null); await loadPage(); await loadDetails();
       if (tab === "batches") setBatches(await getManagementBatches(selectedId));
@@ -226,7 +237,7 @@ export default function CurrentStockSection() {
             <div className="stock-product-avatar" aria-hidden="true"><Boxes size={24} /></div>
             <div><div className="stock-title-line"><h2>{display(current.itemName)}</h2><span className={`stock-badge ${currentStatus.key}`}>{currentStatus.label}</span></div><p>{display(current.brandName)} · Part No. {display(current.partNumber)}</p></div>
           </div>
-          <div className="stock-header-actions">{canEditBasic && <button className="stock-secondary-action" onClick={openBasic}><Pencil size={15} />Edit information</button>}{canManage && <button className="stock-primary-action" onClick={openPrices}><IndianRupee size={15} />Edit prices</button>}</div>
+          <div className="stock-header-actions"><button className="stock-secondary-action" onClick={() => { setView("table"); setTab("overview"); }}><ChevronLeft size={15} />Cancel</button><button className="stock-secondary-action" onClick={() => navigate("?view=transactions")}><Layers3 size={15} />Transactions</button>{canManage && <button className="stock-secondary-action" onClick={() => navigate("?view=adjustment")}><Boxes size={15} />Adjust stock</button>}{canManage && <button className="stock-primary-action" onClick={openEdit}><Pencil size={15} />Edit product</button>}</div>
         </header>
         <nav className="stock-tabs" role="tablist">{TABS.map(({ id, label, icon: Icon }) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><Icon size={16} />{label}</button>)}</nav>
         <div className="stock-tab-body" key={tab} role="tabpanel">
@@ -238,8 +249,7 @@ export default function CurrentStockSection() {
       </div>
     </div>}
 
-    {modal === "basic" && <Modal title="Edit basic information" error={modalError} saving={saving} onClose={() => { setModal(null); setModalError(""); }} onSave={saveModal}><div className="stock-form-grid"><Field label="Item name" value={form.itemName} onChange={(e) => setForm({ ...form, itemName: e.target.value })} /><Field label="Part number" value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} />{details.productSource === "LOCAL" && <><Field label="Brand" value={form.brandName} onChange={(e) => setForm({ ...form, brandName: e.target.value })} /><Field label="Category" value={form.categoryName} onChange={(e) => setForm({ ...form, categoryName: e.target.value })} /><Field label="Subcategory" value={form.masterName} onChange={(e) => setForm({ ...form, masterName: e.target.value })} /></>}<Field label="HSN code" value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} /><Field label="GST %" type="number" value={form.gstPercentage} onChange={(e) => setForm({ ...form, gstPercentage: e.target.value })} /><label className="stock-form-field full"><span>Description</span><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label></div></Modal>}
-    {modal === "prices" && <Modal title="Edit current FIFO prices" error={modalError} saving={saving} onClose={() => { setModal(null); setModalError(""); }} onSave={saveModal}><div className="stock-form-grid"><Field label="Selling price" type="number" min="0" step="0.01" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} /><Field label="MRP" type="number" min="0" step="0.01" value={form.mrp} onChange={(e) => setForm({ ...form, mrp: e.target.value })} /></div></Modal>}
+    {modal === "edit" && <Modal title="Edit product and pricing" error={modalError} saving={saving} onClose={() => { setModal(null); setModalError(""); }} onSave={saveModal}><div className="stock-form-grid"><Field label="Item name" disabled={!canEditBasic} value={form.itemName} onChange={(e) => setForm({ ...form, itemName: e.target.value })} /><Field label="Part number" disabled={!canEditBasic} value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} /><SelectField label="Brand" disabled={!canEditBasic} value={form.brandName} onChange={(e) => setForm({ ...form, brandName: e.target.value })}><option value={form.brandName}>{form.brandName || "Select brand"}</option>{brands.filter((brand) => (brand.brandName || brand.name) !== form.brandName).map((brand) => <option key={brand.id ?? brand.brandId ?? brand.brandName} value={brand.brandName || brand.name}>{brand.brandName || brand.name}</option>)}</SelectField><Field label="Category" disabled={!canEditBasic} value={form.categoryName} onChange={(e) => setForm({ ...form, categoryName: e.target.value })} /><Field label="Subcategory" disabled={!canEditBasic} value={form.masterName} onChange={(e) => setForm({ ...form, masterName: e.target.value })} /><Field label="HSN code" disabled={!canEditBasic} value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} /><Field label="GST %" disabled={!canEditBasic} type="number" value={form.gstPercentage} onChange={(e) => setForm({ ...form, gstPercentage: e.target.value })} /><Field label="Selling price" type="number" min="0" step="0.01" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} /><Field label="MRP" type="number" min="0" step="0.01" value={form.mrp} onChange={(e) => setForm({ ...form, mrp: e.target.value })} /><label className="stock-form-field full"><span>Description</span><textarea disabled={!canEditBasic} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label></div></Modal>}
     {modal === "batch" && <Modal title="Edit batch" error={modalError} saving={saving} onClose={() => { setModal(null); setModalError(""); }} onSave={saveModal}><div className="stock-form-grid"><Field label="Purchase price" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} /><Field label="Selling price" type="number" min="0" step="0.01" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} /><Field label="MRP" type="number" min="0" step="0.01" value={form.mrp} onChange={(e) => setForm({ ...form, mrp: e.target.value })} /><Field label="Rack number" value={form.rackNumber} onChange={(e) => setForm({ ...form, rackNumber: e.target.value })} /></div></Modal>}
   </section>;
 }

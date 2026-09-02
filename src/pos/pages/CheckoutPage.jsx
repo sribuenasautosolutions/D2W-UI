@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { placeOrder, calculateOrder } from "../../services/orderService";
 import { getCustomerByMobile, saveCustomer } from "../../services/customerService";
+import PaymentPageor from "./PaymentPageor";
 
 /* ============================================================
    CONSTANTS
@@ -60,6 +61,7 @@ const getUser = () => {
 
 function CheckoutPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     cartItems,
     increaseQuantity,
@@ -119,11 +121,29 @@ const applyInvoiceGSTToAll = () => {
 
   /* ---------- Order placement ---------- */
   const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState(searchParams.get("orderId") || "");
+  const [activeDraftId] = useState(searchParams.get("draftId") || localStorage.getItem("pos_active_draft_id") || "");
 
   const debounceRef = useRef(null);
   const requestIdRef = useRef(0);
 
-  const storeId = getUser()?.storeId;
+  const storeId = localStorage.getItem("pos_store_id") || getUser()?.storeId;
+
+  useEffect(() => {
+    if (!activeDraftId) return;
+    try {
+      const drafts = JSON.parse(localStorage.getItem("pos_held_payments") || "[]");
+      const draft = drafts.find((entry) => String(entry.draftId) === String(activeDraftId));
+      if (!draft) return;
+      setCustomerName(draft.customerName || "");
+      setPhone(draft.phone || "");
+      setAddress(draft.address || "");
+      setBillDiscount(String(draft.billDiscount || 0));
+      setInvoiceGstRate(Number(draft.invoiceGstRate || 18));
+      setInvoiceGstMode(draft.invoiceGstMode || "AUTO");
+      setGstTypes(draft.gstTypes || {});
+    } catch { /* invalid local draft is ignored */ }
+  }, [activeDraftId]);
 
   /* ============================================================
      BUILD /orders/recalculate REQUEST
@@ -293,7 +313,7 @@ const applyInvoiceGSTToAll = () => {
      Sends ONLY raw inputs. Backend recalculates everything.
      ============================================================ */
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = async (action = "PAY") => {
     if (creatingInvoice) return;
 
     if (cartItems.length === 0) {
@@ -310,6 +330,27 @@ const applyInvoiceGSTToAll = () => {
     }
     if (calcError) {
       alert("Please resolve the highlighted issue before creating the invoice:\n" + calcError);
+      return;
+    }
+
+    if (action === "HOLD") {
+      let held = [];
+      try { held = JSON.parse(localStorage.getItem("pos_held_payments") || "[]"); } catch { held = []; }
+      const draftId = activeDraftId || `draft-${Date.now()}`;
+      const record = {
+        draftId, customerName: customerName.trim(), phone, address,
+        cartItems, billDiscount, invoiceGstRate, invoiceGstMode, gstTypes,
+        totalAmount: calculation?.netPayable || 0,
+        balanceAmount: calculation?.netPayable || 0,
+        heldAt: new Date().toISOString(),
+      };
+      localStorage.setItem("pos_held_payments", JSON.stringify([
+        record,
+        ...held.filter((entry) => String(entry.draftId) !== String(draftId)),
+      ]));
+      localStorage.removeItem("pos_active_draft_id");
+      clearCart();
+      navigate("/pos");
       return;
     }
 
@@ -340,8 +381,13 @@ const applyInvoiceGSTToAll = () => {
       };
 
       const orderId = await placeOrder(orderData);
-      // clearCart();
-      navigate(`/pos/payment/${orderId}`);
+      if (activeDraftId) {
+        let held = [];
+        try { held = JSON.parse(localStorage.getItem("pos_held_payments") || "[]"); } catch { held = []; }
+        localStorage.setItem("pos_held_payments", JSON.stringify(held.filter((entry) => String(entry.draftId) !== String(activeDraftId))));
+        localStorage.removeItem("pos_active_draft_id");
+      }
+      setActiveOrderId(String(orderId));
     } catch (error) {
       alert(extractError(error));
     } finally {
@@ -357,6 +403,7 @@ const applyInvoiceGSTToAll = () => {
     creatingInvoice || calcLoading || cartItems.length === 0 || !!calcError;
 
   return (
+    <>
     <div style={pageStyle}>
       {/* ================= TOP BAR ================= */}
       <div style={topBarStyle}>
@@ -366,6 +413,11 @@ const applyInvoiceGSTToAll = () => {
         <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#0f172a", margin: 0 }}>
           Checkout
         </h2>
+        {activeDraftId && (
+          <button onClick={() => navigate("/pos")} style={{ ...backBtnStyle, color: "#2563eb", borderColor: "#93c5fd", background: "#eff6ff" }}>
+            + Add Items
+          </button>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={brandIconStyle}>🚗</div>
           <div>
@@ -748,8 +800,16 @@ const applyInvoiceGSTToAll = () => {
               </span>
             </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             <button
-              onClick={handlePlaceOrder}
+              onClick={() => handlePlaceOrder("HOLD")}
+              disabled={disablePlaceOrder}
+              style={{ ...placeOrderBtnStyle, background: "#f59e0b", opacity: disablePlaceOrder ? 0.6 : 1 }}
+            >
+              {creatingInvoice ? "Creating…" : "Hold Bill"}
+            </button>
+            <button
+              onClick={() => handlePlaceOrder("PAY")}
               disabled={disablePlaceOrder}
               style={{
                 ...placeOrderBtnStyle,
@@ -757,12 +817,28 @@ const applyInvoiceGSTToAll = () => {
                 cursor: disablePlaceOrder ? "not-allowed" : "pointer",
               }}
             >
-              {creatingInvoice ? "Creating Invoice…" : "🧾 Check Out & Create Invoice"}
+              {creatingInvoice ? "Creating Invoice…" : "Make Payment"}
             </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
+    {activeOrderId && (
+      <div style={{ position: "fixed", inset: 0, zIndex: 1500, background: "rgba(15,23,42,.7)", padding: "5vh 16px", overflow: "auto" }}>
+        <div style={{ maxWidth: "760px", margin: "0 auto", background: "#fff", borderRadius: "14px", overflow: "hidden", boxShadow: "0 24px 70px rgba(0,0,0,.3)" }}>
+            <PaymentPageor
+              orderIdOverride={activeOrderId}
+              embedded
+              compact
+              onCancel={() => navigate(`/pos/invoice/${activeOrderId}`)}
+              onInvoice={() => navigate(`/pos/invoice/${activeOrderId}`)}
+              onNewSale={() => navigate("/pos")}
+            />
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

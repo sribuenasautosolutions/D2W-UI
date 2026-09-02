@@ -5,7 +5,6 @@ import DashboardLayout from "../../owner/layouts/DashboardLayout";
 import DashboardHome from "../../owner/pages/DashboardHome";
 import InventoryPage from "../../owner/pages/InventoryPage";
 import PurchasesPage from "../../owner/pages/PurchasesPage";
-import OrdersPage from "../../owner/pages/OrdersPage";
 import UsersPage from "../../owner/pages/UsersPage";
 
 // FIX: reuse the existing, fully-built InvoicePage from the POS module.
@@ -21,6 +20,9 @@ import CustomerReportPage from "../pages/CustomerReportPage";
 import CustomerDetailsPage from "../pages/CustomerDetailsPage";
 import SalesPage from "../../sales/pages/SalesPage";
 import NewSalePage from "../../sales/pages/NewSalePage";
+import ProformaListPage from "../../sales/pages/ProformaListPage";
+import ProformaViewPage from "../../sales/pages/ProformaViewPage";
+import PaymentPage from "../../pos/pages/PaymentPageor";
 
 function StoreRoutes() {
 
@@ -56,15 +58,6 @@ function StoreRoutes() {
             />
 
             <Route
-                path="/orders"
-                element={
-                    <DashboardLayout>
-                        <OrdersPage />
-                    </DashboardLayout>
-                }
-            />
-
-            <Route
                 path="/sales"
                 element={
                     <DashboardLayout>
@@ -75,11 +68,20 @@ function StoreRoutes() {
 
             <Route
                 path="/sales/new"
-                element={
-                    <DashboardLayout>
-                        <NewSalePage />
-                    </DashboardLayout>
-                }
+                element={<NewSalePage />}
+            />
+            <Route path="/sales/proforma" element={<DashboardLayout><ProformaListPage /></DashboardLayout>} />
+            <Route path="/sales/proforma/new" element={<NewSalePage documentMode="PROFORMA" />} />
+            <Route path="/sales/proforma/:id/edit" element={<NewSalePage documentMode="PROFORMA" />} />
+            <Route path="/sales/proforma/:id" element={<ProformaViewPage />} />
+
+            <Route
+                path="/sales/invoice/:orderId"
+                element={<InvoicePage />}
+            />
+            <Route
+                path="/sales/payment/:orderId"
+                element={<PaymentPage />}
             />
 
             <Route
@@ -87,17 +89,6 @@ function StoreRoutes() {
                 element={
                     <DashboardLayout>
                         <UsersPage />
-                    </DashboardLayout>
-                }
-            />
-
-            {/* FIX: was missing entirely — this is what made "/admin/invoice/:id"
-                (a dead route) blank out instead of showing the invoice. */}
-            <Route
-                path="/orders/invoice/:orderId"
-                element={
-                    <DashboardLayout>
-                        <InvoicePage />
                     </DashboardLayout>
                 }
             />

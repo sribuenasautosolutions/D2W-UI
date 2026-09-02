@@ -9,6 +9,7 @@ import {
     FileText,
     RefreshCw,
     Search,
+    Plus,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -23,6 +24,13 @@ import SalesInvoiceTable from "../components/SalesInvoiceTable";
 import apiclient from "../../services/apiclient";
 
 import "./SalesPage.css";
+
+const localDateValue = (value = new Date()) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const offset = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+};
 
 
 const readUser = () => {
@@ -68,6 +76,9 @@ export default function SalesPage() {
 
     const [search, setSearch] =
         useState("");
+
+    const [fromDate, setFromDate] = useState(() => localDateValue());
+    const [toDate, setToDate] = useState(() => localDateValue());
 
     const [loading, setLoading] =
         useState(false);
@@ -206,13 +217,11 @@ export default function SalesPage() {
         const query =
             search.trim().toLowerCase();
 
-        if (!query) {
-            return sales;
-        }
-
         return sales.filter((sale) => {
-
-            return [
+            const saleDate = localDateValue(sale.orderDate);
+            const matchesDate = (!fromDate || saleDate >= fromDate)
+                && (!toDate || saleDate <= toDate);
+            const matchesSearch = !query || [
                 sale.orderId,
                 sale.customerName,
                 sale.phone,
@@ -224,10 +233,11 @@ export default function SalesPage() {
                     .toLowerCase()
                     .includes(query)
             );
+            return matchesDate && matchesSearch;
 
         });
 
-    }, [sales, search]);
+    }, [fromDate, sales, search, toDate]);
 
 
     /*
@@ -236,7 +246,7 @@ export default function SalesPage() {
      */
     const totalSalesValue = useMemo(() => {
 
-        return sales.reduce(
+        return visibleSales.reduce(
             (sum, sale) =>
                 sum +
                 Number(
@@ -245,7 +255,7 @@ export default function SalesPage() {
             0
         );
 
-    }, [sales]);
+    }, [visibleSales]);
 
 
     const selectedStore = useMemo(() => {
@@ -301,6 +311,8 @@ export default function SalesPage() {
                 </div>
 
 
+                <div className="sales-header-actions">
+
                 {isSuperAdmin && (
 
                     <div className="sales-store-selector">
@@ -349,6 +361,17 @@ export default function SalesPage() {
 
                 )}
 
+                    <button
+                        type="button"
+                        className="sales-new-sale-button"
+                        onClick={() => navigate("new")}
+                    >
+                        <Plus size={16} />
+                        New Sale
+                    </button>
+
+                </div>
+
             </header>
 
 
@@ -386,10 +409,14 @@ export default function SalesPage() {
                         </span>
 
                         <strong>
-                            {sales.length}
+                            {visibleSales.length}
                         </strong>
 
                     </div>
+
+                    <label className="sales-date-filter"><span>From</span><input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => setFromDate(event.target.value)} /></label>
+                    <label className="sales-date-filter"><span>To</span><input type="date" value={toDate} min={fromDate || undefined} onChange={(event) => setToDate(event.target.value)} /></label>
+                    <button type="button" className="sales-refresh-button" onClick={() => { setFromDate(""); setToDate(""); }}>All dates</button>
 
                 </div>
 

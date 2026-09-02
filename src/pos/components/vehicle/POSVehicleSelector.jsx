@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "./POSVehicleSelector.css";
 
 import {
     getAllMakes,
     getModelsByMake,
-    getGenerationsByModel,
-    getVariantsByGeneration
+    getYearsByModel,
+    getVariantsByModelAndYear
 } from "../../../services/vehicleService";
 
 function POSVehicleSelector({
@@ -15,12 +15,12 @@ function POSVehicleSelector({
 
     const [makes, setMakes] = useState([]);
     const [models, setModels] = useState([]);
-    const [generations, setGenerations] = useState([]);
+    const [years, setYears] = useState([]);
     const [variants, setVariants] = useState([]);
 
     const [selectedMake, setSelectedMake] = useState("");
     const [selectedModel, setSelectedModel] = useState("");
-    const [selectedGeneration, setSelectedGeneration] = useState("");
+    const [selectedYear, setSelectedYear] = useState("");
     const [selectedVariant, setSelectedVariant] = useState("");
 
     const [loading, setLoading] = useState(false);
@@ -60,11 +60,11 @@ function POSVehicleSelector({
         setSelectedMake(makeId);
 
         setSelectedModel("");
-        setSelectedGeneration("");
+        setSelectedYear("");
         setSelectedVariant("");
 
         setModels([]);
-        setGenerations([]);
+        setYears([]);
         setVariants([]);
 
         if (!makeId) return;
@@ -96,10 +96,10 @@ function POSVehicleSelector({
 
         setSelectedModel(modelId);
 
-        setSelectedGeneration("");
+        setSelectedYear("");
         setSelectedVariant("");
 
-        setGenerations([]);
+        setYears([]);
         setVariants([]);
 
         if (!modelId) return;
@@ -108,14 +108,13 @@ function POSVehicleSelector({
 
             setLoading(true);
 
-            const data = await getGenerationsByModel(modelId);
-
-            setGenerations(data || []);
+            const data = await getYearsByModel(modelId);
+            setYears(data || []);
 
         } catch (err) {
 
             console.error(err);
-            setError("Unable to load generations.");
+            setError("Unable to load vehicle years.");
 
         } finally {
 
@@ -125,24 +124,24 @@ function POSVehicleSelector({
 
     };
 
-    const handleGenerationChange = async (e) => {
+    const handleYearChange = async (e) => {
 
-        const generationId = e.target.value;
+        const year = e.target.value;
 
-        setSelectedGeneration(generationId);
+        setSelectedYear(year);
 
         setSelectedVariant("");
 
         setVariants([]);
 
-        if (!generationId) return;
+        if (!year) return;
 
         try {
 
             setLoading(true);
 
             const data =
-                await getVariantsByGeneration(generationId);
+                await getVariantsByModelAndYear(selectedModel, year);
 
             setVariants(data || []);
 
@@ -171,9 +170,6 @@ function POSVehicleSelector({
     const selectedModelObj =
         models.find(x => String(x.id) === String(selectedModel));
 
-    const selectedGenerationObj =
-        generations.find(x => String(x.id) === String(selectedGeneration));
-
     const selectedVariantObj =
         variants.find(x => String(x.id) === String(selectedVariant));
 
@@ -198,12 +194,25 @@ function POSVehicleSelector({
             onLabelChange(
                 `${selectedMakeObj?.makeName || ""}
                  ${selectedModelObj?.modelName || ""}
-                 ${selectedGenerationObj?.generationName || ""}
+                 ${selectedYear || ""}
                  ${selectedVariantObj?.variantName || ""}`
             );
 
         }
 
+    };
+
+    const handleClear = () => {
+        setSelectedMake("");
+        setSelectedModel("");
+        setSelectedYear("");
+        setSelectedVariant("");
+        setModels([]);
+        setYears([]);
+        setVariants([]);
+        setError("");
+        onVariantSelected?.("");
+        onLabelChange?.("");
     };
 
     return (
@@ -216,7 +225,7 @@ function POSVehicleSelector({
 
                 <p>
                     Choose Make, Model,
-                    Generation and Variant
+                    Year and Variant
                 </p>
 
             </div>
@@ -290,30 +299,27 @@ function POSVehicleSelector({
 
             <div className="vehicle-field">
 
-                <label>Generation</label>
+               <label>Year</label>
 
                 <select
-                    value={selectedGeneration}
-                    onChange={handleGenerationChange}
+                    value={selectedYear}
+                    onChange={handleYearChange}
                     disabled={!selectedModel}
                 >
 
                     <option value="">
-                        Select Generation
+                         Select Year
                     </option>
+        {years.map((year) => (
 
-                    {generations.map(gen => (
+            <option
+            key={year}
+            value={year}
+            >
+                {year}
+             </option>
 
-                        <option
-                            key={gen.id}
-                            value={gen.id}
-                        >
-                            {gen.generationName}
-                            {" "}
-                            ({gen.generationNumber})
-                        </option>
-
-                    ))}
+            ))}
 
                 </select>
 
@@ -325,7 +331,7 @@ function POSVehicleSelector({
                 <select
                     value={selectedVariant}
                     onChange={handleVariantChange}
-                    disabled={!selectedGeneration}
+                    disabled={!selectedYear}
                 >
 
                     <option value="">
@@ -369,10 +375,8 @@ function POSVehicleSelector({
                             </div>
 
                             <div>
-                                <strong>Generation :</strong>{" "}
-                                {selectedGenerationObj?.generationName}
-                                {" "}
-                                ({selectedGenerationObj?.generationNumber})
+                            <strong>Year :</strong>{" "}
+                            {selectedYear}
                             </div>
 
                             <div>
@@ -402,6 +406,7 @@ function POSVehicleSelector({
 
             </div>
 
+            <div className="vehicle-actions">
             <button
                 className="vehicle-search-btn"
                 onClick={handleSearch}
@@ -413,6 +418,16 @@ function POSVehicleSelector({
                     : "Show Products"}
 
             </button>
+
+            <button
+                type="button"
+                className="vehicle-clear-btn"
+                onClick={handleClear}
+                disabled={loading && makes.length === 0}
+            >
+                Clear Vehicle
+            </button>
+            </div>
 
         </div>
 

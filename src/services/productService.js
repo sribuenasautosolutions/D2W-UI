@@ -1,4 +1,5 @@
     import api from "./api";
+    const activeStoreId = (user) => localStorage.getItem("pos_store_id") || user?.storeId;
     /*
     |--------------------------------------------------------------------------
     | GET PRODUCTS BY VEHICLE VARIANT
@@ -17,7 +18,7 @@
                     "/fitment/products",
                     {
                         params: {
-                            storeId: user.storeId,
+                            storeId: activeStoreId(user),
                             variantId
                         }
                     }
@@ -29,7 +30,7 @@
 
 
     export const getAllProducts =
-        async () => {
+        async (page = 0, size = 9) => {
 
 
 
@@ -46,7 +47,8 @@
 
             const response =
             await api.get(
-        `/store-inventory/store/${user.storeId}`
+        `/store-inventory/store/${activeStoreId(user)}/paged`,
+        { params: { page, size, onlyAvailable: true } }
     );
 
             return response.data;
@@ -68,7 +70,7 @@
         "/store-inventory/product-details",
         {
             params: {
-                storeId: user.storeId,
+                storeId: activeStoreId(user),
                 inventoryId
             }
         }
@@ -89,19 +91,12 @@
             storeId
         ) => {
 
-            const response =
-            await api.get(
-        "/products/search",
+            const response = await api.get(
+                `/store-inventory/store/${storeId}/paged`,
+                { params: { search: text, page: 0, size: 50, onlyAvailable: true } }
+            );
 
-                    {
-                        params: {
-                            text,
-                            storeId
-                        }
-                    }
-                );
-
-            return response.data;
+            return response.data.content || [];
         };
         export const getCompatibleVehicles =
         async (productId) => {
@@ -137,7 +132,7 @@
         "/store-inventory/product-batches",
                     {
                         params: {
-                            storeId: user.storeId,
+                            storeId: activeStoreId(user),
                             inventoryId
                         }
                     }
