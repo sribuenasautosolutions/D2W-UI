@@ -23,6 +23,8 @@ import NewSalePage from "../../sales/pages/NewSalePage";
 import ProformaListPage from "../../sales/pages/ProformaListPage";
 import ProformaViewPage from "../../sales/pages/ProformaViewPage";
 import PaymentPage from "../../pos/pages/PaymentPageor";
+import LeadCreate from "../../owner/components/leads/LeadCreate";
+import LeadList from "../../owner/components/leads/LeadList";
 
 function StoreRoutes() {
 
@@ -65,7 +67,23 @@ function StoreRoutes() {
                     </DashboardLayout>
                 }
             />
+<Route
+    path="/sales/leads"
+    element={
+        <DashboardLayout>
+            <LeadList />
+        </DashboardLayout>
+    }
+/>
 
+<Route
+    path="/sales/leads/new"
+    element={
+        <DashboardLayout>
+            <LeadCreate />
+        </DashboardLayout>
+    }
+/>
             <Route
                 path="/sales/new"
                 element={<NewSalePage />}

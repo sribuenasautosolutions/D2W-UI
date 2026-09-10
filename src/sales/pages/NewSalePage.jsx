@@ -1364,7 +1364,17 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             ]
         );
 
-
+const totalMrp = useMemo(
+    () =>
+        items.reduce(
+            (sum, item) =>
+                sum +
+                Number(item.mrp || 0) *
+                Number(item.quantity || 0),
+            0
+        ),
+    [items]
+);
 
 
 
@@ -3009,21 +3019,15 @@ export default function NewSalePage({ documentMode = "SALE" }) {
                         </div>
 
 
-                        <div className="new-sale-summary-row">
+                       <div className="new-sale-summary-row">
+    <span>
+        Total MRP
+    </span>
 
-                            <span>
-                                Gross Amount
-                            </span>
-
-                            <strong>
-                                {
-                                    money(
-                                        calculation?.grossAmount
-                                    )
-                                }
-                            </strong>
-
-                        </div>
+    <strong>
+        {money(totalMrp)}
+    </strong>
+</div>
 
 
                         <div className="new-sale-summary-row">

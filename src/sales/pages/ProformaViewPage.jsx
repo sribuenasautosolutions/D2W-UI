@@ -33,6 +33,19 @@ export default function ProformaViewPage() {
   const hasCustomerGst = Boolean(gstin) && !/^unregistered/i.test(gstin) && !/^unregistered/i.test(gstType);
   const showDiscount = (record.items || []).some((item) => Number(item.discountPercentage || 0) > 0 || Number(item.discountAmount || 0) > 0);
 
+  const totalMrp = (record.items || []).reduce(
+  (sum, item) => sum + Number(item.mrp || 0) * Number(item.quantity || 0),
+  0
+);
+
+const totalItemDiscount = (record.items || []).reduce(
+  (sum, item) => sum + Number(item.discountAmount || 0),
+  0
+);
+
+
+
+const grandTotal = Number(record.netPayable || 0);
   return <div className="proforma-invoice-page">
     <header className="proforma-view-header">
       <div className="proforma-view-heading">
@@ -86,18 +99,64 @@ export default function ProformaViewPage() {
         </tr>)}</tbody>
       </table></div>
 
-      <section className="proforma-summary-row"><div className="proforma-summary-card">
-        <h2>Bill Summary</h2>
-        <div><span>Gross Amount</span><strong>{money(record.grossAmount)}</strong></div>
-        <div><span>Item Discount</span><strong>{money(record.itemDiscountAmount)}</strong></div>
-        <div><span>Bill Discount</span><strong>{money(record.billDiscountAmount)}</strong></div>
-        <div><span>Taxable Amount</span><strong>{money(record.taxableAmount)}</strong></div>
-        {Number(record.cgstAmount || 0) > 0 && <div><span>CGST</span><strong>{money(record.cgstAmount)}</strong></div>}
-        {Number(record.sgstAmount || 0) > 0 && <div><span>SGST</span><strong>{money(record.sgstAmount)}</strong></div>}
-        {Number(record.igstAmount || 0) > 0 && <div><span>IGST</span><strong>{money(record.igstAmount)}</strong></div>}
-        <div><span>Round Off</span><strong>{money(record.roundOffAmount)}</strong></div>
-        <div className="grand-total"><span>Grand Total</span><strong>{money(record.netPayable)}</strong></div>
-      </div></section>
+<section className="proforma-summary-row">
+  <div className="proforma-summary-card">
+    <h2>Bill Summary</h2>
+
+    <div>
+      <span>Total MRP</span>
+      <strong>{money(totalMrp)}</strong>
+    </div>
+
+    <div>
+      <span>Item Discount</span>
+      <strong>- {money(totalItemDiscount)}</strong>
+    </div>
+
+    {Number(record.billDiscountAmount || 0) > 0 && (
+      <div>
+        <span>Bill Discount</span>
+        <strong>- {money(record.billDiscountAmount)}</strong>
+      </div>
+    )}
+
+    <div>
+      <span>Taxable Amount</span>
+      <strong>{money(record.taxableAmount)}</strong>
+    </div>
+
+    {Number(record.cgstAmount || 0) > 0 && (
+      <div>
+        <span>CGST</span>
+        <strong>{money(record.cgstAmount)}</strong>
+      </div>
+    )}
+
+    {Number(record.sgstAmount || 0) > 0 && (
+      <div>
+        <span>SGST</span>
+        <strong>{money(record.sgstAmount)}</strong>
+      </div>
+    )}
+
+    {Number(record.igstAmount || 0) > 0 && (
+      <div>
+        <span>IGST</span>
+        <strong>{money(record.igstAmount)}</strong>
+      </div>
+    )}
+
+    <div>
+      <span>Round Off</span>
+      <strong>{money(record.roundOffAmount)}</strong>
+    </div>
+
+    <div className="grand-total">
+      <span>Grand Total</span>
+      <strong>{money(grandTotal)}</strong>
+    </div>
+  </div>
+</section>
 
       <footer className="proforma-footer"><strong>Terms</strong><span>This is a proforma invoice and does not create a tax liability or deduct stock.</span></footer>
     </article>

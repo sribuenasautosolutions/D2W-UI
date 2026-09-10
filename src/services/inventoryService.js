@@ -84,11 +84,14 @@ export const getProfitReport = async (storeId) => {
   const response = await api.get(url);
   return response.data;
 };
-export const getBatchReport = async (storeId) => {
-    const url = storeId
-        ? `/store-inventory/batches/store/${storeId}`
-        : `/store-inventory/batches`;
-    const response = await api.get(url);
+export const getBatchReport = async (storeId, params = {}) => {
+  const url = storeId
+    ? `/store-inventory/batches/store/${storeId}`
+    : `/store-inventory/batches`;
 
-    return response.data;
+  const response = await api.get(url, {
+    params,
+  });
+
+  return response.data;
 };

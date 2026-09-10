@@ -558,26 +558,31 @@ function BatchReportPage() {
     }, [isOwner]);
 
     /* ---- existing data load logic (unchanged, only wrapped with loading/error UI state) ---- */
-    const loadBatches = async () => {
-        try {
-            setLoading(true);
-            setError(null);
+  const loadBatches = async () => {
+    try {
+        setLoading(true);
+        setError(null);
 
-            const data = await getBatchReport(selectedStoreId);
+        const data = await getBatchReport(selectedStoreId, {
+            page: page - 1,
+            size: pageSize,
+            sortBy: sortConfig.key,
+            direction: sortConfig.direction.toUpperCase(),
+        });
 
-            setBatches(data);
-        } catch (e) {
-            console.error(e);
-            setError("We couldn't load the batch report. Check your connection and try again.");
-        } finally {
-            setLoading(false);
-        }
-    };
+        setBatches(Array.isArray(data?.content) ? data.content : []);
+    } catch (e) {
+        console.error(e);
+        setError("We couldn't load the batch report. Check your connection and try again.");
+    } finally {
+        setLoading(false);
+    }
+};
 
     useEffect(() => {
-        loadBatches();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedStoreId]);
+    loadBatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [selectedStoreId, page, pageSize, sortConfig]);
 
     /* ---- filter dropdown option lists, derived from loaded data ---- */
     const brandOptions = useMemo(() => uniqueValues(batches, "brandName"), [batches]);

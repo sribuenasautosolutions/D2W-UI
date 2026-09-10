@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, ChevronLeft, ChevronRight, CirclePlus, KeyRound, Mail, Pencil, Phone, Search, ShieldCheck, UserRound, X } from "lucide-react";
+import { Building2, ChevronLeft, ChevronRight, CirclePlus, Eye, EyeOff, KeyRound, Mail, Pencil, Phone, Search, ShieldCheck, UserRound, X } from "lucide-react";
 import api from "../../services/api";
 
 const emptyForm = {
@@ -28,6 +28,13 @@ function apiErrorMessage(error, fallback) {
     return fallback;
 }
 
+function apiFieldErrors(error) {
+    const data = error.response?.data;
+    return data?.fieldErrors && typeof data.fieldErrors === "object"
+        ? data.fieldErrors
+        : {};
+}
+
 function UsersPage() {
     const currentUser = getStoredUser();
     const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
@@ -47,14 +54,25 @@ function UsersPage() {
     const [error, setError] = useState("");
     const [createError, setCreateError] = useState("");
     const [editError, setEditError] = useState("");
+    const [createFieldErrors, setCreateFieldErrors] = useState({});
+    const [editFieldErrors, setEditFieldErrors] = useState({});
     const [statusMessage, setStatusMessage] = useState(null);
     const [success, setSuccess] = useState("");
     const [editUser, setEditUser] = useState(null);
     const [editForm, setEditForm] = useState(null);
     const [changePassword, setChangePassword] = useState(false);
+    const [showCreatePassword, setShowCreatePassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const updateField = (field, value) => {
         setForm((current) => ({ ...current, [field]: value }));
+        setCreateFieldErrors((current) => {
+            if (!current[field]) return current;
+            const next = { ...current };
+            delete next[field];
+            return next;
+        });
     };
 
     const loadUsers = async () => {
@@ -124,6 +142,7 @@ function UsersPage() {
     const saveUser = async (event) => {
         event.preventDefault();
         setCreateError("");
+        setCreateFieldErrors({});
         setSuccess("");
 
         if (form.email.trim().toLowerCase() !==
@@ -167,6 +186,7 @@ function UsersPage() {
             );
             await loadUsers();
         } catch (requestError) {
+            setCreateFieldErrors(apiFieldErrors(requestError));
             setCreateError(apiErrorMessage(requestError, "Unable to create user"));
         } finally {
             setSaving(false);
@@ -187,6 +207,8 @@ function UsersPage() {
             active: user.active,
         });
         setChangePassword(false);
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
         setEditError("");
     };
 
@@ -275,7 +297,9 @@ function UsersPage() {
                         onClick={() => {
                             setForm(emptyForm);
                             setCreateError("");
+                            setCreateFieldErrors({});
                             setSuccess("");
+                            setShowCreatePassword(false);
                             setCreateOpen(true);
                         }}>
                         <CirclePlus size={17} />
@@ -318,7 +342,7 @@ function UsersPage() {
                         {createError && <div style={S.modalError}>{createError}</div>}
 
                         <form onSubmit={saveUser} style={S.createForm}>
-                        <Field label="Full name">
+                        <Field label="Full name" error={createFieldErrors.name}>
                             <input
                                 required
                                 minLength={2}
@@ -330,7 +354,7 @@ function UsersPage() {
                             />
                         </Field>
 
-                        <Field label="Email">
+                        <Field label="Email" error={createFieldErrors.email}>
                             <input
                                 required
                                 type="email"
@@ -352,7 +376,7 @@ function UsersPage() {
                             />
                         </Field>
 
-                        <Field label="Phone number">
+                        <Field label="Phone number" error={createFieldErrors.phone}>
                             <input
                                 required
                                 inputMode="numeric"
@@ -369,16 +393,27 @@ function UsersPage() {
                         </Field>
 
                         <Field label="Password">
-                            <input
-                                required
-                                type="password"
-                                minLength={8}
-                                maxLength={72}
-                                value={form.password}
-                                onChange={(event) =>
-                                    updateField("password", event.target.value)}
-                                style={S.input}
-                            />
+                            <div style={S.passwordWrap}>
+                                <input
+                                    required
+                                    type={showCreatePassword ? "text" : "password"}
+                                    minLength={8}
+                                    maxLength={72}
+                                    value={form.password}
+                                    onChange={(event) =>
+                                        updateField("password", event.target.value)}
+                                    style={{ ...S.input, paddingRight: 42 }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreatePassword((current) => !current)}
+                                    style={S.passwordButton}
+                                    title={showCreatePassword ? "Hide password" : "Show password"}
+                                    aria-label={showCreatePassword ? "Hide password" : "Show password"}
+                                >
+                                    {showCreatePassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                </button>
+                            </div>
                         </Field>
 
                         {isSuperAdmin && (
@@ -597,12 +632,48 @@ function UsersPage() {
                             {changePassword && (
                                 <>
                                     <Field label="New password">
-                                        <input required type="password" style={S.input} value={editForm.newPassword}
-                                            onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })} />
+                                        <div style={S.passwordWrap}>
+                                            <input
+                                                required
+                                                type={showNewPassword ? "text" : "password"}
+                                                minLength={8}
+                                                maxLength={72}
+                                                style={{ ...S.input, paddingRight: 42 }}
+                                                value={editForm.newPassword}
+                                                onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword((current) => !current)}
+                                                style={S.passwordButton}
+                                                title={showNewPassword ? "Hide password" : "Show password"}
+                                                aria-label={showNewPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showNewPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                            </button>
+                                        </div>
                                     </Field>
                                     <Field label="Confirm new password">
-                                        <input required type="password" style={S.input} value={editForm.confirmPassword}
-                                            onChange={(e) => setEditForm({ ...editForm, confirmPassword: e.target.value })} />
+                                        <div style={S.passwordWrap}>
+                                            <input
+                                                required
+                                                type={showConfirmPassword ? "text" : "password"}
+                                                minLength={8}
+                                                maxLength={72}
+                                                style={{ ...S.input, paddingRight: 42 }}
+                                                value={editForm.confirmPassword}
+                                                onChange={(e) => setEditForm({ ...editForm, confirmPassword: e.target.value })}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword((current) => !current)}
+                                                style={S.passwordButton}
+                                                title={showConfirmPassword ? "Hide password" : "Show password"}
+                                                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showConfirmPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                            </button>
+                                        </div>
                                     </Field>
                                 </>
                             )}
@@ -654,11 +725,12 @@ function UsersPage() {
     );
 }
 
-function Field({ label, children }) {
+function Field({ label, error, children }) {
     return (
         <label style={S.field}>
             <span style={S.label}>{label}</span>
             {children}
+            {error && <span style={S.fieldError}>{error}</span>}
         </label>
     );
 }
@@ -895,6 +967,17 @@ const S = {
         width: "100%", height: 39, padding: "0 10px", border: "1px solid #CBD5E1",
         borderRadius: 5, background: "#FFFFFF", color: "#0F172A",
         font: "inherit", fontSize: 13, boxSizing: "border-box",
+    },
+    passwordWrap: {
+        position: "relative", width: "100%",
+    },
+    passwordButton: {
+        position: "absolute", right: 1, top: 1, width: 38, height: 37,
+        border: 0, background: "transparent", color: "#64748B",
+        display: "grid", placeItems: "center", cursor: "pointer",
+    },
+    fieldError: {
+        color: "#B91C1C", fontSize: 11.5, lineHeight: 1.35,
     },
     readOnly: {
         minHeight: 39, padding: "0 10px", display: "flex", alignItems: "center",
