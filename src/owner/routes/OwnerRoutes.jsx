@@ -15,10 +15,15 @@ import ProformaListPage from "../../sales/pages/ProformaListPage";
 import ProformaViewPage from "../../sales/pages/ProformaViewPage";
 import PaymentPage from "../../pos/pages/PaymentPageor";
 
+import LeadCreate from "../components/leads/LeadCreate";
+import LeadList from "../components/leads/LeadList";
+
+
 
 import InvoicePage from "../../pos/pages/InvoicePage";
 
 import DashboardLayout from "../layouts/DashboardLayout";
+import LeadDetails from "../components/leads/LeadDetails";
 
 function OwnerRoutes() {
   return (
@@ -94,7 +99,31 @@ function OwnerRoutes() {
       <Route path="/sales/proforma/new" element={<NewSalePage documentMode="PROFORMA" />} />
       <Route path="/sales/proforma/:id/edit" element={<NewSalePage documentMode="PROFORMA" />} />
       <Route path="/sales/proforma/:id" element={<ProformaViewPage />} />
+<Route
+    path="/sales/leads"
+    element={
+        <DashboardLayout>
+            <LeadList />
+        </DashboardLayout>
+    }
+/>
+<Route
+    path="/sales/leads/:id"
+    element={
+        <DashboardLayout>
+            <LeadDetails />
+        </DashboardLayout>
+    }
+/>
 
+<Route
+    path="/sales/leads/new"
+    element={
+        <DashboardLayout>
+            <LeadCreate />
+        </DashboardLayout>
+    }
+/>
   
       <Route
   path="/sales/payment/:orderId"

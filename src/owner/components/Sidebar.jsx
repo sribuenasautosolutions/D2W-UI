@@ -427,6 +427,20 @@ const [salesOpen, setSalesOpen] = useState(
             <ReceiptText size={15} />
             <span>Proforma Invoices</span>
         </Link>
+        <Link
+    to={`${salesBase}/leads`}
+    style={{
+        ...moduleLinkStyle(
+            location.pathname.startsWith(`${salesBase}/leads`),
+            "",
+            ""
+        ),
+        paddingLeft: "40px"
+    }}
+>
+    <ClipboardList size={15} />
+    <span>Leads</span>
+</Link>
     </div>
 )}
 
