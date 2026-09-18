@@ -1,3 +1,4 @@
+import { ProductUnitLabel } from "../../components/ProductUnitFields";
 import {
     useCallback,
     useEffect,
@@ -804,6 +805,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
                         product.name ??
                         "-",
 
+                    stockUnit: product.stockUnit || "PCS", packSize: product.packSize ?? null, contentsUnit: product.contentsUnit ?? null,
                     quantity: 1,
                     availableQuantity,
 
@@ -2257,7 +2259,7 @@ const totalMrp = useMemo(
                                                         {
                                                             productName
                                                         }
-                                                    </strong>
+                                                    </strong><ProductUnitLabel product={product}/>
 
                                                     <span>
                                                         Part Number:{" "}
@@ -2645,7 +2647,7 @@ const totalMrp = useMemo(
 
                                                         {
                                                             item.itemName
-                                                        }
+                                                        }<ProductUnitLabel product={item}/>
 
                                                     </td>
 

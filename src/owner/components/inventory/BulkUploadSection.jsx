@@ -26,6 +26,7 @@ const editableFields = [
   ["mrp", "MRP"],
   ["sellingPrice", "Selling Price"],
   ["gstPercentage", "GST %"],
+  ["discountPercentage", "Discount %"],
   ["rackNumber", "Rack Number"],
 ];
 
@@ -81,7 +82,15 @@ function downloadBlob(blob, filename) {
  * PriceCalculationService in the backend is the source of truth.
  */
 
+function sourceRow(row) {
+  const next = { ...row };
+  const field = { MRP: "mrp", PURCHASE_PRICE: "purchasePrice", SELLING_PRICE: "sellingPrice" }[row.priceSource];
+  if (field) ["mrp", "purchasePrice", "sellingPrice"].forEach(key => { if (key !== field) next[key] = null; });
+  return next;
+}
+
 function validatePriceSelection(row, errors) {
+  row = sourceRow(row);
   const prices = [
     ["purchasePrice", "Purchase Price"],
     ["mrp", "MRP"],
@@ -127,6 +136,8 @@ function validatePriceSelection(row, errors) {
 
 function validateEditedRow(row) {
   const errors = [];
+  const discount = Number(row.discountPercentage ?? 0);
+  if (!Number.isFinite(discount) || discount < 0 || discount >= 100) errors.push("Discount must be 0 or greater and less than 100%");
 
   if (
     String(row.partNumber || "")
@@ -324,6 +335,7 @@ function recheckRows(rows) {
 export default function BulkUploadSection() {
 
   const user = currentUser();
+  const [allDiscount, setAllDiscount] = useState("");
 
   const isSuperAdmin =
     user.role === "SUPER_ADMIN";
@@ -848,6 +860,7 @@ export default function BulkUploadSection() {
 
             next[field] =
               value;
+            next.priceSource = { purchasePrice: "PURCHASE_PRICE", sellingPrice: "SELLING_PRICE", mrp: "MRP" }[field];
           }
 
           return next;
@@ -861,43 +874,44 @@ export default function BulkUploadSection() {
    * ===========================================================
    */
 
-  const saveEditedRow =
-    () => {
-
-      if (!editing) {
-        return;
+  const recalculateRows = async (nextRows) => {
+    setBusy(true);
+    setError("");
+    try {
+      const pending = nextRows.filter(row => row.status !== "IMPORTED").map(row => ({
+        ...sourceRow(row), discountPercentage: Number(row.discountPercentage || 0),
+      }));
+      const calculated = [];
+      for (let offset = 0; offset < pending.length; offset += CHUNK_SIZE) {
+        const response = await api.post("/store-inventory/bulk-upload/recalculate", { rows: pending.slice(offset, offset + CHUNK_SIZE) });
+        calculated.push(...response.data.rows);
       }
+      const checked = recheckRows(calculated).map((row, index) => {
+        const errors = [...new Set([...row.errors, ...(calculated[index].errors || [])])];
+        return { ...row, errors, status: errors.length ? "INVALID" : "VALID" };
+      });
+      const updated = new Map(checked.map(row => [row.rowNumber, row]));
+      refreshCounts(nextRows.map(row => updated.get(row.rowNumber) || row));
+      return true;
+    } catch (requestError) {
+      setError(errorMessage(requestError, "Prices could not be recalculated. Please retry."));
+      return false;
+    } finally { setBusy(false); }
+  };
 
-      const editedRow =
-        {
-          ...editing,
-        };
+  const saveEditedRow = async () => {
+    if (!editing || busy) return;
+    if (await recalculateRows(rows.map(row => row.rowNumber === editing.rowNumber ? editing : row))) setEditing(null);
+  };
 
-      const nextRows =
-        rows.map(
-          (row) =>
-            row.rowNumber ===
-            editing.rowNumber
-              ? {
-                  ...row,
-                  ...editedRow,
-                }
-              : row
-        );
-
-      const checkedRows =
-        recheckRows(
-          nextRows
-        );
-
-      refreshCounts(
-        checkedRows
-      );
-
-      setEditing(
-        null
-      );
-    };
+  const applyDiscountToAll = async () => {
+    const discount = Number(allDiscount);
+    if (allDiscount.trim() === "" || !Number.isFinite(discount) || discount < 0 || discount >= 100) {
+      setError("Enter a discount from 0 up to, but not including, 100%.");
+      return;
+    }
+    await recalculateRows(rows.map(row => row.status === "IMPORTED" ? row : { ...row, discountPercentage: discount }));
+  };
 
   /*
    * ===========================================================
@@ -1632,6 +1646,14 @@ export default function BulkUploadSection() {
 
           </div>
 
+          <div className="bulk-discount-control">
+            <label htmlFor="opening-stock-discount">Discount for all pending rows (%)</label>
+            <input id="opening-stock-discount" type="number" min="0" max="99.99" step="0.01"
+              value={allDiscount} disabled={busy} onChange={event => setAllDiscount(event.target.value)} />
+            <button type="button" className="bulk-button bulk-button--secondary" disabled={busy || !rows.some(row => row.status !== "IMPORTED")}
+              onClick={applyDiscountToAll}>Apply to all rows</button>
+            <small>Replaces discounts on all pending rows, including hidden rows. You can edit individual rows afterward. Entered purchase prices are already final costs.</small>
+          </div>
           <div className="bulk-table-wrap">
 
             <table className="bulk-table">
@@ -1667,6 +1689,9 @@ export default function BulkUploadSection() {
                     MRP
                   </th>
 
+                  <th>Discount %</th>
+                  <th>Discount / unit</th>
+                  <th>Purchase total</th>
                   <th>
                     GST
                   </th>
@@ -1757,6 +1782,9 @@ export default function BulkUploadSection() {
                         }
                       </td>
 
+                      <td>{row.discountPercentage ?? 0}%</td>
+                      <td>{row.discountAmount ?? "-"}</td>
+                      <td>{row.lineTotal ?? "-"}</td>
                       <td>
                         {
                           row.gstPercentage ??
@@ -1816,9 +1844,10 @@ export default function BulkUploadSection() {
                         <button
                           className="bulk-icon"
                           title="Edit row"
+                          disabled={busy || row.status === "IMPORTED"}
                           onClick={() =>
                             setEditing(
-                              row
+                              sourceRow(row)
                             )
                           }
                         >
@@ -1830,6 +1859,7 @@ export default function BulkUploadSection() {
                         <button
                           className="bulk-icon"
                           title="Remove row"
+                          disabled={busy || row.status === "IMPORTED"}
                           onClick={() =>
                             removeRow(
                               row.rowNumber
@@ -1931,6 +1961,7 @@ export default function BulkUploadSection() {
                         "sellingPrice",
                         "mrp",
                         "gstPercentage",
+                        "discountPercentage",
                       ].includes(
                         field
                       )
@@ -1944,6 +1975,7 @@ export default function BulkUploadSection() {
                           "sellingPrice",
                           "mrp",
                           "gstPercentage",
+                        "discountPercentage",
                         ].includes(
                           field
                         )
@@ -1956,6 +1988,7 @@ export default function BulkUploadSection() {
                           "sellingPrice",
                           "mrp",
                           "gstPercentage",
+                        "discountPercentage",
                         ].includes(
                           field
                         )
@@ -2021,7 +2054,7 @@ export default function BulkUploadSection() {
                   saveEditedRow
                 }
               >
-                Save row
+                {busy ? "Calculating..." : "Save row"}
               </button>
 
             </div>

@@ -194,10 +194,8 @@ function StoresPage() {
 
         } catch (error) {
 
-            // Clear district and state when API fails
-            updateField("district", "");
-            updateField("state", "");
-
+            // Do not clear existing district/state when pincode lookup fails.
+            // This prevents existing store address data from disappearing.
             setFieldErrors((current) => ({
                 ...current,
                 pincode: "Unable to verify this pincode",
@@ -384,17 +382,15 @@ function StoresPage() {
 
             ...form,
 
-            storeName:
-                form.storeName.trim(),
+            storeName: form.storeName.trim(),
+            ownerName: form.ownerName.trim(),
+            email: form.email.trim(),
+            gstno: form.gstno.trim().toUpperCase(),
 
-            ownerName:
-                form.ownerName.trim(),
-
-            email:
-                form.email.trim(),
-
-            gstno:
-                form.gstno.trim().toUpperCase(),
+            address: form.address.trim(),
+            district: form.district?.trim() || "",
+            state: form.state?.trim() || "",
+            pincode: form.pincode.trim(),
 
             /*
              * Country is always India
@@ -1373,18 +1369,6 @@ function StoresPage() {
 
                                         fetchPincodeDetails(
                                             pincode
-                                        );
-
-                                    } else {
-
-                                        updateField(
-                                            "district",
-                                            ""
-                                        );
-
-                                        updateField(
-                                            "state",
-                                            ""
                                         );
                                     }
                                 }}

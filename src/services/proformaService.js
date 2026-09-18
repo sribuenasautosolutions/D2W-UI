@@ -23,3 +23,9 @@ export const toProformaSaleSource = (record) => ({
   })),
   sourceProformaId: record.id,
 });
+
+export const getLeadWorkflow = async id => (await apiclient.get(`/proforma-invoices/${id}/lead-workflow`)).data;
+export const recordLeadDecision = async (id, payload) => (await apiclient.post(`/proforma-invoices/${id}/customer-decision`, payload)).data;
+export const prepareLeadSale = async (id, payload) => (await apiclient.post(`/proforma-invoices/${id}/fulfillments`, payload)).data;
+export const approveLeadSale = async (id, fid) => (await apiclient.post(`/proforma-invoices/${id}/fulfillments/${fid}/approve`, {customerApproved:true})).data;
+export const convertLeadSale = async (id, fid) => (await apiclient.post(`/proforma-invoices/${id}/fulfillments/${fid}/convert`)).data;

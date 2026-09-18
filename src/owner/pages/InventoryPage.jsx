@@ -4,6 +4,7 @@ import BulkUploadSection from "../components/inventory/BulkUploadSection";
 import CurrentStockSection from "../components/inventory/CurrentStockSection";
 import InventoryAdjustmentSection from "../components/inventory/InventoryAdjustmentSection";
 import InventoryTransactionsSection from "../components/inventory/InventoryTransactionSection";
+import BarcodeGeneratePage from "../components/inventory/BarcodeGeneratePage";
 
 const INVENTORY_VIEWS = {
     stock: {
@@ -31,6 +32,11 @@ const INVENTORY_VIEWS = {
         description: "Inspect batch availability, pricing, and receipt details.",
         Component: BatchReportSection,
     },
+    barcode: {
+    title: "Barcodes",
+    description: "Generate and print barcodes for store inventory.",
+    Component: BarcodeGeneratePage,
+},
 };
 
 function InventoryPage() {

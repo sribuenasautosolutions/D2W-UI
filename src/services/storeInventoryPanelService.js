@@ -85,3 +85,17 @@ export const createInventoryAdjustment = async (dto) => {
   const response = await api.post(`/inventory-adjustment`, dto);
   return response.data;
 };
+export const printBarcodes = async (storeId, items) => {
+    const response = await api.post(
+        "/barcodes/print",
+        {
+            storeId,
+            items,
+        },
+        {
+            responseType: "blob",
+        }
+    );
+
+    return response.data;
+};

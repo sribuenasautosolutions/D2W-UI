@@ -1,3 +1,4 @@
+import ProductUnitFields, { ProductUnitLabel } from "../../../components/ProductUnitFields";
 import { useState, useEffect, useMemo } from "react";
 import {
   Boxes,
@@ -11,7 +12,7 @@ import {
 import apiclient from "../../../services/apiclient";
 
 const EMPTY_FORM = {
-  itemName: "",
+  itemName: "", stockUnit: "PCS", packSize: null, contentsUnit: null,
   description: "",
   partNumber: "",
   oemNumber: "",
@@ -137,7 +138,7 @@ function ItemsSection() {
     setSaving(true);
     try {
       const payload = {
-        itemName: formData.itemName.trim(),
+        itemName: formData.itemName.trim(), stockUnit: formData.stockUnit, packSize: formData.packSize, contentsUnit: formData.contentsUnit,
         description: formData.description.trim() || null,
         partNumber: formData.partNumber.trim(),
         oemNumber: formData.oemNumber.trim() || null,
@@ -269,7 +270,7 @@ function ItemsSection() {
               <tbody>
                 {filteredItems.map((item) => (
                   <tr key={item.id} style={S.tr}>
-                    <td style={S.tdStrong}>{item.itemName}</td>
+                    <td style={S.tdStrong}>{item.itemName}<ProductUnitLabel product={item}/></td>
                     <td style={S.td}>{item.partNumber}</td>
                     <td style={S.td}>{item.brandName || "—"}</td>
                     <td style={S.td}>{item.categoryName || "—"}</td>
@@ -403,7 +404,7 @@ function ItemsSection() {
               </div>
             )}
 
-            <div style={S.modalActions}>
+            <section className="product-units-section"><h3>Unit and pack size</h3><p>Quantity counts the selected stock unit. Example: one can contains 3.5 L.</p><ProductUnitFields value={formData} onChange={setFormData} disabled={saving}/></section><div style={S.modalActions}>
               <button style={S.ghostBtn} onClick={resetAddModal}>
                 Cancel
               </button>
@@ -721,7 +722,9 @@ const S = {
     background: "#fff",
     borderRadius: 12,
     padding: 20,
-    width: 340,
+    width: 520,
+    maxWidth: "calc(100vw - 32px)",
+    boxSizing: "border-box",
     maxHeight: "82vh",
     overflowY: "auto",
     boxShadow: "0 10px 30px rgba(0,0,0,0.15)",

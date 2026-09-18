@@ -1,3 +1,4 @@
+import { ProductUnitLabel } from "../../../components/ProductUnitFields";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -54,7 +55,7 @@ const navigate = useNavigate();
 }
             </div>
             <div style={{ fontSize: "11px", color: "#64748b" }}>{product.brandName}</div>
-            <div style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: 1.3, minHeight: "34px" }}>{product.itemName}</div>
+            <div style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: 1.3, minHeight: "34px" }}>{product.itemName}<ProductUnitLabel product={product}/></div>
             {product.partNumber && (
                 <div style={{ fontSize: "11px", color: "#94a3b8" }}>Part: {product.partNumber}</div>
             )}
@@ -67,11 +68,11 @@ const navigate = useNavigate();
             fontWeight: "400"
         }}
     >
-        {" "}· Qty: {product.quantity}
+        {" "}· Qty: {product.quantity} {product.stockUnit || "PCS"}
     </span>
 )}
             </div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: "#2563eb" }}>₹{product.sellingPrice}</div>
+            <div style={{ fontSize: "15px", fontWeight: "700", color: "#2563eb" }}>₹{product.sellingPrice} / {product.stockUnit || "PCS"}</div>
            <div
     style={{
         display: "flex",

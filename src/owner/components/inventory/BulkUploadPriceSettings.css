@@ -116,3 +116,7 @@
     flex-wrap: wrap;
   }
 }
+
+.bulk-discount-control { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:16px; }
+.bulk-discount-control input { width:110px; padding:8px; border:1px solid #cbd5e1; border-radius:6px; }
+.bulk-discount-control small { flex-basis:100%; color:#475569; }
