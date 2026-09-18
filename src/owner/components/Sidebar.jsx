@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+    Barcode,
     Boxes,
     Building2,
     CarFront,
@@ -108,6 +109,7 @@ const [salesOpen, setSalesOpen] = useState(
         { key: "transactions", label: "Transactions", icon: History },
         { key: "adjustment", label: "Adjustments", icon: SlidersHorizontal },
         { key: "batchreport", label: "Batch Report", icon: ClipboardList },
+        { key: "barcode", label: "Barcodes", icon: Barcode },
     ];
 
     const purchaseItems = [

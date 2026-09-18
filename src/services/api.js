@@ -113,27 +113,32 @@ api.interceptors.response.use(
                     }
                 }
             );
+const newAccessToken = refreshResponse?.data?.token;
+const newRefreshToken = refreshResponse?.data?.refreshToken;
 
-            const newAccessToken = refreshResponse?.data?.token;
+if (!newAccessToken) {
+    throw new Error("Refresh response did not contain an access token");
+}
 
-            if (!newAccessToken) {
-                throw new Error("Refresh response did not contain an access token");
-            }
+if (!newRefreshToken) {
+    throw new Error("Refresh response did not contain a refresh token");
+}
 
-            const updatedUser = {
-                ...user,
-                token: newAccessToken
-            };
+const updatedUser = {
+    ...user,
+    token: newAccessToken,
+    refreshToken: newRefreshToken
+};
 
-            localStorage.setItem(
-                "user",
-                JSON.stringify(updatedUser)
-            );
+localStorage.setItem(
+    "user",
+    JSON.stringify(updatedUser)
+);
 
-            localStorage.setItem(
-                "token",
-                newAccessToken
-            );
+localStorage.setItem(
+    "token",
+    newAccessToken
+);
 
             processQueue(null, newAccessToken);
 

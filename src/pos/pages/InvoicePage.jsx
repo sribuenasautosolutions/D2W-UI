@@ -1,3 +1,4 @@
+import { ProductUnitLabel } from "../../components/ProductUnitFields";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Download, Printer, Plus } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -246,11 +247,11 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
             {items.map((item, index) => <tr key={`${item.batchId || "item"}-${index}`}>
               <td>{index + 1}</td>
               <td>
-                <strong>{text(item.itemName || item.productName)}</strong>
+                <strong>{text(item.itemName || item.productName)}</strong><ProductUnitLabel product={item}/>
                 <small className="invoice-partno">Part No: {text(item.partNumber)} &nbsp;|&nbsp; HSN: {text(itemHsn(item))}</small>
               </td>
               <td>{text(item.brandName)}</td>
-              <td className="invoice-num">{text(item.quantity)}</td>
+              <td className="invoice-num">{text(item.quantity)} {item.stockUnit || "PCS"}</td>
               <td className="invoice-num">{money(item.mrp ?? item.sellingPrice)}</td>
               <td className="invoice-num">{money(item.sellingPrice)}</td>
               {hasDiscount && (

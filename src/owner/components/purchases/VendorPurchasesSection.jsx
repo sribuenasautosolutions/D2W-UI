@@ -1,3 +1,4 @@
+import ProductUnitFields from "../../../components/ProductUnitFields";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CirclePlus, Download, Filter, MoreHorizontal,
@@ -11,7 +12,7 @@ const emptyRow = () => ({
   key: `${Date.now()}-${Math.random()}`,
   itemId: null,
   partNumber: "",
-  itemName: "",
+  itemName: "", stockUnit: "PCS", packSize: null, contentsUnit: null,
   brandName: "",
   categoryName: "",
   masterName: "",
@@ -756,7 +757,7 @@ function ManualStockReceipt() {
       localProductId: product.localProductId,
       selectedPartNumber: product.partNumber || null,
       partNumber: product.partNumber || "",
-      itemName: product.itemName || "",
+      itemName: product.itemName || "", stockUnit: product.stockUnit || "PCS", packSize: product.packSize ?? null, contentsUnit: product.contentsUnit ?? null,
       brandName: product.brandName || "",
       categoryName: product.categoryName || "",
       masterName: product.masterName || "",
@@ -845,7 +846,7 @@ function ManualStockReceipt() {
           localProductId: row.selectedPartNumber?.trim().toUpperCase() === row.partNumber.trim().toUpperCase()
             ? row.localProductId : null,
           partNumber: row.partNumber.trim(),
-          itemName: row.itemName.trim(),
+          itemName: row.itemName.trim(), stockUnit: row.stockUnit || "PCS", packSize: row.packSize || null, contentsUnit: row.contentsUnit || null,
           brandName: row.brandName.trim(),
           receivedQuantity: Number(row.quantity),
           damagedQuantity: Number(row.damagedQuantity || 0),
@@ -969,7 +970,7 @@ function ManualStockReceipt() {
       localProductId: item.localProductId,
       selectedPartNumber: item.partNumber,
       partNumber: item.partNumber || "",
-      itemName: item.itemName || "",
+      itemName: item.itemName || "", stockUnit: item.stockUnit || "PCS", packSize: item.packSize ?? null, contentsUnit: item.contentsUnit ?? null,
       brandName: item.brandName || "",
       categoryName: item.categoryName || "",
       masterName: item.masterName || "",
@@ -1764,7 +1765,8 @@ function ManualStockReceipt() {
                     <colgroup>
                       <col style={{ width: 32 }} />
                       <col style={{ width: 110 }} />
-                      <col style={{ width: 130 }} />
+                      <col style={{ width: 170 }} />
+                      <col style={{ width: 270 }} />
                       <col style={{ width: 90 }} />
                       <col style={{ width: 65 }} />
                       <col style={{ width: 58 }} />
@@ -1782,6 +1784,7 @@ function ManualStockReceipt() {
                         <th style={S.th}>#</th>
                         <th style={S.th}>Part Number</th>
                         <th style={S.th}>Item Name</th>
+                        <th style={S.th}>Unit / Pack size</th>
                         <th style={S.th}>Brand</th>
                         <th style={S.th}>HSN</th>
                         <th style={S.th}>Qty</th>
@@ -1847,6 +1850,7 @@ function ManualStockReceipt() {
                               onChange={findSuggestions}
                               onSelect={selectSuggestion}
                             />
+                            </td><td className="product-unit-table-cell"><ProductUnitFields compact value={row} disabled={Boolean(row.productId || row.localProductId)} onChange={next=>setRows(previous=>previous.map(item=>item.key===row.key?{...item,stockUnit:next.stockUnit,packSize:next.packSize,contentsUnit:next.contentsUnit}:item))}/>
                           </td>
 
                           <CellInput
@@ -2528,7 +2532,7 @@ const S = {
   gstSettingsBar: { minHeight: 58, padding: "0 28px", display: "flex", alignItems: "center", gap: 20, borderBottom: "1px solid #E5E7EB", color: "#4B5563", fontSize: 12 },
   gstStandaloneInput: { width: 72, height: 34, marginLeft: 7, padding: "0 8px", border: "1px solid #C9CED8", borderRadius: 3 },
   tableWrap: { overflowX: "auto", overflowY: "visible", position: "relative", zIndex: 3, minHeight: "250px", borderBottom: "1px solid #C3C6D7", background: "#FFF" },
-  table: { width: "100%", minWidth: 1060, tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 0, fontSize: 12 },
+  table: { width: "100%", minWidth: 1400, tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 0, fontSize: 12 },
   th: { position: "sticky", top: 0, zIndex: 2, height: 40, padding: "0 8px", borderBottom: "1px solid #202224", background: "#333333", color: "#FFFFFF", textAlign: "left", fontSize: 9.5, fontWeight: 600, textTransform: "uppercase", whiteSpace: "nowrap" },
   td: { padding: 5, borderBottom: "1px solid #E5E7EB", verticalAlign: "top" },
   rowNumber: { padding: "13px 8px", borderBottom: "1px solid #F1F5F9", color: "#64748B", textAlign: "center" },

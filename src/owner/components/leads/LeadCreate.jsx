@@ -1,3 +1,4 @@
+import LeadItemsTable from "./LeadItemsTable";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -613,7 +614,7 @@ const handleCreateLead = async () => {
             createdLead
         );
 
-       navigate(isSuperAdmin ? "/owner/sales" : "/store/sales");
+       navigate(`${isSuperAdmin ? "/owner/sales" : "/store/sales"}/leads/${createdLead.id}`);
     } catch (error) {
         console.error(
             "Unable to create lead:",
@@ -688,7 +689,7 @@ const handleCreateLead = async () => {
                 <button
                     type="button"
                     onClick={() =>
-                        navigate("/owner/sales")
+                        navigate(isSuperAdmin ? "/owner/sales/leads" : "/store/sales/leads")
                     }
                     style={{
                         display: "flex",
@@ -1383,65 +1384,10 @@ const handleCreateLead = async () => {
                     />
                 </div>
 
-                {/* =====================================================
-                    LEAD ITEMS
-                ===================================================== */}
-
-                <div style={{ marginTop: "28px", paddingTop: "24px", borderTop: "1px solid #E2E8F0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                        <div>
-                            <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "#0F172A" }}>Required Items</h2>
-                            <p style={{ margin: "5px 0 0", fontSize: "13px", color: "#64748B" }}>
-                                Add each part or requirement separately.
-                            </p>
-                        </div>
-                        <button type="button" onClick={addLeadItem} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 13px", border: "1px solid #2563EB", borderRadius: "7px", background: "#FFFFFF", color: "#2563EB", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>
-                            <Plus size={15} />
-                            Add Item
-                        </button>
-                    </div>
-
-                    <div style={{ display: "grid", gap: "16px" }}>
-                        {leadItems.map((item, index) => (
-                            <div key={index} style={{ border: "1px solid #E2E8F0", borderRadius: "9px", padding: "18px", background: "#F8FAFC" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-                                    <strong style={{ fontSize: "14px", color: "#0F172A" }}>Item {index + 1}</strong>
-                                    {leadItems.length > 1 && (
-                                        <button type="button" onClick={() => removeLeadItem(index)} style={{ border: 0, background: "transparent", color: "#DC2626", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>
-                                            Remove
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 120px)", gap: "12px" }}>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: 600, color: "#475569" }}>Requirement *</label>
-                                        <input type="text" value={item.requirement} onChange={(event) => handleLeadItemChange(index, "requirement", event.target.value)} placeholder="Brake pad" style={{ width: "100%", boxSizing: "border-box", height: "40px", padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "13px", outline: "none" }} />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: 600, color: "#475569" }}>Vehicle</label>
-                                        <input type="text" value={item.vehicleDescription} onChange={(event) => handleLeadItemChange(index, "vehicleDescription", event.target.value)} placeholder="Maruti Swift" style={{ width: "100%", boxSizing: "border-box", height: "40px", padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "13px", outline: "none" }} />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: 600, color: "#475569" }}>Quantity *</label>
-                                        <input type="number" min="1" value={item.requestedQuantity} onChange={(event) => handleLeadItemChange(index, "requestedQuantity", event.target.value)} style={{ width: "100%", boxSizing: "border-box", height: "40px", padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "13px", outline: "none" }} />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "12px", marginTop: "12px" }}>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: 600, color: "#475569" }}>VIN</label>
-                                        <input type="text" value={item.vin} onChange={(event) => handleLeadItemChange(index, "vin", event.target.value)} placeholder="Optional" style={{ width: "100%", boxSizing: "border-box", height: "40px", padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "13px", outline: "none" }} />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: 600, color: "#475569" }}>Item Notes</label>
-                                        <input type="text" value={item.notes} onChange={(event) => handleLeadItemChange(index, "notes", event.target.value)} placeholder="Optional" style={{ width: "100%", boxSizing: "border-box", height: "40px", padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "13px", outline: "none" }} />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <section className="lead-workflow">
+                    <div className="lead-toolbar"><h2>Required items</h2><button type="button" onClick={addLeadItem}><Plus size={15}/> Add item</button></div>
+                    <LeadItemsTable rows={leadItems} onChange={handleLeadItemChange} onRemove={removeLeadItem}/>
+                </section>
 
                 {/* =====================================================
                     LEAD NOTES
