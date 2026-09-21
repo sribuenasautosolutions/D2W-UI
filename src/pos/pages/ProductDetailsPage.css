@@ -1,0 +1,357 @@
+.product-details-page {
+    min-height: 100vh;
+    padding: 16px 28px 25px;
+    background: #f8fafc;
+    color: #111827;
+    box-sizing: border-box;
+
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* TOP BAR */
+
+.product-details-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.product-back-button,
+.product-close-button {
+    border: none;
+    border-radius: 7px;
+    padding: 8px 15px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+    font-family: inherit;
+}
+
+.product-back-button {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.product-back-button:hover {
+    background: #1d4ed8;
+}
+
+.product-close-button {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.product-close-button:hover {
+    background: #dc2626;
+}
+
+/* MAIN PRODUCT SECTION */
+
+.product-details-main {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: 24px;
+    align-items: start;
+    max-width: 1250px;
+    margin: 0 auto;
+}
+
+/* IMAGE */
+
+.product-image-card {
+    background: #ffffff;
+    padding: 18px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+}
+
+.product-main-image {
+    display: block;
+    width: 100%;
+    height: 390px;
+    object-fit: contain;
+    border-radius: 10px;
+}
+
+/* PRODUCT INFORMATION */
+
+.product-info-section {
+    background: #ffffff;
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+}
+
+.product-brand {
+    margin: 0 0 5px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.product-title {
+    margin: 0 0 10px;
+    font-size: 27px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #111827;
+}
+
+.product-price {
+    margin: 0 0 18px;
+    font-size: 25px;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* PRODUCT INFO GRID */
+
+.product-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.product-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 11px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+}
+
+.product-info-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+}
+
+.product-info-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    word-break: break-word;
+}
+
+/* STOCK */
+
+.product-stock {
+    margin-bottom: 17px;
+}
+
+.product-stock-in,
+.product-stock-out {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 18px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.product-stock-in {
+    color: #15803d;
+    background: #dcfce7;
+}
+
+.product-stock-out {
+    color: #dc2626;
+    background: #fee2e2;
+}
+
+/* PRODUCT ACTIONS */
+
+.product-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.view-compatibility-button,
+.add-to-cart-button {
+    padding: 10px 17px;
+    border: none;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+/* VIEW COMPATIBLE VEHICLES */
+
+.view-compatibility-button {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+}
+
+.view-compatibility-button:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+
+/* ADD TO CART */
+
+.add-to-cart-button {
+    background: #111827;
+    color: #ffffff;
+}
+
+.add-to-cart-button:hover {
+    background: #1f2937;
+    transform: translateY(-1px);
+}
+
+/* COMPATIBILITY SECTION */
+
+.compatibility-section {
+    max-width: 1250px;
+    margin: 20px auto 0;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+}
+
+.compatibility-title {
+    margin: 0 0 12px;
+    font-size: 19px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.compatibility-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.compatibility-table {
+    width: 100%;
+    min-width: 700px;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.compatibility-table th {
+    padding: 10px 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.compatibility-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-size: 12px;
+}
+
+.compatibility-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.compatibility-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.compatibility-empty {
+    margin: 0;
+    padding: 15px 5px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1000px) {
+    .product-details-page {
+        padding: 15px 20px 20px;
+    }
+
+    .product-details-main {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    .product-main-image {
+        height: 330px;
+    }
+
+    .product-title {
+        font-size: 25px;
+    }
+}
+
+@media (max-width: 600px) {
+    .product-details-page {
+        padding: 12px;
+    }
+
+    .product-details-topbar {
+        margin-bottom: 12px;
+    }
+
+    .product-info-section {
+        padding: 16px;
+    }
+
+    .product-image-card {
+        padding: 12px;
+    }
+
+    .product-main-image {
+        height: 260px;
+    }
+
+    .product-title {
+        font-size: 23px;
+    }
+
+    .product-price {
+        font-size: 22px;
+    }
+
+    .product-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .product-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .view-compatibility-button,
+    .add-to-cart-button {
+        width: 100%;
+    }
+
+    .compatibility-section {
+        padding: 15px;
+    }
+
+    .compatibility-title {
+        font-size: 18px;
+    }
+}

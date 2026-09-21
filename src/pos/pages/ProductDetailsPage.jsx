@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getInventoryDetails, getCompatibleVehicles } from "../../services/productService";
 import { useCart } from "../context/CartContext";
+import "./ProductDetailsPage.css";
 
 function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
     const { id: routeId } = useParams();
@@ -11,6 +12,7 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [compatibility, setCompatibility] = useState([]);
+    const [showCompatibility, setShowCompatibility] = useState(false);
 
     const { addToCart } = useCart();
     
@@ -57,8 +59,6 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
     }
 };
 
-
-
     if (loading) {
         return <h2>Loading...</h2>;
     }
@@ -68,42 +68,19 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
     }
 
     return (
-        <div>
-            <div style={{ padding: "15px 20px" }}>
+        <div className="product-details-page">
+            <div className="product-details-topbar">
                 {!embedded && <button
-                    onClick={() => window.history.back()}
-                    style={{
-                        padding: "10px 20px",
-                        background: "#2563eb",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer"
-                    }}
-                >
+                    onClick={() => window.history.back()}  className="product-back-button">
                     ← Back
                 </button>}
-                {embedded && <button onClick={onClose} style={{ float: "right", padding: "8px 14px", border: "none", borderRadius: "6px", background: "#ef4444", color: "white", cursor: "pointer" }}>Close</button>}
+                {embedded && <button onClick={onClose}   className="product-close-button">Close</button>}
             </div>
 
             {/* MAIN SECTION */}
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "60px",
-                    alignItems: "start"
-                }}
-            >
+            <div  className="product-details-main">
                 {/* IMAGE SECTION */}
-                <div
-                    style={{
-                        background: "white",
-                        padding: "30px",
-                        borderRadius: "20px",
-                        boxShadow: "0 2px 12px rgba(0,0,0,0.06)"
-                    }}
-                >
+                <div className="product-image-card">
                     <img
                         src={
                             product.images?.[0] &&
@@ -112,270 +89,178 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
                                 : "https://placehold.co/600x600?text=Deals2Wheels"
                         }
                         alt={product.itemName}
-                        style={{
-                            width: "100%",
-                            borderRadius: "16px",
-                            objectFit: "cover"
-                        }}
+                        className="product-main-image"
                     />
                 </div>
 
                 {/* DETAILS SECTION */}
                 <div>
                     {/* BRAND */}
-                    <p
-                        style={{
-                            color: "#6b7280",
-                            marginBottom: "10px",
-                            fontSize: "15px"
-                        }}
-                    >
+                    <p className="product-brand">
                         {product.brandName}
                     </p>
 
                     {/* TITLE */}
-                    <h1
-                        style={{
-                            fontSize: "48px",
-                            marginBottom: "20px",
-                            lineHeight: "1.2"
-                        }}
-                    >
+                    <h1 className="product-title">
                         {product.itemName}
                     </h1>
 
                     {/* PRICE */}
-                    <h2
-                        style={{
-                            fontSize: "42px",
-                            marginBottom: "30px",
-                            color: "#111827"
-                        }}
-                    >
+                    <h2 className="product-price">
                         ₹{product.sellingPrice}
                     </h2>
 
                     {/* PRODUCT INFO */}
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "14px", 
-                            marginBottom: "30px"
-                        }}
-                    >
-                        <p>
-                            <strong>Part Number:</strong>{" "}
+                    <div className="product-info-grid">
+                        <div className="product-info-item">
+                        <span className="product-info-label">Part Number</span>
+                        <span className="product-info-value">
                             {product.partNumber}
-                        </p>
+                        </span>
+                    </div>
 
-                        <p>
-                            <strong>SKU:</strong>{" "}
+                    <div className="product-info-item">
+                        <span className="product-info-label">SKU</span>
+                        <span className="product-info-value">
                             {product.sku}
-                        </p>
+                        </span>
+                    </div>
 
-                        <p>
-                            <strong>Category:</strong>{" "}
+                    <div className="product-info-item">
+                        <span className="product-info-label">Category</span>
+                        <span className="product-info-value">
                             {product.categoryName}
-                        </p>
+                        </span>
+                    </div>
 
-                        <p>
-                            <strong>Product Master:</strong>{" "}
+                    <div className="product-info-item">
+                        <span className="product-info-label">Product Master</span>
+                        <span className="product-info-value">
                             {product.productMasterName}
-                        </p>
+                        </span>
+                    </div>
 
-                        <p>
-                            <strong>HSN Code:</strong>{" "}
+                    <div className="product-info-item">
+                        <span className="product-info-label">HSN Code</span>
+                        <span className="product-info-value">
                             {product.hsncode}
-                        </p>
+                        </span>
+                    </div>
 
-                        <p>
-                            <strong>GST:</strong>{" "}
+                    <div className="product-info-item">
+                        <span className="product-info-label">GST</span>
+                        <span className="product-info-value">
                             {product.gstPercentage != null
                                 ? `${product.gstPercentage}%`
                                 : "—"}
-                        </p>
+                        </span>
+                    </div>
 
-                        <p>
-                            <strong>MRP:</strong>{" "}
-                            {product.mrp != null ? `₹${product.mrp}` : "—"}
-                        </p>
+                    <div className="product-info-item">
+                        <span className="product-info-label">MRP</span>
+                        <span className="product-info-value">
+                            {product.mrp != null
+                                ? `₹${product.mrp}`
+                                : "—"}
+                        </span>
+                    </div>
 
-                        <p>
-                            <strong>Available Stock:</strong>{" "}
-                            {product.quantity != null ? product.quantity : "—"}
-                        </p>
+                    <div className="product-info-item">
+                        <span className="product-info-label">Available Stock</span>
+                        <span className="product-info-value">
+                            {product.quantity != null
+                                ? product.quantity
+                                : "—"}
+                        </span>
+                    </div>
                     </div>
 
                     {/* STOCK */}
-                    <div style={{ marginBottom: "24px" }}>
+                    <div className="product-stock">
                         {product.inStock ? (
-                            <span
-                                style={{
-                                    color: "green",
-                                    fontWeight: "600",
-                                    fontSize: "18px"
-                                }}
-                            >
+                            <span className="product-stock-in">
                                 In Stock
                             </span>
                         ) : (
-                            <span
-                                style={{
-                                    color: "red",
-                                    fontWeight: "600",
-                                    fontSize: "18px"
-                                }}
-                            >
+                            <span className="product-stock-out">
                                 Out Of Stock
                             </span>
                         )}
                     </div>
 
-                    {/* DESCRIPTION */}
-                    <div style={{ marginBottom: "24px" }}>
-                        <h3
-                            style={{
-                                marginBottom: "14px",
-                                fontSize: "26px"
-                            }}
+                    {/* ACTONABLE BUTTONS */}
+                    
+                    <div className="product-actions">
+                        <button
+                            type="button"
+                            className="view-compatibility-button"
+                            onClick={() => setShowCompatibility((previous) => !previous)}
                         >
-                            Description
-                        </h3>
-                        <p
-                            style={{
-                                lineHeight: "1.9",
-                                color: "#4b5563"
-                            }}
-                        >
-                            {product.description}
-                        </p>
+                            {showCompatibility
+                                ? "Hide Compatible Vehicles"
+                                : "View Compatible Vehicles"}
+                        </button>
+
+                        {!embedded && (
+                            <button
+                                type="button"
+                                className="add-to-cart-button"
+                                onClick={() => {
+                                    console.log("PRODUCT BEFORE CART", product);
+                                    addToCart(product);
+                                    alert("Product Added To Cart");
+                                }}
+                            >
+                                Add To Cart
+                            </button>
+                        )}
                     </div>
 
-                    {/* VIEW COMPATIBLE VEHICLES */}
-                    <div style={{ marginBottom: "30px" }}>
-                        <button
-                            onClick={() => {
-                                document
-                                    .getElementById("compatible-vehicles")
-                                    .scrollIntoView({ behavior: "smooth" });
-                            }}
-                            style={{
-                                background: "none",
-                                border: "none",
-                                color: "#2563eb",
-                                cursor: "pointer",
-                                fontSize: "16px",
-                                fontWeight: "600",
-                                padding: 0
-                            }}
-                        >
-                            View Compatible Vehicles
-                        </button>
-                    </div>
-
-                    {/* BUTTONS */}
-                    {!embedded && <div style={{ display: "flex", gap: "16px" }}>
-                        <button
-                            onClick={() => {
-                                console.log("PRODUCT BEFORE CART", product);
-                                addToCart(product);
-                                alert("Product Added To Cart");
-                            }}
-                            style={{
-                                padding: "14px 30px",
-                                border: "none",
-                                borderRadius: "10px",
-                                background: "#111827",
-                                color: "white",
-                                cursor: "pointer",
-                                fontSize: "16px"
-                            }}
-                        >
-                            Add To Cart
-                        </button>
-                    </div>}
-                </div>
             </div>
+        </div>
 
             {/* COMPATIBLE VEHICLES SECTION */}
-            <div
-                id="compatible-vehicles"
-                style={{
-                    marginTop: "50px",
-                    background: "#ffffff",
-                    padding: "30px",
-                    borderRadius: "12px",
-                    border: "1px solid #e5e7eb"
-                }}
-            >
-                <h2
-                    style={{
-                        marginBottom: "20px",
-                        fontSize: "28px",
-                        fontWeight: "700",
-                        color: "#111827"
-                    }}
-                >
-                    Compatibility
-                </h2>
+            {showCompatibility && (
+    <div id="compatible-vehicles" className="compatibility-section">
+        <h2 className="compatibility-title">
+            Compatible Vehicles
+        </h2>
 
-                <div style={{ overflowX: "auto" }}>
-                    {compatibility.length === 0 ? (
-                        <p style={{ color: "#6b7280" }}>
-                            No compatibility data available for this product.
-                        </p>
-                    ) : (
-                        <table
-                            style={{
-                                width: "100%",
-                                borderCollapse: "collapse",
-                                background: "#fff"
-                            }}
-                        >
-                            <thead>
-                                <tr
-                                    style={{
-                                        background: "#f8fafc",
-                                        textAlign: "left"
-                                    }}
-                                >
-                                    <th style={{ padding: "12px", border: "1px solid #e2e8f0" }}>Year</th>
-                                    <th style={{ padding: "12px", border: "1px solid #e2e8f0" }}>Make</th>
-                                    <th style={{ padding: "12px", border: "1px solid #e2e8f0" }}>Model</th>
-                                    <th style={{ padding: "12px", border: "1px solid #e2e8f0" }}>Engine</th>
-                                    <th style={{ padding: "12px", border: "1px solid #e2e8f0" }}>Fuel Type</th>
-                                    <th style={{ padding: "12px", border: "1px solid #e2e8f0" }}>Engine Type</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {compatibility.map((vehicle, index) => (
-                                    <tr key={index}>
-                                        <td style={{ padding: "12px", border: "1px solid #e2e8f0" }}>
-                                            {vehicle.year}
-                                        </td>
-                                        <td style={{ padding: "12px", border: "1px solid #e2e8f0" }}>
-                                            {vehicle.make}
-                                        </td>
-                                        <td style={{ padding: "12px", border: "1px solid #e2e8f0" }}>
-                                            {vehicle.model}
-                                        </td>
-                                        <td style={{ padding: "12px", border: "1px solid #e2e8f0" }}>
-                                            {vehicle.engine}
-                                        </td>
-                                        <td style={{ padding: "12px", border: "1px solid #e2e8f0" }}>
-                                            {vehicle.fuelType}
-                                        </td>
-                                        <td style={{ padding: "12px", border: "1px solid #e2e8f0" }}>
-                                            {vehicle.engineType}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
+        {compatibility.length > 0 ? (
+            <div className="compatibility-table-wrapper">
+                <table className="compatibility-table">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Make</th>
+                            <th>Model</th>
+                            <th>Engine</th>
+                            <th>Fuel Type</th>
+                            <th>Engine Type</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {compatibility.map((vehicle, index) => (
+                            <tr key={index}>
+                                <td>{vehicle.year}</td>
+                                <td>{vehicle.make}</td>
+                                <td>{vehicle.model}</td>
+                                <td>{vehicle.engine}</td>
+                                <td>{vehicle.fuelType}</td>
+                                <td>{vehicle.engineType}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
+        ) : (
+            <p className="compatibility-empty">
+                No compatible vehicles found.
+            </p>
+        )}
+    </div>
+)}
         </div>
     );
 }

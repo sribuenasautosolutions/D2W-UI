@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import PendingApprovalSection from "../../owner/components/productreqest/PendingApprovalSection";
 import Review from "../../owner/components/productreqest/Review";
@@ -28,6 +28,18 @@ const STEPS = [
 ];
 
 function ProductApprovalPage() {
+    
+    const pageStartTime = useRef(performance.now());
+
+    useEffect(() => {
+        requestAnimationFrame(() => {
+            console.log(
+                "Product Approval page painted:",
+                (performance.now() - pageStartTime.current).toFixed(2),
+                "ms"
+            );
+        });
+    }, []);
 
     // Which workflow step is currently visible INSIDE the modal.
     const [activeStep, setActiveStep] = useState("review");
@@ -56,6 +68,7 @@ function ProductApprovalPage() {
         }
 
     }, [selectedApproval]);
+    
 
     // Once the review comes back and a duplicate exists, merging is
     // required — auto-activate the Merge step instead of Create.
@@ -68,6 +81,9 @@ function ProductApprovalPage() {
         }
 
     }, [reviewData]);
+
+
+
 
     // Steps can only be reached once their prerequisite data exists, so the
     // stepper stays disabled instead of showing an empty/broken section.
