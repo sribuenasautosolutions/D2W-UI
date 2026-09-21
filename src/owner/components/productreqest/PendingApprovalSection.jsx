@@ -34,31 +34,46 @@ function PendingApprovalSection({
     }, [selectedApproval]);
 
     // ===== ORIGINAL HANDLER — unchanged =====
-    const loadPendingProducts = async () => {
+   const loadPendingProducts = async () => {
+    const startTime = performance.now();
 
-        try {
+    try {
+        setLoading(true);
 
-            setLoading(true);
+        console.log("Pending approval API started");
 
-            const response = await getPendingApprovalRequests();
+        const response = await getPendingApprovalRequests();
 
-            console.log("Pending Products:", response);
+        console.log(
+            "Pending approval API time:",
+            (performance.now() - startTime).toFixed(2),
+            "ms"
+        );
 
-            setPendingProducts(response);
+        console.log("Pending Products:", response);
 
-        }
-        catch (error) {
+        setPendingProducts(response);
 
-            console.error("Error Loading Pending Products:", error);
+        requestAnimationFrame(() => {
+            console.log(
+                "Pending products UI rendered:",
+                (performance.now() - startTime).toFixed(2),
+                "ms"
+            );
+        });
 
-        }
-        finally {
+    } catch (error) {
+        console.error("Error Loading Pending Products:", error);
+    } finally {
+        setLoading(false);
 
-            setLoading(false);
-
-        }
-
-    };
+        console.log(
+            "Pending products load finished:",
+            (performance.now() - startTime).toFixed(2),
+            "ms"
+        );
+    }
+};
 
     // ===== UI-ONLY HELPERS =====
     const filteredProducts = pendingProducts.filter((product) =>
