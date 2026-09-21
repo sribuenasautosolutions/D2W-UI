@@ -34,13 +34,19 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
         );
 
         setProduct(data);
+        console.log("PRODUCT DETAILS =", data);
+console.log("PRODUCT ID FOR FITMENT =", data.productId);
 
        if (data.productId != null) {
 
     const fitments =
         await getCompatibleVehicles(data.productId);
 
-    console.log("FITMENTS = ", fitments);
+        console.log("FITMENTS FROM API =", fitments);
+console.log("FITMENTS IS ARRAY =", Array.isArray(fitments));
+console.log("FITMENTS LENGTH =", fitments?.length);
+
+    
 
     setCompatibility(fitments);
 
