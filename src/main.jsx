@@ -1,5 +1,8 @@
 console.log(import.meta.env);
 import React from "react";
+import AOS from "aos";
+import "aos/dist/aos.css";
+
 
 import ReactDOM from "react-dom/client";
 

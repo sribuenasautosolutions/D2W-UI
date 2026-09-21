@@ -1,25 +1,8 @@
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
+import React, { useEffect, useMemo, useState,} from "react";
 import api from "../../../services/api";
-
-import {
-  getCurrentStockPage,
-  printBarcodes,
-} from "../../../services/storeInventoryPanelService";
-
+import {getCurrentStockPage,printBarcodes,} from "../../../services/storeInventoryPanelService";
 import "./BarcodeGeneratePage.css";
-
-const ITEMS_PER_PAGE_OPTIONS = [
-  10,
-  25,
-  50,
-  100,
-];
-
+const ITEMS_PER_PAGE_OPTIONS = [10,25,50,100,];
 function readUser() {
   try {
     return (
@@ -339,94 +322,7 @@ function BarcodeGeneratePage() {
    *
    * The frontend does NOT generate the barcode.
    */
-  useEffect(() => {
-    if (
-      !storeId ||
-      items.length === 0
-    ) {
-      setBarcodeImages({});
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadBarcodeImages =
-      async () => {
-        const imageUrls = {};
-
-        for (const item of items) {
-          if (
-            !item.partNumber
-          ) {
-            continue;
-          }
-
-          try {
-            const response = await api.get(
-  "/barcodes",
-  {
-    params: {
-      storeId: Number(storeId),
-      partNumber: item.partNumber,
-    },
-    responseType: "blob",
-  }
-);
-
-            if (
-              cancelled
-            ) {
-              return;
-            }
-
-            const imageUrl =
-              window.URL.createObjectURL(
-                response.data
-              );
-
-            imageUrls[item.id] =
-              imageUrl;
-          } catch (requestError) {
-            console.error(
-              `Unable to load barcode for ${item.partNumber}:`,
-              requestError
-            );
-          }
-        }
-
-        if (!cancelled) {
-          setBarcodeImages(
-            imageUrls
-          );
-        }
-      };
-
-    loadBarcodeImages();
-
-    /*
-     * Release object URLs when the
-     * store/inventory changes or component
-     * unmounts.
-     */
-    return () => {
-      cancelled = true;
-
-      setBarcodeImages(
-        (currentImages) => {
-          Object.values(
-            currentImages
-          ).forEach((url) => {
-            window.URL.revokeObjectURL(
-              url
-            );
-          });
-
-          return {};
-        }
-      );
-    };
-  }, [items, storeId]);
-
+  
   /*
    * ---------------------------------------------------------
    * BRANDS
@@ -527,6 +423,73 @@ function BarcodeGeneratePage() {
       currentPage,
       entriesPerPage,
     ]);
+    useEffect(() => {
+  if (!storeId || paginatedItems.length === 0) {
+    setBarcodeImages({});
+    return;
+  }
+
+  let cancelled = false;
+  const createdUrls = new Set();
+
+  setBarcodeImages((currentImages) => {
+    Object.values(currentImages).forEach((url) => {
+      window.URL.revokeObjectURL(url);
+    });
+
+    return {};
+  });
+
+  const loadBarcode = async (item) => {
+    if (!item.partNumber) return;
+
+    try {
+      const response = await api.get("/barcodes", {
+        params: {
+          storeId: Number(storeId),
+          partNumber: item.partNumber,
+        },
+        responseType: "blob",
+      });
+
+      if (cancelled) return;
+
+      const imageUrl = window.URL.createObjectURL(
+        response.data
+      );
+
+      createdUrls.add(imageUrl);
+
+      setBarcodeImages((currentImages) => ({
+        ...currentImages,
+        [item.id]: imageUrl,
+      }));
+    } catch (requestError) {
+      if (!cancelled) {
+        console.error(
+          `Unable to load barcode for ${item.partNumber}:`,
+          requestError
+        );
+      }
+    }
+  };
+
+  paginatedItems
+    .filter((item) => item.partNumber)
+    .forEach((item) => {
+      loadBarcode(item);
+    });
+
+  return () => {
+    cancelled = true;
+
+    createdUrls.forEach((url) => {
+      window.URL.revokeObjectURL(url);
+    });
+
+    createdUrls.clear();
+  };
+}, [paginatedItems, storeId]);
 
   const firstEntry =
     filteredItems.length === 0

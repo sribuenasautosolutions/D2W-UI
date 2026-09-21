@@ -30,33 +30,47 @@ function Review({
     }, [selectedApproval]);
 
     const loadReview = async () => {
+    const startTime = performance.now();
 
-        try {
+    try {
+        setLoading(true);
 
-            setLoading(true);
+        console.log("Review API started");
 
-            const response =
-                await getApprovalReview(
-                    selectedApproval.approvalRequestId
-                );
+        const response = await getApprovalReview(
+            selectedApproval.approvalRequestId
+        );
 
-            console.log("Approval Review :", response);
+        console.log(
+            "Review API time:",
+            (performance.now() - startTime).toFixed(2),
+            "ms"
+        );
 
-            setReviewData(response);
+        console.log("Approval Review :", response);
 
-        }
-        catch (error) {
+        setReviewData(response);
 
-            console.error(error);
+        requestAnimationFrame(() => {
+            console.log(
+                "Review UI rendered/painted:",
+                (performance.now() - startTime).toFixed(2),
+                "ms"
+            );
+        });
 
-        }
-        finally {
+    } catch (error) {
+        console.error("Review API failed:", error);
+    } finally {
+        setLoading(false);
 
-            setLoading(false);
-
-        }
-
-    };
+        console.log(
+            "Review load finished:",
+            (performance.now() - startTime).toFixed(2),
+            "ms"
+        );
+    }
+};
 
     if (!selectedApproval) {
 

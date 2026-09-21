@@ -8,7 +8,7 @@ import BatchSelectionModal from "./BatchSelectionModal";
 function ProductCard({ product }) {
 
 
-   const { addToCart } = useCart();
+const { addToCart } = useCart();
 
 const [openBatchModal, setOpenBatchModal] = useState(false);
 const navigate = useNavigate();
@@ -20,7 +20,8 @@ const navigate = useNavigate();
        
 
     return (
-        <div style={{
+        <div  
+            style={{
             background: "#fff", borderRadius: "10px", padding: "12px",
             border: "1px solid #f1f5f9", display: "flex", flexDirection: "column", gap: "8px",
             transition: "box-shadow 0.2s"
