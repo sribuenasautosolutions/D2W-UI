@@ -71,7 +71,7 @@ function downloadBlob(blob, filename) {
  * PRICE INPUT VALIDATION
  * ===========================================================
  *
- * Opening Stock requires exactly ONE of:
+ * Opening Stock accepts one source price or all three manual prices:
  *
  *   Purchase Price
  *   MRP
@@ -117,13 +117,15 @@ function validatePriceSelection(row, errors) {
     }
   });
 
-  if (entered === 0) {
+  if (row.priceSource === "MANUAL" && entered !== 3) {
+    errors.push("Manual pricing requires all three prices");
+  } else if (entered === 0) {
     errors.push(
-      "Enter exactly one of Purchase Price, MRP or Selling Price"
+      "Enter one price for calculation or all three prices for manual pricing"
     );
-  } else if (entered > 1) {
+  } else if (entered == 2) {
     errors.push(
-      "Enter only one of Purchase Price, MRP or Selling Price"
+      "Enter the third price, or keep only one price for calculation"
     );
   }
 }
@@ -846,7 +848,7 @@ export default function BulkUploadSection() {
               "purchasePrice",
               "sellingPrice",
               "mrp",
-            ].includes(field)
+            ].includes(field) && current.priceSource !== "MANUAL"
           ) {
 
             next.purchasePrice =
@@ -1652,7 +1654,7 @@ export default function BulkUploadSection() {
               value={allDiscount} disabled={busy} onChange={event => setAllDiscount(event.target.value)} />
             <button type="button" className="bulk-button bulk-button--secondary" disabled={busy || !rows.some(row => row.status !== "IMPORTED")}
               onClick={applyDiscountToAll}>Apply to all rows</button>
-            <small>Replaces discounts on all pending rows, including hidden rows. You can edit individual rows afterward. Entered purchase prices are already final costs.</small>
+            <small>Replaces discounts on all pending rows, including hidden rows. You can edit individual rows afterward. Entered purchase prices are already final costs. Rows using all three prices keep their purchase, selling and MRP values unchanged.</small>
           </div>
           <div className="bulk-table-wrap">
 
@@ -1689,6 +1691,7 @@ export default function BulkUploadSection() {
                     MRP
                   </th>
 
+                  <th>Pricing mode</th>
                   <th>Discount %</th>
                   <th>Discount / unit</th>
                   <th>Purchase total</th>
@@ -1782,6 +1785,7 @@ export default function BulkUploadSection() {
                         }
                       </td>
 
+                      <td>{row.priceSource === "MANUAL" ? "All three prices" : "Calculated"}</td>
                       <td>{row.discountPercentage ?? 0}%</td>
                       <td>{row.discountAmount ?? "-"}</td>
                       <td>{row.lineTotal ?? "-"}</td>
@@ -1914,7 +1918,7 @@ export default function BulkUploadSection() {
                 </h3>
 
                 <span>
-                  Enter exactly one price. The other prices are calculated by the backend.
+                  Enter one price to calculate the rest, or choose all three prices to keep your own values.
                 </span>
 
               </div>
@@ -1934,6 +1938,17 @@ export default function BulkUploadSection() {
 
             </div>
 
+            <label style={{ display: "block", marginBottom: 16 }}>
+              Pricing mode
+              <select value={editing.priceSource === "MANUAL" ? "MANUAL" : "AUTO"} disabled={busy}
+                onChange={event => setEditing(current => event.target.value === "MANUAL"
+                  ? { ...current, priceSource: "MANUAL" }
+                  : { ...current, priceSource: null, purchasePrice: "", sellingPrice: "", mrp: "" })}>
+                <option value="AUTO">Calculate from one price</option>
+                <option value="MANUAL">Use all three prices</option>
+              </select>
+              <p>Purchase price is final cost including GST and discount. Selling price excludes GST. MRP includes GST. Manual prices are not reduced again by Discount %.</p>
+            </label>
             <div className="bulk-edit-grid">
 
               {editableFields.map(
