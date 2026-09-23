@@ -43,11 +43,37 @@ function BatchSelectionModal({
                     product.inventoryId
                 );
 
-            setBatches(data);
+            const availableBatches = Array.from(
+                data
+                    .filter((batch) => Number(batch.availableQuantity) > 0)
+                    .reduce((groups, batch) => {
+                        const key = Number(batch.mrp).toFixed(2);
+                        const existing = groups.get(key);
 
-            if (data.length > 0) {
+                        if (existing) {
+                            existing.availableQuantity += Number(batch.availableQuantity);
+                        } else {
+                            groups.set(key, {
+                                ...batch,
+                                availableQuantity: Number(batch.availableQuantity),
+                            });
+                        }
 
-                setSelectedBatch(data[0]);
+                        return groups;
+                    }, new Map())
+                    .values()
+            );
+
+            if (availableBatches.length === 1) {
+                onSelect(availableBatches[0]);
+                return;
+            }
+
+            setBatches(availableBatches);
+
+            if (availableBatches.length > 0) {
+
+                setSelectedBatch(availableBatches[0]);
 
             }
 

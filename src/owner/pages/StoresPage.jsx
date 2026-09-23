@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     ChevronLeft,
     ChevronRight,
@@ -72,6 +72,9 @@ function StoresPage() {
 
     const [modal, setModal] = useState(null);
     const [form, setForm] = useState(emptyStore);
+    const originalEditFormRef = useRef(null);
+    const lastPincodeLookupRef = useRef(null);
+    const pincodeRequestRef = useRef(0);
     const [saving, setSaving] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [showInitialPassword, setShowInitialPassword] = useState(false);
@@ -169,6 +172,9 @@ function StoresPage() {
             return;
         }
 
+        const requestId = ++pincodeRequestRef.current;
+        lastPincodeLookupRef.current = pincode;
+
         try {
 
            const response = await api.get(`/api/pincode/${pincode}`);
@@ -182,6 +188,10 @@ function StoresPage() {
              * }
              */
 
+            if (requestId !== pincodeRequestRef.current) {
+                return;
+            }
+
             updateField(
                 "district",
                 response.data?.district || ""
@@ -193,6 +203,12 @@ function StoresPage() {
             );
 
         } catch (error) {
+
+            if (requestId !== pincodeRequestRef.current) {
+                return;
+            }
+
+            lastPincodeLookupRef.current = null;
 
             // Do not clear existing district/state when pincode lookup fails.
             // This prevents existing store address data from disappearing.
@@ -267,9 +283,14 @@ function StoresPage() {
 
     const openCreate = () => {
 
-        setForm({
+        const createForm = {
             ...emptyStore
-        });
+        };
+
+        originalEditFormRef.current = null;
+        lastPincodeLookupRef.current = null;
+        pincodeRequestRef.current += 1;
+        setForm(createForm);
 
         setModal("create");
         setFieldErrors({});
@@ -295,7 +316,7 @@ function StoresPage() {
             return;
         }
 
-        setForm({
+        const editForm = {
 
             storeName: selected.storeName || "",
 
@@ -325,7 +346,12 @@ function StoresPage() {
                 selected.storeType || "MAIN_STORE",
 
             gstno: selected.gstno || "",
-        });
+        };
+
+        originalEditFormRef.current = editForm;
+        lastPincodeLookupRef.current = editForm.pincode;
+        pincodeRequestRef.current += 1;
+        setForm(editForm);
 
         setModal("edit");
         setFieldErrors({});
@@ -438,10 +464,19 @@ function StoresPage() {
 
                 delete payload.confirmOwnerPassword;
 
-                await api.put(
-                    `/stores/${selected.id}`,
-                    payload
+                const original = originalEditFormRef.current || {};
+                const changedPayload = Object.fromEntries(
+                    Object.entries(payload).filter(
+                        ([key, value]) => value !== original[key]
+                    )
                 );
+
+                if (Object.keys(changedPayload).length > 0) {
+                    await api.patch(
+                        `/stores/${selected.id}`,
+                        changedPayload
+                    );
+                }
             }
 
 
@@ -1362,9 +1397,16 @@ function StoresPage() {
                                         pincode
                                     );
 
-                                    if (
-                                        pincode.length ===
-                                        6
+                                    const original = originalEditFormRef.current;
+
+                                    if (modal === "edit" && pincode === original?.pincode) {
+                                        pincodeRequestRef.current += 1;
+                                        lastPincodeLookupRef.current = pincode;
+                                        updateField("district", original.district);
+                                        updateField("state", original.state);
+                                    } else if (
+                                        pincode.length === 6 &&
+                                        pincode !== lastPincodeLookupRef.current
                                     ) {
 
                                         fetchPincodeDetails(

@@ -1,5 +1,8 @@
     import api from "./api";
-    const activeStoreId = (user) => localStorage.getItem("pos_store_id") || user?.storeId;
+    const activeStoreId = (user) =>
+        user?.role === "SUPER_ADMIN"
+            ? localStorage.getItem("pos_store_id")
+            : user?.storeId;
     /*
     |--------------------------------------------------------------------------
     | GET PRODUCTS BY VEHICLE VARIANT

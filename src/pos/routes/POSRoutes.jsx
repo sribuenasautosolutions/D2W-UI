@@ -1,8 +1,9 @@
+import { lazy } from "react";
 import { Routes, Route } from "react-router-dom";
-import POSPage from "../pages/POSPage";
-import CheckoutPage from "../pages/CheckoutPage";
-import InvoicePage from "../pages/InvoicePage";
-import ProductDetailsPage from "../pages/ProductDetailsPage";
+const POSPage = lazy(() => import("../pages/POSPage"));
+const CheckoutPage = lazy(() => import("../pages/CheckoutPage"));
+const InvoicePage = lazy(() => import("../pages/InvoicePage"));
+const ProductDetailsPage = lazy(() => import("../pages/ProductDetailsPage"));
 
 function POSRoutes() {
   return (

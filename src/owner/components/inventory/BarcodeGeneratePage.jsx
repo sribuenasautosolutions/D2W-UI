@@ -210,7 +210,7 @@ function BarcodeGeneratePage() {
               storeId,
               {
                 page: 0,
-                size: 100,
+                size: 2147483647,
                 onlyAvailable: false,
                 sortBy: "id",
                 direction: "ASC",

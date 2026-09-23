@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getInventoryDetails, getCompatibleVehicles } from "../../services/productService";
 import { useCart } from "../context/CartContext";
+import BatchSelectionModal from "../components/product/BatchSelectionModal";
 import "./ProductDetailsPage.css";
 
 function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
@@ -13,6 +14,7 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
     const [loading, setLoading] = useState(true);
     const [compatibility, setCompatibility] = useState([]);
     const [showCompatibility, setShowCompatibility] = useState(false);
+    const [openBatchModal, setOpenBatchModal] = useState(false);
 
     const { addToCart } = useCart();
     
@@ -211,11 +213,7 @@ console.log("FITMENTS LENGTH =", fitments?.length);
                             <button
                                 type="button"
                                 className="add-to-cart-button"
-                                onClick={() => {
-                                    console.log("PRODUCT BEFORE CART", product);
-                                    addToCart(product);
-                                    alert("Product Added To Cart");
-                                }}
+                                onClick={() => setOpenBatchModal(true)}
                             >
                                 Add To Cart
                             </button>
@@ -223,6 +221,22 @@ console.log("FITMENTS LENGTH =", fitments?.length);
                     </div>
 
             </div>
+            <BatchSelectionModal
+                open={openBatchModal}
+                product={product}
+                onClose={() => setOpenBatchModal(false)}
+                onSelect={(batch) => {
+                    addToCart({
+                        ...product,
+                        batchId: batch.batchId,
+                        batchNumber: batch.batchNumber,
+                        mrp: batch.mrp,
+                        sellingPrice: batch.sellingPrice,
+                        purchasePrice: batch.purchasePrice,
+                    });
+                    setOpenBatchModal(false);
+                }}
+            />
         </div>
 
             {/* COMPATIBLE VEHICLES SECTION */}

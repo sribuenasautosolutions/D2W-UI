@@ -1,16 +1,18 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-import LoginPage from "../pages/LoginPage";
-import OwnerRoutes from "../owner/routes/OwnerRoutes";
-import StoreRoutes from "../store/routes/StoreRoutes";
-import POSRoutes from "../pos/routes/POSRoutes";
+const LoginPage = lazy(() => import("../pages/LoginPage"));
+const OwnerRoutes = lazy(() => import("../owner/routes/OwnerRoutes"));
+const StoreRoutes = lazy(() => import("../store/routes/StoreRoutes"));
+const POSRoutes = lazy(() => import("../pos/routes/POSRoutes"));
 import PublicRoute from "../auth/PublicRoute";
 
 import ProtectedRoute from "../auth/ProtectedRoute";
-import UnauthorizedPage from "../pages/UnauthorizedPage";
+const UnauthorizedPage = lazy(() => import("../pages/UnauthorizedPage"));
 
 function AppRoutesNew() {
   return (
+    <Suspense fallback={<div role="status">Loading page…</div>}>
     <Routes>
 
       <Route
@@ -60,6 +62,7 @@ function AppRoutesNew() {
       />
 
     </Routes>
+    </Suspense>
   );
 }
 
