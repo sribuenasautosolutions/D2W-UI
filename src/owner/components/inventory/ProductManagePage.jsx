@@ -5,12 +5,15 @@ import {
   Boxes,
   ClipboardEdit,
   IndianRupee,
+  Layers3,
   Save,
   X,
 } from "lucide-react";
 import api from "../../../services/api";
 import {
   getProductDetails,
+  getManagementBatches,
+  updateInventoryBatch,
   updateInventoryPrices,
   updateProductBasicInformation,
 } from "../../../services/storeInventoryPanelService";
@@ -26,6 +29,7 @@ import "./ProductManagePage.css";
 // instead of calling a prop that would never have been supplied.
 const SECTIONS = [
   { id: "pricing", label: "Pricing", icon: IndianRupee },
+  { id: "batches", label: "Batches & Rack", icon: Layers3 },
   { id: "transactions", label: "Transactions", icon: ArrowLeftRight },
   { id: "adjustment", label: "Stock Adjustment", icon: ClipboardEdit },
 ];
@@ -46,6 +50,8 @@ const ProductManagePage = () => {
 
   const [activeSection, setActiveSection] = useState("pricing");
   const [transactions, setTransactions] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [rackDrafts, setRackDrafts] = useState({});
 
   const [formData, setFormData] = useState({
     itemName: "",
@@ -109,20 +115,31 @@ const ProductManagePage = () => {
     });
   }, [product]);
 
-  // NOTE: /inventory/:id/transactions is a placeholder endpoint — point it at
-  // whatever your backend actually exposes for this product's transaction
-  // history (matches the Date / Type / Quantity / Reference columns below).
   useEffect(() => {
     if (!inventoryId || activeSection !== "transactions") return;
 
     api
-      .get(`/inventory/${inventoryId}/transactions`, {
-        params: { page: 0, size: 100 },
-      })
+      .get(`/inventory-transactions/inventory/${inventoryId}`)
       .then(({ data }) => {
         setTransactions(Array.isArray(data) ? data : data?.content || []);
       })
       .catch(() => setTransactions([]));
+  }, [inventoryId, activeSection]);
+
+  useEffect(() => {
+    if (!inventoryId || activeSection !== "batches") return;
+
+    getManagementBatches(inventoryId)
+      .then((data) => {
+        const rows = Array.isArray(data) ? data : [];
+        setBatches(rows);
+        setRackDrafts(Object.fromEntries(
+          rows.map((batch) => [batch.batchId, batch.rackNumber || ""])
+        ));
+      })
+      .catch((error) => {
+        setSaveError(errorMessage(error, "Unable to load batch rack numbers."));
+      });
   }, [inventoryId, activeSection]);
 
   const handleInputChange = (event) => {
@@ -145,7 +162,28 @@ const ProductManagePage = () => {
 
   // Only a LOCAL product's catalogue fields (name/code/HSN/brand/GST) are
   // editable here — matches the same rule used on the Current Stock page.
-  const canEditBasic = product && product.productSource === "LOCAL";
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const canEditBasic = product && (
+    product.productSource === "LOCAL" || currentUser.role === "SUPER_ADMIN"
+  );
+
+  const saveRackNumber = async (batch) => {
+    setSaveError("");
+    try {
+      const updated = await updateInventoryBatch(batch.batchId, {
+        purchasePrice: batch.purchasePrice,
+        sellingPrice: batch.sellingPrice,
+        mrp: batch.mrp,
+        rackNumber: (rackDrafts[batch.batchId] || "").trim(),
+      });
+      setBatches((current) => current.map((item) =>
+        item.batchId === batch.batchId ? updated : item
+      ));
+      setSaveMessage("Rack number saved successfully.");
+    } catch (error) {
+      setSaveError(errorMessage(error, "Unable to save rack number."));
+    }
+  };
 
   const handleSaveChanges = async () => {
     setIsSaving(true);
@@ -180,19 +218,27 @@ const ProductManagePage = () => {
     }
   };
 
-  // NOTE: posts to a placeholder /inventory/adjustments endpoint — wire this
-  // up to your actual stock-adjustment API.
   const handleStockAdjustment = async (event) => {
     event.preventDefault();
     setAdjustmentError("");
 
     try {
-      await api.post("/inventory/adjustments", {
-        inventoryId,
-        storeId,
-        adjustmentType: adjustmentData.adjustmentType,
-        quantity: Number(adjustmentData.quantity),
+      const quantity = Number(adjustmentData.quantity);
+      const adjustedQty = adjustmentData.adjustmentType === "add"
+        ? Number(availableStock) + quantity
+        : Number(availableStock) - quantity;
+
+      if (adjustedQty < 0) {
+        setAdjustmentError("Removal quantity cannot exceed available stock.");
+        return;
+      }
+
+      await api.post("/inventory-adjustment", {
+        inventoryId: Number(inventoryId),
+        storeId: Number(storeId),
+        adjustedQty,
         reason: adjustmentData.reason,
+        remarks: `${adjustmentData.adjustmentType === "add" ? "Added" : "Removed"} ${quantity} from Current Stock`,
       });
 
       setAdjustmentData({ adjustmentType: "add", quantity: "", reason: "" });
@@ -516,6 +562,72 @@ const ProductManagePage = () => {
               </div>
             )}
 
+            {activeSection === "batches" && (
+              <div className="manage-tab-panel">
+                <div className="manage-panel-heading">
+                  <h2>Batches and rack numbers</h2>
+                  <p>Update the storage rack for each inventory batch.</p>
+                </div>
+
+                {saveError && (
+                  <div className="manage-alert manage-alert-error">
+                    <span>{saveError}</span>
+                  </div>
+                )}
+
+                <div className="manage-table-wrapper">
+                  <table className="manage-table">
+                    <thead>
+                      <tr>
+                        <th>Batch</th>
+                        <th>MRP</th>
+                        <th>Available</th>
+                        <th>Rack number</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batches.map((batch) => (
+                        <tr key={batch.batchId}>
+                          <td>{batch.batchNumber}</td>
+                          <td>₹{batch.mrp}</td>
+                          <td>{batch.availableQuantity}</td>
+                          <td>
+                            <input
+                              type="text"
+                              maxLength={80}
+                              value={rackDrafts[batch.batchId] || ""}
+                              onChange={(event) => setRackDrafts((current) => ({
+                                ...current,
+                                [batch.batchId]: event.target.value,
+                              }))}
+                              placeholder="Enter rack number"
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="manage-adjustment-button"
+                              onClick={() => saveRackNumber(batch)}
+                            >
+                              <Save size={14} /> Save
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!batches.length && (
+                        <tr>
+                          <td colSpan="5" className="manage-table-empty">
+                            No batches available.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* =================================================
                 STOCK ADJUSTMENT CONTENT
             ================================================== */}
@@ -577,15 +689,19 @@ const ProductManagePage = () => {
                   <div className="manage-form-field">
                     <label htmlFor="reason">Reason</label>
 
-                    <input
+                    <select
                       id="reason"
                       name="reason"
-                      type="text"
                       value={adjustmentData.reason}
                       onChange={handleAdjustmentChange}
-                      placeholder="Enter adjustment reason"
                       required
-                    />
+                    >
+                      <option value="">Select reason</option>
+                      <option value="PHYSICAL_COUNT">Physical count</option>
+                      <option value="DAMAGED">Damaged</option>
+                      <option value="LOST">Lost</option>
+                      <option value="MANUAL_CORRECTION">Manual correction</option>
+                    </select>
                   </div>
 
                   <div className="manage-adjustment-notice">

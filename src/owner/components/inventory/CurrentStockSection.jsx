@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -402,7 +403,8 @@ export default function CurrentStockSection() {
         status: status || undefined,
         brandName: brandFilter || undefined,
         categoryName: categoryFilter || undefined,
-        onlyAvailable: view === "table",
+        onlyAvailable:
+  view === "table" && status !== "OUT_OF_STOCK",
         page,
         size,
         sortBy,
@@ -557,7 +559,7 @@ export default function CurrentStockSection() {
 
     if (tab === "sale-history") {
       api
-        .get(`/inventory/${selectedId}/sales-history`, {
+         .get(`/inventory-transactions/${selectedId}/sales-history`, {
           params: {
             page: 0,
             size: 100,
@@ -580,30 +582,41 @@ export default function CurrentStockSection() {
         });
     }
 
-    if (tab === "fitment") {
-      api
-        .get(`/inventory/${selectedId}/vehicle-fitment`, {
-          params: {
-            page: 0,
-            size: 100,
-          },
-        })
-        .then(({ data }) => {
-          setVehicleFitment(
-            Array.isArray(data)
-              ? data
-              : data?.content || []
-          );
-        })
-        .catch((requestError) => {
-          setError(
-            errorMessage(
-              requestError,
-              "Unable to load vehicle fitment."
-            )
-          );
-        });
-    }
+   if (tab === "fitment") {
+  const selectedRow = result.content.find(
+    (item) => item.inventoryId === selectedId
+  );
+
+  const partNumber = selectedRow?.partNumber?.trim();
+
+  if (!partNumber) {
+    setVehicleFitment([]);
+    setError("Part number is not available for this product.");
+    return;
+  }
+
+  api
+    .get("/fitment/product-by-part-number", {
+      params: {
+        partNumber,
+      },
+    })
+    .then(({ data }) => {
+      setVehicleFitment(
+        Array.isArray(data)
+          ? data
+          : data?.content || []
+      );
+    })
+    .catch((requestError) => {
+      setError(
+        errorMessage(
+          requestError,
+          "Unable to load vehicle fitment."
+        )
+      );
+    });
+}
   }, [selectedId, tab, view]);
 
   const toggleSort = (field) => {
@@ -675,7 +688,8 @@ export default function CurrentStockSection() {
         status: status || undefined,
         brandName: brandFilter || undefined,
         categoryName: categoryFilter || undefined,
-        onlyAvailable: view === "table",
+      onlyAvailable:
+  view === "table" && status !== "OUT_OF_STOCK",
         page: 0,
         size: 100,
         sortBy,
@@ -1655,32 +1669,33 @@ function SaleHistoryTable({ sales }) {
         <tbody>
           {sales.map((sale, index) => (
             <tr
-              key={
-                sale.id ||
-                sale.invoiceNumber ||
-                index
-              }
+              key={sale.id || index}
             >
               <td>
                 <strong>
-                  {display(sale.invoiceNumber)}
+                  {display(sale.remarks)}
                 </strong>
               </td>
 
               <td>
-                {sale.saleDate
+                {sale.createdAt
                   ? new Date(
-                      sale.saleDate
+                      sale.createdAt
                     ).toLocaleDateString("en-IN")
                   : "-"}
               </td>
 
               <td>
-                {display(sale.quantitySold)}
+                {display(sale.quantity)}
               </td>
 
-              <td>{money(sale.salePrice)}</td>
-              <td>{money(sale.totalAmount)}</td>
+              <td>
+                {money(sale.salePrice)}
+              </td>
+
+              <td>
+                {money(sale.totalAmount)}
+              </td>
             </tr>
           ))}
 
@@ -1725,13 +1740,13 @@ function VehicleFitmentTable({ fitments }) {
               </td>
 
               <td>{display(fitment.model)}</td>
-              <td>{display(fitment.variant)}</td>
+              <td>{display(fitment.variantFullName)}</td>
 
               <td>
-                {fitment.fromYear ||
+                {fitment.year ||
                 fitment.toYear
-                  ? `${fitment.fromYear || "-"} - ${
-                      fitment.toYear || "-"
+                  ? `${fitment.year || "-"} - ${
+                      fitment.year || "-"
                     }`
                   : "-"}
               </td>

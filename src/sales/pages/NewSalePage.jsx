@@ -687,7 +687,6 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     const addProductWithBatch = (product, batch) => {
         const productId =
             product.productId ??
-            product.id ??
             null;
 
         const inventoryId =

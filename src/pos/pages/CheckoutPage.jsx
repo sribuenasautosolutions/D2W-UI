@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { placeOrder, calculateOrder } from "../../services/orderService";
 import { getCustomerByMobile, saveCustomer } from "../../services/customerService";
 import PaymentPageor from "./PaymentPageor";
+import { getCalculationLinesForCartItem, sumCalculatedAmount } from "../utils/calculationLines";
 
 /* ============================================================
    CONSTANTS
@@ -205,6 +206,7 @@ const applyInvoiceGSTToAll = () => {
      ============================================================ */
 
   useEffect(() => {
+    const requestId = ++requestIdRef.current;
     if (!storeId) {
       navigate("/login");
       return;
@@ -212,16 +214,17 @@ const applyInvoiceGSTToAll = () => {
 
     if (cartItems.length === 0) {
       setCalculation(null);
+      setCalcLoading(false);
       setCalcError("");
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    setCalculation(null);
+    setCalcLoading(true);
+    setCalcError("");
 
     debounceRef.current = setTimeout(async () => {
-      const requestId = ++requestIdRef.current;
-      setCalcLoading(true);
-      setCalcError("");
       try {
         const response = await calculateOrder(buildCalculationRequest());
         if (requestId === requestIdRef.current) {
@@ -240,25 +243,6 @@ const applyInvoiceGSTToAll = () => {
 
     return () => clearTimeout(debounceRef.current);
   }, [cartItems, billDiscount, gstTypes, storeId, buildCalculationRequest, navigate]);
-
-  /* ============================================================
-     Fast lookup: inventoryId -> backend calculation line
-     ============================================================ */
-
-  const lineByProduct = useMemo(() => {
-    const map = {};
-
-    (calculation?.items || []).forEach((line) => {
-
-        const key =
-            `${line.inventoryId}_${line.batchId}`;
-
-        map[key] = line;
-    });
-
-    return map;
-
-}, [calculation]);
 
   /* ============================================================
      CUSTOMER LOOKUP / SAVE
@@ -314,7 +298,7 @@ const applyInvoiceGSTToAll = () => {
      ============================================================ */
 
   const handlePlaceOrder = async (action = "PAY") => {
-    if (creatingInvoice) return;
+    if (creatingInvoice || calcLoading || !calculation) return;
 
     if (cartItems.length === 0) {
       alert("Cart is empty. Please add at least one item before creating an invoice.");
@@ -400,7 +384,7 @@ const applyInvoiceGSTToAll = () => {
      ============================================================ */
 
   const disablePlaceOrder =
-    creatingInvoice || calcLoading || cartItems.length === 0 || !!calcError;
+    creatingInvoice || calcLoading || !calculation || cartItems.length === 0 || !!calcError;
 
   return (
     <>
@@ -527,7 +511,9 @@ const applyInvoiceGSTToAll = () => {
                 </thead>
                 <tbody>
                   {cartItems.map((item) => {
-                   const line = lineByProduct[ `${item.inventoryId}_${item.batchId}`];
+                   const lines = getCalculationLinesForCartItem(item, calculation?.items || []);
+                   const line = lines[0];
+                   const multipleBatches = lines.length > 1;
                     return (
                      <tr
     key={`${item.inventoryId}_${item.batchId}`}
@@ -564,12 +550,12 @@ const applyInvoiceGSTToAll = () => {
 
                         {/* MRP — readonly, from backend */}
                         <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? money(line.mrp) : "…"}
+                          {line ? (multipleBatches ? "Multiple batches" : money(line.mrp)) : "…"}
                         </td>
 
                         {/* Rate — readonly, from backend */}
                         <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? money(line.sellingPrice) : "…"}
+                          {line ? (multipleBatches ? "Multiple batches" : money(line.sellingPrice)) : "…"}
                         </td>
 
                         {/* Qty — cashier input */}
@@ -624,17 +610,17 @@ const applyInvoiceGSTToAll = () => {
 
                         {/* Taxable — readonly, from backend */}
                         <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? money(line.taxableAmount) : "…"}
+                          {line ? money(sumCalculatedAmount(lines, "taxableAmount")) : "…"}
                         </td>
 
                         {/* GST amount — readonly, from backend */}
                         <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? money(line.gstAmount) : "…"}
+                          {line ? money(sumCalculatedAmount(lines, "gstAmount")) : "…"}
                         </td>
 
                         {/* Line total — readonly, from backend */}
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#0f172a" }}>
-                          {line ? money(line.lineTotal) : "…"}
+                          {line ? money(sumCalculatedAmount(lines, "lineTotal")) : "…"}
                         </td>
 
                         {/* Remove */}

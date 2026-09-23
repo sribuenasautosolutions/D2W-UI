@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getInventoryDetails, getCompatibleVehicles } from "../../services/productService";
 import { useCart } from "../context/CartContext";
+import BatchSelectionModal from "../components/product/BatchSelectionModal";
 import "./ProductDetailsPage.css";
 
 function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
@@ -13,6 +14,7 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
     const [loading, setLoading] = useState(true);
     const [compatibility, setCompatibility] = useState([]);
     const [showCompatibility, setShowCompatibility] = useState(false);
+    const [openBatchModal, setOpenBatchModal] = useState(false);
 
     const { addToCart } = useCart();
     
@@ -34,13 +36,19 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
         );
 
         setProduct(data);
+        console.log("PRODUCT DETAILS =", data);
+console.log("PRODUCT ID FOR FITMENT =", data.productId);
 
        if (data.productId != null) {
 
     const fitments =
         await getCompatibleVehicles(data.productId);
 
-    console.log("FITMENTS = ", fitments);
+        console.log("FITMENTS FROM API =", fitments);
+console.log("FITMENTS IS ARRAY =", Array.isArray(fitments));
+console.log("FITMENTS LENGTH =", fitments?.length);
+
+    
 
     setCompatibility(fitments);
 
@@ -205,11 +213,7 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
                             <button
                                 type="button"
                                 className="add-to-cart-button"
-                                onClick={() => {
-                                    console.log("PRODUCT BEFORE CART", product);
-                                    addToCart(product);
-                                    alert("Product Added To Cart");
-                                }}
+                                onClick={() => setOpenBatchModal(true)}
                             >
                                 Add To Cart
                             </button>
@@ -217,6 +221,22 @@ function ProductDetailsPage({ inventoryId, embedded = false, onClose }) {
                     </div>
 
             </div>
+            <BatchSelectionModal
+                open={openBatchModal}
+                product={product}
+                onClose={() => setOpenBatchModal(false)}
+                onSelect={(batch) => {
+                    addToCart({
+                        ...product,
+                        batchId: batch.batchId,
+                        batchNumber: batch.batchNumber,
+                        mrp: batch.mrp,
+                        sellingPrice: batch.sellingPrice,
+                        purchasePrice: batch.purchasePrice,
+                    });
+                    setOpenBatchModal(false);
+                }}
+            />
         </div>
 
             {/* COMPATIBLE VEHICLES SECTION */}

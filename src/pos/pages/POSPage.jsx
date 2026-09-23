@@ -25,10 +25,14 @@ function POSPage() {
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [heldBills, setHeldBills] = useState([]);
     const [showHeldBills, setShowHeldBills] = useState(false);
-    const { replaceCart } = useCart();
+    const { replaceCart, clearCart } = useCart();
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const [stores,setStores]=useState([]);
-    const [selectedStoreId,setSelectedStoreId]=useState(localStorage.getItem("pos_store_id") || user?.storeId || "");
+    const [selectedStoreId,setSelectedStoreId]=useState(
+        user?.role === "SUPER_ADMIN"
+            ? localStorage.getItem("pos_store_id") || ""
+            : user?.storeId || ""
+    );
 
     const productsPerPage = 9;
     useEffect(() => {
@@ -38,6 +42,7 @@ function POSPage() {
             return;
         }
         if(user?.role === "SUPER_ADMIN") getAllStores().then(v=>setStores(Array.isArray(v)?v:(v?.content||[]))).catch(console.error);
+        else localStorage.removeItem("pos_store_id");
         if(selectedStoreId) loadStoreInventory(1);
         try {
             const editableDrafts = JSON.parse(localStorage.getItem("pos_held_payments") || "[]")
@@ -143,7 +148,7 @@ function POSPage() {
             heldBillsCount={heldBills.length}
             stores={stores}
             selectedStoreId={selectedStoreId}
-            onStoreChange={(id)=>{setSelectedStoreId(id);localStorage.setItem("pos_store_id",id);setProducts([]);setSearchResults([]);setSearchText("");setSelectedVariant("");setCurrentPage(1);setTimeout(()=>loadStoreInventory(1),0);}}
+            onStoreChange={(id)=>{if (String(id) !== String(selectedStoreId)) clearCart();setSelectedStoreId(id);localStorage.setItem("pos_store_id",id);setProducts([]);setSearchResults([]);setSearchText("");setSelectedVariant("");setCurrentPage(1);setTimeout(()=>loadStoreInventory(1),0);}}
         >
             {/* SLOT 0 — Vehicle selector for sidebar */}
             <div>
