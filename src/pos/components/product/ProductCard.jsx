@@ -1,4 +1,3 @@
-import { ProductUnitLabel } from "../../../components/ProductUnitFields";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -8,7 +7,7 @@ import BatchSelectionModal from "./BatchSelectionModal";
 function ProductCard({ product }) {
 
 
-const { addToCart } = useCart();
+   const { addToCart } = useCart();
 
 const [openBatchModal, setOpenBatchModal] = useState(false);
 const navigate = useNavigate();
@@ -20,8 +19,7 @@ const navigate = useNavigate();
        
 
     return (
-        <div  
-            style={{
+        <div style={{
             background: "#fff", borderRadius: "10px", padding: "12px",
             border: "1px solid #f1f5f9", display: "flex", flexDirection: "column", gap: "8px",
             transition: "box-shadow 0.2s"
@@ -56,9 +54,25 @@ const navigate = useNavigate();
 }
             </div>
             <div style={{ fontSize: "11px", color: "#64748b" }}>{product.brandName}</div>
-            <div style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: 1.3, minHeight: "34px" }}>{product.itemName}<ProductUnitLabel product={product}/></div>
+            <div style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: 1.3, minHeight: "34px" }}>{product.itemName}</div>
             {product.partNumber && (
-                <div style={{ fontSize: "11px", color: "#94a3b8" }}>Part: {product.partNumber}</div>
+                <div
+                    style={{
+                        display: "inline-flex",
+                        alignSelf: "flex-start",
+                        alignItems: "center",
+                        gap: "4px",
+                        background: "#eff6ff",
+                        border: "1px solid #bfdbfe",
+                        borderRadius: "5px",
+                        padding: "2px 7px",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        color: "#1d4ed8",
+                    }}
+                >
+                    Part: {product.partNumber}
+                </div>
             )}
             <div style={{ fontSize: "11px", color: isAvailable ? "#16a34a" : "#ef4444", fontWeight: "600" }}>
                 {product.stockStatus || (isAvailable ? "IN STOCK" : "OUT OF STOCK")}
@@ -156,4 +170,3 @@ const navigate = useNavigate();
 }
 
 export default ProductCard;
-  

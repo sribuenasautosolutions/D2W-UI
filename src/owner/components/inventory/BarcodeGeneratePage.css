@@ -1,12 +1,14 @@
 /* =========================================================
    Main page
+   - Background is now plain white (was #f7f9fc).
+   - Padding reduced for a more compact page.
 ========================================================= */
 
 .barcode-page {
   width: 100%;
   min-height: 100vh;
-  padding: 22px 24px 28px;
-  background: #f7f9fc;
+  padding: 16px 20px 20px;
+  background: #ffffff;
   color: #172033;
   box-sizing: border-box;
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
@@ -14,49 +16,32 @@
 
 /* =========================================================
    Breadcrumb
+   Hidden per request ("remove home > inventory > barcode
+   generate"). Left in the CSS (rather than deleted) so the
+   markup in the component doesn't need to change — this
+   purely visual element has no logic attached to it.
 ========================================================= */
 
 .barcode-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  color: #7b8494;
-  font-size: 14px;
-  font-weight: 400;
-}
-
-.barcode-breadcrumb strong {
-  color: #1769c2;
-  font-weight: 600;
-}
-
-.breadcrumb-arrow {
-  color: #a6afbc;
-  font-size: 21px;
-  line-height: 12px;
+  display: none;
 }
 
 /* =========================================================
    Page heading
+   - Icon and subtitle paragraph hidden (same reasoning as
+     the breadcrumb above) — just the "Inventory Barcodes"
+     title remains, at a smaller size to keep things compact.
 ========================================================= */
 
 .barcode-page-heading {
   display: flex;
   align-items: center;
   gap: 15px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .barcode-heading-icon {
-  width: 43px;
-  height: 43px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding: 5px;
-  box-sizing: border-box;
+  display: none;
 }
 
 .barcode-icon-line {
@@ -66,63 +51,51 @@
   border-radius: 1px;
 }
 
-.line-one {
-  width: 4px;
-}
-
-.line-two {
-  width: 7px;
-}
-
-.line-three {
-  width: 3px;
-}
-
-.line-four {
-  width: 6px;
-}
-
-.line-five {
-  width: 4px;
-}
+.line-one { width: 4px; }
+.line-two { width: 7px; }
+.line-three { width: 3px; }
+.line-four { width: 6px; }
+.line-five { width: 4px; }
 
 .barcode-page-heading h1 {
-  margin: 0 0 3px;
+  margin: 0;
   color: #15213b;
-  font-size: 26px;
+  font-size: 21px;
   line-height: 1.2;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
 }
 
 .barcode-page-heading p {
-  margin: 0;
-  color: #7b8494;
-  font-size: 14px;
-  line-height: 1.4;
+  display: none;
 }
 
 /* =========================================================
    Toolbar
+   Slightly shorter controls (38px instead of 42px) for a
+   more compact strip; font-weight 600 kept/applied on every
+   button.
 ========================================================= */
 
 .barcode-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  margin-bottom: 25px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 .brand-select {
-  width: 198px;
-  height: 42px;
-  padding: 0 35px 0 13px;
+  width: 180px;
+  height: 38px;
+  padding: 0 32px 0 12px;
   border: 1px solid #d5dce5;
   border-radius: 5px;
   background-color: #ffffff;
-  color: #737d8c;
-  font-size: 14px;
+  color: #354154;
+  font-size: 13px;
+  font-weight: 600;
   outline: none;
   cursor: pointer;
 }
@@ -138,7 +111,7 @@
   align-items: center;
   flex: 1;
   min-width: 180px;
-  height: 42px;
+  height: 38px;
   border: 1px solid #d5dce5;
   border-radius: 5px;
   background: #ffffff;
@@ -148,9 +121,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: 36px;
   color: #758092;
-  font-size: 27px;
+  font-size: 22px;
   line-height: 1;
   transform: rotate(-20deg);
 }
@@ -163,23 +136,25 @@
   outline: none;
   background: transparent;
   color: #283447;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .barcode-search-wrapper input::placeholder {
   color: #a0a9b7;
+  font-weight: 400;
 }
 
 .toolbar-button {
-  height: 42px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 0 17px;
+  gap: 8px;
+  padding: 0 15px;
   border: 0;
   border-radius: 5px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -194,12 +169,12 @@
 }
 
 .toolbar-button span {
-  font-size: 21px;
+  font-size: 18px;
   line-height: 1;
 }
 
 .search-button {
-  min-width: 108px;
+  min-width: 96px;
   background: #2189e6;
   color: #ffffff;
 }
@@ -209,7 +184,7 @@
 }
 
 .clear-button {
-  min-width: 98px;
+  min-width: 88px;
   background: #e9eef5;
   border: 1px solid #d2dbe7;
   color: #334258;
@@ -224,7 +199,7 @@
 }
 
 .print-selected-button {
-  min-width: 162px;
+  min-width: 150px;
   background: #0c9b45;
   color: #ffffff;
 }
@@ -234,7 +209,7 @@
 }
 
 .print-brand-button {
-  min-width: 139px;
+  min-width: 128px;
   background: #2189e6;
   color: #ffffff;
 }
@@ -251,9 +226,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 13px;
+  margin-bottom: 10px;
   color: #4d5869;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .entries-control {
@@ -263,29 +239,34 @@
 }
 
 .entries-control select {
-  width: 66px;
-  height: 34px;
+  width: 62px;
+  height: 30px;
   padding: 0 8px;
   border: 1px solid #d4dce7;
   border-radius: 5px;
   background: #ffffff;
   color: #354154;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
   outline: none;
   cursor: pointer;
 }
 
 .total-items {
   color: #4e5969;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .total-items strong {
-  font-weight: 500;
+  font-weight: 700;
 }
 
 /* =========================================================
    Table card
+   - Narrower forced min-width (was 930px) to match the
+     smaller columns below, so tablets need less horizontal
+     scroll.
 ========================================================= */
 
 .barcode-table-card {
@@ -304,7 +285,7 @@
 
 .barcode-table {
   width: 100%;
-  min-width: 930px;
+  min-width: 720px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -314,22 +295,26 @@
 }
 
 .barcode-table th {
-  height: 46px;
-  padding: 0 15px;
+  height: 38px;
+  padding: 0 12px;
   border-bottom: 1px solid #dfe5ed;
   color: #3d4759;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-align: left;
   white-space: nowrap;
 }
 
+/* Rows made noticeably smaller/more compact than the original
+   72px — the barcode image itself is capped in size below so
+   it still fits comfortably at this row height. */
 .barcode-table td {
-  height: 72px;
-  padding: 8px 15px;
+  height: 50px;
+  padding: 6px 12px;
   border-bottom: 1px solid #e8edf3;
   color: #3c4655;
   font-size: 13px;
+  font-weight: 600;
   vertical-align: middle;
 }
 
@@ -341,23 +326,24 @@
   background: #fbfdff;
 }
 
-/* Column widths */
+/* Column widths — narrower than the original for a tighter,
+   less sprawling table. */
 
 .checkbox-column {
-  width: 58px;
+  width: 42px;
   text-align: center !important;
 }
 
 .part-number-column {
-  width: 215px;
+  width: 150px;
 }
 
 .part-name-column {
-  width: 205px;
+  width: 190px;
 }
 
 .brand-column {
-  width: 150px;
+  width: 110px;
 }
 
 .barcode-column {
@@ -368,8 +354,8 @@
 /* Checkbox */
 
 .barcode-table input[type="checkbox"] {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   accent-color: #1684dd;
   cursor: pointer;
@@ -380,41 +366,42 @@
 .sort-icon {
   float: right;
   color: #a7b0bd;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 400;
 }
 
-/* Cell styling */
+/* Cell styling — font-weight bumped to 600 as requested */
 
 .part-number-cell {
   color: #424c5d;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.1px;
 }
 
 .part-name-cell {
   color: #424c5d;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .brand-cell {
   color: #414b5a;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .barcode-cell {
   padding-top: 4px !important;
   padding-bottom: 4px !important;
   text-align: center;
+  font-weight: 600;
 }
 
 .barcode-click-area {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 210px;
-  min-height: 58px;
-  padding: 3px 12px;
+  min-width: 150px;
+  min-height: 40px;
+  padding: 2px 10px;
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -438,10 +425,23 @@
   height: auto;
 }
 
+/* The barcode <img> is given its size via an inline style in
+   the component (style={{ maxWidth: "100%", height: "auto" }}),
+   which a plain external rule can't override — !important is
+   the correct, deliberate tool here since this is a CSS-only
+   change and the component isn't being touched. This is what
+   actually lets the smaller 50px row height work without the
+   barcode image overflowing it. */
+.barcode-click-area img {
+  max-height: 40px !important;
+  width: auto !important;
+}
+
 .empty-table-message {
-  height: 150px !important;
+  height: 120px !important;
   color: #7e8998 !important;
   text-align: center !important;
+  font-weight: 600;
 }
 
 /* =========================================================
@@ -452,15 +452,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 62px;
-  padding: 10px 10px 10px 15px;
+  min-height: 54px;
+  padding: 8px 10px 8px 15px;
   border-top: 1px solid #e5eaf0;
   background: #ffffff;
 }
 
 .showing-information {
   color: #687384;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .pagination {
@@ -470,14 +471,15 @@
 }
 
 .pagination-button {
-  min-width: 38px;
-  height: 36px;
-  padding: 0 11px;
+  min-width: 34px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #e0e5ec;
   border-radius: 5px;
   background: #ffffff;
   color: #3d4859;
   font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background-color 0.2s ease,
@@ -504,21 +506,24 @@
 
 .previous-button,
 .next-button {
-  padding: 0 13px;
+  padding: 0 12px;
 }
 
 .pagination-ellipsis {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 36px;
+  width: 20px;
+  height: 32px;
   color: #677386;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* =========================================================
    Print layout
+   (unchanged — this only affects the physical printed sheet,
+   not the on-screen page)
 ========================================================= */
 
 .barcode-print-sheet {
@@ -562,9 +567,13 @@
 
 /* =========================================================
    Responsive styles
+   Reworked around three clear tiers:
+     - Desktop:  > 1024px  (default styles above)
+     - Tablet:   641px – 1024px
+     - Mobile:   <= 640px
 ========================================================= */
 
-@media (max-width: 1280px) {
+@media (max-width: 1024px) {
   .barcode-toolbar {
     flex-wrap: wrap;
   }
@@ -574,13 +583,25 @@
   }
 
   .barcode-search-wrapper {
-    min-width: 260px;
+    min-width: 220px;
+  }
+
+  .part-name-column {
+    width: 160px;
+  }
+
+  .brand-column {
+    width: 96px;
   }
 }
 
-@media (max-width: 850px) {
+@media (max-width: 640px) {
   .barcode-page {
-    padding: 18px 15px 25px;
+    padding: 14px 12px 18px;
+  }
+
+  .barcode-page-heading h1 {
+    font-size: 18px;
   }
 
   .barcode-toolbar {
@@ -600,13 +621,18 @@
 
   .table-top-bar {
     align-items: flex-start;
-    gap: 15px;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .total-items {
+    align-self: flex-end;
   }
 
   .barcode-table-footer {
     align-items: flex-start;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
   }
 
   .pagination {
@@ -614,31 +640,9 @@
     overflow-x: auto;
     padding-bottom: 2px;
   }
-}
-
-@media (max-width: 500px) {
-  .barcode-page-heading h1 {
-    font-size: 22px;
-  }
-
-  .barcode-page-heading p {
-    font-size: 12px;
-  }
-
-  .barcode-breadcrumb {
-    font-size: 12px;
-  }
-
-  .table-top-bar {
-    flex-direction: column;
-  }
-
-  .total-items {
-    align-self: flex-end;
-  }
 
   .pagination-button {
-    min-width: 34px;
+    min-width: 30px;
     padding: 0 8px;
   }
 
@@ -650,6 +654,7 @@
 
 /* =========================================================
    Browser print rules
+   (unchanged)
 ========================================================= */
 
 @media print {
