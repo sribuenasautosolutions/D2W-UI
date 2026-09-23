@@ -1,70 +1,80 @@
-import LeadOfferPage from "../../sales/pages/LeadOfferPage";
 import { Routes, Route } from "react-router-dom";
-
-
-
-import DashboardHome from "../pages/DashboardHome";
-
-import ProductPage from "../pages/ProductPage";
-
-import VehicleManagement from "../components/vehicles/VehicleManagement";
-
-import InventoryPage from "../pages/InventoryPage";
-
-import PurchasesPage from "../pages/PurchasesPage";
-
-import ReportsPage from "../pages/ReportsPage";
-
-import StoresPage from "../pages/StoresPage";
-
-import UsersPage from "../pages/UsersPage";
-
-import ProductApprovalPage from "../pages/ProductApprovalPage";
-
-import SalesPage from "../../sales/pages/SalesPage";
-
-import NewSalePage from "../../sales/pages/NewSalePage";
-
-import ProformaListPage from "../../sales/pages/ProformaListPage";
-
-import ProformaViewPage from "../../sales/pages/ProformaViewPage";
-
-import PaymentPage from "../../pos/pages/PaymentPageor";
-import ProductManagePage from "../components/inventory/ProductManagePage";
-
-
-
-
-import LeadCreate from "../components/leads/LeadCreate";
-
-import LeadList from "../components/leads/LeadList";
-
-
-
-
-
-
-
-import InvoicePage from "../../pos/pages/InvoicePage";
-
-
+import { lazy, Suspense } from "react";
 
 import DashboardLayout from "../layouts/DashboardLayout";
 
-import LeadDetails from "../components/leads/LeadDetails";
+const LeadOfferPage = lazy(() => import("../../sales/pages/LeadOfferPage"));
+
+const DashboardHome = lazy(() => import("../pages/DashboardHome"));
+
+const ProductPage = lazy(() => import("../pages/ProductPage"));
+
+const VehicleManagement = lazy(
+  () => import("../components/vehicles/VehicleManagement")
+);
+
+const InventoryPage = lazy(() => import("../pages/InventoryPage"));
+
+const PurchasesPage = lazy(() => import("../pages/PurchasesPage"));
+
+const ReportsPage = lazy(() => import("../pages/ReportsPage"));
+
+const StoresPage = lazy(() => import("../pages/StoresPage"));
+
+const UsersPage = lazy(() => import("../pages/UsersPage"));
+
+const ProductApprovalPage = lazy(
+  () => import("../pages/ProductApprovalPage")
+);
+
+const SalesPage = lazy(() => import("../../sales/pages/SalesPage"));
+
+const NewSalePage = lazy(() => import("../../sales/pages/NewSalePage"));
+
+const ProformaListPage = lazy(
+  () => import("../../sales/pages/ProformaListPage")
+);
+
+const ProformaViewPage = lazy(
+  () => import("../../sales/pages/ProformaViewPage")
+);
+
+const PaymentPage = lazy(
+  () => import("../../pos/pages/PaymentPageor")
+);
+
+const ProductManagePage = lazy(
+  () => import("../components/inventory/ProductManagePage")
+);
+
+const LeadCreate = lazy(
+  () => import("../components/leads/LeadCreate")
+);
+
+const LeadList = lazy(
+  () => import("../components/leads/LeadList")
+);
+
+const InvoicePage = lazy(
+  () => import("../../pos/pages/InvoicePage")
+);
+
+const LeadDetails = lazy(
+  () => import("../components/leads/LeadDetails")
+);
 
 
 
 function OwnerRoutes() {
-
   return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Routes>
 
-    <Routes>
-<Route path="/sales/proforma/:id/lead" element={<DashboardLayout><LeadOfferPage /></DashboardLayout>} />
+        <Route path="/sales/proforma/:id/lead" element={<DashboardLayout><LeadOfferPage /></DashboardLayout>} />
 
 
 
-      <Route
+       <Route
 
         path="/dashboard"
 
@@ -332,13 +342,11 @@ function OwnerRoutes() {
 
 
 
-    </Routes>
 
+
+      </Routes>
+    </Suspense>
   );
-
 }
 
-
-
 export default OwnerRoutes;
-
