@@ -3,168 +3,145 @@ import { useNavigate } from "react-router-dom";
 
 import { useCart } from "../../context/CartContext";
 import BatchSelectionModal from "./BatchSelectionModal";
+import "./ProductCard.css";
 
 function ProductCard({ product }) {
+    const { addToCart } = useCart();
 
-
-   const { addToCart } = useCart();
-
-const [openBatchModal, setOpenBatchModal] = useState(false);
-const navigate = useNavigate();
-
+    const [openBatchModal, setOpenBatchModal] = useState(false);
+    const navigate = useNavigate();
 
     const isAvailable =
         product.inStock === true ||
         product.quantity > 0;
-       
 
     return (
-        <div style={{
-            background: "#fff", borderRadius: "10px", padding: "12px",
-            border: "1px solid #f1f5f9", display: "flex", flexDirection: "column", gap: "8px",
-            transition: "box-shadow 0.2s"
-        }}>
-            <div style={{ height: "90px", background: "#f8fafc", borderRadius: "7px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {(product.image || product.imageUrl || product.mainImageUrl)
-    ? (
-        <img
-            src={
-                product.image ||
-                product.imageUrl ||
-                product.mainImageUrl
-            }
-            alt={product.itemName}
-            style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain"
-            }}
-        />
-    )
-    : (
-        <span
-            style={{
-                color: "#cbd5e1",
-                fontSize: "13px"
-            }}
-        >
-            No Image
-        </span>
-    )
-}
+        <div className="product-card">
+
+            {/* Product Image */}
+            <div className="product-image-container">
+                {(product.image || product.imageUrl || product.mainImageUrl) ? (
+                    <img
+                        src={
+                            product.image ||
+                            product.imageUrl ||
+                            product.mainImageUrl
+                        }
+                        alt={product.itemName}
+                        className="product-image"
+                    />
+                ) : (
+                    <span className="no-image">
+                        No Image
+                    </span>
+                )}
             </div>
-            <div style={{ fontSize: "11px", color: "#64748b" }}>{product.brandName}</div>
-            <div style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: 1.3, minHeight: "34px" }}>{product.itemName}</div>
+
+            {/* Brand */}
+            <div className="product-brand">
+                {product.brandName}
+            </div>
+
+            {/* Product Name */}
+            <div className="product-name">
+                {product.itemName}
+            </div>
+
+            {/* Part Number */}
             {product.partNumber && (
-                <div
-                    style={{
-                        display: "inline-flex",
-                        alignSelf: "flex-start",
-                        alignItems: "center",
-                        gap: "4px",
-                        background: "#eff6ff",
-                        border: "1px solid #bfdbfe",
-                        borderRadius: "5px",
-                        padding: "2px 7px",
-                        fontSize: "11px",
-                        fontWeight: "700",
-                        color: "#1d4ed8",
-                    }}
-                >
-                    Part: {product.partNumber}
+                <div className="product-part-number">
+                    <span className="product-part-label">
+                        Part:
+                    </span>{" "}
+                    {product.partNumber}
                 </div>
             )}
-            <div style={{ fontSize: "11px", color: isAvailable ? "#16a34a" : "#ef4444", fontWeight: "600" }}>
-                {product.stockStatus || (isAvailable ? "IN STOCK" : "OUT OF STOCK")}
-               {product.quantity > 0 && (
-    <span
-        style={{
-            color: "#64748b",
-            fontWeight: "400"
-        }}
-    >
-        {" "}· Qty: {product.quantity} {product.stockUnit || "PCS"}
-    </span>
-)}
+
+            {/* Stock */}
+            <div
+                className={`product-stock ${
+                    isAvailable
+                        ? "product-stock-available"
+                        : "product-stock-unavailable"
+                }`}
+            >
+                {product.stockStatus ||
+                    (isAvailable
+                        ? "IN STOCK"
+                        : "OUT OF STOCK")}
+
+                {product.quantity > 0 && (
+                    <span className="product-quantity">
+                        {" "}· Qty: {product.quantity}{" "}
+                        {product.stockUnit || "PCS"}
+                    </span>
+                )}
             </div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: "#2563eb" }}>₹{product.sellingPrice} / {product.stockUnit || "PCS"}</div>
-           <div
-    style={{
-        display: "flex",
-        gap: "8px"
-    }}
->
-    <button
-        onClick={() => navigate(`/pos/product/${product.inventoryId}`)}
-        style={{ flex: 1, height: "32px", border: "1px solid #64748b", borderRadius: "6px", background: "#fff", color: "#64748b", cursor: "pointer", fontSize: "13px" }}
-    >
-        View
-    </button>
-    
 
-    <button
-        onClick={() =>
-    setOpenBatchModal(true)
-}
-        disabled={!isAvailable}
-        style={{
-            flex: 1,
-            height: "32px",
-            border: isAvailable
-                ? "1px solid #2563eb"
-                : "1px solid #e2e8f0",
-            borderRadius: "6px",
-            background: isAvailable
-                ? "transparent"
-                : "#f8fafc",
-            color: isAvailable
-                ? "#2563eb"
-                : "#94a3b8",
-            cursor: isAvailable
-                ? "pointer"
-                : "not-allowed",
-            fontSize: "13px",
-            fontWeight: "500"
-        }}
-    >
-        {isAvailable
-            ? "+ Add"
-            : "Out Of Stock"}
-    </button>
+            {/* Price */}
+            <div className="product-price">
+                ₹{product.sellingPrice} /{" "}
+                {product.stockUnit || "PCS"}
+            </div>
 
-</div>
-<BatchSelectionModal
+            {/* Buttons */}
+            <div className="product-actions">
 
-    open={openBatchModal}
+                {/* View */}
+                <button
+                    type="button"
+                    onClick={() =>
+                        navigate(
+                            `/pos/product/${product.inventoryId}`
+                        )
+                    }
+                    className="product-view-btn"
+                >
+                    View
+                </button>
 
-    product={product}
+                {/* Add */}
+                <button
+                    type="button"
+                    onClick={() =>
+                        setOpenBatchModal(true)
+                    }
+                    disabled={!isAvailable}
+                    className={
+                        isAvailable
+                            ? "product-add-btn"
+                            : "product-add-btn product-add-disabled"
+                    }
+                >
+                    {isAvailable
+                        ? "+ Add"
+                        : "Out Of Stock"}
+                </button>
 
-    onClose={() =>
-        setOpenBatchModal(false)
-    }
+            </div>
 
-    onSelect={(batch) => {
+            {/* Batch Selection */}
+            <BatchSelectionModal
+                open={openBatchModal}
+                product={product}
+                onClose={() =>
+                    setOpenBatchModal(false)
+                }
+                onSelect={(batch) => {
 
-        addToCart({
+                    addToCart({
+                        ...product,
+                        batchId: batch.batchId,
+                        batchNumber: batch.batchNumber,
+                        mrp: batch.mrp,
+                        sellingPrice: batch.sellingPrice,
+                        purchasePrice: batch.purchasePrice
+                    });
 
-            ...product,
+                    setOpenBatchModal(false);
+                }}
+            />
 
-            batchId: batch.batchId,
-
-            batchNumber: batch.batchNumber,
-
-            mrp: batch.mrp,
-
-            sellingPrice: batch.sellingPrice,
-
-            purchasePrice: batch.purchasePrice
-
-        });
-
-        setOpenBatchModal(false);
-
-    }}
-/>
         </div>
     );
 }
