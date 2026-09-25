@@ -2,45 +2,22 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { placeOrder, calculateOrder } from "../../services/orderService";
-import { getCustomerByMobile, saveCustomer } from "../../services/customerService";
+import { getCustomerByMobile } from "../../services/customerService";
 import PaymentPageor from "./PaymentPageor";
 import { getCalculationLinesForCartItem, sumCalculatedAmount } from "../utils/calculationLines";
+import d2wLogo from "./d2w-logo.png";
+import "./CheckoutPage.css";
 
-/* ============================================================
-   CONSTANTS
-   ============================================================ */
 
-const GST_TYPE_OPTIONS = [
-  { value: "NONE", label: "None" },
-  { value: "GST_5", label: "GST 5%" },
-  { value: "GST_12", label: "GST 12%" },
-  { value: "GST_18", label: "GST 18%" },
-  { value: "GST_28", label: "GST 28%" },
-  { value: "IGST_5", label: "IGST 5%" },
-  { value: "IGST_12", label: "IGST 12%" },
-  { value: "IGST_18", label: "IGST 18%" },
-  { value: "IGST_28", label: "IGST 28%" },
-];
+const FIXED_GST_TYPE = "GST_18";
+const FIXED_GST_LABEL = "18%";
 
 const RECALC_DEBOUNCE_MS = 400;
 
 
-/* ============================================================
-   HELPERS (no money math — display/formatting only)
-   ============================================================ */
-
-// Format a backend-supplied number for display. Never computes money.
 const money = (value) => `₹${Number(value ?? 0).toFixed(2)}`;
 
-// Default GST type for a cart item that has no explicit gstType yet.
-// This only picks an enum value — the backend does all tax math.
-const deriveGstType = (item) => {
-  if (item.gstType) return item.gstType;
-  const pct = Number(item.gstPercentage || 0);
-  return [5, 12, 18, 28].includes(pct) ? `GST_${pct}` : "NONE";
-};
 
-// Extract a readable message from an axios / Spring error.
 const extractError = (error) => {
   const data = error?.response?.data;
   if (data?.message) return data.message;
@@ -56,9 +33,6 @@ const getUser = () => {
   }
 };
 
-/* ============================================================
-   COMPONENT
-   ============================================================ */
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -80,40 +54,6 @@ function CheckoutPage() {
 
   /* ---------- Cashier-editable financial inputs ---------- */
   const [billDiscount, setBillDiscount] = useState("0");
-  const [invoiceGstRate, setInvoiceGstRate] = useState(18);
-
-const [invoiceGstMode, setInvoiceGstMode] = useState("AUTO");
-
-const [gstTypes, setGstTypes] = useState({});
-const applyInvoiceGSTToAll = () => {
-
-    const updatedGST = {};
-
-    cartItems.forEach((item) => {
-
-        let gstType = "";
-
-        if (invoiceGstMode === "AUTO") {
-
-            gstType = `GST_${invoiceGstRate}`;
-
-        } else if (invoiceGstMode === "IGST") {
-
-            gstType = `IGST_${invoiceGstRate}`;
-
-        } else {
-
-            gstType = `GST_${invoiceGstRate}`;
-        }
-
-        updatedGST[item.inventoryId] = gstType;
-
-    });
-
-    setGstTypes(updatedGST);
-
-};
- 
 
   /* ---------- Backend calculation (single source of truth) ---------- */
   const [calculation, setCalculation] = useState(null);
@@ -140,9 +80,6 @@ const applyInvoiceGSTToAll = () => {
       setPhone(draft.phone || "");
       setAddress(draft.address || "");
       setBillDiscount(String(draft.billDiscount || 0));
-      setInvoiceGstRate(Number(draft.invoiceGstRate || 18));
-      setInvoiceGstMode(draft.invoiceGstMode || "AUTO");
-      setGstTypes(draft.gstTypes || {});
     } catch { /* invalid local draft is ignored */ }
   }, [activeDraftId]);
 
@@ -152,57 +89,32 @@ const applyInvoiceGSTToAll = () => {
      { storeId, billDiscountPercent, items: [{ inventoryId, quantity,
        discountPercentage, gstType }] }
      StoreInventory is the pillar — POS always sells by inventoryId,
-     never by productId (which is null for Local Products).
+     never by productId (which is null for Local Products). GST is
+     always FIXED_GST_TYPE now — no per-item or per-invoice override.
      ============================================================ */
 
-  const effectiveGstType = useCallback(
-    (item) => {
-
-        if (gstTypes[item.inventoryId]) {
-
-            return gstTypes[item.inventoryId];
-
-        }
-
-        if (invoiceGstMode === "IGST") {
-
-            return `IGST_${invoiceGstRate}`;
-
-        }
-
-        return `GST_${invoiceGstRate}`;
-
-    },
-    [gstTypes, invoiceGstRate, invoiceGstMode]
-);
+  const effectiveGstType = useCallback(() => FIXED_GST_TYPE, []);
 
   const buildCalculationRequest = useCallback(
     () => ({
       storeId,
       billDiscountPercent: Number(billDiscount || 0),
-     items: cartItems.map((item) => ({
-
-    inventoryId: item.inventoryId,
-
-    batchId: item.batchId,
-
-    productId: item.productId,
-
-    quantity: item.quantity,
-
-    discountPercentage: Number(item.itemDiscount || 0),
-
-    gstType: effectiveGstType(item)
-
-})),
+      items: cartItems.map((item) => ({
+        inventoryId: item.inventoryId,
+        batchId: item.batchId,
+        productId: item.productId,
+        quantity: item.quantity,
+        discountPercentage: Number(item.itemDiscount || 0),
+        gstType: effectiveGstType(item),
+      })),
     }),
     [storeId, billDiscount, cartItems, effectiveGstType]
   );
 
   /* ============================================================
      AUTO-RECALCULATE (debounced)
-     Fires whenever quantity, item discount, GST type or bill
-     discount changes. Stale responses are ignored via requestId.
+     Fires whenever quantity, item discount or bill discount
+     changes. Stale responses are ignored via requestId.
      ============================================================ */
 
   useEffect(() => {
@@ -242,10 +154,16 @@ const applyInvoiceGSTToAll = () => {
     }, RECALC_DEBOUNCE_MS);
 
     return () => clearTimeout(debounceRef.current);
-  }, [cartItems, billDiscount, gstTypes, storeId, buildCalculationRequest, navigate]);
+  }, [cartItems, billDiscount, storeId, buildCalculationRequest, navigate]);
 
   /* ============================================================
-     CUSTOMER LOOKUP / SAVE
+     Fast lookup: inventoryId -> backend calculation line
+     (Handled per-row via getCalculationLinesForCartItem, kept
+     from the original implementation.)
+     ============================================================ */
+
+  /* ============================================================
+     CUSTOMER LOOKUP
      ============================================================ */
 
   const handleMobileChange = async (mobile) => {
@@ -268,28 +186,6 @@ const applyInvoiceGSTToAll = () => {
       console.error(error);
       setCustomerExists(false);
     }
-  };
-
-  const handleSaveCustomer = async () => {
-    if (!customerName.trim()) {
-      alert("Please enter a customer name before saving.");
-      return;
-    }
-    try {
-      await saveCustomer({ customerName, mobileNumber: phone });
-      setCustomerExists(true);
-      alert("Customer saved successfully");
-    } catch (error) {
-      alert(extractError(error));
-    }
-  };
-
-  /* ============================================================
-     GST TYPE CHANGE (triggers auto-recalculate via effect)
-     ============================================================ */
-
-  const handleGstTypeChange = (inventoryId, gstType) => {
-    setGstTypes((prev) => ({ ...prev, [inventoryId]: gstType }));
   };
 
   /* ============================================================
@@ -323,7 +219,7 @@ const applyInvoiceGSTToAll = () => {
       const draftId = activeDraftId || `draft-${Date.now()}`;
       const record = {
         draftId, customerName: customerName.trim(), phone, address,
-        cartItems, billDiscount, invoiceGstRate, invoiceGstMode, gstTypes,
+        cartItems, billDiscount,
         totalAmount: calculation?.netPayable || 0,
         balanceAmount: calculation?.netPayable || 0,
         heldAt: new Date().toISOString(),
@@ -347,21 +243,14 @@ const applyInvoiceGSTToAll = () => {
         address,
         paymentMethod: "PENDING", // payment is collected on the Payment page
         billDiscountPercent: Number(billDiscount || 0),
-       items: cartItems.map((item) => ({
-
-    inventoryId: item.inventoryId,
-
-    batchId: item.batchId,
-
-    productId: item.productId,
-
-    quantity: item.quantity,
-
-    discountPercentage: Number(item.itemDiscount || 0),
-
-    gstType: effectiveGstType(item)
-
-})),
+        items: cartItems.map((item) => ({
+          inventoryId: item.inventoryId,
+          batchId: item.batchId,
+          productId: item.productId,
+          quantity: item.quantity,
+          discountPercentage: Number(item.itemDiscount || 0),
+          gstType: effectiveGstType(item),
+        })),
       };
 
       const orderId = await placeOrder(orderData);
@@ -388,431 +277,357 @@ const applyInvoiceGSTToAll = () => {
 
   return (
     <>
-    <div style={pageStyle}>
-      {/* ================= TOP BAR ================= */}
-      <div style={topBarStyle}>
-        <button onClick={() => navigate(-1)} style={backBtnStyle}>
-          ← Back to POS
-        </button>
-        <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#0f172a", margin: 0 }}>
-          Checkout
-        </h2>
-        {activeDraftId && (
-          <button onClick={() => navigate("/pos")} style={{ ...backBtnStyle, color: "#2563eb", borderColor: "#93c5fd", background: "#eff6ff" }}>
-            + Add Items
+      <div className="checkout-page">
+        {/* ================= NAVBAR ================= */}
+        <header className="checkout-navbar">
+          <img src={d2wLogo} alt="Deals2Wheels" className="checkout-navbar-logo" />
+          <button type="button" className="checkout-navbar-back" onClick={() => navigate(-1)}>
+            ← Back to POS
           </button>
-        )}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={brandIconStyle}>🚗</div>
+        </header>
+
+        {/* ================= COMPACT CENTERED HEADING ================= */}
+        <div className="checkout-heading">
+          <h1>Checkout</h1>
+          <p>Complete your order and make payment</p>
+          {activeDraftId && (
+            <button type="button" className="checkout-add-items-btn" onClick={() => navigate("/pos")}>
+              + Add Items
+            </button>
+          )}
+        </div>
+
+        {/* ================= STEP INDICATOR (decorative) ================= */}
+        <div className="checkout-steps">
+          <div className="checkout-step active">
+            <span className="checkout-step-badge">1</span>
+            <div className="checkout-step-copy">
+              <strong>Customer Details</strong>
+              <small>Add customer information</small>
+            </div>
+          </div>
+          <div className="checkout-step-line" />
+          <div className="checkout-step">
+            <span className="checkout-step-badge">2</span>
+            <div className="checkout-step-copy">
+              <strong>Order Items</strong>
+              <small>Review your items</small>
+            </div>
+          </div>
+          <div className="checkout-step-line" />
+          <div className="checkout-step">
+            <span className="checkout-step-badge">3</span>
+            <div className="checkout-step-copy">
+              <strong>Payment</strong>
+              <small>Complete payment</small>
+            </div>
+          </div>
+        </div>
+
+        {/* ================= MAIN GRID ================= */}
+        <div className="checkout-grid">
+          {/* -------- LEFT: CUSTOMER DETAILS -------- */}
+          <div className="checkout-card">
+            <SectionHeader icon="👤" title="Customer Details" subtitle="Enter customer information" />
+
+            <Field label="Mobile Number *">
+              <input
+                type="tel"
+                inputMode="numeric"
+                placeholder="10-digit mobile number"
+                value={phone}
+                onChange={(e) => handleMobileChange(e.target.value)}
+                className="checkout-input"
+                maxLength={10}
+              />
+              {phone.length > 0 && phone.length < 10 && (
+                <Hint type="error">Enter all 10 digits</Hint>
+              )}
+              {customerExists && <Hint type="success">✓ Existing customer found</Hint>}
+            </Field>
+
+            <Field label="Customer Name *">
+              <input
+                type="text"
+                placeholder="Enter customer name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="checkout-input"
+              />
+            </Field>
+
+            <Field label="Address (optional)">
+              <input
+                type="text"
+                placeholder="Enter address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="checkout-input"
+              />
+            </Field>
+
+            <div className="checkout-payment-box">
+              <div className="checkout-payment-box-header">
+                <span>💳</span>
+                <span>Payment Information</span>
+              </div>
+              <p className="checkout-payment-box-text">
+                Payment will be collected after invoice creation.
+              </p>
+            </div>
+          </div>
+
+          {/* -------- CENTER: ORDER ITEMS TABLE -------- */}
+          <div className="checkout-card">
+            <SectionHeader icon="🛒" title={`Order Items (${cartItems.length})`} subtitle="All amounts are calculated by the server" />
+
+            {calcError && (
+              <div className="checkout-error-banner" role="alert">
+                ⚠ {calcError}
+              </div>
+            )}
+
+            {cartItems.length === 0 ? (
+              <div className="checkout-empty-state">
+                Cart is empty — go back to POS and add products.
+              </div>
+            ) : (
+              <div className="checkout-table-wrap">
+                <table className="checkout-table">
+                  <colgroup>
+                    <col className="col-product" />
+                    <col className="col-part" />
+                    <col className="col-hsn" />
+                    <col className="col-mrp" />
+                    <col className="col-rate" />
+                    <col className="col-qty" />
+                    <col className="col-disc" />
+                    <col className="col-gst" />
+                    <col className="col-taxable" />
+                    <col className="col-total" />
+                    <col className="col-action" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="align-left">Product</th>
+                      <th>Part Number</th>
+                      <th>HSN</th>
+                      <th className="align-right">MRP</th>
+                      <th className="align-right">Rate</th>
+                      <th>Qty</th>
+                      <th>Disc %</th>
+                      <th>GST</th>
+                      <th className="align-right">Taxable</th>
+                      <th className="align-right">Total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cartItems.map((item) => {
+                      const lines = getCalculationLinesForCartItem(item, calculation?.items || []);
+                      const line = lines[0];
+                      const multipleBatches = lines.length > 1;
+                      return (
+                        <tr key={`${item.inventoryId}_${item.batchId}`}>
+                          {/* Product */}
+                          <td>
+                            <div className="checkout-product-cell">
+                              <div className="checkout-product-info">
+                                <div className="checkout-product-name">
+                                  {line?.productName || item.itemName}
+                                </div>
+                                {(line?.brandName || item.brandName) && (
+                                  <div className="checkout-product-brand">
+                                    {line?.brandName || item.brandName}
+                                  </div>
+                                )}
+                                {line && (
+                                  <div className="checkout-product-stock">
+                                    Stock: {line.stock}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Part number — readonly, from backend */}
+                          <td className="align-center">
+                            <span className="checkout-part-number">
+                              {line?.partNumber || item.partNumber || "—"}
+                            </span>
+                          </td>
+
+                          {/* HSN — readonly, from backend */}
+                          <td className="align-center">
+                            <span className="checkout-hsn">{line?.hsnCode || "—"}</span>
+                          </td>
+
+                          {/* MRP — readonly, from backend */}
+                          <td className="align-right">
+                            {line ? (multipleBatches ? "Multiple batches" : money(line.mrp)) : "…"}
+                          </td>
+
+                          {/* Rate — readonly, from backend */}
+                          <td className="align-right">
+                            {line ? (multipleBatches ? "Multiple batches" : money(line.sellingPrice)) : "…"}
+                          </td>
+
+                          {/* Qty — cashier input */}
+                          <td>
+                            <div className="checkout-qty-control">
+                              <button
+                                type="button"
+                                onClick={() => decreaseQuantity(item.inventoryId, item.batchId)}
+                                className="checkout-qty-btn"
+                                aria-label="Decrease quantity"
+                              >
+                                −
+                              </button>
+                              <span className="checkout-qty-value">{item.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => increaseQuantity(item.inventoryId, item.batchId)}
+                                className="checkout-qty-btn"
+                                aria-label="Increase quantity"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Item Discount % — cashier input */}
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={item.itemDiscount || 0}
+                              onChange={(e) => updateDiscount(item.inventoryId, item.batchId, e.target.value)}
+                              className="checkout-discount-input"
+                              aria-label="Item discount percent"
+                            />
+                          </td>
+
+                          {/* GST — fixed at 18%, no longer editable */}
+                          <td>
+                            <span className="checkout-gst-fixed">{FIXED_GST_LABEL}</span>
+                          </td>
+
+                          {/* Taxable — readonly, from backend */}
+                          <td className="align-right">
+                            {line ? money(sumCalculatedAmount(lines, "taxableAmount")) : "…"}
+                          </td>
+
+                          {/* Line total — readonly, from backend */}
+                          <td className="align-right" style={{ fontWeight: 700 }}>
+                            {line ? money(sumCalculatedAmount(lines, "lineTotal")) : "…"}
+                          </td>
+
+                          {/* Remove */}
+                          <td className="align-center">
+                            <button
+                              type="button"
+                              onClick={() => removeFromCart(item.inventoryId, item.batchId)}
+                              className="checkout-remove-btn"
+                              aria-label="Remove item"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {cartItems.length > 0 && (
+              <div className="checkout-items-footer">
+                <div className="checkout-items-footer-left">Total Items: {cartItems.length}</div>
+                <button
+                  type="button"
+                  className="checkout-clear-btn"
+                  onClick={() => { if (window.confirm("Clear all items from the cart?")) clearCart(); }}
+                >
+                  🗑 Clear Cart
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* -------- RIGHT: STICKY BILL SUMMARY -------- */}
           <div>
-            <div style={{ fontSize: "14px", fontWeight: 600, color: "#0f172a" }}>
-              Smart Auto Parts
-            </div>
-            <div style={{ fontSize: "11px", color: "#64748b" }}>
-              Automobile Spare Parts Store
+            <div className="checkout-card checkout-bill-summary">
+              <SectionHeader icon="🧾" title="Bill Summary" subtitle="Calculated by server" />
+
+              {calcLoading && (
+                <div className="checkout-recalc-hint">Recalculating…</div>
+              )}
+
+              <div className="checkout-bill-discount-box">
+                <label htmlFor="bill-discount" className="checkout-bill-discount-label">
+                  🏷️ Bill Discount (%)
+                </label>
+                <div className="checkout-bill-discount-input-wrap">
+                  <input
+                    id="bill-discount"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={billDiscount}
+                    onChange={(e) => setBillDiscount(e.target.value)}
+                    className="checkout-bill-discount-input"
+                  />
+                  <span className="checkout-bill-discount-suffix">%</span>
+                </div>
+              </div>
+
+              {/* All values below come straight from the backend response */}
+              <SummaryRow label={`Gross Amount (${calculation?.totalItems ?? 0} items, qty ${calculation?.totalQuantity ?? 0})`} value={calculation?.grossAmount} />
+              <SummaryRow label="Item Discount" value={calculation?.itemDiscount} negative />
+              <SummaryRow label="Taxable Amount" value={calculation?.taxableAmount} />
+              <SummaryRow label="CGST" value={calculation?.cgst} />
+              <SummaryRow label="SGST" value={calculation?.sgst} />
+              <SummaryRow label="IGST" value={calculation?.igst} />
+              <SummaryRow label="Bill Discount" value={calculation?.billDiscount} negative />
+              <SummaryRow label="Round Off" value={calculation?.roundOff} />
+
+              <div className="checkout-net-payable-row">
+                <span className="checkout-net-payable-label">Net Payable</span>
+                <span className="checkout-net-payable-value">
+                  {calcLoading ? "…" : money(calculation?.netPayable)}
+                </span>
+              </div>
+
+              <div className="checkout-actions-grid">
+                <button
+                  type="button"
+                  onClick={() => handlePlaceOrder("HOLD")}
+                  disabled={disablePlaceOrder}
+                  className="checkout-action-btn checkout-hold-btn"
+                  style={{ opacity: disablePlaceOrder ? 0.6 : 1 }}
+                >
+                  {creatingInvoice ? "Creating…" : "Hold Bill"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePlaceOrder("PAY")}
+                  disabled={disablePlaceOrder}
+                  className="checkout-action-btn checkout-pay-btn"
+                  style={{ opacity: disablePlaceOrder ? 0.6 : 1, cursor: disablePlaceOrder ? "not-allowed" : "pointer" }}
+                >
+                  {creatingInvoice ? "Creating Invoice…" : "Make Payment"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ================= MAIN GRID ================= */}
-      <div style={mainGridStyle}>
-        {/* -------- LEFT: CUSTOMER DETAILS -------- */}
-        <div style={cardStyle}>
-          <SectionHeader
-            icon="👤"
-            title="Customer Details"
-            subtitle="Enter customer information"
-          />
-
-          <Field label="Mobile Number *">
-            <input
-              type="tel"
-              inputMode="numeric"
-              placeholder="10-digit mobile number"
-              value={phone}
-              onChange={(e) => handleMobileChange(e.target.value)}
-              style={inputStyle}
-              maxLength={10}
-            />
-            {phone.length > 0 && phone.length < 10 && (
-              <Hint color="#ef4444">Enter all 10 digits</Hint>
-            )}
-            {customerExists && <Hint color="#16a34a">✓ Existing customer found</Hint>}
-          </Field>
-
-          <Field label="Customer Name *">
-            <input
-              type="text"
-              placeholder="Enter customer name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              style={inputStyle}
-            />
-          </Field>
-
-          <Field label="Address (optional)">
-            <input
-              type="text"
-              placeholder="Enter address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              style={inputStyle}
-            />
-          </Field>
-
-        
-
-          <div style={paymentInfoBoxStyle}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-              <span style={{ fontSize: "18px" }}>💳</span>
-              <span style={{ fontSize: "14px", fontWeight: 600, color: "#1d4ed8" }}>
-                Payment Information
-              </span>
-            </div>
-            <p style={{ margin: 0, fontSize: "13px", color: "#3b82f6", lineHeight: 1.5 }}>
-              Payment will be collected after invoice creation.
-            </p>
-          </div>
-        </div>
-
-        {/* -------- CENTER: ORDER ITEMS TABLE -------- */}
-        <div style={cardStyle}>
-          <SectionHeader icon="🛒" title="Order Items" subtitle="All amounts are calculated by the server" />
-
-          {calcError && (
-            <div style={errorBannerStyle} role="alert">
-              ⚠ {calcError}
-            </div>
-          )}
-
-          {cartItems.length === 0 ? (
-            <div style={emptyStateStyle}>
-              Cart is empty — go back to POS and add products.
-            </div>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={{ ...thStyle, textAlign: "left", minWidth: "160px" }}>Product</th>
-                    <th style={thStyle}>Part Number</th>
-                    <th style={thStyle}>HSN</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>MRP</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>Rate</th>
-                    <th style={thStyle}>Qty</th>
-                    <th style={thStyle}>Disc %</th>
-                    <th style={thStyle}>GST</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>Taxable</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>GST</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>Total</th>
-                    <th style={thStyle}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cartItems.map((item) => {
-                   const lines = getCalculationLinesForCartItem(item, calculation?.items || []);
-                   const line = lines[0];
-                   const multipleBatches = lines.length > 1;
-                    return (
-                     <tr
-    key={`${item.inventoryId}_${item.batchId}`}
-    style={{
-        borderBottom: "1px solid #f8fafc"
-    }}
->
-                        {/* Product */}
-                        <td style={tdStyle}>
-                          <div style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a" }}>
-                            {line?.productName || item.itemName}
-                          </div>
-                          {(line?.brandName || item.brandName) && (
-                            <div style={{ fontSize: "11px", color: "#64748b" }}>
-                              {line?.brandName || item.brandName}
-                            </div>
-                          )}
-                          {line && (
-                            <div style={{ fontSize: "11px", color: "#94a3b8" }}>
-                              Stock: {line.stock}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Part number — readonly, from backend */}
-                        <td style={{ ...tdStyle, fontSize: "12px", color: "#3b82f6" }}>
-                          {line?.partNumber || item.partNumber || "—"}
-                        </td>
-
-                        {/* HSN — readonly, from backend */}
-                        <td style={{ ...tdStyle, fontSize: "12px", color: "#64748b" }}>
-                          {line?.hsnCode || "—"}
-                        </td>
-
-                        {/* MRP — readonly, from backend */}
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? (multipleBatches ? "Multiple batches" : money(line.mrp)) : "…"}
-                        </td>
-
-                        {/* Rate — readonly, from backend */}
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? (multipleBatches ? "Multiple batches" : money(line.sellingPrice)) : "…"}
-                        </td>
-
-                        {/* Qty — cashier input */}
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px", justifyContent: "center" }}>
-                            <button
-                              onClick={() =>   decreaseQuantity(item.inventoryId,item.batchId)}
-                              style={qtyBtnStyle}
-                              aria-label="Decrease quantity"
-                            >
-                              −
-                            </button>
-                            <span style={qtyValueStyle}>{item.quantity}</span>
-                            <button
-                              onClick={() =>   increaseQuantity(item.inventoryId,item.batchId)}
-                              style={qtyBtnStyle}
-                              aria-label="Increase quantity"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* Item Discount % — cashier input */}
-                        <td style={tdStyle}>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={item.itemDiscount || 0}
-                            onChange={(e) =>  updateDiscount(item.inventoryId,item.batchId,e.target.value)}
-                            style={discountInputStyle}
-                            aria-label="Item discount percent"
-                          />
-                        </td>
-
-                        {/* GST Type — cashier input */}
-                        <td style={tdStyle}>
-                          <select
-                            value={effectiveGstType(item)}
-                            onChange={(e) => handleGstTypeChange(item.inventoryId, e.target.value)}
-                            style={gstSelectStyle}
-                            aria-label="GST type"
-                          >
-                            {GST_TYPE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-
-                        {/* Taxable — readonly, from backend */}
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? money(sumCalculatedAmount(lines, "taxableAmount")) : "…"}
-                        </td>
-
-                        {/* GST amount — readonly, from backend */}
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {line ? money(sumCalculatedAmount(lines, "gstAmount")) : "…"}
-                        </td>
-
-                        {/* Line total — readonly, from backend */}
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#0f172a" }}>
-                          {line ? money(sumCalculatedAmount(lines, "lineTotal")) : "…"}
-                        </td>
-
-                        {/* Remove */}
-                        <td style={tdStyle}>
-                          <button
-                            onClick={() =>  removeFromCart(item.inventoryId,item.batchId )}
-                            style={removeBtnStyle}
-                            aria-label="Remove item"
-                          >
-                            🗑️
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* -------- RIGHT: STICKY BILL SUMMARY -------- */}
-        <div>
-          <div style={billSummaryCardStyle}>
-            <SectionHeader icon="🧾" title="Bill Summary" subtitle="Calculated by server" />
-
-            {calcLoading && (
-              <div style={{ fontSize: "12px", color: "#3b82f6", marginBottom: "8px" }}>
-                Recalculating…
-              </div>
-            )}
-<div
-    style={{
-        background: "#f8fafc",
-        border: "1px solid #e2e8f0",
-        borderRadius: "8px",
-        padding: "12px",
-        marginBottom: "12px"
-    }}
->
-
-    <div
-        style={{
-            fontSize: "13px",
-            fontWeight: "600",
-            marginBottom: "10px",
-            color: "#1e293b"
-        }}
-    >
-        🧾 Invoice GST
-    </div>
-
-    <div
-        style={{
-            display: "flex",
-            gap: "8px",
-            marginBottom: "10px"
-        }}
-    >
-
-        <select
-            value={invoiceGstRate}
-            onChange={(e) =>
-                setInvoiceGstRate(Number(e.target.value))
-            }
-            style={gstSelectStyle}
-        >
-            <option value={5}>5%</option>
-            <option value={12}>12%</option>
-            <option value={18}>18%</option>
-            <option value={28}>28%</option>
-        </select>
-
-        <select
-            value={invoiceGstMode}
-            onChange={(e) =>
-                setInvoiceGstMode(e.target.value)
-            }
-            style={gstSelectStyle}
-        >
-            <option value="AUTO">
-                AUTO
-            </option>
-
-            <option value="CGST_SGST">
-                CGST + SGST
-            </option>
-
-            <option value="IGST">
-                IGST
-            </option>
-
-        </select>
-
-    </div>
-
-   <button
-
-    onClick={() => {
-
-        const confirmed = window.confirm(
-
-            `Apply ${invoiceGstRate}% GST to all products?`
-
-        );
-
-        if (confirmed) {
-
-            applyInvoiceGSTToAll();
-
-        }
-
-    }}
-
-    style={saveCustomerBtnStyle}
-
->
-
-    Apply To All
-
-</button>
-
-</div>
-
-            {/* Bill discount — cashier input */}
-            <div style={billDiscountBoxStyle}>
-              <label
-                htmlFor="bill-discount"
-                style={{ fontSize: "13px", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}
-              >
-                🏷️ Bill Discount (%)
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <input
-                  id="bill-discount"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={billDiscount}
-                  onChange={(e) => setBillDiscount(e.target.value)}
-                  style={billDiscountInputStyle}
-                />
-                <span style={{ fontSize: "12px", color: "#94a3b8" }}>%</span>
-              </div>
-            </div>
-
-            {/* All values below come straight from the backend response */}
-            <SummaryRow label={`Gross Amount (${calculation?.totalItems ?? 0} items, qty ${calculation?.totalQuantity ?? 0})`} value={calculation?.grossAmount} />
-            <SummaryRow label="Item Discount" value={calculation?.itemDiscount} negative />
-            <SummaryRow label="Taxable Amount" value={calculation?.taxableAmount} />
-            <SummaryRow label="CGST" value={calculation?.cgst} />
-            <SummaryRow label="SGST" value={calculation?.sgst} />
-            <SummaryRow label="IGST" value={calculation?.igst} />
-            <SummaryRow label="Bill Discount" value={calculation?.billDiscount} negative />
-            <SummaryRow label="Round Off" value={calculation?.roundOff} />
-
-            <div style={netPayableRowStyle}>
-              <span style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a" }}>
-                Net Payable
-              </span>
-              <span style={{ fontSize: "24px", fontWeight: 700, color: "#16a34a" }}>
-                {calcLoading ? "…" : money(calculation?.netPayable)}
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <button
-              onClick={() => handlePlaceOrder("HOLD")}
-              disabled={disablePlaceOrder}
-              style={{ ...placeOrderBtnStyle, background: "#f59e0b", opacity: disablePlaceOrder ? 0.6 : 1 }}
-            >
-              {creatingInvoice ? "Creating…" : "Hold Bill"}
-            </button>
-            <button
-              onClick={() => handlePlaceOrder("PAY")}
-              disabled={disablePlaceOrder}
-              style={{
-                ...placeOrderBtnStyle,
-                opacity: disablePlaceOrder ? 0.6 : 1,
-                cursor: disablePlaceOrder ? "not-allowed" : "pointer",
-              }}
-            >
-              {creatingInvoice ? "Creating Invoice…" : "Make Payment"}
-            </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    {activeOrderId && (
-      <div style={{ position: "fixed", inset: 0, zIndex: 1500, background: "rgba(15,23,42,.7)", padding: "5vh 16px", overflow: "auto" }}>
-        <div style={{ maxWidth: "760px", margin: "0 auto", background: "#fff", borderRadius: "14px", overflow: "hidden", boxShadow: "0 24px 70px rgba(0,0,0,.3)" }}>
+      {activeOrderId && (
+        <div className="checkout-payment-overlay">
+          <div className="checkout-payment-modal">
             <PaymentPageor
               orderIdOverride={activeOrderId}
               embedded
@@ -821,9 +636,9 @@ const applyInvoiceGSTToAll = () => {
               onInvoice={() => navigate(`/pos/invoice/${activeOrderId}`)}
               onNewSale={() => navigate("/pos")}
             />
+          </div>
         </div>
-      </div>
-    )}
+      )}
     </>
   );
 }
@@ -834,11 +649,11 @@ const applyInvoiceGSTToAll = () => {
 
 function SectionHeader({ icon, title, subtitle }) {
   return (
-    <div style={sectionHeaderStyle}>
-      <div style={sectionIconStyle}>{icon}</div>
+    <div className="checkout-section-header">
+      <div className="checkout-section-icon">{icon}</div>
       <div>
-        <div style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a" }}>{title}</div>
-        <div style={{ fontSize: "12px", color: "#94a3b8" }}>{subtitle}</div>
+        <div className="checkout-section-title">{title}</div>
+        <div className="checkout-section-subtitle">{subtitle}</div>
       </div>
     </div>
   );
@@ -846,296 +661,25 @@ function SectionHeader({ icon, title, subtitle }) {
 
 function Field({ label, children }) {
   return (
-    <div style={{ marginBottom: "12px" }}>
-      <label style={labelStyle}>{label}</label>
+    <div className="checkout-field">
+      <label className="checkout-field-label">{label}</label>
       {children}
     </div>
   );
 }
 
-function Hint({ color, children }) {
-  return <div style={{ fontSize: "11px", color, marginTop: "4px" }}>{children}</div>;
+function Hint({ type, children }) {
+  return <div className={`checkout-hint checkout-hint--${type}`}>{children}</div>;
 }
 
 function SummaryRow({ label, value, negative }) {
-  const display = value == null ? "—" : `${negative ? "- " : ""}${money(value)}`;
+  const displayValue = value == null ? "—" : `${negative ? "- " : ""}${money(value)}`;
   return (
-    <div style={summaryRowStyle}>
+    <div className={`checkout-summary-row ${negative ? "checkout-summary-row--negative" : ""}`}>
       <span>{label}</span>
-      <span style={negative ? { color: "#ef4444", fontWeight: 600 } : undefined}>{display}</span>
+      <span>{displayValue}</span>
     </div>
   );
 }
 
-/* ============================================================
-   STYLES
-   ============================================================ */
-
-const pageStyle = {
-  minHeight: "100vh",
-  background: "#f1f5f9",
-  padding: "16px",
-  fontFamily: "sans-serif",
-};
-
-const topBarStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: "16px",
-};
-
-const backBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "6px",
-  fontSize: "13px",
-  color: "#64748b",
-  cursor: "pointer",
-  border: "1px solid #e2e8f0",
-  borderRadius: "8px",
-  padding: "6px 14px",
-  background: "#fff",
-};
-
-const brandIconStyle = {
-  width: "36px",
-  height: "36px",
-  background: "#fee2e2",
-  borderRadius: "8px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: "20px",
-};
-
-const mainGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(260px, 300px) minmax(0, 1fr) minmax(280px, 320px)",
-  gap: "16px",
-  alignItems: "start",
-};
-
-const cardStyle = {
-  background: "#fff",
-  border: "1px solid #e2e8f0",
-  borderRadius: "12px",
-  padding: "18px",
-};
-
-const billSummaryCardStyle = {
-  ...cardStyle,
-  position: "sticky",
-  top: "16px",
-};
-
-const sectionHeaderStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "10px",
-  marginBottom: "16px",
-  paddingBottom: "12px",
-  borderBottom: "1px solid #f1f5f9",
-};
-
-const sectionIconStyle = {
-  width: "36px",
-  height: "36px",
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: "8px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: "18px",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "9px 11px",
-  fontSize: "13px",
-  border: "1px solid #e2e8f0",
-  borderRadius: "8px",
-  background: "#fff",
-  color: "#0f172a",
-  outline: "none",
-  fontFamily: "sans-serif",
-  boxSizing: "border-box",
-};
-
-const labelStyle = {
-  fontSize: "12px",
-  fontWeight: 500,
-  color: "#64748b",
-  display: "block",
-  marginBottom: "5px",
-};
-
-const saveCustomerBtnStyle = {
-  width: "100%",
-  marginTop: "10px",
-  padding: "10px",
-  background: "#2563eb",
-  color: "#fff",
-  border: "none",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontSize: "13px",
-  fontWeight: 600,
-};
-
-const paymentInfoBoxStyle = {
-  marginTop: "18px",
-  border: "1px solid #bfdbfe",
-  borderRadius: "10px",
-  padding: "14px 16px",
-  background: "#eff6ff",
-};
-
-const errorBannerStyle = {
-  background: "#fef2f2",
-  border: "1px solid #fecaca",
-  color: "#b91c1c",
-  fontSize: "13px",
-  borderRadius: "8px",
-  padding: "10px 12px",
-  marginBottom: "12px",
-};
-
-const emptyStateStyle = {
-  textAlign: "center",
-  padding: "48px 0",
-  color: "#94a3b8",
-  fontSize: "13px",
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-};
-
-const thStyle = {
-  fontSize: "11px",
-  fontWeight: 500,
-  color: "#94a3b8",
-  textAlign: "center",
-  padding: "8px 6px",
-  borderBottom: "1px solid #f1f5f9",
-  whiteSpace: "nowrap",
-};
-
-const tdStyle = {
-  padding: "10px 6px",
-  fontSize: "13px",
-  color: "#0f172a",
-  verticalAlign: "middle",
-};
-
-const qtyBtnStyle = {
-  width: "22px",
-  height: "22px",
-  border: "1px solid #e2e8f0",
-  borderRadius: "6px",
-  background: "#f8fafc",
-  fontSize: "13px",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "#0f172a",
-};
-
-const qtyValueStyle = {
-  fontSize: "13px",
-  fontWeight: 600,
-  color: "#0f172a",
-  minWidth: "18px",
-  textAlign: "center",
-};
-
-const discountInputStyle = {
-  width: "52px",
-  padding: "4px 6px",
-  fontSize: "12px",
-  border: "1px solid #e2e8f0",
-  borderRadius: "6px",
-  textAlign: "center",
-  outline: "none",
-};
-
-const gstSelectStyle = {
-  fontSize: "12px",
-  padding: "5px 6px",
-  border: "1px solid #e2e8f0",
-  borderRadius: "6px",
-  background: "#fff",
-  color: "#0f172a",
-  outline: "none",
-  cursor: "pointer",
-};
-
-const removeBtnStyle = {
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  color: "#ef4444",
-  fontSize: "15px",
-  padding: "2px",
-};
-
-const billDiscountBoxStyle = {
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: "8px",
-  padding: "10px 12px",
-  margin: "4px 0 10px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-}; 
-
-const billDiscountInputStyle = {
-  width: "64px",
-  padding: "5px 8px",
-  fontSize: "13px",
-  border: "1px solid #e2e8f0",
-  borderRadius: "6px",
-  textAlign: "right",
-  outline: "none",
-};
-
-const summaryRowStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  fontSize: "13px",
-  color: "#64748b",
-  padding: "5px 0",
-};
-
-const netPayableRowStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "12px 0 14px",
-  borderTop: "1px solid #e2e8f0",
-  marginTop: "8px",
-};
-
-const placeOrderBtnStyle = {
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "8px",
-  background: "#1e293b",
-  color: "#fff",
-  border: "none",
-  borderRadius: "8px",
-  padding: "13px 20px",
-  fontSize: "14px",
-  fontWeight: 600,
-};
-
 export default CheckoutPage;
- 
