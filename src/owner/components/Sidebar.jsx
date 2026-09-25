@@ -156,7 +156,7 @@ const [salesOpen, setSalesOpen] = useState(
         <aside
             style={{
                 width: "238px",
-                background: "linear-gradient(180deg, #111C33 0%, #0A1428 100%)",
+                background: "linear-gradient( 180deg,#071633 0%,#0B2A66 50%,#1247A8 100%)",
                 color: "#FFFFFF",
                 minHeight: "100vh",
                 padding: "18px 14px 14px",

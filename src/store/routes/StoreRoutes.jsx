@@ -57,6 +57,30 @@ const LeadList = lazy(
   () => import("../../owner/components/leads/LeadList")
 );
 
+const StoreWiseReportPage = lazy(
+  () => import("../../store/pages/StoreWiseReportPage")
+);
+
+const InventoryReportPage = lazy(
+  () => import("../../store/pages/inventoryReportPage")
+);
+
+const SalesReportPage = lazy(
+  () => import("../../store/pages/SalesReportPage")
+);
+
+const LowStockReportPage = lazy(
+  () => import("../../store/pages/LowStockReportPage")
+);
+
+const CustomerReportPage = lazy(
+  () => import("../../store/pages/CustomerReportPage")
+);
+
+const CustomerDetailsPage = lazy(
+  () => import("../../store/pages/CustomerDetailsPage")
+);
+
 function StoreRoutes() {
 
 
