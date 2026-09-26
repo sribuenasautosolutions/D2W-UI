@@ -5,7 +5,7 @@ import { placeOrder, calculateOrder } from "../../services/orderService";
 import { getCustomerByMobile } from "../../services/customerService";
 import PaymentPageor from "./PaymentPageor";
 import { getCalculationLinesForCartItem, sumCalculatedAmount } from "../utils/calculationLines";
-import d2wLogo from "./d2w-logo.png";
+import d2wLogo from "./D2W-Logo.png";
 import "./CheckoutPage.css";
 
 
