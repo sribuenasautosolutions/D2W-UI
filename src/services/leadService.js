@@ -189,3 +189,7 @@ export const updateLead = async (leadId, leadData) => {
   const response = await api.put(`/api/leads/${leadId}`, leadData);
   return response.data;
 };
+
+export const getLeadBoard = async (params, signal) => (await api.get("/api/leads/board", { params, signal })).data;
+export const getLeadBoardOptions = async signal => (await api.get("/api/leads/board/options", { signal })).data;
+export const updateLeadBoard = async (id, payload) => (await api.patch(`/api/leads/board/${id}`, payload)).data;
