@@ -1,21 +1,28 @@
-import LeadItemsTable from "./LeadItemsTable";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    Search,
-    UserRound,
-    Plus,
     ArrowLeft,
+    CheckCircle2,
+    Search,
+    X,
 } from "lucide-react";
-import { createLead } from "../../../services/leadService";
-
-import { getAllStores } from "../../../services/storeService";
 
 import {
-    searchCustomersByStore,
+    createLead,
+    updateLead,
+} from "../../../services/leadService";
+import { getAllStores } from "../../../services/storeService";
+import {
+    getCustomerByMobile,
     saveCustomer,
+    searchCustomersByStore,
 } from "../../../services/customerService";
+import {
+    createSalesperson,
+    getSalespersons,
+} from "../../../services/salespersonService";
 
+import "./LeadCreate.css";
 
 const readUser = () => {
     try {
@@ -25,1712 +32,1261 @@ const readUser = () => {
     }
 };
 
-
-const emptyCustomerForm = {
+const EMPTY_CUSTOMER = {
     customerName: "",
     mobileNumber: "",
+    customerType: "WALK_IN",
     gstRegistrationType: "UNREGISTERED",
     gstin: "",
-    state: "",
-    email: "",
-    billingAddress: "",
-    shippingAddress: "",
 };
 
+const EMPTY_SALESPERSON = {
+    salespersonName: "",
+    mobileNumber: "",
+};
 
-export default function LeadCreate() {
+const SOURCE_OPTIONS = [
+    { value: "PHONE", label: "Phone" },
+    { value: "WHATSAPP", label: "WhatsApp" },
+    { value: "WALK_IN", label: "Walk-in" },
+    { value: "WEBSITE", label: "Website" },
+    { value: "INSTAGRAM", label: "Instagram" },
+    { value: "FACEBOOK", label: "Facebook" },
+    { value: "INDIAMART", label: "IndiaMART" },
+    { value: "REFERRAL", label: "Referral" },
+    { value: "OTHER", label: "Other" },
+];
 
+export default function LeadCreate({
+    onClose,
+    mode = "create",
+    lead = null,
+    onSaved,
+}) {
+    const isEditMode = mode === "edit";
     const navigate = useNavigate();
 
     const user = useMemo(() => readUser(), []);
-
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
-
-    /*
-     * =========================================================
-     * STORE
-     * =========================================================
-     */
-
+    /* =========================================================
+       STORE
+    ========================================================= */
     const [selectedStoreId, setSelectedStoreId] = useState(
-        isSuperAdmin
-            ? ""
-            : String(user?.storeId || "")
+        isSuperAdmin ? "" : String(user?.storeId || "")
     );
-
     const [stores, setStores] = useState([]);
-
     const [storeLoading, setStoreLoading] = useState(false);
-
     const [storeError, setStoreError] = useState("");
 
-
-    /*
-     * =========================================================
-     * CUSTOMER
-     * =========================================================
-     */
-
+    /* =========================================================
+       CUSTOMER
+    ========================================================= */
+    const [customerMobile, setCustomerMobile] = useState("");
+    const [customerName, setCustomerName] = useState("");
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-
-    const [customerSearch, setCustomerSearch] = useState("");
-
-    const [customerResults, setCustomerResults] = useState([]);
-
-    const [customerLoading, setCustomerLoading] = useState(false);
-
-    const [customerDropdownOpen, setCustomerDropdownOpen] =
-        useState(false);
-
-    const [customerModalOpen, setCustomerModalOpen] =
-        useState(false);
-
-    const [customerForm, setCustomerForm] =
-        useState(emptyCustomerForm);
-
-    const [savingCustomer, setSavingCustomer] =
-        useState(false);
-
-    const [sameAsBilling, setSameAsBilling] =
-        useState(false);
-
-
+    const [customerLookupLoading, setCustomerLookupLoading] = useState(false);
+    const [customerLookupMessage, setCustomerLookupMessage] = useState("");
+    const [customerModalOpen, setCustomerModalOpen] = useState(false);
+    const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER);
+    const [savingCustomer, setSavingCustomer] = useState(false);
     const customerLookupRequest = useRef(0);
 
-    const emptyLeadItem = {
-    requirement: "",
-    vehicleDescription: "",
-    vin: "",
-    requestedQuantity: 1,
-    notes: "",
-};
+    /* =========================================================
+       SALESPERSON
+    ========================================================= */
+    const [salespersons, setSalespersons] = useState([]);
+    const [salespersonMobile, setSalespersonMobile] = useState("");
+    const [salespersonName, setSalespersonName] = useState("");
+    const [selectedSalesperson, setSelectedSalesperson] = useState(null);
+    const [salespersonLoading, setSalespersonLoading] = useState(false);
+    const [salespersonLookupMessage, setSalespersonLookupMessage] = useState("");
+    const [salespersonModalOpen, setSalespersonModalOpen] = useState(false);
+    const [salespersonForm, setSalespersonForm] = useState(EMPTY_SALESPERSON);
+    const [savingSalesperson, setSavingSalesperson] = useState(false);
 
-const [customerRequirement, setCustomerRequirement] = useState("");
+    /* =========================================================
+       LEAD
+    ========================================================= */
+    const [source, setSource] = useState("");
+    const [customerRequirement, setCustomerRequirement] = useState("");
+    const [notes, setNotes] = useState("");
+    const [creatingLead, setCreatingLead] = useState(false);
+    const [createdLead, setCreatedLead] = useState(null);
+    const [savingEdit, setSavingEdit] = useState(false);
 
-const [leadItems, setLeadItems] = useState([
-    { ...emptyLeadItem },
-]);
-
-const [leadNotes, setLeadNotes] = useState("");
-
-const [creatingLead, setCreatingLead] = useState(false);
-    /*
-     * =========================================================
-     * LOAD STORES
-     * SUPER_ADMIN ONLY
-     * =========================================================
-     */
-
+    /* =========================================================
+       EDIT MODE INITIALIZATION
+    ========================================================= */
     useEffect(() => {
+        if (!isEditMode || !lead) return;
 
-        if (!isSuperAdmin) {
-            return;
-        }
+        const storeId =
+            lead?.storeId ??
+            lead?.store?.id ??
+            "";
+
+        setSelectedStoreId(String(storeId || ""));
+
+        const customer = {
+            id: lead?.customerId ?? lead?.customer?.id ?? "",
+            customerName:
+                lead?.customerName ??
+                lead?.customer?.customerName ??
+                lead?.customer?.name ??
+                "",
+            mobileNumber:
+                lead?.customerMobile ??
+                lead?.customer?.mobileNumber ??
+                lead?.customer?.mobile ??
+                lead?.mobile ??
+                "",
+        };
+
+        setSelectedCustomer(
+            customer.id ? customer : null
+        );
+        setCustomerMobile(customer.mobileNumber || "");
+        setCustomerName(customer.customerName || "");
+
+        const salesperson = {
+            id:
+                lead?.salespersonId ??
+                lead?.salesperson?.id ??
+                "",
+            salespersonName:
+                lead?.salespersonName ??
+                lead?.salesperson?.salespersonName ??
+                "",
+            mobileNumber:
+                lead?.salespersonMobile ??
+                lead?.salesperson?.mobileNumber ??
+                "",
+        };
+
+        setSelectedSalesperson(
+            salesperson.id ? salesperson : null
+        );
+        setSalespersonMobile(
+            salesperson.mobileNumber || ""
+        );
+        setSalespersonName(
+            salesperson.salespersonName || ""
+        );
+
+        setSource(
+            lead?.source ??
+                lead?.sourceName ??
+                ""
+        );
+        setCustomerRequirement(
+            lead?.customerRequirement || ""
+        );
+        setNotes(lead?.notes || "");
+        setCreatedLead(null);
+    }, [isEditMode, lead]);
+
+    /* =========================================================
+       LOAD STORES
+    ========================================================= */
+    useEffect(() => {
+        if (!isSuperAdmin) return;
 
         const loadStores = async () => {
-
             setStoreLoading(true);
             setStoreError("");
-
             try {
-
                 const response = await getAllStores();
-
                 const data = Array.isArray(response)
                     ? response
                     : Array.isArray(response?.content)
-                        ? response.content
-                        : [];
-
+                    ? response.content
+                    : [];
                 setStores(data);
-
             } catch (error) {
-
-                console.error(
-                    "Failed to load stores:",
-                    error
-                );
-
+                console.error("Failed to load stores:", error);
                 setStores([]);
-
                 setStoreError(
-                    error?.response?.data?.message ||
-                    "Unable to load stores."
+                    error?.response?.data?.message || "Unable to load stores."
                 );
-
             } finally {
-
                 setStoreLoading(false);
-
             }
         };
-
         loadStores();
-
     }, [isSuperAdmin]);
 
+    /* =========================================================
+       LOAD SALESPERSONS
+    ========================================================= */
+    const loadSalespersons = useCallback(async (storeId) => {
+        if (!storeId) {
+            setSalespersons([]);
+            return;
+        }
+        setSalespersonLoading(true);
+        try {
+            const response = await getSalespersons(Number(storeId));
+            setSalespersons(Array.isArray(response) ? response : []);
+        } catch (error) {
+            console.error("Unable to load salespersons:", error);
+            setSalespersons([]);
+        } finally {
+            setSalespersonLoading(false);
+        }
+    }, []);
 
-    /*
-     * =========================================================
-     * STORE CHANGE
-     * =========================================================
-     */
+    useEffect(() => {
+        loadSalespersons(selectedStoreId);
 
-    const handleStoreChange = (event) => {
+        // In edit mode, keep the existing salesperson selected.
+        // The existing lead already contains salespersonId, so we must
+        // not clear it when the salesperson list loads.
+        if (isEditMode) return;
 
-        const newStoreId = event.target.value;
+        setSelectedSalesperson(null);
+        setSalespersonMobile("");
+        setSalespersonName("");
+        setSalespersonLookupMessage("");
+    }, [selectedStoreId, loadSalespersons, isEditMode]);
 
-        setSelectedStoreId(newStoreId);
-
-        /*
-         * Customer belongs to the selected store.
-         * Therefore changing the store clears
-         * the currently selected customer.
-         */
-
-        setSelectedCustomer(null);
-
-        setCustomerSearch("");
-
-        setCustomerResults([]);
-
-        setCustomerDropdownOpen(false);
-    };
-
-
-    /*
-     * =========================================================
-     * CUSTOMER SEARCH
-     * =========================================================
-     */
-
-    const loadCustomerOptions = async (query = "") => {
-
-        if (!selectedStoreId) {
+    /* =========================================================
+       HYDRATE EXISTING SALESPERSON IN EDIT MODE
+    ========================================================= */
+    useEffect(() => {
+        if (!isEditMode || !lead?.salespersonId || !salespersons.length) {
             return;
         }
 
-        const requestId =
-            ++customerLookupRequest.current;
+        const existing = salespersons.find(
+            (item) =>
+                String(item?.id ?? item?.salespersonId ?? "") ===
+                String(lead.salespersonId)
+        );
 
-        setCustomerLoading(true);
+        if (!existing) return;
+
+        setSelectedSalesperson(existing);
+        setSalespersonName(
+            existing?.salespersonName ??
+                existing?.name ??
+                lead?.salespersonName ??
+                ""
+        );
+        setSalespersonMobile(
+            existing?.mobileNumber ??
+                existing?.mobile ??
+                lead?.salespersonMobile ??
+                ""
+        );
+        setSalespersonLookupMessage("Existing salesperson selected.");
+    }, [isEditMode, lead, salespersons]);
+
+    /* =========================================================
+       HYDRATE EXISTING CUSTOMER IN EDIT MODE
+       The lead API may return customerId/name without mobile.
+       Resolve the same existing customer from the store so the
+       create-style mobile field can show the real value.
+    ========================================================= */
+    useEffect(() => {
+        if (
+            !isEditMode ||
+            !selectedStoreId ||
+            !lead?.customerId
+        ) {
+            return;
+        }
+
+        const searchName =
+            lead?.customerName ??
+            lead?.customer?.customerName ??
+            lead?.customer?.name ??
+            "";
+
+        if (!searchName.trim()) return;
+
+        let cancelled = false;
+
+        const resolveCustomer = async () => {
+            try {
+                const result = await searchCustomersByStore(
+                    Number(selectedStoreId),
+                    searchName
+                );
+
+                if (cancelled || !Array.isArray(result)) return;
+
+                const existing = result.find(
+                    (item) =>
+                        String(item?.id ?? item?.customerId ?? "") ===
+                        String(lead.customerId)
+                );
+
+                if (!existing) return;
+
+                setSelectedCustomer((previous) => ({
+                    ...(previous || {}),
+                    ...existing,
+                }));
+                setCustomerMobile(
+                    existing?.mobileNumber ??
+                        existing?.mobile ??
+                        ""
+                );
+                setCustomerName(
+                    existing?.customerName ??
+                        existing?.name ??
+                        searchName
+                );
+                setCustomerLookupMessage("Existing customer selected.");
+            } catch (error) {
+                console.warn(
+                    "Unable to hydrate existing customer:",
+                    error
+                );
+            }
+        };
+
+        resolveCustomer();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isEditMode, selectedStoreId, lead]);
+
+    /* =========================================================
+       STORE CHANGE
+    ========================================================= */
+    const handleStoreChange = (event) => {
+        const value = event.target.value;
+        setSelectedStoreId(value);
+
+        setSelectedCustomer(null);
+        setCustomerMobile("");
+        setCustomerName("");
+        setCustomerLookupMessage("");
+
+        setSelectedSalesperson(null);
+        setSalespersonMobile("");
+        setSalespersonName("");
+        setSalespersonLookupMessage("");
+
+        setSource("");
+    };
+
+    /* =========================================================
+       CUSTOMER LOOKUP — runs automatically at 10 digits
+    ========================================================= */
+    const lookupCustomer = async (mobile) => {
+        if (!selectedStoreId) return;
+        if (!/^\d{10}$/.test(mobile)) return;
+
+        const requestId = ++customerLookupRequest.current;
+        setCustomerLookupLoading(true);
+        setCustomerLookupMessage("");
 
         try {
+            const customer = await getCustomerByMobile(
+                mobile,
+                Number(selectedStoreId)
+            );
 
-            const customers =
-                await searchCustomersByStore(
-                    selectedStoreId,
-                    query
-                );
+            if (requestId !== customerLookupRequest.current) return;
 
-            if (
-                requestId ===
-                customerLookupRequest.current
-            ) {
-
-                setCustomerResults(
-                    Array.isArray(customers)
-                        ? customers
-                        : []
-                );
-
+            if (customer) {
+                setSelectedCustomer(customer);
+                setCustomerMobile(customer.mobileNumber || mobile);
+                setCustomerName(customer.customerName || "");
+                setCustomerLookupMessage("Existing customer found.");
+                return;
             }
 
+            if (isEditMode) {
+                setCustomerLookupMessage(
+                    "Existing customer not found. Select an existing customer by mobile number."
+                );
+                return;
+            }
+
+            // Create mode only: allow creating a new customer.
+            setCustomerForm({ ...EMPTY_CUSTOMER, mobileNumber: mobile });
+            setCustomerModalOpen(true);
         } catch (error) {
+            if (requestId !== customerLookupRequest.current) return;
 
+            const status = error?.response?.status;
+            if (status === 404 || status === 204) {
+                if (isEditMode) {
+                    setCustomerLookupMessage(
+                        "Existing customer not found. Select an existing customer by mobile number."
+                    );
+                    return;
+                }
+
+                setCustomerForm({ ...EMPTY_CUSTOMER, mobileNumber: mobile });
+                setCustomerModalOpen(true);
+            } else {
+                console.error("Customer lookup failed:", error);
+                setCustomerLookupMessage(
+                    error?.response?.data?.message ||
+                        "Unable to check customer."
+                );
+            }
+        } finally {
+            if (requestId === customerLookupRequest.current) {
+                setCustomerLookupLoading(false);
+            }
+        }
+    };
+
+    const handleCustomerMobileChange = (event) => {
+        const value = event.target.value.replace(/\D/g, "").slice(0, 10);
+        setCustomerMobile(value);
+        setCustomerLookupMessage("");
+
+        // Reset selections when editing
+        if (selectedCustomer && selectedCustomer.mobileNumber !== value) {
+            setSelectedCustomer(null);
+            setCustomerName("");
+        }
+
+        // Auto-trigger lookup at 10 digits
+        if (value.length === 10 && value !== selectedCustomer?.mobileNumber) {
+            lookupCustomer(value);
+        }
+    };
+
+    /* =========================================================
+       CUSTOMER MODAL
+    ========================================================= */
+    const handleCustomerFormChange = (field, value) => {
+        setCustomerForm((current) => {
+            const next = { ...current, [field]: value };
+            if (field === "customerType" && value === "WALK_IN") {
+                next.gstRegistrationType = "UNREGISTERED";
+                next.gstin = "";
+            }
             if (
-                requestId ===
-                customerLookupRequest.current
+                field === "gstRegistrationType" &&
+                value === "UNREGISTERED"
             ) {
+                next.gstin = "";
+            }
+            return next;
+        });
+    };
 
+    const handleSaveCustomer = async () => {
+        if (!selectedStoreId) {
+            alert("Select a store first.");
+            return;
+        }
+        const name = customerForm.customerName.trim();
+        const mobile = customerForm.mobileNumber.trim();
+
+        if (!name) {
+            alert("Customer name is required.");
+            return;
+        }
+        if (!/^\d{10}$/.test(mobile)) {
+            alert("Enter a valid 10-digit mobile number.");
+            return;
+        }
+
+        const requiresGst =
+            customerForm.customerType !== "WALK_IN" &&
+            customerForm.gstRegistrationType === "REGISTERED";
+
+        if (
+            requiresGst &&
+            !/^[0-9A-Za-z]{15}$/.test(customerForm.gstin.trim())
+        ) {
+            alert("A valid 15-character GSTIN is required.");
+            return;
+        }
+
+        const payload = {
+            customerName: name,
+            mobileNumber: mobile,
+            customerType: customerForm.customerType,
+            gstRegistrationType:
+                customerForm.customerType === "WALK_IN"
+                    ? "UNREGISTERED"
+                    : customerForm.gstRegistrationType,
+            gstin: requiresGst
+                ? customerForm.gstin.trim().toUpperCase()
+                : null,
+            storeId: Number(selectedStoreId),
+        };
+
+        setSavingCustomer(true);
+        try {
+            const saved = await saveCustomer(payload);
+            setSelectedCustomer(saved);
+            setCustomerMobile(saved?.mobileNumber || mobile);
+            setCustomerName(saved?.customerName || name);
+            setCustomerLookupMessage("New customer created.");
+            setCustomerModalOpen(false);
+        } catch (error) {
+            console.error("Unable to save customer:", error);
+            alert(
+                error?.response?.data?.message ||
+                    error?.response?.data?.error ||
+                    "Unable to save customer."
+            );
+        } finally {
+            setSavingCustomer(false);
+        }
+    };
+
+    /* =========================================================
+       SALESPERSON LOOKUP — runs automatically at 10 digits
+    ========================================================= */
+    const lookupSalesperson = (mobile) => {
+        if (!selectedStoreId) return;
+        if (!/^\d{10}$/.test(mobile)) return;
+
+        const found = salespersons.find(
+            (sp) => sp.mobileNumber === mobile
+        );
+
+        if (found) {
+            setSelectedSalesperson(found);
+            setSalespersonName(found.salespersonName || "");
+            setSalespersonLookupMessage("Existing salesperson found.");
+            return;
+        }
+
+        if (isEditMode) {
+            setSalespersonLookupMessage(
+                "Existing salesperson not found. Select an existing salesperson by mobile number."
+            );
+            return;
+        }
+
+        // Create mode only: allow creating a new salesperson.
+        setSalespersonForm({
+            salespersonName: "",
+            mobileNumber: mobile,
+        });
+        setSalespersonModalOpen(true);
+    };
+
+    const handleSalespersonMobileChange = (event) => {
+        const value = event.target.value.replace(/\D/g, "").slice(0, 10);
+        setSalespersonMobile(value);
+        setSalespersonLookupMessage("");
+
+        if (
+            selectedSalesperson &&
+            selectedSalesperson.mobileNumber !== value
+        ) {
+            setSelectedSalesperson(null);
+            setSalespersonName("");
+        }
+
+        // Auto-trigger lookup at 10 digits
+        if (value.length === 10 && value !== selectedSalesperson?.mobileNumber) {
+            lookupSalesperson(value);
+        }
+    };
+
+    const handleSaveSalesperson = async () => {
+        const name = salespersonForm.salespersonName.trim();
+        const mobile = salespersonForm.mobileNumber.trim();
+
+        if (!selectedStoreId) {
+            alert("Select a store first.");
+            return;
+        }
+        if (!name) {
+            alert("Salesperson name is required.");
+            return;
+        }
+        if (!/^\d{10}$/.test(mobile)) {
+            alert("Enter a valid 10-digit mobile number.");
+            return;
+        }
+
+        setSavingSalesperson(true);
+        try {
+            const saved = await createSalesperson({
+                salespersonName: name,
+                mobileNumber: mobile,
+                storeId: Number(selectedStoreId),
+            });
+            setSelectedSalesperson(saved);
+            setSalespersonMobile(saved?.mobileNumber || mobile);
+            setSalespersonName(saved?.salespersonName || name);
+            setSalespersonLookupMessage("New salesperson created.");
+            setSalespersonModalOpen(false);
+            await loadSalespersons(selectedStoreId);
+        } catch (error) {
+            console.error("Unable to save salesperson:", error);
+            alert(
+                error?.response?.data?.message ||
+                    error?.response?.data?.error ||
+                    "Unable to save salesperson."
+            );
+        } finally {
+            setSavingSalesperson(false);
+        }
+    };
+
+    /* =========================================================
+       CREATE / UPDATE LEAD
+    ========================================================= */
+    const handleCreateLead = async () => {
+        if (!selectedStoreId) {
+            alert("Select a store first.");
+            return;
+        }
+
+        if (!selectedCustomer) {
+            alert("Enter customer mobile number.");
+            return;
+        }
+
+        if (!selectedSalesperson) {
+            alert("Enter salesperson mobile number.");
+            return;
+        }
+
+        if (!source) {
+            alert("Select a lead source.");
+            return;
+        }
+
+        if (!customerRequirement.trim()) {
+            alert("Customer requirement is required.");
+            return;
+        }
+
+        if (isEditMode) {
+            if (!lead?.id) {
+                alert("Lead ID is missing.");
+                return;
+            }
+
+            const payload = {
+                customerId: Number(selectedCustomer.id),
+                salespersonId: selectedSalesperson?.id
+                    ? Number(selectedSalesperson.id)
+                    : null,
+                source: source.trim(),
+                customerRequirement:
+                    customerRequirement.trim(),
+                notes: notes.trim() || null,
+            };
+
+            setSavingEdit(true);
+
+            try {
+                const result = await updateLead(
+                    lead.id,
+                    payload
+                );
+
+                const mergedLead = {
+                    ...lead,
+                    ...(result || {}),
+                    customerId:
+                        result?.customerId ??
+                        selectedCustomer.id,
+                    customerName:
+                        result?.customerName ??
+                        selectedCustomer.customerName,
+                    salespersonId:
+                        result?.salespersonId ??
+                        selectedSalesperson.id,
+                    salespersonName:
+                        result?.salespersonName ??
+                        selectedSalesperson.salespersonName,
+                    source:
+                        result?.source ??
+                        source,
+                    customerRequirement:
+                        result?.customerRequirement ??
+                        customerRequirement.trim(),
+                    notes:
+                        result?.notes ??
+                        lead?.notes ??
+                        null,
+                    items:
+                        result?.items ??
+                        lead?.items ??
+                        [],
+                };
+
+                if (typeof onSaved === "function") {
+                    onSaved(mergedLead);
+                }
+
+                if (typeof onClose === "function") {
+                    onClose();
+                }
+            } catch (error) {
                 console.error(
-                    "Customer search failed:",
+                    "Unable to update lead:",
                     error
                 );
 
-                setCustomerResults([]);
+                alert(
+                    error?.response?.data?.message ||
+                        error?.response?.data?.error ||
+                        "Unable to update lead."
+                );
+            } finally {
+                setSavingEdit(false);
             }
 
-        } finally {
-
-            if (
-                requestId ===
-                customerLookupRequest.current
-            ) {
-
-                setCustomerLoading(false);
-            }
-        }
-    };
-
-
-    /*
-     * =========================================================
-     * CUSTOMER SEARCH INPUT
-     * =========================================================
-     */
-
-    const handleCustomerSearchChange = async (
-        event
-    ) => {
-
-        const value = event.target.value;
-
-        setCustomerSearch(value);
-
-        setSelectedCustomer(null);
-
-        if (!selectedStoreId) {
             return;
         }
-
-        setCustomerDropdownOpen(true);
-
-        await loadCustomerOptions(value);
-    };
-
-
-    /*
-     * =========================================================
-     * SELECT EXISTING CUSTOMER
-     * =========================================================
-     */
-
-    const selectCustomer = (customer) => {
-
-        const billing =
-            customer.billingAddress ??
-            customer.address ??
-            "";
-
-        const shipping =
-            customer.shippingAddress ??
-            "";
-
-        setSelectedCustomer({
-            ...customer,
-            billingAddress: billing,
-            shippingAddress: shipping,
-        });
-
-        setCustomerSearch(
-            customer.customerName ?? ""
-        );
-
-        setCustomerDropdownOpen(false);
-
-        setCustomerResults([]);
-    };
-
-
-    /*
-     * =========================================================
-     * OPEN NEW CUSTOMER MODAL
-     * =========================================================
-     */
-
-    const openNewCustomerModal = () => {
-
-        setCustomerForm({
-            ...emptyCustomerForm,
-            mobileNumber:
-                customerSearch.trim(),
-        });
-
-        setSameAsBilling(false);
-
-        setCustomerModalOpen(true);
-    };
-
-
-    /*
-     * =========================================================
-     * CUSTOMER FORM CHANGE
-     * =========================================================
-     */
-
-    const handleCustomerFormChange = (
-        field,
-        value
-    ) => {
-
-        setCustomerForm((current) => ({
-            ...current,
-
-            [field]: value,
-
-            ...(field === "billingAddress" &&
-            sameAsBilling
-                ? {
-                    shippingAddress: value,
-                }
-                : {}),
-        }));
-    };
-
-
-    /*
-     * =========================================================
-     * SAME AS BILLING
-     * =========================================================
-     */
-
-    const handleSameAsBilling = (checked) => {
-
-        setSameAsBilling(checked);
-
-        if (checked) {
-
-            setCustomerForm((current) => ({
-                ...current,
-
-                shippingAddress:
-                    current.billingAddress,
-            }));
-        }
-    };
-
-
-    /*
-     * =========================================================
-     * SAVE NEW CUSTOMER
-     * =========================================================
-     */
-
-    const handleSaveCustomer = async () => {
-
-        if (!selectedStoreId) {
-
-            alert("Select a store first.");
-
-            return;
-        }
-
-        if (!customerForm.customerName.trim()) {
-
-            alert("Customer name is required.");
-
-            return;
-        }
-
-        if (
-            !/^\d{10}$/.test(
-                customerForm.mobileNumber
-            )
-        ) {
-
-            alert(
-                "Enter a valid 10-digit mobile number."
-            );
-
-            return;
-        }
-
-        if (
-            customerForm.gstRegistrationType !==
-                "UNREGISTERED" &&
-            !/^[0-9A-Za-z]{15}$/.test(
-                customerForm.gstin.trim()
-            )
-        ) {
-
-            alert(
-                "A valid 15-character GSTIN is required."
-            );
-
-            return;
-        }
-
 
         const payload = {
-
-            ...customerForm,
-
-            storeId:
-                Number(selectedStoreId),
-
-            customerType:
-                "B2B",
-
-            gstin:
-                customerForm.gstin
-                    .trim()
-                    .toUpperCase() || null,
-
-            address:
-                customerForm.billingAddress,
+            customerId: Number(selectedCustomer.id),
+            salespersonId: Number(selectedSalesperson.id),
+            storeId: isSuperAdmin
+                ? Number(selectedStoreId)
+                : null,
+            source,
+            customerRequirement:
+                customerRequirement.trim(),
+            items: [],
         };
 
-
-        setSavingCustomer(true);
+        setCreatingLead(true);
 
         try {
-
-            const saved =
-                await saveCustomer(payload);
-
-            /*
-             * Immediately select the newly
-             * created customer.
-             */
-
-            selectCustomer(saved);
-
-            setCustomerModalOpen(false);
-
-            await loadCustomerOptions("");
-
+            const result = await createLead(payload);
+            setCreatedLead(result);
         } catch (error) {
-
             console.error(
-                "Unable to save customer:",
+                "Unable to create lead:",
                 error
             );
 
             alert(
                 error?.response?.data?.message ||
-                error?.response?.data?.error ||
-                "Unable to save customer."
+                    error?.response?.data?.error ||
+                    "Unable to create lead."
             );
-
         } finally {
-
-            setSavingCustomer(false);
+            setCreatingLead(false);
         }
     };
 
-
-    /*
-     * =========================================================
-     * SELECTED CUSTOMER DETAILS
-     * =========================================================
-     */
-
-    const customerBillingAddress =
-        selectedCustomer?.billingAddress ??
-        selectedCustomer?.address ??
-        "";
-
-    const customerShippingAddress =
-        selectedCustomer?.shippingAddress ??
-        "";
-        const handleLeadItemChange = (index, field, value) => {
-    setLeadItems((current) =>
-        current.map((item, itemIndex) =>
-            itemIndex === index
-                ? {
-                    ...item,
-                    [field]: value,
-                }
-                : item
-        )
-    );
-};
-
-const addLeadItem = () => {
-    setLeadItems((current) => [
-        ...current,
-        { ...emptyLeadItem },
-    ]);
-};
-
-const removeLeadItem = (index) => {
-    setLeadItems((current) =>
-        current.filter(
-            (_, itemIndex) => itemIndex !== index
-        )
-    );
-};
-
-const handleCreateLead = async () => {
-    if (!selectedStoreId) {
-        alert("Select a store first.");
-        return;
-    }
-
-    if (!selectedCustomer) {
-        alert("Select a customer.");
-        return;
-    }
-
-    if (!customerRequirement.trim()) {
-        alert("Customer requirement is required.");
-        return;
-    }
-
-    if (leadItems.length === 0) {
-        alert("At least one lead item is required.");
-        return;
-    }
-
-    const invalidItem = leadItems.find(
-        (item) =>
-            !item.requirement.trim() ||
-            !item.requestedQuantity ||
-            Number(item.requestedQuantity) <= 0
-    );
-
-    if (invalidItem) {
-        alert(
-            "Each lead item must have a requirement and valid quantity."
-        );
-        return;
-    }
-
-    const payload = {
-        customerId: Number(selectedCustomer.id),
-        storeId: isSuperAdmin
-            ? Number(selectedStoreId)
-            : null,
-
-        customerRequirement:
-            customerRequirement.trim(),
-
-        notes: leadNotes.trim() || null,
-
-        items: leadItems.map((item) => ({
-            requirement: item.requirement.trim(),
-            vehicleDescription:
-                item.vehicleDescription.trim() || null,
-            vin: item.vin.trim() || null,
-            requestedQuantity:
-                Number(item.requestedQuantity),
-            notes: item.notes.trim() || null,
-        })),
+    /* =========================================================
+       BACK / CLOSE
+    ========================================================= */
+    const handleBack = () => {
+        if (typeof onClose === "function") onClose();
+        else
+            navigate(
+                isSuperAdmin ? "/owner/sales/leads" : "/store/sales/leads"
+            );
     };
 
-    setCreatingLead(true);
-
-    try {
-        const createdLead = await createLead(payload);
-
-        alert(
-            `Lead ${createdLead.leadNumber} created successfully.`
-        );
-
-        console.log(
-            "Created Lead:",
-            createdLead
-        );
-
-       navigate(`${isSuperAdmin ? "/owner/sales" : "/store/sales"}/leads/${createdLead.id}`);
-    } catch (error) {
-        console.error(
-            "Unable to create lead:",
-            error
-        );
-
-        alert(
-            error?.response?.data?.message ||
-            error?.response?.data?.error ||
-            "Unable to create lead."
-        );
-    } finally {
-        setCreatingLead(false);
-    }
-};
-
-
-    /*
-     * =========================================================
-     * RENDER
-     * =========================================================
-     */
-
+    /* =========================================================
+       RENDER
+    ========================================================= */
     return (
-
-        <section
-            style={{
-                padding: "24px",
-                background: "#F8FAFC",
-                minHeight: "100%",
-            }}
-        >
-
-            {/* HEADER */}
-
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "24px",
-                }}
-            >
-
-                <div>
-
-                    <h1
-                        style={{
-                            margin: 0,
-                            fontSize: "24px",
-                            fontWeight: 700,
-                            color: "#0F172A",
-                        }}
-                    >
-                        Create Lead
-                    </h1>
-
-                    <p
-                        style={{
-                            margin:
-                                "6px 0 0",
-                            color: "#64748B",
-                            fontSize: "14px",
-                        }}
-                    >
-                        Create a new customer requirement
-                    </p>
-
+        <section className="lead-create-page">
+            {/* =================================================
+                HEADER
+            ================================================= */}
+            <div className="lead-create-header">
+                <div className="lead-create-header-left">
+                    <div className="lead-eyebrow">LEAD MANAGEMENT</div>
+                    <h1>{isEditMode ? "Edit Lead" : "Create Lead"}</h1>
                 </div>
 
-
-                <button
-                    type="button"
-                    onClick={() =>
-                        navigate(isSuperAdmin ? "/owner/sales/leads" : "/store/sales/leads")
-                    }
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "7px",
-                        padding: "9px 14px",
-                        border:
-                            "1px solid #CBD5E1",
-                        borderRadius: "7px",
-                        background: "#FFFFFF",
-                        cursor: "pointer",
-                    }}
-                >
-                    <ArrowLeft size={15} />
-                    Back
-                </button>
-
-            </div>
-
-
-            {/* MAIN CARD */}
-
-            <div
-                style={{
-                    background: "#FFFFFF",
-                    border:
-                        "1px solid #E2E8F0",
-                    borderRadius: "10px",
-                    padding: "24px",
-                }}
-            >
-
-                {/* STORE */}
-
-                <div
-                    style={{
-                        maxWidth: "500px",
-                        marginBottom: "28px",
-                    }}
-                >
-
-                    <label
-                        style={{
-                            display: "block",
-                            marginBottom: "7px",
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: "#334155",
-                        }}
-                    >
-                        Store
-                    </label>
-
-
-                    {isSuperAdmin ? (
-
-                        <select
-                            value={selectedStoreId}
-                            onChange={
-                                handleStoreChange
-                            }
-                            disabled={storeLoading}
-                            style={{
-                                width: "100%",
-                                height: "42px",
-                                padding:
-                                    "0 12px",
-                                border:
-                                    "1px solid #CBD5E1",
-                                borderRadius: "7px",
-                                background:
-                                    "#FFFFFF",
-                                fontSize: "14px",
-                            }}
-                        >
-
-                            <option value="">
-
-                                {storeLoading
-                                    ? "Loading..."
-                                    : "Select store"}
-
-                            </option>
-
-
-                            {stores.map(
-                                (store) => {
-
-                                    const storeId =
-                                        store.id ??
-                                        store.storeId;
-
-                                    const storeName =
+                <div className="lead-create-header-right">
+                    {isSuperAdmin && (
+                        <div className="lead-store-field">
+                            <label>
+                                Store <span>*</span>
+                            </label>
+                            <select
+                                value={selectedStoreId}
+                                onChange={handleStoreChange}
+                                disabled={storeLoading || isEditMode}
+                            >
+                                <option value="">
+                                    {storeLoading
+                                        ? "Loading..."
+                                        : "Select store"}
+                                </option>
+                                {stores.map((store) => {
+                                    const id = store.id ?? store.storeId;
+                                    const name =
                                         store.storeName ??
                                         store.name ??
-                                        `Store ${storeId}`;
-
-                                    const storeCode =
-                                        store.storeCode ??
-                                        store.code;
-
+                                        `Store ${id}`;
                                     return (
-
-                                        <option
-                                            key={storeId}
-                                            value={storeId}
-                                        >
-
-                                            {storeName}
-
-                                            {storeCode
-                                                ? ` (${storeCode})`
-                                                : ""}
-
+                                        <option key={id} value={id}>
+                                            {name}
                                         </option>
                                     );
-                                }
+                                })}
+                            </select>
+                            {storeError && (
+                                <div className="field-error">{storeError}</div>
                             )}
-
-                        </select>
-
-                    ) : (
-
-                        <div
-                            style={{
-                                height: "42px",
-                                display: "flex",
-                                alignItems:
-                                    "center",
-                                padding:
-                                    "0 12px",
-                                border:
-                                    "1px solid #E2E8F0",
-                                borderRadius: "7px",
-                                background:
-                                    "#F8FAFC",
-                                color:
-                                    "#334155",
-                                fontSize: "14px",
-                            }}
-                        >
-
-                            {user?.storeName ||
-                                "Current Store"}
-
                         </div>
-
                     )}
 
-
-                    {storeError && (
-
-                        <div
-                            style={{
-                                marginTop: "6px",
-                                color: "#DC2626",
-                                fontSize: "12px",
-                            }}
-                        >
-                            {storeError}
-                        </div>
-
-                    )}
-
-                </div>
-
-
-                {/* CUSTOMER */}
-
-                <div>
-
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent:
-                                "space-between",
-                            alignItems:
-                                "center",
-                            marginBottom: "8px",
-                        }}
+                    <button
+                        type="button"
+                        className="lead-back-button"
+                        onClick={handleBack}
                     >
-
-                        <label
-                            style={{
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                color: "#334155",
-                            }}
-                        >
-                            Customer
-                        </label>
-
-
-                        <button
-                            type="button"
-                            onClick={
-                                openNewCustomerModal
-                            }
-                            disabled={
-                                !selectedStoreId
-                            }
-                            style={{
-                                display: "flex",
-                                alignItems:
-                                    "center",
-                                gap: "5px",
-                                border: 0,
-                                background:
-                                    "transparent",
-                                color:
-                                    selectedStoreId
-                                        ? "#2563EB"
-                                        : "#94A3B8",
-                                cursor:
-                                    selectedStoreId
-                                        ? "pointer"
-                                        : "not-allowed",
-                                fontWeight: 600,
-                                fontSize: "13px",
-                            }}
-                        >
-
-                            <Plus size={15} />
-
-                            New Customer
-
-                        </button>
-
-                    </div>
-
-
-                    {/* CUSTOMER SEARCH */}
-
-                    <div
-                        style={{
-                            position: "relative",
-                            maxWidth: "600px",
-                        }}
-                    >
-
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems:
-                                    "center",
-                                gap: "9px",
-                                height: "44px",
-                                padding:
-                                    "0 12px",
-                                border:
-                                    "1px solid #CBD5E1",
-                                borderRadius: "7px",
-                                background:
-                                    "#FFFFFF",
-                            }}
-                        >
-
-                            <Search
-                                size={17}
-                                color="#64748B"
-                            />
-
-
-                            <input
-                                type="text"
-                                value={
-                                    customerSearch
-                                }
-                                disabled={
-                                    !selectedStoreId
-                                }
-                                onChange={
-                                    handleCustomerSearchChange
-                                }
-                                onFocus={() => {
-
-                                    if (
-                                        selectedStoreId
-                                    ) {
-
-                                        setCustomerDropdownOpen(
-                                            true
-                                        );
-
-                                        loadCustomerOptions(
-                                            customerSearch
-                                        );
-                                    }
-
-                                }}
-                                placeholder={
-                                    selectedStoreId
-                                        ? "Enter customer mobile or name..."
-                                        : "Select a store first..."
-                                }
-                                style={{
-                                    flex: 1,
-                                    border: 0,
-                                    outline: 0,
-                                    fontSize:
-                                        "14px",
-                                }}
-                            />
-
-                        </div>
-
-
-                        {/* SEARCH RESULTS */}
-
-                        {customerDropdownOpen &&
-                            selectedStoreId && (
-
-                                <div
-                                    style={{
-                                        position:
-                                            "absolute",
-                                        zIndex: 20,
-                                        top: "49px",
-                                        left: 0,
-                                        right: 0,
-                                        background:
-                                            "#FFFFFF",
-                                        border:
-                                            "1px solid #E2E8F0",
-                                        borderRadius:
-                                            "8px",
-                                        boxShadow:
-                                            "0 8px 24px rgba(15,23,42,0.12)",
-                                        overflow:
-                                            "hidden",
-                                    }}
-                                >
-
-                                    {customerLoading ? (
-
-                                        <div
-                                            style={{
-                                                padding:
-                                                    "14px",
-                                                color:
-                                                    "#64748B",
-                                                fontSize:
-                                                    "13px",
-                                            }}
-                                        >
-                                            Searching customers...
-                                        </div>
-
-                                    ) : customerResults.length >
-                                      0 ? (
-
-                                        customerResults.map(
-                                            (customer) => (
-
-                                                <button
-                                                    key={
-                                                        customer.id
-                                                    }
-                                                    type="button"
-                                                    onClick={() =>
-                                                        selectCustomer(
-                                                            customer
-                                                        )
-                                                    }
-                                                    style={{
-                                                        width:
-                                                            "100%",
-                                                        display:
-                                                            "flex",
-                                                        alignItems:
-                                                            "center",
-                                                        gap:
-                                                            "12px",
-                                                        padding:
-                                                            "12px 14px",
-                                                        border:
-                                                            0,
-                                                        borderBottom:
-                                                            "1px solid #F1F5F9",
-                                                        background:
-                                                            "#FFFFFF",
-                                                        textAlign:
-                                                            "left",
-                                                        cursor:
-                                                            "pointer",
-                                                    }}
-                                                >
-
-                                                    <UserRound
-                                                        size={
-                                                            17
-                                                        }
-                                                        color="#64748B"
-                                                    />
-
-
-                                                    <div>
-
-                                                        <div
-                                                            style={{
-                                                                fontWeight:
-                                                                    600,
-                                                                color:
-                                                                    "#0F172A",
-                                                                fontSize:
-                                                                    "13px",
-                                                            }}
-                                                        >
-                                                            {
-                                                                customer.customerName
-                                                            }
-                                                        </div>
-
-
-                                                        <div
-                                                            style={{
-                                                                marginTop:
-                                                                    "3px",
-                                                                color:
-                                                                    "#64748B",
-                                                                fontSize:
-                                                                    "12px",
-                                                            }}
-                                                        >
-                                                            {
-                                                                customer.mobileNumber
-                                                            }
-                                                        </div>
-
-                                                    </div>
-
-                                                </button>
-
-                                            )
-                                        )
-
-                                    ) : (
-
-                                        <div
-                                            style={{
-                                                padding:
-                                                    "14px",
-                                            }}
-                                        >
-
-                                            <div
-                                                style={{
-                                                    color:
-                                                        "#64748B",
-                                                    fontSize:
-                                                        "13px",
-                                                    marginBottom:
-                                                        "10px",
-                                                }}
-                                            >
-                                                No customer found.
-                                            </div>
-
-
-                                            <button
-                                                type="button"
-                                                onClick={
-                                                    openNewCustomerModal
-                                                }
-                                                style={{
-                                                    display:
-                                                        "flex",
-                                                    alignItems:
-                                                        "center",
-                                                    gap:
-                                                        "6px",
-                                                    padding:
-                                                        "8px 11px",
-                                                    border: 0,
-                                                    borderRadius:
-                                                        "6px",
-                                                    background:
-                                                        "#2563EB",
-                                                    color:
-                                                        "#FFFFFF",
-                                                    cursor:
-                                                        "pointer",
-                                                    fontSize:
-                                                        "12px",
-                                                    fontWeight:
-                                                        600,
-                                                }}
-                                            >
-
-                                                <Plus
-                                                    size={14}
-                                                />
-
-                                                Create New Customer
-
-                                            </button>
-
-                                        </div>
-
-                                    )}
-
-                                </div>
-                            )}
-
-                    </div>
-
-
-                    {/* SELECTED CUSTOMER DETAILS */}
-
-                    {selectedCustomer && (
-
-                        <div
-                            style={{
-                                marginTop: "18px",
-                                maxWidth: "700px",
-                                border:
-                                    "1px solid #BFDBFE",
-                                borderRadius: "8px",
-                                padding: "18px",
-                                background:
-                                    "#EFF6FF",
-                            }}
-                        >
-
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems:
-                                        "center",
-                                    gap: "10px",
-                                    marginBottom:
-                                        "14px",
-                                }}
-                            >
-
-                                <UserRound
-                                    size={19}
-                                    color="#2563EB"
-                                />
-
-                                <strong
-                                    style={{
-                                        color:
-                                            "#0F172A",
-                                        fontSize:
-                                            "15px",
-                                    }}
-                                >
-                                    Customer Details
-                                </strong>
-
-                            </div>
-
-
-                            <div
-                                style={{
-                                    display: "grid",
-                                    gridTemplateColumns:
-                                        "repeat(2, minmax(0, 1fr))",
-                                    gap:
-                                        "12px 24px",
-                                }}
-                            >
-
-                                <div>
-                                    <small>
-                                        Customer Name
-                                    </small>
-
-                                    <div>
-                                        {
-                                            selectedCustomer.customerName ||
-                                            "-"
-                                        }
-                                    </div>
-                                </div>
-
-
-                                <div>
-                                    <small>
-                                        Mobile
-                                    </small>
-
-                                    <div>
-                                        {
-                                            selectedCustomer.mobileNumber ||
-                                            "-"
-                                        }
-                                    </div>
-                                </div>
-
-
-                                <div>
-                                    <small>
-                                        Email
-                                    </small>
-
-                                    <div>
-                                        {
-                                            selectedCustomer.email ||
-                                            "-"
-                                        }
-                                    </div>
-                                </div>
-
-
-                                <div>
-                                    <small>
-                                        GSTIN
-                                    </small>
-
-                                    <div>
-                                        {
-                                            selectedCustomer.gstin ||
-                                            "-"
-                                        }
-                                    </div>
-                                </div>
-
-
-                                <div>
-                                    <small>
-                                        State
-                                    </small>
-
-                                    <div>
-                                        {
-                                            selectedCustomer.state ||
-                                            "-"
-                                        }
-                                    </div>
-                                </div>
-
-
-                                <div>
-                                    <small>
-                                        Billing Address
-                                    </small>
-
-                                    <div>
-                                        {
-                                            customerBillingAddress ||
-                                            "-"
-                                        }
-                                    </div>
-                                </div>
-
-
-                                <div>
-                                    <small>
-                                        Shipping Address
-                                    </small>
-
-                                    <div>
-                                        {
-                                            customerShippingAddress ||
-                                            "-"
-                                        }
-                                    </div>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    )}
-
+                        <ArrowLeft size={13} />
+                        {onClose ? "Close" : "Back"}
+                    </button>
                 </div>
-
             </div>
 
-
-                {/* =====================================================
-                    CUSTOMER REQUIREMENT
-                ===================================================== */}
-
-                <div style={{ marginTop: "28px", paddingTop: "24px", borderTop: "1px solid #E2E8F0" }}>
-                    <div style={{ marginBottom: "16px" }}>
-                        <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "#0F172A" }}>
-                            Customer Requirement
-                        </h2>
-                        <p style={{ margin: "5px 0 0", fontSize: "13px", color: "#64748B" }}>
-                            Capture exactly what the customer requested.
-                        </p>
+            {/* =================================================
+                MAIN CARD
+            ================================================= */}
+            <div className="lead-create-card">
+                {/* =============================================
+                    CUSTOMER ROW
+                ============================================= */}
+                <div className="lead-section-grid">
+                    <div className="lead-field">
+                        <label>
+                            Customer Mobile <span>*</span>
+                        </label>
+                        <div className="lookup-input-wrap">
+                            <Search size={14} />
+                            <input
+                                type="tel"
+                                inputMode="numeric"
+                                maxLength={10}
+                                value={customerMobile}
+                                onChange={handleCustomerMobileChange}
+                                placeholder="10-digit mobile number"
+                                disabled={!selectedStoreId}
+                            />
+                            {customerLookupLoading && (
+                                <span className="lookup-spinner" />
+                            )}
+                        </div>
+                        {customerLookupMessage && (
+                            <div
+                                className={
+                                    selectedCustomer
+                                        ? "lookup-success"
+                                        : "lookup-hint"
+                                }
+                            >
+                                {selectedCustomer && (
+                                    <CheckCircle2 size={12} />
+                                )}
+                                {customerLookupMessage}
+                            </div>
+                        )}
                     </div>
+
+                    <div className="lead-field">
+                        <label>Customer Name</label>
+                        <input
+                            type="text"
+                            value={customerName}
+                            placeholder="Auto-filled from mobile"
+                            readOnly
+                            disabled={!selectedCustomer}
+                        />
+                    </div>
+                </div>
+
+                {/* =============================================
+                    SALESPERSON + SOURCE
+                ============================================= */}
+                <div className="lead-section-grid">
+                    <div className="lead-field">
+                        <label>
+                            Salesperson Mobile <span>*</span>
+                        </label>
+                        <div className="lookup-input-wrap">
+                            <Search size={14} />
+                            <input
+                                type="tel"
+                                inputMode="numeric"
+                                maxLength={10}
+                                value={salespersonMobile}
+                                onChange={handleSalespersonMobileChange}
+                                placeholder="10-digit mobile number"
+                                disabled={!selectedStoreId}
+                            />
+                        </div>
+                        {salespersonLookupMessage && (
+                            <div
+                                className={
+                                    selectedSalesperson
+                                        ? "lookup-success"
+                                        : "lookup-hint"
+                                }
+                            >
+                                {selectedSalesperson && (
+                                    <CheckCircle2 size={12} />
+                                )}
+                                {salespersonLookupMessage}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="lead-field">
+                        <label>
+                            Lead Source <span>*</span>
+                        </label>
+                        <select
+                            value={source}
+                            onChange={(event) => setSource(event.target.value)}
+                        >
+                            <option value="">Select source</option>
+                            {SOURCE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* =============================================
+                    NOTES — edit existing notes only
+                ============================================= */}
+                {isEditMode && (
+                    <div className="requirement-section">
+                        <h2>Notes</h2>
+                        <textarea
+                            value={notes}
+                            onChange={(event) =>
+                                setNotes(event.target.value)
+                            }
+                            placeholder="Update existing lead notes..."
+                            rows={3}
+                        />
+                    </div>
+                )}
+
+                {/* =============================================
+                    REQUIREMENT
+                ============================================= */}
+                <div className="requirement-section">
+                    <h2>
+                        Customer Requirement <span>*</span>
+                    </h2>
                     <textarea
                         value={customerRequirement}
-                        onChange={(event) => setCustomerRequirement(event.target.value)}
-                        placeholder="Example: Customer needs Maruti Swift brake pad"
-                        rows={3}
-                        style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid #CBD5E1", borderRadius: "7px", outline: "none", fontSize: "14px", resize: "vertical" }}
+                        onChange={(event) =>
+                            setCustomerRequirement(event.target.value)
+                        }
+                        placeholder="Example: Maruti Swift brake pad, Skoda 2014 oil filter..."
+                        rows={4}
                     />
                 </div>
 
-                <section className="lead-workflow">
-                    <div className="lead-toolbar"><h2>Required items</h2><button type="button" onClick={addLeadItem}><Plus size={15}/> Add item</button></div>
-                    <LeadItemsTable rows={leadItems} onChange={handleLeadItemChange} onRemove={removeLeadItem}/>
-                </section>
-
-                {/* =====================================================
-                    LEAD NOTES
-                ===================================================== */}
-
-                <div style={{ marginTop: "24px" }}>
-                    <label style={{ display: "block", marginBottom: "7px", fontSize: "13px", fontWeight: 600, color: "#334155" }}>Lead Notes</label>
-                    <textarea value={leadNotes} onChange={(event) => setLeadNotes(event.target.value)} placeholder="Optional internal notes..." rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "11px 12px", border: "1px solid #CBD5E1", borderRadius: "7px", outline: "none", fontSize: "14px", resize: "vertical" }} />
-                </div>
-
-                {/* =====================================================
-                    CREATE LEAD
-                ===================================================== */}
-
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px", paddingTop: "20px", borderTop: "1px solid #E2E8F0" }}>
-                    <button type="button" onClick={handleCreateLead} disabled={creatingLead} style={{ padding: "11px 20px", border: 0, borderRadius: "7px", background: "#2563EB", color: "#FFFFFF", cursor: creatingLead ? "not-allowed" : "pointer", fontSize: "14px", fontWeight: 600, opacity: creatingLead ? 0.7 : 1 }}>
-                        {creatingLead ? "Creating Lead..." : "Create Lead"}
+                {/* =============================================
+                    SUBMIT
+                ============================================= */}
+                <div className="lead-submit-bar">
+                    <button
+                        type="button"
+                        className="create-lead-button"
+                        onClick={handleCreateLead}
+                        disabled={creatingLead || savingEdit}
+                    >
+                        {isEditMode
+                            ? savingEdit
+                                ? "Saving..."
+                                : "Save Changes"
+                            : creatingLead
+                            ? "Creating..."
+                            : "Create Lead"}
                     </button>
                 </div>
+            </div>
 
             {/* =====================================================
-                NEW CUSTOMER MODAL
+                CUSTOMER MODAL
             ===================================================== */}
-
-            {customerModalOpen && (
-
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        zIndex: 100,
-                        background:
-                            "rgba(15,23,42,0.45)",
-                        display: "flex",
-                        alignItems:
-                            "center",
-                        justifyContent:
-                            "center",
-                        padding: "24px",
-                    }}
-                >
-
-                    <div
-                        style={{
-                            width: "100%",
-                            maxWidth: "650px",
-                            maxHeight: "90vh",
-                            overflowY: "auto",
-                            background:
-                                "#FFFFFF",
-                            borderRadius:
-                                "10px",
-                            padding: "24px",
-                            boxShadow:
-                                "0 20px 50px rgba(15,23,42,0.2)",
-                        }}
-                    >
-
-                        <h2
-                            style={{
-                                margin:
-                                    "0 0 20px",
-                                fontSize:
-                                    "20px",
-                                color:
-                                    "#0F172A",
-                            }}
-                        >
-                            Create New Customer
-                        </h2>
-
-
-                        <div
-                            style={{
-                                display: "grid",
-                                gap: "14px",
-                            }}
-                        >
-
+            {customerModalOpen && !isEditMode && (
+                <div className="modal-overlay">
+                    <div className="modal-card modal-small">
+                        <div className="modal-header">
                             <div>
+                                <span className="modal-kicker">
+                                    NEW CUSTOMER
+                                </span>
+                                <h2>Create Customer</h2>
+                            </div>
+                            <button
+                                type="button"
+                                className="modal-close"
+                                onClick={() => setCustomerModalOpen(false)}
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
 
+                        <div className="modal-body">
+                            <div className="mobile-lock-card">
+                                <span>Mobile Number</span>
+                                <strong>{customerForm.mobileNumber}</strong>
+                            </div>
+
+                            <div className="lead-field">
                                 <label>
-                                    Customer Name
+                                    Customer Name <span>*</span>
                                 </label>
-
                                 <input
-                                    value={
-                                        customerForm.customerName
-                                    }
+                                    value={customerForm.customerName}
                                     onChange={(event) =>
                                         handleCustomerFormChange(
                                             "customerName",
                                             event.target.value
                                         )
                                     }
+                                    placeholder="Enter customer name"
+                                    autoFocus
                                 />
-
                             </div>
 
-
-                            <div>
-
+                            <div className="lead-field">
                                 <label>
-                                    Mobile Number
+                                    Customer Type <span>*</span>
                                 </label>
-
-                                <input
-                                    value={
-                                        customerForm.mobileNumber
-                                    }
-                                    maxLength={10}
-                                    onChange={(event) =>
-                                        handleCustomerFormChange(
-                                            "mobileNumber",
-                                            event.target.value.replace(
-                                                /\D/g,
-                                                ""
-                                            )
-                                        )
-                                    }
-                                />
-
-                            </div>
-
-
-                            <div>
-
-                                <label>
-                                    GST Registration Type
-                                </label>
-
                                 <select
-                                    value={
-                                        customerForm.gstRegistrationType
-                                    }
+                                    value={customerForm.customerType}
                                     onChange={(event) =>
                                         handleCustomerFormChange(
-                                            "gstRegistrationType",
+                                            "customerType",
                                             event.target.value
                                         )
                                     }
                                 >
-
-                                    <option value="UNREGISTERED">
-                                        Unregistered
-                                    </option>
-
-                                    <option value="REGISTERED">
-                                        Registered
-                                    </option>
-
+                                    <option value="WALK_IN">Walk-in</option>
+                                    <option value="GARAGE">Garage</option>
+                                    <option value="RETAIL">Retail</option>
+                                    <option value="B2B">B2B</option>
                                 </select>
-
                             </div>
 
+                            {customerForm.customerType !== "WALK_IN" && (
+                                <>
+                                    <div className="lead-field">
+                                        <label>
+                                            GST Registration <span>*</span>
+                                        </label>
+                                        <select
+                                            value={
+                                                customerForm.gstRegistrationType
+                                            }
+                                            onChange={(event) =>
+                                                handleCustomerFormChange(
+                                                    "gstRegistrationType",
+                                                    event.target.value
+                                                )
+                                            }
+                                        >
+                                            <option value="UNREGISTERED">
+                                                Unregistered
+                                            </option>
+                                            <option value="REGISTERED">
+                                                Registered
+                                            </option>
+                                        </select>
+                                    </div>
 
-                            {customerForm.gstRegistrationType !==
-                                "UNREGISTERED" && (
-
-                                <div>
-
-                                    <label>
-                                        GSTIN
-                                    </label>
-
-                                    <input
-                                        value={
-                                            customerForm.gstin
-                                        }
-                                        maxLength={15}
-                                        onChange={(event) =>
-                                            handleCustomerFormChange(
-                                                "gstin",
-                                                event.target.value
-                                            )
-                                        }
-                                    />
-
-                                </div>
-
+                                    {customerForm.gstRegistrationType ===
+                                        "REGISTERED" && (
+                                        <div className="lead-field">
+                                            <label>
+                                                GSTIN <span>*</span>
+                                            </label>
+                                            <input
+                                                value={customerForm.gstin}
+                                                maxLength={15}
+                                                onChange={(event) =>
+                                                    handleCustomerFormChange(
+                                                        "gstin",
+                                                        event.target.value.toUpperCase()
+                                                    )
+                                                }
+                                                placeholder="15-character GSTIN"
+                                            />
+                                        </div>
+                                    )}
+                                </>
                             )}
-
-
-                            <div>
-
-                                <label>
-                                    State
-                                </label>
-
-                                <input
-                                    value={
-                                        customerForm.state
-                                    }
-                                    onChange={(event) =>
-                                        handleCustomerFormChange(
-                                            "state",
-                                            event.target.value
-                                        )
-                                    }
-                                />
-
-                            </div>
-
-
-                            <div>
-
-                                <label>
-                                    Email
-                                </label>
-
-                                <input
-                                    value={
-                                        customerForm.email
-                                    }
-                                    onChange={(event) =>
-                                        handleCustomerFormChange(
-                                            "email",
-                                            event.target.value
-                                        )
-                                    }
-                                />
-
-                            </div>
-
-
-                            <div>
-
-                                <label>
-                                    Billing Address
-                                </label>
-
-                                <textarea
-                                    value={
-                                        customerForm.billingAddress
-                                    }
-                                    onChange={(event) =>
-                                        handleCustomerFormChange(
-                                            "billingAddress",
-                                            event.target.value
-                                        )
-                                    }
-                                />
-
-                            </div>
-
-
-                            <label
-                                style={{
-                                    display: "flex",
-                                    alignItems:
-                                        "center",
-                                    gap: "7px",
-                                }}
-                            >
-
-                                <input
-                                    type="checkbox"
-                                    checked={
-                                        sameAsBilling
-                                    }
-                                    onChange={(event) =>
-                                        handleSameAsBilling(
-                                            event.target.checked
-                                        )
-                                    }
-                                />
-
-                                Shipping address same as billing
-
-                            </label>
-
-
-                            <div>
-
-                                <label>
-                                    Shipping Address
-                                </label>
-
-                                <textarea
-                                    value={
-                                        customerForm.shippingAddress
-                                    }
-                                    onChange={(event) =>
-                                        handleCustomerFormChange(
-                                            "shippingAddress",
-                                            event.target.value
-                                        )
-                                    }
-                                />
-
-                            </div>
-
                         </div>
 
-
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent:
-                                    "flex-end",
-                                gap: "10px",
-                                marginTop:
-                                    "22px",
-                            }}
-                        >
-
+                        <div className="modal-footer">
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setCustomerModalOpen(
-                                        false
-                                    )
-                                }
-                                disabled={
-                                    savingCustomer
-                                }
+                                className="secondary-button"
+                                onClick={() => setCustomerModalOpen(false)}
+                                disabled={savingCustomer}
                             >
                                 Cancel
                             </button>
-
-
                             <button
                                 type="button"
-                                onClick={
-                                    handleSaveCustomer
-                                }
-                                disabled={
-                                    savingCustomer
-                                }
+                                className="primary-button"
+                                onClick={handleSaveCustomer}
+                                disabled={savingCustomer}
                             >
-                                {savingCustomer
-                                    ? "Saving..."
-                                    : "Save Customer"}
+                                {savingCustomer ? "Saving..." : "Save Customer"}
                             </button>
-
                         </div>
-
                     </div>
-
                 </div>
-
             )}
 
+            {/* =====================================================
+                SALESPERSON MODAL
+            ===================================================== */}
+            {salespersonModalOpen && !isEditMode && (
+                <div className="modal-overlay">
+                    <div className="modal-card modal-small">
+                        <div className="modal-header">
+                            <div>
+                                <span className="modal-kicker">
+                                    NEW SALESPERSON
+                                </span>
+                                <h2>Add Salesperson</h2>
+                            </div>
+                            <button
+                                type="button"
+                                className="modal-close"
+                                onClick={() => setSalespersonModalOpen(false)}
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+
+                        <div className="modal-body">
+                            <div className="mobile-lock-card">
+                                <span>Mobile Number</span>
+                                <strong>
+                                    {salespersonForm.mobileNumber}
+                                </strong>
+                            </div>
+
+                            <div className="lead-field">
+                                <label>
+                                    Salesperson Name <span>*</span>
+                                </label>
+                                <input
+                                    value={salespersonForm.salespersonName}
+                                    maxLength={150}
+                                    onChange={(event) =>
+                                        setSalespersonForm((current) => ({
+                                            ...current,
+                                            salespersonName:
+                                                event.target.value,
+                                        }))
+                                    }
+                                    placeholder="Enter salesperson name"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+
+                        <div className="modal-footer">
+                            <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => setSalespersonModalOpen(false)}
+                                disabled={savingSalesperson}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="primary-button"
+                                onClick={handleSaveSalesperson}
+                                disabled={savingSalesperson}
+                            >
+                                {savingSalesperson
+                                    ? "Saving..."
+                                    : "Save Salesperson"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* =====================================================
+                SUCCESS POPUP
+            ===================================================== */}
+            {createdLead && !isEditMode && (
+                <div className="modal-overlay">
+                    <div className="modal-card modal-small">
+                        <div className="modal-header">
+                            <div>
+                                <span className="modal-kicker">
+                                    LEAD CREATED
+                                </span>
+                                <h2>Lead Created Successfully</h2>
+                            </div>
+                            <button
+                                type="button"
+                                className="modal-close"
+                                onClick={() => setCreatedLead(null)}
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+
+                        <div className="modal-body">
+                            <div className="mobile-lock-card">
+                                <span>Lead Number</span>
+                                <strong>
+                                    {createdLead.leadNumber || createdLead.id}
+                                </strong>
+                                <small>
+                                    {createdLead.customerName
+                                        ? `Customer: ${createdLead.customerName}`
+                                        : "The lead has been saved."}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div className="modal-footer">
+                            <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => {
+                                    setCreatedLead(null);
+                                    if (typeof onClose === "function")
+                                        onClose();
+                                }}
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="button"
+                                className="primary-button"
+                                onClick={() => {
+                                    const base = isSuperAdmin
+                                        ? "/owner/sales"
+                                        : "/store/sales";
+                                    navigate(
+                                        `${base}/leads/${createdLead.id}`
+                                    );
+                                }}
+                            >
+                                View Lead
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

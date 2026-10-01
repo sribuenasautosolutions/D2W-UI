@@ -1441,7 +1441,7 @@ const totalMrp = useMemo(
     };
 
     const selectCustomer = (customer) => {
-        const billing = customer.billingAddress ?? customer.address ?? "";
+        const billing = customer.billingAddress ?? "";
         const shipping = customer.shippingAddress ?? "";
         setSelectedCustomer({ ...customer, billingAddress: billing, shippingAddress: shipping });
         setSaleSameAsBilling(Boolean(billing) && billing === shipping);
@@ -1458,10 +1458,10 @@ const totalMrp = useMemo(
             gstin: customer.gstin ?? "",
             state: customer.state ?? "",
             email: customer.email ?? "",
-            billingAddress: customer.billingAddress ?? customer.address ?? "",
+            billingAddress: customer.billingAddress ?? "",
             shippingAddress: customer.shippingAddress ?? "",
         } : emptyCustomerForm);
-        const billing = customer?.billingAddress ?? customer?.address ?? "";
+        const billing = customer?.billingAddress ?? "";
         const shipping = customer?.shippingAddress ?? "";
         setSameAsBilling(Boolean(billing) && billing === shipping);
         setCustomerModalOpen(true);
@@ -1494,7 +1494,6 @@ const totalMrp = useMemo(
             storeId: Number(selectedStoreId),
             customerType: "B2B",
             gstin: customerForm.gstin.trim().toUpperCase() || null,
-            address: customerForm.billingAddress,
         };
 
         setSavingCustomer(true);
@@ -1733,13 +1732,13 @@ const totalMrp = useMemo(
                         selectedCustomer.mobileNumber.trim(),
 
 
-                    address: (selectedCustomer.billingAddress ?? selectedCustomer.address ?? "").trim(),
+                    address: (selectedCustomer.billingAddress ?? "").trim(),
 
                     customerGstin: selectedCustomer.gstin ?? null,
                     customerGstRegistrationType: selectedCustomer.gstRegistrationType ?? "UNREGISTERED",
                     customerState: selectedCustomer.state ?? null,
                     customerEmail: selectedCustomer.email ?? null,
-                    billingAddress: selectedCustomer.billingAddress ?? selectedCustomer.address ?? null,
+                    billingAddress: selectedCustomer.billingAddress ?? null,
                     shippingAddress: selectedCustomer.shippingAddress ?? null,
                     placeOfSupply: selectedCustomer.state ?? null,
 
@@ -2874,9 +2873,9 @@ const totalMrp = useMemo(
                                 <span>{selectedCustomer.mobileNumber}</span>
                                 <span>{selectedCustomer.gstRegistrationType === "UNREGISTERED"
                                     ? "Unregistered" : `${selectedCustomer.gstRegistrationType} · ${selectedCustomer.gstin}`}</span>
-                                <label>Billing Address<textarea value={selectedCustomer.billingAddress ?? selectedCustomer.address ?? ""} onChange={(event)=>setSelectedCustomer((current)=>({...current,billingAddress:event.target.value,...(saleSameAsBilling?{shippingAddress:event.target.value}:{})}))} /></label>
+                                <label>Billing Address<textarea value={selectedCustomer.billingAddress ?? ""} onChange={(event)=>setSelectedCustomer((current)=>({...current,billingAddress:event.target.value,...(saleSameAsBilling?{shippingAddress:event.target.value}:{})}))} /></label>
                                 <label>Shipping Address<textarea disabled={saleSameAsBilling} value={selectedCustomer.shippingAddress ?? ""} onChange={(event)=>setSelectedCustomer((current)=>({...current,shippingAddress:event.target.value}))} /></label>
-                                <label className="new-sale-sale-same-address"><input type="checkbox" checked={saleSameAsBilling} onChange={(event)=>{const checked=event.target.checked;setSaleSameAsBilling(checked);if(checked)setSelectedCustomer((current)=>({...current,shippingAddress:current.billingAddress??current.address??""}));}} /> Same as Billing Address</label>
+                                <label className="new-sale-sale-same-address"><input type="checkbox" checked={saleSameAsBilling} onChange={(event)=>{const checked=event.target.checked;setSaleSameAsBilling(checked);if(checked)setSelectedCustomer((current)=>({...current,shippingAddress:current.billingAddress??""}));}} /> Same as Billing Address</label>
                                 <button type="button" onClick={() => openCustomerModal(selectedCustomer)}>
                                     <Pencil size={12} /> Edit Customer
                                 </button>
@@ -3262,8 +3261,7 @@ const totalMrp = useMemo(
                             <label>GST Registration Type<select value={customerForm.gstRegistrationType}
                                 onChange={(event) => handleCustomerFormChange("gstRegistrationType", event.target.value)}>
                                 <option value="UNREGISTERED">Unregistered</option>
-                                <option value="REGULAR">Regular</option>
-                                <option value="COMPOSITION">Composition</option>
+                                <option value="REGISTERED">Registered</option>
                             </select></label>
                             {customerForm.gstRegistrationType !== "UNREGISTERED" && (
                                 <label>GSTIN *<input value={customerForm.gstin} maxLength={15}
