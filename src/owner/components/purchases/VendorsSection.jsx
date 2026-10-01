@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CirclePlus, Download, Filter, MoreHorizontal, Power, Search, Store, UserRoundCheck, X } from "lucide-react";
 import api from "../../../services/api";
+import VendorStockModal from "./VendorStockModal";
 
 const emptyVendor = {
     vendorName: "", phone: "", contactPerson: "", email: "",
@@ -44,6 +45,7 @@ export default function VendorsSection() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [moreMenuOpen, setMoreMenuOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState("ALL");
+    const [selectedVendor, setSelectedVendor] = useState(null);
     const filterRef = useRef(null);
     const moreRef = useRef(null);
 
@@ -246,13 +248,13 @@ export default function VendorsSection() {
                 <table className="vendors-table" style={S.table}>
                     <thead><tr><th>Vendor</th><th>Contact</th><th>GST Number</th><th>Location</th><th>Status</th><th aria-label="Manage" /></tr></thead>
                     <tbody>
-                        {visibleVendors.map((vendor) => <tr key={vendor.id}>
+                        {visibleVendors.map((vendor) => <tr key={vendor.id} onClick={() => setSelectedVendor(vendor)} style={{ cursor: "pointer" }}>
                             <td><strong>{vendor.vendorName}</strong><small>{vendor.contactPerson || "No contact person"}</small></td>
                             <td><span>{vendor.phone}</span><small>{vendor.email || "No email"}</small></td>
                             <td>{vendor.gstNumber || "—"}</td>
                             <td><span>{vendor.state || "—"}</span><small>{vendor.pincode || ""}</small></td>
                             <td><span style={{ ...S.status, ...(vendor.isActive ? S.active : S.inactive) }}>{vendor.isActive ? "Active" : "Inactive"}</span></td>
-                            <td><button type="button" style={S.iconButtonSmall} title={vendor.isActive ? "Inactivate vendor" : "Activate vendor"} onClick={() => changeStatus(vendor)}><Power size={15} /></button></td>
+                            <td><button type="button" style={S.iconButtonSmall} title={vendor.isActive ? "Inactivate vendor" : "Activate vendor"} onClick={(event) => { event.stopPropagation(); changeStatus(vendor); }}><Power size={15} /></button></td>
                         </tr>)}
                         {!loading && !visibleVendors.length && <tr><td colSpan="6" style={S.empty}>No vendors found for this store.</td></tr>}
                         {loading && <tr><td colSpan="6" style={S.empty}>Loading vendors...</td></tr>}
@@ -286,6 +288,7 @@ export default function VendorsSection() {
                     <div style={S.modalActions}><button type="button" style={S.secondary} onClick={closeModal} disabled={saving}>Cancel</button><button type="button" style={S.primary} onClick={saveVendor} disabled={saving}>{saving ? "Saving..." : "Save Vendor"}</button></div>
                 </div>
             </div>}
+            {selectedVendor && <VendorStockModal vendor={selectedVendor} onClose={() => setSelectedVendor(null)} />}
         </section>
     );
 }

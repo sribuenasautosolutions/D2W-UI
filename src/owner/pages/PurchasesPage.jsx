@@ -2,6 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import D2WStockRequestSection from "../components/purchases/D2WStockRequestSection";
 import VendorPurchasesSection from "../components/purchases/VendorPurchasesSection";
 import VendorsSection from "../components/purchases/VendorsSection";
+import VendorOrdersSection from "../components/purchases/VendorOrdersSection";
 
 const PURCHASE_VIEWS = {
     vendors: {
@@ -13,6 +14,11 @@ const PURCHASE_VIEWS = {
         title: "Bills",
         description: "Create vendor bills and receive accepted stock when a bill is saved as open.",
         Component: VendorPurchasesSection,
+    },
+    vendororders: {
+        title: "Vendor Orders",
+        description: "Track Lead requirements selected for vendor sourcing and export the daily order list.",
+        Component: VendorOrdersSection,
     },
     requestd2w: {
         title: "D2W Stock Requests",

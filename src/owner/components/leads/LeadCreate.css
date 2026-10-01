@@ -1,0 +1,882 @@
+/* ==========================================================================
+   Create Lead — professional rectangular form
+   System font · white surfaces · black bold headings
+   ========================================================================== */
+
+.lead-create-page {
+    min-height: 100%;
+    padding: 16px;
+    background: #f6f8fc;
+    color: #0f172a;
+    box-sizing: border-box;
+
+    font-family: system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.lead-create-page *,
+.lead-create-page *::before,
+.lead-create-page *::after {
+    box-sizing: border-box;
+}
+
+.lead-create-page button,
+.lead-create-page input,
+.lead-create-page select,
+.lead-create-page textarea {
+    font-family: inherit;
+}
+
+/* ==========================================================================
+   HEADER — title left, store + close right
+   ========================================================================== */
+.lead-create-header {
+    max-width: 1200px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.lead-create-header-left {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.lead-create-header-right {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.lead-eyebrow {
+    color: #2563eb;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+.lead-create-header h1 {
+    margin: 0;
+    font-size: 19px;
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #000000;
+}
+
+/* ==========================================================================
+   BUTTONS — base (RECTANGULAR, small radius)
+   ========================================================================== */
+.lead-back-button,
+.secondary-button,
+.primary-button,
+.create-lead-button {
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: 1;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.lead-back-button:focus-visible,
+.secondary-button:focus-visible,
+.primary-button:focus-visible,
+.create-lead-button:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.create-lead-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* ---------- Back / Close ---------- */
+.lead-back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 10px;
+    background: #ffffff;
+    color: #111827;
+    border-color: #d1d5db;
+    font-size: 12px;
+}
+
+.lead-back-button:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.lead-back-button:active {
+    transform: translateY(1px);
+}
+
+/* ==========================================================================
+   MAIN CARD
+   ========================================================================== */
+.lead-create-card {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* ==========================================================================
+   STORE FIELD (top-right, no overflow)
+   ========================================================================== */
+.lead-store-field {
+    display: grid;
+    gap: 3px;
+    width: 200px;
+    max-width: 200px;
+}
+
+.lead-store-field select {
+    width: 100%;
+    height: 32px;
+    padding: 0 8px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    color: #111827;
+    font-size: 12.5px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lead-store-field select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.lead-store-field label {
+    color: #000000;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.lead-store-field label span {
+    color: #dc2626;
+}
+
+/* ==========================================================================
+   GRIDS — every pair of fields side by side
+   ========================================================================== */
+.lead-section-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.lead-section-grid:last-of-type {
+    margin-bottom: 0;
+}
+
+/* ==========================================================================
+   FIELDS + LABELS
+   ========================================================================== */
+.lead-field {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.lead-field label {
+    color: #000000;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    line-height: 1.25;
+}
+
+.lead-field label span {
+    color: #dc2626;
+    margin-left: 2px;
+}
+
+.lead-field input,
+.lead-field select,
+.lead-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    color: #111827;
+    font-size: 12.5px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lead-field input,
+.lead-field select {
+    height: 34px;
+    padding: 0 10px;
+}
+
+.lead-field input:hover:not(:disabled):not([readonly]),
+.lead-field select:hover:not(:disabled) {
+    border-color: #9ca3af;
+}
+
+.lead-field input:focus,
+.lead-field select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.lead-field input:disabled,
+.lead-field input[readonly] {
+    background: #f9fafb;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.lead-field input::placeholder {
+    color: #9ca3af;
+}
+
+/* ==========================================================================
+   LOOKUP INPUT (search icon + input + spinner)
+   ========================================================================== */
+.lookup-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    color: #9ca3af;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lookup-input-wrap:hover {
+    border-color: #9ca3af;
+}
+
+.lookup-input-wrap:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.lookup-input-wrap svg {
+    flex-shrink: 0;
+    color: #9ca3af;
+}
+
+.lookup-input-wrap input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    box-shadow: none !important;
+    background: transparent;
+    font-size: 12.5px;
+    color: #111827;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.lookup-input-wrap input::placeholder {
+    color: #9ca3af;
+}
+
+.lookup-input-wrap input:disabled {
+    background: transparent;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* Spinner shown while looking up */
+.lookup-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(37, 99, 235, 0.2);
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: lookupSpin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes lookupSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   LOOKUP MESSAGES
+   ========================================================================== */
+.lookup-success,
+.lookup-hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+.lookup-success {
+    color: #15803d;
+}
+
+.lookup-hint {
+    color: #6b7280;
+}
+
+/* ==========================================================================
+   REQUIREMENT SECTION
+   ========================================================================== */
+.requirement-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.requirement-section h2 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #000000;
+    letter-spacing: -0.01em;
+}
+
+.requirement-section h2 span {
+    color: #dc2626;
+}
+
+.requirement-section textarea {
+    width: 100%;
+    min-height: 84px;
+    padding: 8px 10px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    outline: none;
+    resize: vertical;
+    color: #111827;
+    font-size: 12.5px;
+    line-height: 1.5;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.requirement-section textarea:hover {
+    border-color: #9ca3af;
+}
+
+.requirement-section textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.requirement-section textarea::placeholder {
+    color: #9ca3af;
+}
+
+/* ==========================================================================
+   SUBMIT BAR
+   ========================================================================== */
+.lead-submit-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.create-lead-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+    height: 36px;
+    padding: 0 16px;
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+    font-size: 12.5px;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.create-lead-button:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.create-lead-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+/* ==========================================================================
+   MODALS
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: lcmFade 0.15s ease both;
+}
+
+@keyframes lcmFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.modal-card {
+    width: min(420px, 100%);
+    max-height: calc(100dvh - 40px);
+    overflow: auto;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+    animation: lcmRise 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes lcmRise {
+    from { opacity: 0; transform: translateY(6px) scale(0.99); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-small {
+    width: min(420px, 100%);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-kicker {
+    display: block;
+    color: #2563eb;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: #000000;
+    letter-spacing: -0.01em;
+}
+
+.modal-close {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 4px;
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.modal-close:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.modal-body {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+}
+
+.mobile-lock-card {
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+}
+
+.mobile-lock-card span {
+    color: #6b7280;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.mobile-lock-card strong {
+    color: #1e40af;
+    font-size: 14px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.mobile-lock-card small {
+    color: #6b7280;
+    font-size: 10.5px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.secondary-button,
+.primary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.secondary-button {
+    background: #ffffff;
+    color: #111827;
+    border-color: #d1d5db;
+}
+
+.secondary-button:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.primary-button {
+    min-width: 100px;
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.primary-button:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+/* ==========================================================================
+   FIELD ERROR
+   ========================================================================== */
+.field-error {
+    margin-top: 3px;
+    color: #dc2626;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   LEAD CREATE MODAL WRAPPER — rectangular, compact
+   ========================================================================== */
+.lead-create-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: lcmFade 0.15s ease both;
+}
+
+.lead-create-modal {
+    width: 100%;
+    max-width: 680px;
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;              /* ← RECTANGULAR */
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+    animation: lcmRise 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.lead-create-modal .lead-create-page {
+    min-height: auto;
+    max-height: none;
+    padding: 16px 18px 18px;
+    background: #ffffff;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1 1 auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(60, 60, 67, 0.2) transparent;
+}
+
+.lead-create-modal .lead-create-page::-webkit-scrollbar {
+    width: 6px;
+}
+
+.lead-create-modal .lead-create-page::-webkit-scrollbar-thumb {
+    background: rgba(60, 60, 67, 0.2);
+    border-radius: 3px;
+}
+
+/* Header inside modal */
+.lead-create-modal .lead-create-header {
+    margin: 0 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+    gap: 12px;
+}
+
+.lead-create-modal .lead-create-header h1 {
+    font-size: 17px;
+    font-weight: 800;
+    color: #000000;
+}
+
+.lead-create-modal .lead-eyebrow {
+    font-size: 9px;
+}
+
+/* Card flattens */
+.lead-create-modal .lead-create-card {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* Store field tighter inside modal */
+.lead-create-modal .lead-store-field {
+    width: 180px;
+    max-width: 180px;
+}
+
+.lead-create-modal .lead-store-field select {
+    height: 30px;
+    font-size: 12px;
+}
+
+/* Compact grids on narrow modal */
+@media (max-width: 640px) {
+    .lead-create-modal .lead-section-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Small buttons inside modal */
+.lead-create-modal .lead-back-button {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11.5px;
+}
+
+.lead-create-modal .lead-field input,
+.lead-create-modal .lead-field select {
+    height: 32px;
+    font-size: 12px;
+}
+
+.lead-create-modal .lookup-input-wrap {
+    height: 32px;
+}
+
+.lead-create-modal .lookup-input-wrap input {
+    height: 30px;
+    font-size: 12px;
+}
+
+.lead-create-modal .requirement-section textarea {
+    min-height: 76px;
+    font-size: 12px;
+}
+
+.lead-create-modal .create-lead-button {
+    height: 34px;
+    min-width: 110px;
+    font-size: 12px;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+@media (max-width: 900px) {
+    .lead-create-modal {
+        max-width: 100%;
+    }
+}
+
+/* Phone — bottom sheet */
+@media (max-width: 640px) {
+    .lead-create-page {
+        padding: 12px;
+    }
+
+    .lead-create-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .lead-create-header-right {
+        width: 100%;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .lead-store-field {
+        flex: 1 1 auto;
+        width: auto;
+        max-width: none;
+    }
+
+    .lead-section-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .lead-submit-bar {
+        justify-content: stretch;
+    }
+
+    .create-lead-button {
+        width: 100%;
+        height: 40px;
+    }
+
+    .lead-create-modal-overlay {
+        padding: 0;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .lead-create-modal {
+        max-width: 100%;
+        max-height: 94dvh;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .lead-create-modal .lead-create-page {
+        padding: 14px;
+    }
+
+    /* iOS zoom prevention */
+    .lead-create-modal .lead-field input,
+    .lead-create-modal .lead-field select,
+    .lead-create-modal .lookup-input-wrap input,
+    .lead-create-modal .requirement-section textarea {
+        font-size: 16px;
+    }
+
+    .lead-create-modal .lead-field input,
+    .lead-create-modal .lead-field select,
+    .lead-create-modal .lookup-input-wrap {
+        height: 38px;
+    }
+
+    .lead-create-modal .lookup-input-wrap input {
+        height: 36px;
+    }
+
+    .lead-create-modal .create-lead-button {
+        min-height: 40px;
+        font-size: 13.5px;
+    }
+
+    /* Other modals */
+    .modal-overlay {
+        padding: 12px;
+    }
+
+    .modal-card {
+        max-height: calc(100dvh - 24px);
+    }
+
+    .modal-footer {
+        flex-direction: column-reverse;
+    }
+
+    .modal-footer button {
+        width: 100%;
+    }
+}
+
+/* Very small phone */
+@media (max-width: 380px) {
+    .lead-create-modal .lead-create-page {
+        padding: 12px;
+    }
+
+    .lead-create-header h1 {
+        font-size: 15px;
+    }
+}
+
+/* Touch devices */
+@media (hover: none) and (pointer: coarse) {
+    .lead-back-button,
+    .primary-button,
+    .secondary-button,
+    .create-lead-button {
+        min-height: 40px;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .lead-create-page *,
+    .lead-create-page *::before,
+    .lead-create-page *::after,
+    .lead-create-modal-overlay,
+    .lead-create-modal,
+    .modal-overlay,
+    .modal-card {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+}

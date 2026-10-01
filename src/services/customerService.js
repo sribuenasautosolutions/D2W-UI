@@ -4,9 +4,10 @@ import api from "./api";
    CUSTOMER MANAGEMENT
 ========================= */
 
-export const getCustomerByMobile = async (mobile) => {
+export const getCustomerByMobile = async (mobile, storeId) => {
     const response = await api.get(
-        `/customers/mobile/${mobile}`
+        `/customers/mobile/${mobile}`,
+        { params: { storeId } }
     );
 
     return response.data;
