@@ -5,7 +5,7 @@ import { placeOrder, calculateOrder } from "../../services/orderService";
 import { getCustomerByMobile } from "../../services/customerService";
 import PaymentPageor from "./PaymentPageor";
 import { getCalculationLinesForCartItem, sumCalculatedAmount } from "../utils/calculationLines";
-import d2wLogo from "./d2w-logo.png";
+import d2wLogo from "./D2W-Logo.png";
 import "./CheckoutPage.css";
 
 
@@ -51,6 +51,7 @@ function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [customerExists, setCustomerExists] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   /* ---------- Cashier-editable financial inputs ---------- */
   const [billDiscount, setBillDiscount] = useState("0");
@@ -79,6 +80,7 @@ function CheckoutPage() {
       setCustomerName(draft.customerName || "");
       setPhone(draft.phone || "");
       setAddress(draft.address || "");
+      setSelectedCustomer(draft.selectedCustomer || null);
       setBillDiscount(String(draft.billDiscount || 0));
     } catch { /* invalid local draft is ignored */ }
   }, [activeDraftId]);
@@ -169,15 +171,18 @@ function CheckoutPage() {
   const handleMobileChange = async (mobile) => {
     const digits = mobile.replace(/\D/g, "").slice(0, 10);
     setPhone(digits);
+    setSelectedCustomer(null);
 
     if (digits.length !== 10) {
       setCustomerExists(false);
       return;
     }
     try {
-      const customer = await getCustomerByMobile(digits);
+      const customer = await getCustomerByMobile(digits, storeId);
       if (customer) {
         setCustomerName(customer.customerName);
+        setAddress(customer.billingAddress || "");
+        setSelectedCustomer(customer);
         setCustomerExists(true);
       } else {
         setCustomerExists(false);
@@ -218,7 +223,7 @@ function CheckoutPage() {
       try { held = JSON.parse(localStorage.getItem("pos_held_payments") || "[]"); } catch { held = []; }
       const draftId = activeDraftId || `draft-${Date.now()}`;
       const record = {
-        draftId, customerName: customerName.trim(), phone, address,
+        draftId, customerName: customerName.trim(), phone, address, selectedCustomer,
         cartItems, billDiscount,
         totalAmount: calculation?.netPayable || 0,
         balanceAmount: calculation?.netPayable || 0,
@@ -238,9 +243,16 @@ function CheckoutPage() {
     try {
       const orderData = {
         storeId,
+        customerId: selectedCustomer?.id ?? null,
         customerName: customerName.trim(),
         phone,
         address,
+        customerGstin: selectedCustomer?.gstin ?? null,
+        customerGstRegistrationType: selectedCustomer?.gstRegistrationType ?? "UNREGISTERED",
+        customerState: selectedCustomer?.state ?? null,
+        customerEmail: selectedCustomer?.email ?? null,
+        billingAddress: address || selectedCustomer?.billingAddress || null,
+        shippingAddress: selectedCustomer?.shippingAddress || address || null,
         paymentMethod: "PENDING", // payment is collected on the Payment page
         billDiscountPercent: Number(billDiscount || 0),
         items: cartItems.map((item) => ({

@@ -254,6 +254,7 @@ function Sidebar() {
 
     const purchaseItems = [
         { key: "vendors", label: "Vendors", icon: UsersRound },
+        { key: "vendororders", label: "Vendor Orders", icon: ClipboardList },
         { key: "bills", label: "Bills", icon: CirclePlus },
         { key: "requestd2w", label: "D2W Stock Requests", icon: Truck },
     ];
