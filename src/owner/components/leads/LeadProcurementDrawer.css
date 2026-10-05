@@ -1,0 +1,961 @@
+.procurement-drawer {
+    width: min(1040px, 96vw);
+    background: #ffffff;
+}
+
+.procurement-drawer-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: #f8fafc;
+    color: #111827;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.procurement-drawer-content *,
+.procurement-drawer-content *::before,
+.procurement-drawer-content *::after {
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.procurement-drawer-header {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 18px 13px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.procurement-header-main {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.procurement-drawer-eyebrow {
+    margin-bottom: 2px;
+    color: #000000;
+    font-size: 9px;
+    line-height: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.procurement-header-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.procurement-header-title-row h2 {
+    margin: 0;
+    color: #000000;
+    font-size: 18px;
+    line-height: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.procurement-header-status {
+    padding: 3px 8px;
+    border: 1px solid #dbeafe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.procurement-drawer-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #dbe3ec;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #000000;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.procurement-drawer-close:hover {
+    background: #f8fafc;
+    color: #000000;
+}
+
+/* ------------------------------------------------------------
+   Header meta — customer / mobile / salesperson as inputs
+   ------------------------------------------------------------ */
+
+.procurement-customer-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.procurement-meta-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.procurement-meta-field > span {
+    color: #000000;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.procurement-meta-field > input {
+    width: 100%;
+    height: 32px;
+    padding: 0 9px;
+    border: 1px solid #dbe3ec;
+    border-radius: 5px;
+    background: #f8fafc;
+    color: #000000;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.procurement-meta-field > input::placeholder {
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.procurement-meta-field > input:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08);
+}
+
+/* ============================================================
+   BODY
+   ============================================================ */
+
+.procurement-drawer-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px 16px 18px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.procurement-drawer-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.procurement-drawer-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+/* ============================================================
+   CUSTOMER REQUIREMENT — highlighted + sticky
+   ============================================================ */
+
+.procurement-requirement-panel {
+    position: sticky;
+    top: -12px;
+    z-index: 10;
+    margin: -12px -16px 12px;
+    padding: 12px 16px 10px;
+    background: #fffbeb;
+    border-bottom: 1px solid #fde68a;
+    border-left: 4px solid #d97706;
+    box-shadow: 0 6px 12px -10px rgba(15, 23, 42, 0.18);
+}
+
+.procurement-panel-label {
+    margin-bottom: 6px;
+    color: #000000;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.procurement-requirement-text {
+    min-height: 28px;
+    padding: 8px 10px;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #000000;
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 600;
+     text-transform: uppercase;
+}
+
+/* ============================================================
+   ENTRY — search bar + tabs side by side
+   ============================================================ */
+
+.procurement-entry-panel {
+    margin-bottom: 12px;
+    padding: 10px;
+    border: 1px solid #dbe3ec;
+    border-radius: 7px;
+    background: #ffffff;
+}
+
+.procurement-entry-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.procurement-entry-input {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    min-width: 0;
+    padding: 0 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+.procurement-entry-input:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08);
+}
+
+.procurement-entry-input svg:first-child {
+    flex: 0 0 auto;
+    color: #64748b;
+}
+
+.procurement-entry-input input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #000000;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.procurement-entry-input input::placeholder {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.procurement-entry-tabs {
+    display: flex;
+    gap: 3px;
+    height: 36px;
+    padding: 3px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    flex: 0 0 auto;
+}
+
+.procurement-entry-tabs button {
+    padding: 0 12px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #000000;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.procurement-entry-tabs button.active {
+    background: #ffffff;
+    color: #2563eb;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.procurement-bulk-entry {
+    margin-top: 10px;
+}
+
+.procurement-bulk-entry textarea {
+    display: block;
+    width: 100%;
+    min-height: 84px;
+    padding: 8px 9px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    outline: 0;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 600;
+    color: #000000;
+}
+
+.procurement-bulk-entry textarea::placeholder {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.procurement-bulk-entry textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08);
+}
+
+.procurement-bulk-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 7px;
+}
+
+.procurement-bulk-footer span {
+    color: #000000;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.procurement-bulk-footer button {
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid #2563eb;
+    border-radius: 5px;
+    background: #2563eb;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.procurement-bulk-footer button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================================
+   MESSAGES
+   ============================================================ */
+
+.procurement-message {
+    margin-bottom: 9px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    line-height: 14px;
+    font-weight: 700;
+}
+
+.procurement-message.error {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.procurement-message.success {
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+/* ============================================================
+   TABLE HEADING
+   ============================================================ */
+
+.procurement-table-section {
+    min-width: 0;
+}
+
+.procurement-table-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 7px;
+}
+
+.procurement-table-heading h3 {
+    margin: 0;
+    color: #000000;
+    font-size: 12px;
+    line-height: 15px;
+    font-weight: 800;
+     text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.procurement-table-heading span {
+    color: #000000;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.procurement-table-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 27px;
+    height: 22px;
+    padding: 0 7px;
+    border: 1px solid #dbeafe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8 !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.procurement-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #dbe3ec;
+    border-radius: 9px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.procurement-table {
+    width: 100%;
+    min-width: 1020px;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+}
+
+.procurement-table th {
+    height: 30px;
+    padding: 0 8px;
+    border-bottom: 1px solid #dbe3ec;
+    background: linear-gradient(#fbfdff, #f5f8fc);
+    color: #000000;
+    font-size: 10px;
+    line-height: 12px;
+    font-weight: 800;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.procurement-table td {
+    padding: 8px;
+    border-bottom: 1px solid #edf2f7;
+    background: #ffffff;
+    color: #000000;
+    font-size: 10px;
+    font-weight: 600;
+    vertical-align: top;
+}
+
+.procurement-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.procurement-table tbody tr:hover td {
+    background: #f9fbff;
+}
+
+/* 7 columns: Part Number · Part Item · Quantity · MRP · Source · Availability · Actions */
+.procurement-table th:nth-child(1) { width: 18%; }
+.procurement-table th:nth-child(2) { width: 22%; }
+.procurement-table th:nth-child(3) { width: 9%;  }
+.procurement-table th:nth-child(4) { width: 11%; }
+.procurement-table th:nth-child(5) { width: 15%; }
+.procurement-table th:nth-child(6) { width: 20%; }
+.procurement-table th:nth-child(7) { width: 5%;  }
+
+/* Cell content */
+
+.procurement-table-part strong,
+.procurement-table-name strong {
+    display: block;
+    color: #000000;
+    font-size: 10.5px;
+    line-height: 14px;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.procurement-muted {
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.procurement-inline-loading {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 3px;
+    color: #2563eb;
+    font-size: 8.5px;
+    font-weight: 700;
+}
+
+.procurement-table-error {
+    display: block;
+    margin-top: 3px;
+    color: #dc2626;
+    font-size: 8.5px;
+    line-height: 11px;
+    font-weight: 700;
+}
+
+/* Inputs / selects inside table */
+
+.procurement-table-input,
+.procurement-table-select,
+.procurement-table-subselect {
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    padding: 0 7px;
+    border: 1px solid #d7dee8;
+    border-radius: 4px;
+    outline: 0;
+    background: #ffffff;
+    color: #000000;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.procurement-table-input:focus,
+.procurement-table-select:focus,
+.procurement-table-subselect:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.07);
+}
+
+.procurement-table-input:disabled,
+.procurement-table-select:disabled {
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.procurement-table-input.qty {
+    text-align: center;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+.procurement-table-subselect {
+    height: 28px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.procurement-table-mrp .procurement-table-input {
+    font-weight: 700;
+}
+
+/* Estimation date */
+
+.procurement-table-date {
+    width: 100%;
+    height: 28px;
+    margin-top: 5px;
+    padding: 0 7px;
+    border: 1px solid #d7dee8;
+    border-radius: 4px;
+    outline: 0;
+    background: #ffffff;
+    color: #000000;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.procurement-table-date:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.07);
+}
+
+/* Source badges */
+
+.procurement-source-badge {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 22px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 9px;
+    line-height: 12px;
+    font-weight: 800;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.procurement-source-badge.d2w {
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.procurement-source-badge.vendor {
+    border: 1px solid #ddd6fe;
+    background: #f5f3ff;
+    color: #6d28d9;
+}
+
+.procurement-source-badge.new {
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.procurement-source-badge.na {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+}
+
+/* Actions column — remove row */
+
+.procurement-table-actions {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.procurement-row-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #fecaca;
+    border-radius: 5px;
+    background: #fef2f2;
+    color: #dc2626;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.procurement-row-remove:hover {
+    background: #fee2e2;
+    border-color: #dc2626;
+    color: #b91c1c;
+}
+
+/* ============================================================
+   TABLE EMPTY / LOADING
+   ============================================================ */
+
+.procurement-table-state {
+    padding: 28px 15px;
+    border: 1px solid #dbe3ec;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #000000;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* ============================================================
+   SUMMARY BAR
+   ============================================================ */
+
+.procurement-summary-bar {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 8px 16px;
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.procurement-summary-bar > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 6px 9px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
+    transition: background-color 0.15s ease;
+}
+
+.procurement-summary-bar > div:hover {
+    background: #f8fafc;
+}
+
+.procurement-summary-bar span {
+    overflow: hidden;
+    color: #000000;
+    font-size: 11px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.procurement-summary-bar strong {
+    font-size: 13px;
+    font-weight: 800;
+    color: #2563eb;
+}
+
+.procurement-summary-bar .internal strong {
+    color: #16a34a;
+}
+
+.procurement-summary-bar .vendor strong {
+    color: #7c3aed;
+}
+
+.procurement-summary-bar .not-available strong {
+    color: #dc2626;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.procurement-drawer-footer {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.procurement-cancel-btn,
+.procurement-complete-btn,
+.procurement-save-all-btn {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.procurement-cancel-btn {
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #000000;
+}
+
+.procurement-cancel-btn:hover {
+    background: #f8fafc;
+}
+
+.procurement-save-all-btn {
+    border: 1px solid #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.procurement-save-all-btn:hover:not(:disabled) {
+    background: #dbeafe;
+}
+
+.procurement-save-all-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.procurement-complete-btn {
+    border: 1px solid #2563eb;
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.procurement-complete-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.procurement-complete-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* ============================================================
+   SPINNER
+   ============================================================ */
+
+.spin {
+    animation: procurement-spin 0.8s linear infinite;
+}
+
+@keyframes procurement-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+    .procurement-drawer {
+        width: min(920px, 97vw);
+    }
+
+    .procurement-table {
+        min-width: 920px;
+    }
+
+    .procurement-customer-meta {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .procurement-drawer {
+        width: 100vw;
+    }
+
+    .procurement-drawer-header,
+    .procurement-drawer-body {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .procurement-customer-meta {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .procurement-entry-row-top {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .procurement-entry-tabs {
+        width: 100%;
+    }
+
+    .procurement-entry-tabs button {
+        flex: 1;
+    }
+
+    .procurement-summary-bar {
+        grid-template-columns: repeat(2, 1fr);
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .procurement-drawer-footer {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .procurement-requirement-panel {
+        margin-left: -12px;
+        margin-right: -12px;
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+}
+
+/* ============================================================
+   HIDE ALL SCROLLBARS INSIDE THE PROCUREMENT DRAWER
+   (drawer body, table wrapper, bulk textarea, anywhere)
+   ============================================================ */
+
+.procurement-drawer-content,
+.procurement-drawer-body,
+.procurement-table-wrap,
+.procurement-bulk-entry textarea,
+.procurement-requirement-panel {
+    scrollbar-width: none;          /* Firefox          */
+    -ms-overflow-style: none;       /* Old Edge / IE    */
+}
+
+.procurement-drawer-content::-webkit-scrollbar,
+.procurement-drawer-body::-webkit-scrollbar,
+.procurement-table-wrap::-webkit-scrollbar,
+.procurement-bulk-entry textarea::-webkit-scrollbar,
+.procurement-requirement-panel::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;                  /* Chrome / Safari  */
+}
+
+/* Also the outer drawer aside (in case it scrolls) */
+.procurement-drawer::-webkit-scrollbar {
+    display: none;
+}
+.procurement-drawer {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+/* 8 columns:
+   1 Part Number · 2 Part Name · 3 MRP · 4 Requested Qty ·
+   5 Source · 6 Availability · 7 Estimated Date · 8 Actions */
+.procurement-table th:nth-child(1) { width: 18%; }   /* Part Number     */
+.procurement-table th:nth-child(2) { width: 18%; }   /* Part Name       */
+.procurement-table th:nth-child(3) { width: 10%; }   /* MRP             */
+.procurement-table th:nth-child(4) { width: 10%; }   /* Requested Qty   */
+.procurement-table th:nth-child(5) { width: 14%; }   /* Source          */
+.procurement-table th:nth-child(6) { width: 14%; }   /* Availability    */
+.procurement-table th:nth-child(7) { width: 10%; }   /* Estimated Date  */
+.procurement-table th:nth-child(8) { width: 6%;  }   /* Actions         */
+
+/* ---- source cell layout ---- */
+.procurement-table-source {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+/* ---- qty cell — centred ---- */
+.procurement-table-qty-cell {
+    text-align: center;
+}
+/* "Available: N" small line under the part number input */
+.procurement-table-part .procurement-availability-line {
+    display: block;
+    margin-top: 4px;
+    color: #16a34a;      /* green so it reads as stock info */
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 11px;
+}
