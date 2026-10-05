@@ -21,7 +21,7 @@ function DashboardLayout({ children }) {
                 display: "flex",
                 height: "100vh",
                 overflow: "hidden",
-                background: "#F1F3F5",
+                background: "#FFFFFF",
                 color: "#0F172A",
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif",
             }}
