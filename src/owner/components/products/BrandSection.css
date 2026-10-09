@@ -1,0 +1,408 @@
+/* ==========================================================================
+   BRANDS SECTION — KPI cards + table + modals
+   ========================================================================== */
+
+.brands-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ---------- KPI Cards ---------- */
+.brands-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.brands-kpi-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    padding: 16px 18px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-left: 3px solid #2563eb;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    transition: box-shadow 0.15s ease, transform 0.08s ease;
+}
+
+.brands-kpi-card:hover {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    transform: translateY(-1px);
+}
+
+.brands-kpi-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+}
+
+.brands-kpi-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 3px;
+}
+
+.brands-kpi-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+
+.brands-kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.brands-kpi-value--small {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* Tone variants */
+.brands-kpi-card--blue {
+    background: #f8fbff;
+    border-color: #dbeafe;
+    border-left-color: #2563eb;
+}
+.brands-kpi-card--blue .brands-kpi-icon {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.brands-kpi-card--green {
+    background: #f7fdf9;
+    border-color: #bbf7d0;
+    border-left-color: #16a34a;
+}
+.brands-kpi-card--green .brands-kpi-icon {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.brands-kpi-card--violet {
+    background: #f9f7ff;
+    border-color: #ddd6fe;
+    border-left-color: #7c3aed;
+}
+.brands-kpi-card--violet .brands-kpi-icon {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+/* ---------- Table ---------- */
+.brands-table-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.brands-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.brands-th {
+    text-align: left;
+    font-size: 11.5px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #070707;
+    padding: 12px 18px;
+    font-weight: 700;
+    border-bottom: 1px solid #f3f4f6;
+    background: #fafafa;
+    white-space: nowrap;
+}
+
+.brands-tr {
+    border-bottom: 1px solid #f3f4f6;
+}
+.brands-tr:last-child {
+    border-bottom: none;
+}
+.brands-tr:hover .brands-td,
+.brands-tr:hover .brands-td-strong {
+    background: #f9fafb;
+}
+
+.brands-td {
+    padding: 12px 18px;
+    font-size: 14px;
+    color: #374151;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.brands-td-strong {
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    vertical-align: middle;
+}
+
+.brands-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.brands-badge.is-active {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.brands-badge.is-inactive {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.brands-table-footer {
+    padding: 10px 18px;
+    font-size: 12.5px;
+    color: #9ca3af;
+    border-top: 1px solid #f3f4f6;
+}
+
+/* ---------- Empty / Loading ---------- */
+.brands-empty {
+    padding: 40px 0;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* ---------- Modals ---------- */
+.brands-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 16px;
+}
+
+.brands-modal {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 22px;
+    width: 400px;
+    max-width: 100%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.brands-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.brands-modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.brands-modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.brands-modal-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.brands-label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.brands-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: #111827;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.brands-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.brands-file-row {
+    margin-bottom: 8px;
+}
+
+.brands-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.brands-btn-primary,
+.brands-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.brands-btn-primary {
+    background: #2563eb;
+    color: #ffffff;
+    border: 1px solid #2563eb;
+}
+.brands-btn-primary:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+.brands-btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.brands-btn-ghost {
+    background: #ffffff;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+}
+.brands-btn-ghost:hover {
+    background: #f9fafb;
+}
+
+.brands-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: #2563eb;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 14px;
+}
+.brands-link-btn:hover {
+    text-decoration: underline;
+}
+
+.brands-failed-box {
+    margin-top: 16px;
+    padding: 12px;
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    max-height: 140px;
+    overflow-y: auto;
+}
+.brands-failed-box ul {
+    margin: 0;
+    padding-left: 18px;
+}
+.brands-failed-box li {
+    font-size: 13px;
+    color: #b91c1c;
+}
+
+/* ---------- Toast ---------- */
+.brands-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    z-index: 60;
+    animation: brandsToastIn 0.2s ease both;
+}
+
+@keyframes brandsToastIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.brands-toast--success {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+.brands-toast--error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .brands-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+    .brands-modal {
+        width: 100%;
+    }
+}

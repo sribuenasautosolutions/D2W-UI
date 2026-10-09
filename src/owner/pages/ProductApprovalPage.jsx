@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import {
+    Search, Bell, ChevronDown, ChevronRight, Boxes,
+} from "lucide-react";
 
 import PendingApprovalSection from "../../owner/components/productreqest/PendingApprovalSection";
 import Review from "../../owner/components/productreqest/Review";
@@ -7,362 +10,259 @@ import MergeSection from "../../owner/components/productreqest/MergeSection";
 import "../../owner/components/productreqest/styles/product-approval-page.css";
 import "../../owner/components/productreqest/styles/product-approval.css";
 
-// Steps shown inside the workflow modal only. "Pending Approvals" is no
-// longer a step — it's the page underneath the modal.
-const STEPS = [
-    {
-        id: "review",
-        label: "Review Product",
-        num: "01",
-    },
-    {
-        id: "product",
-        label: "Create Product",
-        num: "02",
-    },
-    {
-        id: "merge",
-        label: "Merge Product",
-        num: "03",
-    },
-];
+const readUser = () => {
+    try {
+        return JSON.parse(localStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+};
 
 function ProductApprovalPage() {
-
-    // Which workflow step is currently visible INSIDE the modal.
-    const [activeStep, setActiveStep] = useState("review");
-
-    // Selected row from Pending Approval table. The modal is open
-    // whenever this is non-null — closing the modal clears it.
+    const [activeStep, setActiveStep] = useState("create");
     const [selectedApproval, setSelectedApproval] = useState(null);
-
-    // Full response from GET /local-products/{approvalRequestId}
     const [reviewData, setReviewData] = useState(null);
-
-    // Bumped after a successful Approve/Merge so the Pending Products
-    // table reloads once the modal closes. UI-only, no business logic.
     const [refreshSignal, setRefreshSignal] = useState(0);
+    const [searchQuery, setSearchQuery] = useState("");
+    console.log("[ProductApprovalPage] searchQuery:", searchQuery);
+    const [profileOpen, setProfileOpen] = useState(false);
 
-    const isModalOpen = !!selectedApproval;
+    const isDrawerOpen = !!selectedApproval;
 
-    // Clicking "View" in Pending Approvals sets selectedApproval — when that
-    // happens, (re)open the modal on the Review step.
+    const user = readUser();
+    const displayName = user?.name || "Super Admin";
+    const initials =
+        displayName
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((p) => p[0].toUpperCase())
+            .join("") || "SA";
+
+    /* Auto-route to the correct step once review data arrives */
     useEffect(() => {
+        if (!reviewData) return;
 
-        if (selectedApproval) {
-
-            setActiveStep("review");
-
-        }
-
-    }, [selectedApproval]);
-
-    // Once the review comes back and a duplicate exists, merging is
-    // required — auto-activate the Merge step instead of Create.
-    useEffect(() => {
-
-        if (reviewData?.canMerge) {
-
+        if (reviewData.canMerge) {
             setActiveStep("merge");
-
+            return;
         }
-
+        if (reviewData.canCreate) {
+            setActiveStep("create");
+        }
     }, [reviewData]);
 
-    // Steps can only be reached once their prerequisite data exists, so the
-    // stepper stays disabled instead of showing an empty/broken section.
-    const isStepUnlocked = (id) => {
-
-        switch (id) {
-
-            case "review":
-                return !!selectedApproval;
-
-            case "product":
-                return !!reviewData;
-
-            case "merge":
-                return !!reviewData;
-
-            default:
-                return false;
-
+    /* Visible steps depend on what the backend allows */
+    const visibleSteps = (() => {
+        if (reviewData?.canMerge && !reviewData?.canCreate) {
+            return [{ id: "merge", label: "Merge Product", num: "01" }];
         }
+        return [
+            { id: "create", label: "Create Product", num: "01" },
+            { id: "merge",  label: "Merge Product",  num: "02" },
+        ];
+    })();
 
+    const isStepUnlocked = (id) => {
+        switch (id) {
+            case "create": return !!reviewData?.canCreate;
+            case "merge":  return !!reviewData?.canMerge;
+            default:       return false;
+        }
     };
 
     const goToStep = (id) => {
-
-        if (!isStepUnlocked(id)) {
-
-            return;
-
-        }
-
+        if (!isStepUnlocked(id)) return;
         setActiveStep(id);
-
     };
 
-    // Closes the modal and resets the workflow so the next "View" click
-    // starts clean on Review.
-    const closeModal = () => {
-
+    const closeDrawer = () => {
         setSelectedApproval(null);
         setReviewData(null);
-        setActiveStep("review");
-
+        setActiveStep("create");
     };
 
-    // Called after a successful Approve (or Merge) — closes the popup and
-    // refreshes the Pending Products list, per the required workflow.
+    /* After Approve → refetch review so Merge appears */
+    const handleApproved = () => {
+        setReviewData(null);
+    };
+
+    /* After Merge → close drawer + refresh list */
     const handleWorkflowComplete = () => {
-
-        closeModal();
-        setRefreshSignal((count) => count + 1);
-
+        closeDrawer();
+        setRefreshSignal((c) => c + 1);
     };
 
-console.log("Review Data in ProductApprovalPage:", reviewData);
     return (
+        <div className="pa-page">
+            {/* ==============================
+                NAVBAR
+                ============================== */}
+            <header className="pa-navbar">
+                <nav className="pa-breadcrumb" aria-label="Breadcrumb">
+                    <Boxes size={16} className="pa-breadcrumb-icon" />
+                    <span>Product Management</span>
+                    <ChevronRight size={16} className="pa-breadcrumb-sep" />
+                    <span className="pa-breadcrumb-active">Product Approval</span>
+                </nav>
 
-        <div className="vc-app">
-
-            <div className="vc-page-shell">
-
-                <main className="vc-main vc-main-full">
-
-                    <div className="vc-topbar">
-
-                        <div className="vc-crumb">
-
-                            Product Management
-
-                        </div>
-
-                        <h1 className="vc-h1">
-
-                            Product Approval
-
-                        </h1>
-
-                    </div>
-
-                    {/* Dashboard cards + search + Pending Products table ONLY */}
-
-                    <div
-                        id="pending"
-                        className="vc-section"
-                        data-section-id="pending"
-                    >
-
-                        <PendingApprovalSection
-                            selectedApproval={selectedApproval}
-                            setSelectedApproval={setSelectedApproval}
-                            refreshSignal={refreshSignal}
+                <div className="pa-navbar-right">
+                    <div className="pa-navbar-search">
+                        <Search size={15} />
+                        <input
+                            type="text"
+                            placeholder="Search pending products..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                                console.log("🟢 INPUT FIRED:", e.target.value);
+                                setSearchQuery(e.target.value);
+                            }}
                         />
-
                     </div>
 
-                </main>
+                    <button
+                        type="button"
+                        className="pa-navbar-bell"
+                        aria-label="Notifications"
+                    >
+                        <Bell size={18} />
+                        <span className="pa-navbar-bell-dot" />
+                    </button>
 
+                    <div className="pa-navbar-profile-wrap">
+                        <button
+                            type="button"
+                            className="pa-navbar-profile"
+                            onClick={() => setProfileOpen((v) => !v)}
+                            aria-expanded={profileOpen}
+                        >
+                            <span className="pa-navbar-profile-initials">{initials}</span>
+                            <span className="pa-navbar-profile-name">{displayName}</span>
+                            <ChevronDown
+                                size={14}
+                                className={`pa-navbar-profile-chev${profileOpen ? " is-open" : ""}`}
+                            />
+                        </button>
+
+                        {profileOpen && (
+                            <div className="pa-navbar-dropdown">
+                                <button type="button">My profile</button>
+                                <button type="button">Settings</button>
+                                <button type="button" className="is-danger">Sign out</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </header>
+
+            {/* ==============================
+                SECTION
+                ============================== */}
+            <div className="pa-section">
+                <PendingApprovalSection
+                    selectedApproval={selectedApproval}
+                    setSelectedApproval={setSelectedApproval}
+                    refreshSignal={refreshSignal}
+                    query={searchQuery}
+                />
             </div>
 
-            {/* ===================== Workflow Modal ===================== */}
-
-            {
-                isModalOpen &&
-
-                (
-
-                    <div
-                        className="pa-modal-overlay"
-                        onMouseDown={(e) => {
-
-                            if (e.target === e.currentTarget) {
-
-                                closeModal();
-
-                            }
-
-                        }}
+            {/* ==============================
+                WORKFLOW DRAWER
+                ============================== */}
+            {isDrawerOpen && (
+                <div className="pa-drawer-backdrop" onClick={closeDrawer}>
+                    <aside
+                        className="pa-drawer"
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
                     >
-
-                        <div className="pa-modal" role="dialog" aria-modal="true">
-
-                            <div className="pa-modal-header">
-
-                                <div className="pa-modal-heading">
-
-                                    <div className="pa-modal-eyebrow">
-                                        Product Approval Workflow
-                                    </div>
-
-                                    <h2 className="pa-modal-title">
-                                        {
-                                            selectedApproval?.productName ||
-                                            "Review Submission"
-                                        }
-                                    </h2>
-
+                        {/* Header */}
+                        <div className="pa-drawer-header">
+                            <div>
+                                <div className="pa-drawer-eyebrow">
+                                    Product Approval Workflow
                                 </div>
-
-                                <button
-                                    className="pa-modal-close"
-                                    onClick={closeModal}
-                                    aria-label="Close"
-                                >
-                                    ✕
-                                </button>
-
+                                <h2 className="pa-drawer-title">
+                                    {selectedApproval?.productName || "Review Submission"}
+                                </h2>
                             </div>
-
-                            <div className="pa-modal-steps">
-
-                                {
-                                    STEPS.map((step, index) => (
-
-                                        <button
-                                            key={step.id}
-                                            type="button"
-                                            disabled={!isStepUnlocked(step.id)}
-                                            className={
-                                                "pa-modal-step" +
-                                                (activeStep === step.id
-                                                    ? " is-active"
-                                                    : "") +
-                                                (STEPS.findIndex((s) => s.id === activeStep) > index
-                                                    ? " is-complete"
-                                                    : "")
-                                            }
-                                            onClick={() => goToStep(step.id)}
-                                        >
-
-                                            <span className="pa-modal-step-num">
-                                                {step.num}
-                                            </span>
-
-                                            <span className="pa-modal-step-label">
-                                                {step.label}
-                                            </span>
-
-                                        </button>
-
-                                    ))
-                                }
-
-                            </div>
-
-                            <div className="pa-modal-body">
-
-                                {
-                                    activeStep === "review" &&
-
-                                    (
-
-                                        <Review
-                                            selectedApproval={selectedApproval}
-                                            reviewData={reviewData}
-                                            setReviewData={setReviewData}
-                                            onNext={() => setActiveStep("product")}
-                                        />
-
-                                    )
-                                }
-
-                                {
-                                    activeStep === "product" &&
-
-                                    (
-
-                                        <ProductSection
-                                            reviewData={reviewData}
-                                            selectedApproval={selectedApproval}
-                                            onApproved={handleWorkflowComplete}
-                                        />
-
-                                    )
-                                }
-
-                                {
-                                    activeStep === "merge" &&
-
-                                    (
-
-                                        <MergeSection
-                                            reviewData={reviewData}
-                                        />
-
-                                    )
-                                }
-
-                            </div>
-
-                            <div className="pa-modal-footer">
-
-                                <div className="pa-modal-footer-left">
-
-                                    {
-                                        activeStep !== "review" &&
-
-                                        (
-
-                                            <button
-                                                className="vm-btn vm-btn-secondary"
-                                                onClick={() => setActiveStep("review")}
-                                            >
-                                                ← Previous
-                                            </button>
-
-                                        )
-                                    }
-
-                                </div>
-
-                                <div className="pa-modal-footer-right">
-
-                                    <button
-                                        className="vm-btn vm-btn-ghost"
-                                        onClick={closeModal}
-                                    >
-                                        Cancel
-                                    </button>
-
-                                    {
-                                        activeStep === "merge" &&
-
-                                        (
-
-                                            <button
-                                                className="vm-btn vm-btn-primary"
-                                                onClick={() => {
-
-                                                    alert(
-                                                        "Merge workflow is not yet available."
-                                                    );
-
-                                                }}
-                                            >
-                                                Merge Product
-                                            </button>
-
-                                        )
-                                    }
-
-                                </div>
-
-                            </div>
-
+                            <button
+                                type="button"
+                                className="pa-drawer-close"
+                                onClick={closeDrawer}
+                                aria-label="Close"
+                            >
+                                ✕
+                            </button>
                         </div>
 
-                    </div>
+                        {/* Stepper */}
+                        <div className="pa-drawer-steps">
+                            {visibleSteps.map((step, index) => (
+                                <button
+                                    key={step.id}
+                                    type="button"
+                                    disabled={!isStepUnlocked(step.id)}
+                                    className={
+                                        "pa-drawer-step" +
+                                        (activeStep === step.id ? " is-active" : "") +
+                                        (visibleSteps.findIndex((s) => s.id === activeStep) > index
+                                            ? " is-complete"
+                                            : "")
+                                    }
+                                    onClick={() => goToStep(step.id)}
+                                >
+                                    <span className="pa-drawer-step-num">{step.num}</span>
+                                    <span className="pa-drawer-step-label">{step.label}</span>
+                                </button>
+                            ))}
+                        </div>
 
-                )
-            }
+                        {/* Body */}
+                        <div className="pa-drawer-body">
+                            {/* Headless Review — fetches reviewData, renders nothing */}
+                            <Review
+                                selectedApproval={selectedApproval}
+                                reviewData={reviewData}
+                                setReviewData={setReviewData}
+                                onNext={() => goToStep("create")}
+                                hidden
+                            />
 
+                            {activeStep === "create" && reviewData?.canCreate && (
+                                <ProductSection
+                                    reviewData={reviewData}
+                                    selectedApproval={selectedApproval}
+                                    onApproved={handleApproved}
+                                />
+                            )}
+
+                            {activeStep === "merge" && reviewData?.canMerge && (
+                                <MergeSection
+                                    reviewData={reviewData}
+                                    selectedApproval={selectedApproval}
+                                    onMerged={handleWorkflowComplete}
+                                />
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="pa-drawer-footer">
+                            <button
+                                type="button"
+                                className="pa-btn-ghost"
+                                onClick={closeDrawer}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </aside>
+                </div>
+            )}
         </div>
-
     );
-
 }
 
 export default ProductApprovalPage;

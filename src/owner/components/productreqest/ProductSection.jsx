@@ -9,14 +9,11 @@ import "./styles/product-approval.css";
 
 const emptyForm = {
     itemName: "",
-    description: "",
     partNumber: "",
-    oemNumber: "",
-    ean: "",
     hsnCode: "",
     brandName: "",
     categoryName: "",
-    masterName: ""
+    masterName: "",
 };
 
 function ProductSection({ reviewData, selectedApproval, onApproved }) {
@@ -27,318 +24,205 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
 
     const [categories, setCategories] = useState([]);
     const [filteredCategories, setFilteredCategories] = useState([]);
-    const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+    const [showCategorySuggestions, setShowCategorySuggestions] =
+        useState(false);
 
     const [masters, setMasters] = useState([]);
     const [filteredMasters, setFilteredMasters] = useState([]);
     const [showMasterSuggestions, setShowMasterSuggestions] = useState(false);
+
     const [errors, setErrors] = useState({});
+
     const brandRef = useRef(null);
     const categoryRef = useRef(null);
     const masterRef = useRef(null);
 
-    // Load brand/category/master lists once on mount
+    /* Load brand/category/master lists once */
     useEffect(() => {
         const loadMasterData = async () => {
-
             try {
-
-                const [
-                    brandData,
-                    categoryData,
-                    masterData
-                ] = await Promise.all([
-                    getAllBrands(),
-                    getAllCategories(),
-                    getAllProductMasters()
-                ]);
-
+                const [brandData, categoryData, masterData] =
+                    await Promise.all([
+                        getAllBrands(),
+                        getAllCategories(),
+                        getAllProductMasters(),
+                    ]);
                 setBrands(brandData);
                 setCategories(categoryData);
                 setMasters(masterData);
-
             } catch (error) {
-
                 console.error(error);
-
             }
-
         };
-
         loadMasterData();
     }, []);
 
-    // Sync form data whenever reviewData changes
+    /* Sync form with reviewData */
     useEffect(() => {
-        if (!reviewData?.localProduct) {
-            setFormData(emptyForm);
-            return;
-        }
+    if (!reviewData?.localProduct) {
+        setFormData(emptyForm);
+        return;
+    }
 
-        const product = reviewData.localProduct;
+    const product = reviewData.localProduct;
+    console.log("[PS sync] Full product object:", product);
+    console.log("[PS sync] Field checks:", {
+        productName: product.productName,
+        partNumber: product.partNumber,
+        brand: product.brand,
+        category: product.category,
+        master: product.master,
+        hsnCode: product.hsnCode,
+    });
 
-        setFormData({
-            itemName: product.productName || "",
-            description: product.description || "",
-            partNumber: product.partNumber || "",
-            oemNumber: product.oemNumber || "",
-            ean: product.ean || "",
-            hsnCode: product.hsnCode || "",
-            brandName: product.brand || "",
-            categoryName: product.category || "",
-            masterName: product.master || ""
-        });
-    }, [reviewData]);
+    setFormData({
+        itemName: product.productName || "",
+        partNumber: product.partNumber || "",
+        hsnCode: product.hsnCode || "",
+        brandName: product.brand || "",
+        categoryName: product.category || "",
+        masterName: product.master || "",
+    });
+}, [reviewData]);
 
-    // Close all suggestion dropdowns when clicking outside
+    /* Click outside closes suggestions */
     useEffect(() => {
-
         const handleClickOutside = (event) => {
-
             if (
                 brandRef.current &&
                 !brandRef.current.contains(event.target)
             ) {
-
                 setShowBrandSuggestions(false);
-
             }
-
             if (
                 categoryRef.current &&
                 !categoryRef.current.contains(event.target)
             ) {
-
                 setShowCategorySuggestions(false);
-
             }
-
             if (
                 masterRef.current &&
                 !masterRef.current.contains(event.target)
             ) {
-
                 setShowMasterSuggestions(false);
-
             }
-
         };
-
-        document.addEventListener(
-            "mousedown",
-            handleClickOutside
-        );
-
-        return () => {
-
+        document.addEventListener("mousedown", handleClickOutside);
+        return () =>
             document.removeEventListener(
                 "mousedown",
                 handleClickOutside
             );
-
-        };
-
     }, []);
 
-    const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-    };
+    const handleChange = (e) =>
+        setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleBrandChange = (e) => {
         const value = e.target.value;
-
-        setFormData({
-            ...formData,
-            brandName: value
-        });
-
+        setFormData({ ...formData, brandName: value });
         if (value.trim() === "") {
             setFilteredBrands([]);
             setShowBrandSuggestions(false);
             return;
         }
-
-        const filtered = brands.filter((brand) =>
-            brand.brandName.toLowerCase().includes(value.toLowerCase())
+        setFilteredBrands(
+            brands.filter((b) =>
+                b.brandName.toLowerCase().includes(value.toLowerCase())
+            )
         );
-
-        setFilteredBrands(filtered);
         setShowBrandSuggestions(true);
     };
 
     const selectBrand = (brand) => {
-        setFormData({
-            ...formData,
-            brandName: brand.brandName
-        });
-
+        setFormData({ ...formData, brandName: brand.brandName });
         setShowBrandSuggestions(false);
     };
 
     const handleCategoryChange = (e) => {
-
         const value = e.target.value;
-
-        setFormData({
-
-            ...formData,
-
-            categoryName: value
-
-        });
-
+        setFormData({ ...formData, categoryName: value });
         if (value.trim() === "") {
-
             setFilteredCategories([]);
             setShowCategorySuggestions(false);
             return;
-
         }
-
-        const filtered = categories.filter(
-
-            category =>
-                category.categoryName
-                    .toLowerCase()
-                    .includes(value.toLowerCase())
-
+        setFilteredCategories(
+            categories.filter((c) =>
+                c.categoryName.toLowerCase().includes(value.toLowerCase())
+            )
         );
-
-        setFilteredCategories(filtered);
-
         setShowCategorySuggestions(true);
-
     };
 
     const selectCategory = (category) => {
-
-        setFormData({
-
-            ...formData,
-
-            categoryName: category.categoryName
-
-        });
-
+        setFormData({ ...formData, categoryName: category.categoryName });
         setShowCategorySuggestions(false);
-
     };
 
     const handleMasterChange = (e) => {
-
         const value = e.target.value;
-
-        setFormData({
-
-            ...formData,
-
-            masterName: value
-
-        });
-
+        setFormData({ ...formData, masterName: value });
         if (value.trim() === "") {
-
             setFilteredMasters([]);
             setShowMasterSuggestions(false);
             return;
-
         }
-
-        const filtered = masters.filter(
-
-            master =>
-                master.masterName
-                    .toLowerCase()
-                    .includes(value.toLowerCase())
-
+        setFilteredMasters(
+            masters.filter((m) =>
+                m.masterName.toLowerCase().includes(value.toLowerCase())
+            )
         );
-
-        setFilteredMasters(filtered);
-
         setShowMasterSuggestions(true);
-
     };
 
     const selectMaster = (master) => {
-
-        setFormData({
-
-            ...formData,
-
-            masterName: master.masterName
-
-        });
-
+        setFormData({ ...formData, masterName: master.masterName });
         setShowMasterSuggestions(false);
-
     };
 
     const validateForm = () => {
-
-        const validationErrors = {};
-
-        if (!formData.itemName.trim()) {
-            validationErrors.itemName = "Item Name is required";
-        }
-
-        if (!formData.partNumber.trim()) {
-            validationErrors.partNumber = "Part Number is required";
-        }
-
-        if (!formData.brandName.trim()) {
-            validationErrors.brandName = "Brand is required";
-        }
-
-        if (!formData.categoryName.trim()) {
-            validationErrors.categoryName = "Category is required";
-        }
-
-        if (!formData.masterName.trim()) {
-            validationErrors.masterName = "Master is required";
-        }
-
-        setErrors(validationErrors);
-
-        return Object.keys(validationErrors).length === 0;
-
+        const errors = {};
+        if (!formData.itemName.trim())
+            errors.itemName = "Item Name is required";
+        if (!formData.partNumber.trim())
+            errors.partNumber = "Part Number is required";
+        if (!formData.brandName.trim())
+            errors.brandName = "Brand is required";
+        if (!formData.categoryName.trim())
+            errors.categoryName = "Category is required";
+        if (!formData.masterName.trim())
+            errors.masterName = "Master is required";
+        setErrors(errors);
+        return Object.keys(errors).length === 0;
     };
 
     const handleApprove = async () => {
+        if (!validateForm()) return;
 
-        if (!validateForm()) {
-
+        if (!selectedApproval) {
+            alert("Please select a product.");
             return;
-
         }
 
+        // Match ProductCreateDTO — no description, oemNumber, or ean
+        const dto = {
+            itemName: formData.itemName,
+            partNumber: formData.partNumber,
+            hsnCode: formData.hsnCode,
+            brandName: formData.brandName,
+            categoryName: formData.categoryName,
+            masterName: formData.masterName,
+        };
+
+        console.log("Approve DTO :", dto);
+
         try {
-
-            if (!selectedApproval) {
-                alert("Please select a product.");
-                return;
-            }
-
-            const dto = {
-                itemName: formData.itemName,
-                description: formData.description,
-                partNumber: formData.partNumber,
-                oemNumber: formData.oemNumber,
-                ean: formData.ean,
-                hsnCode: formData.hsnCode,
-                brandName: formData.brandName,
-                categoryName: formData.categoryName,
-                masterName: formData.masterName
-            };
-
-            console.log("Approve DTO :", dto);
-
-            await approveLocalProduct(selectedApproval.approvalRequestId, dto);
-
-            alert("Product Approved Successfully.");
-
+            await approveLocalProduct(
+                selectedApproval.approvalRequestId,
+                dto
+            );
+            // alert("Product Approved Successfully.");
             onApproved?.();
         } catch (error) {
             console.error(error);
@@ -351,20 +235,19 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
             <div className="vm-panel">
                 <div className="vm-empty">
                     <div className="vm-empty-icon">🧾</div>
-                    <div className="vm-empty-title">Create Global Product</div>
+                    <div className="vm-empty-title">
+                        Create Global Product
+                    </div>
                     <div>Select a product first.</div>
                 </div>
             </div>
         );
     }
-
+    
     return (
         <div className="vm-panel">
-
             <div className="vm-panel-section">
-
                 <div className="vm-grid-2">
-
                     <div className="vm-field">
                         <label className="vm-label">
                             Item Name <span className="vm-req">*</span>
@@ -373,10 +256,14 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                             name="itemName"
                             value={formData.itemName}
                             onChange={handleChange}
-                            className={`vm-input${errors.itemName ? " has-error" : ""}`}
+                            className={`vm-input${
+                                errors.itemName ? " has-error" : ""
+                            }`}
                         />
                         {errors.itemName && (
-                            <span className="vm-field-error">{errors.itemName}</span>
+                            <span className="vm-field-error">
+                                {errors.itemName}
+                            </span>
                         )}
                     </div>
 
@@ -388,10 +275,14 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                             name="partNumber"
                             value={formData.partNumber}
                             onChange={handleChange}
-                            className={`vm-input${errors.partNumber ? " has-error" : ""}`}
+                            className={`vm-input${
+                                errors.partNumber ? " has-error" : ""
+                            }`}
                         />
                         {errors.partNumber && (
-                            <span className="vm-field-error">{errors.partNumber}</span>
+                            <span className="vm-field-error">
+                                {errors.partNumber}
+                            </span>
                         )}
                     </div>
 
@@ -409,25 +300,31 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                                     setShowBrandSuggestions(true);
                                 }}
                                 autoComplete="off"
-                                className={`vm-input${errors.brandName ? " has-error" : ""}`}
+                                className={`vm-input${
+                                    errors.brandName ? " has-error" : ""
+                                }`}
                             />
-
-                            {showBrandSuggestions && filteredBrands.length > 0 && (
-                                <div className="vm-suggest-list">
-                                    {filteredBrands.map((brand) => (
-                                        <div
-                                            key={brand.id}
-                                            className="vm-suggest-item"
-                                            onClick={() => selectBrand(brand)}
-                                        >
-                                            {brand.brandName}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            {showBrandSuggestions &&
+                                filteredBrands.length > 0 && (
+                                    <div className="vm-suggest-list">
+                                        {filteredBrands.map((brand) => (
+                                            <div
+                                                key={brand.id}
+                                                className="vm-suggest-item"
+                                                onClick={() =>
+                                                    selectBrand(brand)
+                                                }
+                                            >
+                                                {brand.brandName}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                         </div>
                         {errors.brandName && (
-                            <span className="vm-field-error">{errors.brandName}</span>
+                            <span className="vm-field-error">
+                                {errors.brandName}
+                            </span>
                         )}
                     </div>
 
@@ -435,7 +332,10 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                         <label className="vm-label">
                             Category <span className="vm-req">*</span>
                         </label>
-                        <div ref={categoryRef} className="vm-suggest-wrap">
+                        <div
+                            ref={categoryRef}
+                            className="vm-suggest-wrap"
+                        >
                             <input
                                 name="categoryName"
                                 value={formData.categoryName}
@@ -445,25 +345,33 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                                     setShowCategorySuggestions(true);
                                 }}
                                 autoComplete="off"
-                                className={`vm-input${errors.categoryName ? " has-error" : ""}`}
+                                className={`vm-input${
+                                    errors.categoryName
+                                        ? " has-error"
+                                        : ""
+                                }`}
                             />
-
-                            {showCategorySuggestions && filteredCategories.length > 0 && (
-                                <div className="vm-suggest-list">
-                                    {filteredCategories.map((category) => (
-                                        <div
-                                            key={category.id}
-                                            className="vm-suggest-item"
-                                            onClick={() => selectCategory(category)}
-                                        >
-                                            {category.categoryName}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            {showCategorySuggestions &&
+                                filteredCategories.length > 0 && (
+                                    <div className="vm-suggest-list">
+                                        {filteredCategories.map((cat) => (
+                                            <div
+                                                key={cat.id}
+                                                className="vm-suggest-item"
+                                                onClick={() =>
+                                                    selectCategory(cat)
+                                                }
+                                            >
+                                                {cat.categoryName}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                         </div>
                         {errors.categoryName && (
-                            <span className="vm-field-error">{errors.categoryName}</span>
+                            <span className="vm-field-error">
+                                {errors.categoryName}
+                            </span>
                         )}
                     </div>
 
@@ -481,36 +389,34 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                                     setShowMasterSuggestions(true);
                                 }}
                                 autoComplete="off"
-                                className={`vm-input${errors.masterName ? " has-error" : ""}`}
+                                className={`vm-input${
+                                    errors.masterName
+                                        ? " has-error"
+                                        : ""
+                                }`}
                             />
-
-                            {showMasterSuggestions && filteredMasters.length > 0 && (
-                                <div className="vm-suggest-list">
-                                    {filteredMasters.map((master) => (
-                                        <div
-                                            key={master.id}
-                                            className="vm-suggest-item"
-                                            onClick={() => selectMaster(master)}
-                                        >
-                                            {master.masterName}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            {showMasterSuggestions &&
+                                filteredMasters.length > 0 && (
+                                    <div className="vm-suggest-list">
+                                        {filteredMasters.map((m) => (
+                                            <div
+                                                key={m.id}
+                                                className="vm-suggest-item"
+                                                onClick={() =>
+                                                    selectMaster(m)
+                                                }
+                                            >
+                                                {m.masterName}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                         </div>
                         {errors.masterName && (
-                            <span className="vm-field-error">{errors.masterName}</span>
+                            <span className="vm-field-error">
+                                {errors.masterName}
+                            </span>
                         )}
-                    </div>
-
-                    <div className="vm-field">
-                        <label className="vm-label">OEM Number</label>
-                        <input
-                            name="oemNumber"
-                            value={formData.oemNumber}
-                            onChange={handleChange}
-                            className="vm-input"
-                        />
                     </div>
 
                     <div className="vm-field">
@@ -522,39 +428,17 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                             className="vm-input"
                         />
                     </div>
-
-                    <div className="vm-field">
-                        <label className="vm-label">EAN</label>
-                        <input
-                            name="ean"
-                            value={formData.ean}
-                            onChange={handleChange}
-                            className="vm-input"
-                        />
-                    </div>
-
-                    <div className="vm-field vm-span-2">
-                        <label className="vm-label">Description</label>
-                        <textarea
-                            rows={4}
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            className="vm-input"
-                            style={{ resize: "vertical", fontFamily: "inherit" }}
-                        />
-                    </div>
-
                 </div>
-
             </div>
 
             <div className="vm-panel-footer">
-                <button className="vm-btn vm-btn-primary" onClick={handleApprove}>
+                <button
+                    className="vm-btn vm-btn-primary"
+                    onClick={handleApprove}
+                >
                     Approve Product
                 </button>
             </div>
-
         </div>
     );
 }

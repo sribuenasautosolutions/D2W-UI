@@ -1,24 +1,27 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useRef,  useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+    AlertCircle,
     AlertTriangle,
-    CarFront,
+    CheckCircle2,
     ChevronRight,
-    FileText,
-    Filter,
     PackageCheck,
-    Pencil,
     Phone,
     Plus,
     Search,
     Trophy,
-    UserCircle,
     UserPlus,
     Users,
     X,
 } from "lucide-react";
 
-import { getLeads, updateLead } from "../../../services/leadService";
+import { getAllStores } from "../../../services/storeService";
+
+import {
+    getLeads,
+    updateLead,
+    completeLeadProcurement,
+} from "../../../services/leadService";
 import {
     getCustomerByMobile,
     saveCustomer,
@@ -31,93 +34,38 @@ import {
 
 import "./LeadList.css";
 import LeadCreate from "./LeadCreate";
+import LeadKanbanCard from "./LeadKanbanCard";
 import LeadProcurementDrawer from "./LeadProcurementDrawer";
-
+import LeadFollowUpDrawer from "./LeadFollowupDrawer";
 
 /* ============================================================
-   STAGE DEFINITIONS
+   STAGE DEFINITIONS  (Proforma removed)
    ============================================================ */
 
 const STAGES = [
-    {
-        key: "NEW",
-        label: "New Leads",
-        Icon: UserPlus,
-    },
-    {
-        key: "PROCUREMENT",
-        label: "Procurement",
-        Icon: PackageCheck,
-    },
-    {
-        key: "FOLLOW_UP",
-        label: "Customer Follow-up",
-        Icon: Phone,
-    },
-    {
-        key: "WON",
-        label: "Won",
-        Icon: Trophy,
-    },
-    {
-        key: "LOST",
-        label: "Lost",
-        Icon: X,
-    },
-    {
-        key: "PROFORMA",
-        label: "Proforma",
-        Icon: FileText,
-    },
+    { key: "NEW",         label: "New Leads",          Icon: UserPlus     },
+    { key: "PROCUREMENT", label: "Procurement",        Icon: PackageCheck },
+    { key: "FOLLOW_UP",   label: "Customer Follow-up", Icon: Phone        },
+    { key: "WON",         label: "Won",                Icon: Trophy       },
+    { key: "LOST",        label: "Lost",               Icon: X            },
 ];
-
 
 const KPI_DEFINITIONS = [
-    {
-        key: "total",
-        label: "Total Leads",
-        Icon: Users,
-    },
-    {
-        key: "followUp",
-        label: "Follow-ups Due",
-        Icon: Phone,
-    },
-    {
-        key: "won",
-        label: "Won Leads",
-        Icon: Trophy,
-    },
-    {
-        key: "lost",
-        label: "Lost Leads",
-        Icon: X,
-    },
+    { key: "total",    label: "Total Leads",    Icon: Users  },
+    { key: "followUp", label: "Follow-ups Due", Icon: Phone  },
+    { key: "won",      label: "Won Leads",      Icon: Trophy },
+    { key: "lost",     label: "Lost Leads",     Icon: X      },
 ];
-
 
 const STATUS_MAP = {
     NEW: "NEW",
-
     PROCUREMENT: "PROCUREMENT",
-
     PROCUREMENT_COMPLETED: "FOLLOW_UP",
-
-    READY_FOR_PROFORMA: "PROFORMA",
-
-    PROFORMA: "PROFORMA",
-
-    QUOTATION_SENT: "PROFORMA",
-
     FOLLOW_UP: "FOLLOW_UP",
-
     FOLLOWUP: "FOLLOW_UP",
-
     WON: "WON",
-
     LOST: "LOST",
 };
-
 
 /* ============================================================
    HELPERS
@@ -131,279 +79,103 @@ const firstValue = (...values) =>
             String(item).trim() !== ""
     );
 
+const getRawStatus = (lead) => String(lead?.status || "").toUpperCase();
 
-const getCustomerName = (lead) =>
-    firstValue(
-        lead?.customerName,
-        lead?.customer?.name
-    ) || "Customer unavailable";
+const getLeadSearchValues = (lead) =>
+    [
+        lead.id,
+        lead.leadNumber,
+        lead.customerName,
+        lead.customer?.name,
+        lead.customerPhone,
+        lead.customerRequirement,
+        lead.notes,
+        lead.storeName,
+        lead.salespersonName,
+        lead.createdByName,
+        lead.status,
+        ...(lead.items || []).flatMap((item) => [
+            item.requirement,
+            item.vehicleDescription,
+            item.vin,
+            item.productName,
+            item.brandName,
+            item.brandname,
+            item.partNumber,
+            item.hsnCode,
+            item.selectedVendorName,
+            item.availabilityStatus,
+            item.procurementSource,
+        ]),
+    ]
+        .filter((value) => value != null)
+        .map((value) => String(value).toLowerCase());
 
-
-const getStoreName = (lead) =>
-    firstValue(
-        lead?.storeName,
-        lead?.store?.name
-    ) || "Store unavailable";
-
-
-const getCustomerPhone = (lead) =>
-    firstValue(
-        lead?.customerPhone,
-        lead?.customerMobile,
-        lead?.phone,
-        lead?.mobile,
-        lead?.customer?.phone,
-        lead?.customer?.mobile,
-        lead?.customer?.mobileNumber
-    ) || "Phone not available";
-
-
-const getPrimaryItem = (lead) => {
-    if (!Array.isArray(lead?.items)) return "";
-
-    const item = lead.items.find(Boolean);
-
-    return (
-        firstValue(
-            item?.productName,
-            item?.partNumber,
-            item?.requirement,
-            item?.brandName
-        ) || ""
-    );
-};
-
-
-const getVehicleName = (lead) => {
-    if (!Array.isArray(lead?.items)) {
-        return "Vehicle not specified";
-    }
-
-    const vehicle = lead.items
-        .map((item) =>
-            firstValue(
-                item?.vehicleDescription,
-                item?.vehicleName,
-                item?.vehicle,
-                item?.fitmentDescription
-            )
-        )
-        .find(Boolean);
-
-    return vehicle || "Vehicle not specified";
-};
-
-
-const getItemCount = (lead) => {
-    if (Array.isArray(lead?.items)) {
-        return lead.items.length;
-    }
-
-    if (Number.isFinite(Number(lead?.itemCount))) {
-        return Number(lead.itemCount);
-    }
-
-    return 0;
-};
-
-
-const getRawStatus = (lead) =>
-    String(lead?.status || "").toUpperCase();
-
-
-/* ============================================================
-   PROCUREMENT STAGE DETECTION
-   ============================================================ */
-
-const hasProcurementData = (lead) => {
-    return (Array.isArray(lead?.items) && lead.items.some(item => item?.partNumber?.trim())) ||
-        (Array.isArray(lead?.procurementRows) && lead.procurementRows.length > 0);
-};
-
+const hasProcurementData = (lead) =>
+    Array.isArray(lead?.items) &&
+    lead.items.some((item) => item?.partNumber?.trim());
 
 const getStage = (lead) => {
     const rawStatus = getRawStatus(lead);
-
-    if (
-        rawStatus === "NEW" &&
-        hasProcurementData(lead)
-    ) {
+    if (rawStatus === "NEW" && hasProcurementData(lead)) {
         return "PROCUREMENT";
     }
-
     return STATUS_MAP[rawStatus] || "NEW";
 };
-
-
-const getStageDefinition = (stage) =>
-    STAGES.find(
-        (item) => item.key === stage
-    ) || STAGES[0];
-
-
-const getLeadSearchValues = (lead) => {
-    const values = [
-        lead?.id,
-        lead?.leadNumber,
-        lead?.customerName,
-        lead?.customer?.name,
-        lead?.customerRequirement,
-        lead?.notes,
-        lead?.storeName,
-        lead?.salespersonName,
-        lead?.createdByName,
-        lead?.status,
-    ];
-
-    if (Array.isArray(lead?.items)) {
-        lead.items.forEach((item) => {
-            values.push(
-                item?.requirement,
-                item?.vehicleDescription,
-                item?.vin,
-                item?.productName,
-                item?.brandName,
-                item?.brandname,
-                item?.partNumber,
-                item?.hsnCode,
-                item?.selectedVendorName,
-                item?.availabilityStatus,
-                item?.procurementSource
-            );
-        });
-    }
-
-    return values
-        .filter(
-            (item) =>
-                item !== null &&
-                item !== undefined
-        )
-        .map((item) =>
-            String(item).toLowerCase()
-        );
-};
-
 
 /* ============================================================
    KPI CARD
    ============================================================ */
 
-function KpiCard({
-    definition,
-    count,
-    selected,
-    onClick,
-}) {
+function KpiCard({ definition, count, selected, onClick }) {
     const Icon = definition.Icon;
-
     return (
         <button
             type="button"
-            className={`lead-kpi-card${
-                selected ? " is-selected" : ""
-            }`}
+            className={`lead-kpi-card${selected ? " is-selected" : ""}`}
             onClick={onClick}
             aria-pressed={selected}
         >
-            <span
-                className="lead-kpi-icon"
-                aria-hidden="true"
-            >
-                <Icon
-                    size={18}
-                    strokeWidth={2.2}
-                />
+            <span className="lead-kpi-icon" aria-hidden="true">
+                <Icon size={18} strokeWidth={2.2} />
             </span>
-
             <span className="lead-kpi-content">
-                <span className="lead-kpi-label">
-                    {definition.label}
-                </span>
-
-                <strong className="lead-kpi-number">
-                    {count}
-                </strong>
+                <span className="lead-kpi-label">{definition.label}</span>
+                <strong className="lead-kpi-number">{count}</strong>
             </span>
         </button>
     );
 }
-
 
 /* ============================================================
    EDIT LEAD MODAL
    ============================================================ */
 
 const EDIT_SOURCE_OPTIONS = [
-    {
-        value: "PHONE",
-        label: "Phone",
-    },
-    {
-        value: "WHATSAPP",
-        label: "WhatsApp",
-    },
-    {
-        value: "WALK_IN",
-        label: "Walk-in",
-    },
-    {
-        value: "WEBSITE",
-        label: "Website",
-    },
-    {
-        value: "INSTAGRAM",
-        label: "Instagram",
-    },
-    {
-        value: "FACEBOOK",
-        label: "Facebook",
-    },
-    {
-        value: "INDIAMART",
-        label: "IndiaMART",
-    },
-    {
-        value: "REFERRAL",
-        label: "Referral",
-    },
-    {
-        value: "OTHER",
-        label: "Other",
-    },
+    { value: "PHONE",     label: "Phone"     },
+    { value: "WHATSAPP",  label: "WhatsApp"  },
+    { value: "WALK_IN",   label: "Walk-in"   },
+    { value: "WEBSITE",   label: "Website"   },
+    { value: "INSTAGRAM", label: "Instagram" },
+    { value: "FACEBOOK",  label: "Facebook"  },
+    { value: "INDIAMART", label: "IndiaMART" },
+    { value: "REFERRAL",  label: "Referral"  },
+    { value: "OTHER",     label: "Other"     },
 ];
-
 
 const normalizeEditSource = (value) => {
     if (value == null) return "";
-
     const raw = String(value).trim();
-
     if (!raw) return "";
-
     const exact = EDIT_SOURCE_OPTIONS.find(
-        (item) =>
-            item.value.toLowerCase() ===
-            raw.toLowerCase()
+        (item) => item.value.toLowerCase() === raw.toLowerCase()
     );
-
-    if (exact) {
-        return exact.value;
-    }
-
+    if (exact) return exact.value;
     const label = EDIT_SOURCE_OPTIONS.find(
-        (item) =>
-            item.label.toLowerCase() ===
-            raw.toLowerCase()
+        (item) => item.label.toLowerCase() === raw.toLowerCase()
     );
-
-    return label
-        ? label.value
-        : raw
-              .toUpperCase()
-              .replace(/\s+/g, "_");
+    return label ? label.value : raw.toUpperCase().replace(/\s+/g, "_");
 };
-
 
 const EMPTY_EDIT_CUSTOMER = {
     customerName: "",
@@ -413,163 +185,111 @@ const EMPTY_EDIT_CUSTOMER = {
     gstin: "",
 };
 
+ function EditLeadModal({ lead, mode = "view", onClose, onSaved }) {
+    const readOnly = mode !== "edit";
 
-function EditLeadModal({
-    lead,
-    onClose,
-    onSaved,
-}) {
     const user = useMemo(() => {
-        try {
-            return JSON.parse(
-                localStorage.getItem("user")
-            );
-        } catch {
-            return null;
-        }
+        try { return JSON.parse(localStorage.getItem("user")); }
+        catch { return null; }
     }, []);
 
-
     const [storeId] = useState(
-        String(
-            lead?.storeId ??
-                lead?.store?.id ??
-                user?.storeId ??
-                ""
-        )
+        String(lead?.storeId ?? lead?.store?.id ?? user?.storeId ?? "")
     );
 
+    const [initialSnapshot] = useState({
+        customerId: lead?.customerId ?? lead?.customer?.id ?? "",
+        salespersonId: lead?.salespersonId ?? lead?.salesperson?.id ?? "",
+        source: normalizeEditSource(
+            lead?.source ?? lead?.sourceName ?? lead?.leadSource ?? ""
+        ),
+        customerRequirement: lead?.customerRequirement || "",
+    });
 
-    const [customerMobile, setCustomerMobile] =
-        useState(
-            firstValue(
-                lead?.customerPhone,
-                lead?.customerMobile,
-                lead?.customer?.mobileNumber,
-                lead?.customer?.mobile,
-                lead?.phone,
-                lead?.mobile
-            ) || ""
-        );
+    const [customerMobile, setCustomerMobile] = useState(
+        firstValue(
+            lead?.customerPhone,
+            lead?.customerMobile,
+            lead?.customer?.mobileNumber,
+            lead?.customer?.mobile,
+            lead?.phone,
+            lead?.mobile
+        ) || ""
+    );
+    const [customerName, setCustomerName] = useState(
+        firstValue(
+            lead?.customerName,
+            lead?.customer?.customerName,
+            lead?.customer?.name
+        ) || ""
+    );
+    const [selectedCustomer, setSelectedCustomer] = useState(
+        lead?.customerId || lead?.customer?.id
+            ? {
+                  id: lead?.customerId ?? lead?.customer?.id,
+                  customerName:
+                      firstValue(
+                          lead?.customerName,
+                          lead?.customer?.customerName,
+                          lead?.customer?.name
+                      ) || "",
+                  mobileNumber:
+                      firstValue(
+                          lead?.customerPhone,
+                          lead?.customerMobile,
+                          lead?.customer?.mobileNumber,
+                          lead?.customer?.mobile
+                      ) || "",
+              }
+            : null
+    );
+    const [customerMessage, setCustomerMessage] = useState("");
+    const [customerLoading, setCustomerLoading] = useState(false);
+    const [customerModalOpen, setCustomerModalOpen] = useState(false);
+    const [customerForm, setCustomerForm] = useState(EMPTY_EDIT_CUSTOMER);
+    const [savingCustomer, setSavingCustomer] = useState(false);
 
-
-    const [customerName, setCustomerName] =
-        useState(
-            firstValue(
-                lead?.customerName,
-                lead?.customer?.customerName,
-                lead?.customer?.name
-            ) || ""
-        );
-
-
-    const [selectedCustomer, setSelectedCustomer] =
-        useState(
-            lead?.customerId ||
-            lead?.customer?.id
-                ? {
-                      id:
-                          lead?.customerId ??
-                          lead?.customer?.id,
-
-                      customerName:
-                          firstValue(
-                              lead?.customerName,
-                              lead?.customer?.customerName,
-                              lead?.customer?.name
-                          ) || "",
-
-                      mobileNumber:
-                          firstValue(
-                              lead?.customerPhone,
-                              lead?.customerMobile,
-                              lead?.customer?.mobileNumber,
-                              lead?.customer?.mobile
-                          ) || "",
-                  }
-                : null
-        );
-
-
-    const [customerMessage, setCustomerMessage] =
-        useState("");
-
-    const [customerLoading, setCustomerLoading] =
-        useState(false);
-
-    const [customerModalOpen, setCustomerModalOpen] =
-        useState(false);
-
-    const [customerForm, setCustomerForm] =
-        useState(EMPTY_EDIT_CUSTOMER);
-
-    const [savingCustomer, setSavingCustomer] =
-        useState(false);
-
-
-    const [salespersons, setSalespersons] =
-        useState([]);
-
-    const [salespersonMobile, setSalespersonMobile] =
-        useState(
-            firstValue(
-                lead?.salespersonMobile,
-                lead?.salesperson?.mobileNumber,
-                lead?.salesperson?.mobile
-            ) || ""
-        );
-
-    const [salespersonName, setSalespersonName] =
-        useState(
-            firstValue(
-                lead?.salespersonName,
-                lead?.salesperson?.salespersonName,
-                lead?.salesperson?.name
-            ) || ""
-        );
-
-    const [selectedSalesperson, setSelectedSalesperson] =
-        useState(
-            lead?.salespersonId ||
-            lead?.salesperson?.id
-                ? {
-                      id:
-                          lead?.salespersonId ??
-                          lead?.salesperson?.id,
-
-                      salespersonName:
-                          firstValue(
-                              lead?.salespersonName,
-                              lead?.salesperson?.salespersonName,
-                              lead?.salesperson?.name
-                          ) || "",
-
-                      mobileNumber:
-                          firstValue(
-                              lead?.salespersonMobile,
-                              lead?.salesperson?.mobileNumber,
-                              lead?.salesperson?.mobile
-                          ) || "",
-                  }
-                : null
-        );
-
-
-    const [salespersonMessage, setSalespersonMessage] =
-        useState("");
-
-    const [salespersonModalOpen, setSalespersonModalOpen] =
-        useState(false);
-
-    const [salespersonForm, setSalespersonForm] =
-        useState({
-            salespersonName: "",
-            mobileNumber: "",
-        });
-
-    const [savingSalesperson, setSavingSalesperson] =
-        useState(false);
-
+    const [salespersons, setSalespersons] = useState([]);
+    const [salespersonMobile, setSalespersonMobile] = useState(
+        firstValue(
+            lead?.salespersonMobile,
+            lead?.salesperson?.mobileNumber,
+            lead?.salesperson?.mobile
+        ) || ""
+    );
+    const [salespersonName, setSalespersonName] = useState(
+        firstValue(
+            lead?.salespersonName,
+            lead?.salesperson?.salespersonName,
+            lead?.salesperson?.name
+        ) || ""
+    );
+    const [selectedSalesperson, setSelectedSalesperson] = useState(
+        lead?.salespersonId || lead?.salesperson?.id
+            ? {
+                  id: lead?.salespersonId ?? lead?.salesperson?.id,
+                  salespersonName:
+                      firstValue(
+                          lead?.salespersonName,
+                          lead?.salesperson?.salespersonName,
+                          lead?.salesperson?.name
+                      ) || "",
+                  mobileNumber:
+                      firstValue(
+                          lead?.salespersonMobile,
+                          lead?.salesperson?.mobileNumber,
+                          lead?.salesperson?.mobile
+                      ) || "",
+              }
+            : null
+    );
+    const [salespersonMessage, setSalespersonMessage] = useState("");
+    const [salespersonModalOpen, setSalespersonModalOpen] = useState(false);
+    const [salespersonForm, setSalespersonForm] = useState({
+        salespersonName: "",
+        mobileNumber: "",
+    });
+    const [savingSalesperson, setSavingSalesperson] = useState(false);
 
     const [source, setSource] = useState(
         normalizeEditSource(
@@ -579,245 +299,138 @@ function EditLeadModal({
                 lead?.leadSourceName
         )
     );
+    const [customerRequirement, setCustomerRequirement] = useState(
+        lead?.customerRequirement || ""
+    );
+    const [saving, setSaving] = useState(false);
 
-
-    const [customerRequirement, setCustomerRequirement] =
-        useState(
-            lead?.customerRequirement || ""
-        );
-
-
-    const [saving, setSaving] =
-        useState(false);
-
+    const hasChanges = useMemo(() => {
+        const snap = initialSnapshot;
+        if (String(selectedCustomer?.id || "") !== String(snap.customerId || ""))
+            return true;
+        if (
+            String(selectedSalesperson?.id || "") !==
+            String(snap.salespersonId || "")
+        )
+            return true;
+        if ((source || "") !== (snap.source || "")) return true;
+        if (
+            (customerRequirement || "").trim() !==
+            (snap.customerRequirement || "").trim()
+        )
+            return true;
+        return false;
+    }, [
+        initialSnapshot,
+        selectedCustomer?.id,
+        selectedSalesperson?.id,
+        source,
+        customerRequirement,
+    ]);
 
     useEffect(() => {
         let cancelled = false;
-
-        if (!storeId) {
-            return undefined;
-        }
-
-
+        if (!storeId || readOnly) return undefined;
         const load = async () => {
             try {
-                const response =
-                    await getSalespersons(
-                        Number(storeId)
-                    );
-
+                const response = await getSalespersons(Number(storeId));
                 if (cancelled) return;
-
-                const list = Array.isArray(response)
-                    ? response
-                    : [];
-
+                const list = Array.isArray(response) ? response : [];
                 setSalespersons(list);
-
-
                 const salespersonId =
-                    lead?.salespersonId ??
-                    lead?.salesperson?.id;
-
-
+                    lead?.salespersonId ?? lead?.salesperson?.id;
                 if (salespersonId) {
-                    const existing =
-                        list.find(
-                            (item) =>
-                                String(
-                                    item?.id ??
-                                        item?.salespersonId
-                                ) ===
-                                String(
-                                    salespersonId
-                                )
-                        );
-
-
+                    const existing = list.find(
+                        (item) =>
+                            String(item?.id ?? item?.salespersonId) ===
+                            String(salespersonId)
+                    );
                     if (existing) {
-                        setSelectedSalesperson(
-                            existing
-                        );
-
+                        setSelectedSalesperson(existing);
                         setSalespersonMobile(
                             existing?.mobileNumber ??
                                 existing?.mobile ??
                                 salespersonMobile
                         );
-
                         setSalespersonName(
                             existing?.salespersonName ??
                                 existing?.name ??
                                 salespersonName
                         );
-
-                        setSalespersonMessage(
-                            "Existing salesperson selected."
-                        );
+                        setSalespersonMessage("Existing salesperson selected.");
                     }
                 }
             } catch (error) {
-                console.error(
-                    "Unable to load salespersons:",
-                    error
-                );
+                console.error("Unable to load salespersons:", error);
             }
         };
-
-
         load();
-
-
-        return () => {
-            cancelled = true;
-        };
-
+        return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [storeId, lead]);
-
+    }, [storeId, lead, readOnly]);
 
     useEffect(() => {
         let cancelled = false;
-
         if (
+            readOnly ||
             !storeId ||
             selectedCustomer?.mobileNumber ||
             !selectedCustomer?.id
-        ) {
+        )
             return undefined;
-        }
-
-
         const name = firstValue(
             lead?.customerName,
             lead?.customer?.customerName,
             lead?.customer?.name
         );
-
-
-        if (!name) {
-            return undefined;
-        }
-
-
+        if (!name) return undefined;
         const resolve = async () => {
             try {
-                const result =
-                    await searchCustomersByStore(
-                        Number(storeId),
-                        name
-                    );
-
-                if (
-                    cancelled ||
-                    !Array.isArray(result)
-                ) {
-                    return;
-                }
-
-
-                const existing =
-                    result.find(
-                        (item) =>
-                            String(
-                                item?.id ??
-                                    item?.customerId
-                            ) ===
-                            String(
-                                selectedCustomer.id
-                            )
-                    );
-
-
+                const result = await searchCustomersByStore(
+                    Number(storeId),
+                    name
+                );
+                if (cancelled || !Array.isArray(result)) return;
+                const existing = result.find(
+                    (item) =>
+                        String(item?.id ?? item?.customerId) ===
+                        String(selectedCustomer.id)
+                );
                 if (existing) {
-                    setSelectedCustomer(
-                        existing
-                    );
-
+                    setSelectedCustomer(existing);
                     setCustomerMobile(
-                        existing?.mobileNumber ??
-                            existing?.mobile ??
-                            ""
+                        existing?.mobileNumber ?? existing?.mobile ?? ""
                     );
-
                     setCustomerName(
-                        existing?.customerName ??
-                            existing?.name ??
-                            name
+                        existing?.customerName ?? existing?.name ?? name
                     );
-
-                    setCustomerMessage(
-                        "Existing customer selected."
-                    );
+                    setCustomerMessage("Existing customer selected.");
                 }
             } catch (error) {
-                console.warn(
-                    "Unable to resolve customer mobile:",
-                    error
-                );
+                console.warn("Unable to resolve customer mobile:", error);
             }
         };
-
-
         resolve();
-
-
-        return () => {
-            cancelled = true;
-        };
-    }, [
-        storeId,
-        selectedCustomer?.id,
-        selectedCustomer?.mobileNumber,
-        lead,
-    ]);
-
+        return () => { cancelled = true; };
+    }, [storeId, selectedCustomer?.id, selectedCustomer?.mobileNumber, lead, readOnly]);
 
     const lookupCustomer = async (mobile) => {
-        if (
-            !storeId ||
-            !/^\d{10}$/.test(mobile)
-        ) {
-            return;
-        }
-
-
+        if (readOnly) return;
+        if (!storeId || !/^\d{10}$/.test(mobile)) return;
         setCustomerLoading(true);
         setCustomerMessage("");
-
-
         try {
-            const found =
-                await getCustomerByMobile(
-                    mobile,
-                    Number(storeId)
-                );
-
-
+            const found = await getCustomerByMobile(mobile, Number(storeId));
             if (found) {
                 setSelectedCustomer(found);
-
-                setCustomerName(
-                    found?.customerName ??
-                        found?.name ??
-                        ""
-                );
-
-                setCustomerMobile(
-                    found?.mobileNumber ??
-                        found?.mobile ??
-                        mobile
-                );
-
-                setCustomerMessage(
-                    "Existing customer selected."
-                );
+                setCustomerName(found?.customerName ?? found?.name ?? "");
+                setCustomerMobile(found?.mobileNumber ?? found?.mobile ?? mobile);
+                setCustomerMessage("Existing customer selected.");
             } else {
                 setCustomerForm({
                     ...EMPTY_EDIT_CUSTOMER,
                     mobileNumber: mobile,
                 });
-
                 setCustomerModalOpen(true);
             }
         } catch (error) {
@@ -829,7 +442,6 @@ function EditLeadModal({
                     ...EMPTY_EDIT_CUSTOMER,
                     mobileNumber: mobile,
                 });
-
                 setCustomerModalOpen(true);
             } else {
                 setCustomerMessage(
@@ -842,115 +454,48 @@ function EditLeadModal({
         }
     };
 
-
-    const handleCustomerMobileChange =
-        (event) => {
-            const value =
-                event.target.value
-                    .replace(/\D/g, "")
-                    .slice(0, 10);
-
-            setCustomerMobile(value);
-            setCustomerMessage("");
-
-            if (
-                String(
-                    selectedCustomer?.mobileNumber || ""
-                ) !== value
-            ) {
-                setSelectedCustomer(null);
-                setCustomerName("");
-            }
-
-            if (value.length === 10) {
-                lookupCustomer(value);
-            }
-        };
-
+    const handleCustomerMobileChange = (event) => {
+        if (readOnly) return;
+        const value = event.target.value.replace(/\D/g, "").slice(0, 10);
+        setCustomerMobile(value);
+        setCustomerMessage("");
+        if (String(selectedCustomer?.mobileNumber || "") !== value) {
+            setSelectedCustomer(null);
+            setCustomerName("");
+        }
+        if (value.length === 10) lookupCustomer(value);
+    };
 
     const handleSaveCustomer = async () => {
-        const name =
-            customerForm.customerName.trim();
-
-        const mobile =
-            customerForm.mobileNumber.trim();
-
-
-        if (!name) {
-            return alert(
-                "Customer name is required."
-            );
-        }
-
-
-        if (!/^\d{10}$/.test(mobile)) {
-            return alert(
-                "Enter a valid 10-digit mobile number."
-            );
-        }
-
-
+        const name = customerForm.customerName.trim();
+        const mobile = customerForm.mobileNumber.trim();
+        if (!name) return alert("Customer name is required.");
+        if (!/^\d{10}$/.test(mobile))
+            return alert("Enter a valid 10-digit mobile number.");
         const requiresGst =
-            customerForm.customerType !==
-                "WALK_IN" &&
-            customerForm.gstRegistrationType ===
-                "REGISTERED";
-
-
-        if (
-            requiresGst &&
-            !/^[0-9A-Za-z]{15}$/.test(
-                customerForm.gstin.trim()
-            )
-        ) {
-            return alert(
-                "A valid 15-character GSTIN is required."
-            );
-        }
-
-
+            customerForm.customerType !== "WALK_IN" &&
+            customerForm.gstRegistrationType === "REGISTERED";
+        if (requiresGst && !/^[0-9A-Za-z]{15}$/.test(customerForm.gstin.trim()))
+            return alert("A valid 15-character GSTIN is required.");
         setSavingCustomer(true);
-
-
         try {
-            const saved =
-                await saveCustomer({
-                    customerName: name,
-                    mobileNumber: mobile,
-
-                    customerType:
-                        customerForm.customerType,
-
-                    gstRegistrationType:
-                        customerForm.customerType ===
-                        "WALK_IN"
-                            ? "UNREGISTERED"
-                            : customerForm.gstRegistrationType,
-
-                    gstin: requiresGst
-                        ? customerForm.gstin
-                              .trim()
-                              .toUpperCase()
-                        : null,
-
-                    storeId: Number(storeId),
-                });
-
-
+            const saved = await saveCustomer({
+                customerName: name,
+                mobileNumber: mobile,
+                customerType: customerForm.customerType,
+                gstRegistrationType:
+                    customerForm.customerType === "WALK_IN"
+                        ? "UNREGISTERED"
+                        : customerForm.gstRegistrationType,
+                gstin: requiresGst
+                    ? customerForm.gstin.trim().toUpperCase()
+                    : null,
+                storeId: Number(storeId),
+            });
             setSelectedCustomer(saved);
-
-            setCustomerMobile(
-                saved?.mobileNumber || mobile
-            );
-
-            setCustomerName(
-                saved?.customerName || name
-            );
-
-            setCustomerMessage(
-                "New customer created."
-            );
-
+            setCustomerMobile(saved?.mobileNumber || mobile);
+            setCustomerName(saved?.customerName || name);
+            setCustomerMessage("New customer created.");
             setCustomerModalOpen(false);
         } catch (error) {
             alert(
@@ -963,203 +508,84 @@ function EditLeadModal({
         }
     };
 
-
     const lookupSalesperson = (mobile) => {
-        if (
-            !storeId ||
-            !/^\d{10}$/.test(mobile)
-        ) {
-            return;
-        }
-
-
+        if (readOnly) return;
+        if (!storeId || !/^\d{10}$/.test(mobile)) return;
         const found = salespersons.find(
             (item) =>
-                String(
-                    item?.mobileNumber ??
-                        item?.mobile ??
-                        ""
-                ) === mobile
+                String(item?.mobileNumber ?? item?.mobile ?? "") === mobile
         );
-
-
         if (found) {
             setSelectedSalesperson(found);
-
-            setSalespersonName(
-                found?.salespersonName ??
-                    found?.name ??
-                    ""
-            );
-
-            setSalespersonMobile(
-                found?.mobileNumber ??
-                    found?.mobile ??
-                    mobile
-            );
-
-            setSalespersonMessage(
-                "Existing salesperson selected."
-            );
-
+            setSalespersonName(found?.salespersonName ?? found?.name ?? "");
+            setSalespersonMobile(found?.mobileNumber ?? found?.mobile ?? mobile);
+            setSalespersonMessage("Existing salesperson selected.");
             return;
         }
-
-
-        setSalespersonForm({
-            salespersonName: "",
-            mobileNumber: mobile,
-        });
-
+        setSalespersonForm({ salespersonName: "", mobileNumber: mobile });
         setSalespersonModalOpen(true);
     };
 
+    const handleSalespersonMobileChange = (event) => {
+        if (readOnly) return;
+        const value = event.target.value.replace(/\D/g, "").slice(0, 10);
+        setSalespersonMobile(value);
+        setSalespersonMessage("");
+        if (String(selectedSalesperson?.mobileNumber || "") !== value) {
+            setSelectedSalesperson(null);
+            setSalespersonName("");
+        }
+        if (value.length === 10) lookupSalesperson(value);
+    };
 
-    const handleSalespersonMobileChange =
-        (event) => {
-            const value =
-                event.target.value
-                    .replace(/\D/g, "")
-                    .slice(0, 10);
-
-            setSalespersonMobile(value);
-            setSalespersonMessage("");
-
-            if (
-                String(
-                    selectedSalesperson?.mobileNumber ||
-                        ""
-                ) !== value
-            ) {
-                setSelectedSalesperson(null);
-                setSalespersonName("");
-            }
-
-            if (value.length === 10) {
-                lookupSalesperson(value);
-            }
-        };
-
-
-    const handleSaveSalesperson =
-        async () => {
-            const name =
-                salespersonForm.salespersonName.trim();
-
-            const mobile =
-                salespersonForm.mobileNumber.trim();
-
-
-            if (!name) {
-                return alert(
-                    "Salesperson name is required."
-                );
-            }
-
-
-            if (!/^\d{10}$/.test(mobile)) {
-                return alert(
-                    "Enter a valid 10-digit mobile number."
-                );
-            }
-
-
-            setSavingSalesperson(true);
-
-
-            try {
-                const saved =
-                    await createSalesperson({
-                        salespersonName: name,
-                        mobileNumber: mobile,
-                        storeId: Number(storeId),
-                    });
-
-
-                setSalespersons(
-                    (current) => [
-                        ...current,
-                        saved,
-                    ]
-                );
-
-                setSelectedSalesperson(
-                    saved
-                );
-
-                setSalespersonMobile(
-                    saved?.mobileNumber ||
-                        mobile
-                );
-
-                setSalespersonName(
-                    saved?.salespersonName ||
-                        name
-                );
-
-                setSalespersonMessage(
-                    "New salesperson created."
-                );
-
-                setSalespersonModalOpen(false);
-            } catch (error) {
-                alert(
-                    error?.response?.data?.message ||
-                        error?.response?.data?.error ||
-                        "Unable to save salesperson."
-                );
-            } finally {
-                setSavingSalesperson(false);
-            }
-        };
-
+    const handleSaveSalesperson = async () => {
+        const name = salespersonForm.salespersonName.trim();
+        const mobile = salespersonForm.mobileNumber.trim();
+        if (!name) return alert("Salesperson name is required.");
+        if (!/^\d{10}$/.test(mobile))
+            return alert("Enter a valid 10-digit mobile number.");
+        setSavingSalesperson(true);
+        try {
+            const saved = await createSalesperson({
+                salespersonName: name,
+                mobileNumber: mobile,
+                storeId: Number(storeId),
+            });
+            setSalespersons((current) => [...current, saved]);
+            setSelectedSalesperson(saved);
+            setSalespersonMobile(saved?.mobileNumber || mobile);
+            setSalespersonName(saved?.salespersonName || name);
+            setSalespersonMessage("New salesperson created.");
+            setSalespersonModalOpen(false);
+        } catch (error) {
+            alert(
+                error?.response?.data?.message ||
+                    error?.response?.data?.error ||
+                    "Unable to save salesperson."
+            );
+        } finally {
+            setSavingSalesperson(false);
+        }
+    };
 
     const handleSave = async () => {
-        if (!selectedCustomer?.id) {
-            return alert(
-                "Please select or create the customer."
-            );
-        }
-
-
-        if (!customerRequirement.trim()) {
-            return alert(
-                "Customer requirement is required."
-            );
-        }
-
-
-        if (!source) {
-            return alert(
-                "Lead source is required."
-            );
-        }
-
-
+        if (readOnly) return;
+        if (!selectedCustomer?.id)
+            return alert("Please select or create the customer.");
+        if (!customerRequirement.trim())
+            return alert("Customer requirement is required.");
+        if (!source) return alert("Lead source is required.");
         setSaving(true);
-
-
         try {
-            const updatedLead =
-                await updateLead(
-                    lead.id,
-                    {
-                        customerId:
-                            selectedCustomer.id,
-
-                        salespersonId:
-                            selectedSalesperson?.id ??
-                            selectedSalesperson?.salespersonId ??
-                            null,
-
-                        source,
-
-                        customerRequirement:
-                            customerRequirement.trim(),
-                    }
-                );
-
-
+            const updatedLead = await updateLead(lead.id, {
+                customerId: selectedCustomer.id,
+                salespersonId:
+                    selectedSalesperson?.id ??
+                    selectedSalesperson?.salespersonId ??
+                    null,
+                source,
+                customerRequirement: customerRequirement.trim(),
+            });
             onSaved?.(updatedLead);
         } catch (error) {
             alert(
@@ -1172,902 +598,378 @@ function EditLeadModal({
         }
     };
 
-
-    const updateCustomerForm = (
-        field,
-        value
-    ) => {
-        setCustomerForm(
-            (current) => {
-                const next = {
-                    ...current,
-                    [field]: value,
-                };
-
-
-                if (
-                    field === "customerType" &&
-                    value === "WALK_IN"
-                ) {
-                    next.gstRegistrationType =
-                        "UNREGISTERED";
-
-                    next.gstin = "";
-                }
-
-
-                if (
-                    field ===
-                        "gstRegistrationType" &&
-                    value ===
-                        "UNREGISTERED"
-                ) {
-                    next.gstin = "";
-                }
-
-
-                return next;
+    const updateCustomerForm = (field, value) => {
+        setCustomerForm((current) => {
+            const next = { ...current, [field]: value };
+            if (field === "customerType" && value === "WALK_IN") {
+                next.gstRegistrationType = "UNREGISTERED";
+                next.gstin = "";
             }
-        );
+            if (field === "gstRegistrationType" && value === "UNREGISTERED") {
+                next.gstin = "";
+            }
+            return next;
+        });
     };
 
-
     return (
-        <>
+        <section className="lead-create-page">
+            {/* HEADER */}
             <div className="lead-create-header">
-                <div>
-                    <span className="lead-create-eyebrow">
-                        LEAD MANAGEMENT
-                    </span>
-
-                    <h2>Edit Lead</h2>
-
-                    <small>
-                        {lead?.leadNumber ||
-                            `LEAD-${lead?.id || ""}`}
-                    </small>
+                <div className="lead-create-header-left">
+                    <div className="lead-eyebrow">LEAD MANAGEMENT</div>
+                    <h1>{readOnly ? "Lead Overview" : "Edit Lead"}</h1>
                 </div>
-
-                <button
-                    type="button"
-                    className="lead-create-close"
-                    onClick={onClose}
-                    aria-label="Close"
-                >
-                    <X size={17} />
-                </button>
-            </div>
-
-
-            <div className="lead-create-form">
-                <div className="lead-create-row">
-
-                    <div className="lead-create-field">
-                        <label>
-                            Customer Mobile{" "}
-                            <span>*</span>
-                        </label>
-
-                        <div className="lead-input-with-icon">
-                            <Search size={14} />
-
-                            <input
-                                value={customerMobile}
-                                onChange={
-                                    handleCustomerMobileChange
-                                }
-                                maxLength={10}
-                                placeholder="10-digit mobile number"
-                            />
-                        </div>
-
-                        {customerLoading && (
-                            <small>
-                                Checking customer...
-                            </small>
-                        )}
-
-                        {!customerLoading &&
-                            customerMessage && (
-                                <small className="lead-create-success">
-                                    ✓{" "}
-                                    {customerMessage}
-                                </small>
-                            )}
-                    </div>
-
-
-                    <div className="lead-create-field">
-                        <label>
-                            Customer Name
-                        </label>
-
-                        <input
-                            value={customerName}
-                            readOnly
-                            placeholder="Auto-filled from mobile"
-                        />
-                    </div>
-
-                </div>
-
-
-                <div className="lead-create-row">
-
-                    <div className="lead-create-field">
-                        <label>
-                            Salesperson Mobile{" "}
-                            <span>*</span>
-                        </label>
-
-                        <div className="lead-input-with-icon">
-                            <Search size={14} />
-
-                            <input
-                                value={
-                                    salespersonMobile
-                                }
-                                onChange={
-                                    handleSalespersonMobileChange
-                                }
-                                maxLength={10}
-                                placeholder="10-digit mobile number"
-                            />
-                        </div>
-
-                        {salespersonMessage && (
-                            <small className="lead-create-success">
-                                ✓{" "}
-                                {
-                                    salespersonMessage
-                                }
-                            </small>
-                        )}
-                    </div>
-
-
-                    <div className="lead-create-field">
-                        <label>
-                            Lead Source{" "}
-                            <span>*</span>
-                        </label>
-
-                        <select
-                            value={source}
-                            onChange={(e) =>
-                                setSource(
-                                    e.target.value
-                                )
-                            }
-                        >
-                            <option value="">
-                                Select source
-                            </option>
-
-                            {EDIT_SOURCE_OPTIONS.map(
-                                (item) => (
-                                    <option
-                                        key={
-                                            item.value
-                                        }
-                                        value={
-                                            item.value
-                                        }
-                                    >
-                                        {item.label}
-                                    </option>
-                                )
-                            )}
-                        </select>
-                    </div>
-
-                </div>
-
-
-                <div className="lead-create-field">
-                    <label>
-                        Customer Requirement{" "}
-                        <span>*</span>
-                    </label>
-
-                    <textarea
-                        value={
-                            customerRequirement
-                        }
-                        onChange={(e) =>
-                            setCustomerRequirement(
-                                e.target.value
-                            )
-                        }
-                        rows={4}
-                    />
-                </div>
-
-
-                <div className="lead-create-footer">
+                <div className="lead-create-header-right">
                     <button
                         type="button"
-                        className="lead-create-submit"
-                        onClick={handleSave}
-                        disabled={saving}
+                        className="lead-back-button"
+                        onClick={onClose}
                     >
-                        {saving
-                            ? "Saving..."
-                            : "Save Changes"}
+                        <X size={13} /> Close
                     </button>
                 </div>
             </div>
 
-
-            {/* CUSTOMER MODAL */}
-
-            {customerModalOpen && (
-                <div className="lead-create-inner-modal-overlay">
-
-                    <div className="lead-create-inner-modal">
-
-                        <div className="lead-create-modal-header">
-                            <div>
-                                <span className="lead-create-eyebrow">
-                                    CUSTOMER
-                                </span>
-
-                                <h3>
-                                    Create Customer
-                                </h3>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setCustomerModalOpen(
-                                        false
-                                    )
+            <div className="lead-create-card">
+                {/* Customer / Name / Source — 3 columns */}
+                <div className="lead-customer-row">
+                    <div className="lead-field">
+                        <label>Customer Mobile</label>
+                        <div className="lookup-input-wrap">
+                            <Search size={14} />
+                            <input
+                                type="tel"
+                                inputMode="numeric"
+                                maxLength={10}
+                                value={customerMobile}
+                                onChange={handleCustomerMobileChange}
+                                placeholder="10-digit mobile number"
+                                readOnly={readOnly}
+                                disabled={readOnly}
+                            />
+                            {customerLoading && (
+                                <span className="lookup-spinner" />
+                            )}
+                        </div>
+                        {customerMessage && !readOnly && (
+                            <div
+                                className={
+                                    selectedCustomer
+                                        ? "lookup-success"
+                                        : "lookup-hint"
                                 }
                             >
-                                <X size={17} />
-                            </button>
-                        </div>
+                                {selectedCustomer && (
+                                    <CheckCircle2 size={12} />
+                                )}
+                                {customerMessage}
+                            </div>
+                        )}
+                    </div>
 
+                    <div className="lead-field">
+                        <label>Customer Name</label>
+                        <input
+                            type="text"
+                            value={customerName}
+                            placeholder="Auto-filled"
+                            readOnly
+                            disabled={readOnly}
+                        />
+                    </div>
 
-                        <div className="lead-create-modal-body">
-
-                            <label>
-                                Mobile Number
-                            </label>
-
+                    <div className="lead-field">
+                        <label>Lead Source</label>
+                        {readOnly ? (
                             <input
+                                type="text"
                                 value={
-                                    customerForm.mobileNumber
+                                    (source || "—").replaceAll("_", " ")
                                 }
                                 readOnly
                             />
-
-
-                            <label>
-                                Customer Name *
-                            </label>
-
-                            <input
-                                value={
-                                    customerForm.customerName
-                                }
-                                onChange={(e) =>
-                                    updateCustomerForm(
-                                        "customerName",
-                                        e.target.value
-                                    )
-                                }
-                                autoFocus
-                            />
-
-
-                            <label>
-                                Customer Type
-                            </label>
-
+                        ) : (
                             <select
-                                value={
-                                    customerForm.customerType
-                                }
-                                onChange={(e) =>
-                                    updateCustomerForm(
-                                        "customerType",
-                                        e.target.value
-                                    )
+                                value={source}
+                                onChange={(e) => setSource(e.target.value)}
+                            >
+                                <option value="">Select source</option>
+                                {EDIT_SOURCE_OPTIONS.map((item) => (
+                                    <option
+                                        key={item.value}
+                                        value={item.value}
+                                    >
+                                        {item.label}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+                </div>
+
+                {/* Salesperson mobile */}
+                <div className="lead-section-grid">
+                    <div className="lead-field">
+                        <label>Salesperson Mobile</label>
+                        <div className="lookup-input-wrap">
+                            <Search size={14} />
+                            <input
+                                type="tel"
+                                inputMode="numeric"
+                                maxLength={10}
+                                value={salespersonMobile}
+                                onChange={handleSalespersonMobileChange}
+                                placeholder="10-digit mobile number"
+                                readOnly={readOnly}
+                                disabled={readOnly}
+                            />
+                        </div>
+                        {salespersonMessage && !readOnly && (
+                            <div
+                                className={
+                                    selectedSalesperson
+                                        ? "lookup-success"
+                                        : "lookup-hint"
                                 }
                             >
-                                <option value="WALK_IN">
-                                    Walk-in
-                                </option>
+                                {selectedSalesperson && (
+                                    <CheckCircle2 size={12} />
+                                )}
+                                {salespersonMessage}
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-                                <option value="RETAIL">
-                                    Retail
-                                </option>
+                {/* Requirement */}
+                <div className="requirement-section">
+                    <h2>Customer Requirement</h2>
+                    <textarea
+                        value={customerRequirement}
+                        onChange={(e) =>
+                            !readOnly &&
+                            setCustomerRequirement(e.target.value)
+                        }
+                        rows={4}
+                        placeholder="Customer requirement..."
+                        readOnly={readOnly}
+                        disabled={readOnly}
+                    />
+                </div>
 
-                                <option value="WHOLESALE">
-                                    Wholesale
-                                </option>
+                {/* Submit — only in edit mode */}
+                {!readOnly && (
+                    <div className="lead-submit-bar">
+                        <button
+                            type="button"
+                            className="create-lead-button"
+                            onClick={handleSave}
+                            disabled={saving || !hasChanges}
+                        >
+                            {saving ? "Saving..." : "Save Changes"}
+                        </button>
+                    </div>
+                )}
+            </div>
 
-                                <option value="BUSINESS">
-                                    Business
-                                </option>
-                            </select>
-
-
-                            {customerForm.customerType !==
-                                "WALK_IN" && (
+            {/* CUSTOMER MODAL — unchanged, keep whatever you already have */}
+            {customerModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-card modal-small">
+                        <div className="modal-header">
+                            <div>
+                                <span className="modal-kicker">
+                                    CUSTOMER
+                                </span>
+                                <h2>Create Customer</h2>
+                            </div>
+                            <button
+                                type="button"
+                                className="modal-close"
+                                onClick={() => setCustomerModalOpen(false)}
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="mobile-lock-card">
+                                <span>Mobile Number</span>
+                                <strong>{customerForm.mobileNumber}</strong>
+                            </div>
+                            <div className="lead-field">
+                                <label>
+                                    Customer Name <span>*</span>
+                                </label>
+                                <input
+                                    value={customerForm.customerName}
+                                    onChange={(e) =>
+                                        updateCustomerForm(
+                                            "customerName",
+                                            e.target.value
+                                        )
+                                    }
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="lead-field">
+                                <label>
+                                    Customer Type <span>*</span>
+                                </label>
+                                <select
+                                    value={customerForm.customerType}
+                                    onChange={(e) =>
+                                        updateCustomerForm(
+                                            "customerType",
+                                            e.target.value
+                                        )
+                                    }
+                                >
+                                    <option value="WALK_IN">Walk-in</option>
+                                    <option value="RETAIL">Retail</option>
+                                    <option value="WHOLESALE">
+                                        Wholesale
+                                    </option>
+                                    <option value="BUSINESS">Business</option>
+                                </select>
+                            </div>
+                            {customerForm.customerType !== "WALK_IN" && (
                                 <>
-                                    <label>
-                                        GST Registration
-                                    </label>
-
-                                    <select
-                                        value={
-                                            customerForm.gstRegistrationType
-                                        }
-                                        onChange={(e) =>
-                                            updateCustomerForm(
-                                                "gstRegistrationType",
-                                                e.target.value
-                                            )
-                                        }
-                                    >
-                                        <option value="UNREGISTERED">
-                                            Unregistered
-                                        </option>
-
-                                        <option value="REGISTERED">
-                                            Registered
-                                        </option>
-                                    </select>
-
-
+                                    <div className="lead-field">
+                                        <label>GST Registration</label>
+                                        <select
+                                            value={
+                                                customerForm.gstRegistrationType
+                                            }
+                                            onChange={(e) =>
+                                                updateCustomerForm(
+                                                    "gstRegistrationType",
+                                                    e.target.value
+                                                )
+                                            }
+                                        >
+                                            <option value="UNREGISTERED">
+                                                Unregistered
+                                            </option>
+                                            <option value="REGISTERED">
+                                                Registered
+                                            </option>
+                                        </select>
+                                    </div>
                                     {customerForm.gstRegistrationType ===
                                         "REGISTERED" && (
-                                        <>
+                                        <div className="lead-field">
                                             <label>
-                                                GSTIN *
+                                                GSTIN <span>*</span>
                                             </label>
-
                                             <input
-                                                value={
-                                                    customerForm.gstin
-                                                }
+                                                value={customerForm.gstin}
+                                                maxLength={15}
                                                 onChange={(e) =>
                                                     updateCustomerForm(
                                                         "gstin",
                                                         e.target.value.toUpperCase()
                                                     )
                                                 }
-                                                maxLength={
-                                                    15
-                                                }
                                             />
-                                        </>
+                                        </div>
                                     )}
                                 </>
                             )}
-
                         </div>
-
-
-                        <div className="lead-create-modal-footer">
-
+                        <div className="modal-footer">
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setCustomerModalOpen(
-                                        false
-                                    )
-                                }
+                                className="secondary-button"
+                                onClick={() => setCustomerModalOpen(false)}
+                                disabled={savingCustomer}
                             >
                                 Cancel
                             </button>
-
                             <button
                                 type="button"
-                                className="lead-create-submit"
-                                onClick={
-                                    handleSaveCustomer
-                                }
-                                disabled={
-                                    savingCustomer
-                                }
+                                className="primary-button"
+                                onClick={handleSaveCustomer}
+                                disabled={savingCustomer}
                             >
                                 {savingCustomer
                                     ? "Saving..."
                                     : "Create Customer"}
                             </button>
-
                         </div>
-
                     </div>
                 </div>
             )}
 
-
-            {/* SALESPERSON MODAL */}
-
+            {/* SALESPERSON MODAL — unchanged */}
             {salespersonModalOpen && (
-                <div className="lead-create-inner-modal-overlay">
-
-                    <div className="lead-create-inner-modal">
-
-                        <div className="lead-create-modal-header">
+                <div className="modal-overlay">
+                    <div className="modal-card modal-small">
+                        <div className="modal-header">
                             <div>
-                                <span className="lead-create-eyebrow">
+                                <span className="modal-kicker">
                                     SALESPERSON
                                 </span>
-
-                                <h3>
-                                    Create Salesperson
-                                </h3>
+                                <h2>Create Salesperson</h2>
                             </div>
-
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setSalespersonModalOpen(
-                                        false
-                                    )
-                                }
+                                className="modal-close"
+                                onClick={() => setSalespersonModalOpen(false)}
                             >
-                                <X size={17} />
+                                <X size={15} />
                             </button>
                         </div>
-
-
-                        <div className="lead-create-modal-body">
-
-                            <label>
-                                Mobile Number
-                            </label>
-
-                            <input
-                                value={
-                                    salespersonForm.mobileNumber
-                                }
-                                readOnly
-                            />
-
-
-                            <label>
-                                Salesperson Name *
-                            </label>
-
-                            <input
-                                value={
-                                    salespersonForm.salespersonName
-                                }
-                                onChange={(e) =>
-                                    setSalespersonForm(
-                                        (current) => ({
+                        <div className="modal-body">
+                            <div className="mobile-lock-card">
+                                <span>Mobile Number</span>
+                                <strong>
+                                    {salespersonForm.mobileNumber}
+                                </strong>
+                            </div>
+                            <div className="lead-field">
+                                <label>
+                                    Salesperson Name <span>*</span>
+                                </label>
+                                <input
+                                    value={salespersonForm.salespersonName}
+                                    maxLength={150}
+                                    onChange={(e) =>
+                                        setSalespersonForm((current) => ({
                                             ...current,
-                                            salespersonName:
-                                                e.target.value,
-                                        })
-                                    )
-                                }
-                                autoFocus
-                            />
-
+                                            salespersonName: e.target.value,
+                                        }))
+                                    }
+                                    autoFocus
+                                />
+                            </div>
                         </div>
-
-
-                        <div className="lead-create-modal-footer">
-
+                        <div className="modal-footer">
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setSalespersonModalOpen(
-                                        false
-                                    )
-                                }
+                                className="secondary-button"
+                                onClick={() => setSalespersonModalOpen(false)}
+                                disabled={savingSalesperson}
                             >
                                 Cancel
                             </button>
-
                             <button
                                 type="button"
-                                className="lead-create-submit"
-                                onClick={
-                                    handleSaveSalesperson
-                                }
-                                disabled={
-                                    savingSalesperson
-                                }
+                                className="primary-button"
+                                onClick={handleSaveSalesperson}
+                                disabled={savingSalesperson}
                             >
                                 {savingSalesperson
                                     ? "Saving..."
                                     : "Create Salesperson"}
                             </button>
-
                         </div>
-
                     </div>
                 </div>
             )}
-
-        </>
+        </section>
     );
 }
-
-
-/* ============================================================
-   VIEW MODAL
-   ============================================================ */
-
-function LeadViewModal({
-    lead,
-    onClose,
-    onEdit,
-}) {
-    if (!lead) return null;
-
-
-    const customerName =
-        firstValue(
-            lead?.customerName,
-            lead?.customer?.customerName,
-            lead?.customer?.name
-        ) || "Not available";
-
-
-    const customerPhone =
-        getCustomerPhone(lead);
-
-
-    const salespersonName =
-        firstValue(
-            lead?.salespersonName,
-            lead?.salesperson?.salespersonName,
-            lead?.salesperson?.name
-        ) || "Not assigned";
-
-
-    const source =
-        firstValue(
-            lead?.source,
-            lead?.sourceName,
-            lead?.leadSource,
-            lead?.leadSourceName
-        ) || "Not available";
-
-
-    const requirement =
-        firstValue(
-            lead?.customerRequirement
-        ) || "Not available";
-
-
-    return (
-        <div
-            className="lead-view-modal-overlay"
-            onClick={onClose}
-        >
-            <div
-                className="lead-view-modal"
-                onClick={(e) =>
-                    e.stopPropagation()
-                }
-                role="dialog"
-                aria-modal="true"
-            >
-
-                <div className="lead-view-modal-header">
-
-                    <div>
-                        <div className="lead-view-modal-eyebrow">
-                            LEAD DETAILS
-                        </div>
-
-                        <h2>
-                            {lead?.leadNumber ||
-                                `Lead #${lead?.id}`}
-                        </h2>
-                    </div>
-
-
-                    <div className="lead-view-modal-actions">
-
-                        <button
-                            type="button"
-                            className="lead-view-edit-btn"
-                            onClick={() =>
-                                onEdit(lead)
-                            }
-                            title="Edit Lead"
-                        >
-                            <Pencil
-                                size={18}
-                                strokeWidth={2.2}
-                            />
-                        </button>
-
-
-                        <button
-                            type="button"
-                            className="lead-view-close-btn"
-                            onClick={onClose}
-                            title="Close"
-                        >
-                            <X
-                                size={20}
-                                strokeWidth={2.2}
-                            />
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <div className="lead-view-modal-body">
-
-                    <section className="lead-view-section">
-
-                        <div className="lead-view-section-title">
-                            Customer
-                        </div>
-
-
-                        <div className="lead-view-grid">
-
-                            <div className="lead-view-field">
-                                <span>
-                                    Customer Name
-                                </span>
-
-                                <strong>
-                                    {customerName}
-                                </strong>
-                            </div>
-
-
-                            <div className="lead-view-field">
-                                <span>
-                                    Mobile Number
-                                </span>
-
-                                <strong>
-                                    {customerPhone}
-                                </strong>
-                            </div>
-
-                        </div>
-
-                    </section>
-
-
-                    <section className="lead-view-section">
-
-                        <div className="lead-view-section-title">
-                            Salesperson
-                        </div>
-
-
-                        <div className="lead-view-grid">
-
-                            <div className="lead-view-field">
-
-                                <span>
-                                    Salesperson Name
-                                </span>
-
-                                <strong>
-                                    {salespersonName}
-                                </strong>
-
-                            </div>
-
-                        </div>
-
-                    </section>
-
-
-                    <section className="lead-view-section">
-
-                        <div className="lead-view-section-title">
-                            Lead Information
-                        </div>
-
-
-                        <div className="lead-view-grid">
-
-                            <div className="lead-view-field">
-
-                                <span>
-                                    Lead Source
-                                </span>
-
-                                <strong>
-                                    {source}
-                                </strong>
-
-                            </div>
-
-                        </div>
-
-                    </section>
-
-
-                    <section className="lead-view-section">
-
-                        <div className="lead-view-section-title">
-                            Customer Requirement
-                        </div>
-
-                        <div className="lead-view-requirement">
-                            {requirement}
-                        </div>
-
-                    </section>
-
-                </div>
-
-
-                <div className="lead-view-modal-footer">
-
-                    <button
-                        type="button"
-                        className="lead-view-footer-edit"
-                        onClick={() =>
-                            onEdit(lead)
-                        }
-                    >
-                        <Pencil
-                            size={17}
-                            strokeWidth={2.2}
-                        />
-
-                        Edit Lead
-                    </button>
-
-                </div>
-
-            </div>
-        </div>
-    );
-}
-
-
-/* ============================================================
-   LEAD CARD
-   ============================================================ */
-
-function LeadCard({ lead, onView, onEdit, onProcurement }) {
-    const stage = getStage(lead);
-    const customerName = getCustomerName(lead);
-    const customerPhone = getCustomerPhone(lead);
-    const vehicleName = getVehicleName(lead);
-    const itemCount = getItemCount(lead);
-    const primaryItem = getPrimaryItem(lead);
-    const requirement =
-        firstValue(lead?.customerRequirement) || "No requirement specified";
-    const leadNumber =
-        firstValue(lead?.leadNumber) || `LEAD-${lead?.id ?? "—"}`;
-    const salespersonName =
-        firstValue(
-            lead?.salespersonName,
-            lead?.salesperson?.salespersonName,
-            lead?.salesperson?.name
-        ) || "Not assigned";
-
-    const handleOpen = () => onView(lead);
-
-    const handleKeyDown = (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleOpen();
-        }
-    };
-
-    return (
-        <article
-            className="lead-card"
-            data-lead-id={lead?.id}
-            role="button"
-            tabIndex={0}
-            onClick={handleOpen}
-            onKeyDown={handleKeyDown}
-            aria-label={`Open lead ${leadNumber} for ${customerName}`}
-        >
-            <div className="lead-card-body">
-                <div className="lead-card-topbar">
-                    <span className="lead-card-number">{leadNumber}</span>
-                    <div className="lead-card-topbar-right">
-                        <span className="lead-card-item-count">
-                            {itemCount} {itemCount === 1 ? "item" : "items"}
-                        </span>
-                    <button
-                        type="button"
-                        className="lead-card-edit-btn"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(lead);
-                        }}
-                        aria-label={`Edit lead ${leadNumber}`}
-                        title="Edit"
-                    >
-                        <Pencil size={13} />
-                    </button>
-                </div>
-                </div>
-
-                <div className="lead-card-customer">
-                    <div className="lead-avatar" aria-hidden="true">
-                        {customerName.charAt(0).toUpperCase()}
-                    </div>
-                    <strong
-                        className="lead-card-customer-name"
-                        title={customerName}
-                    >
-                        {customerName}
-                    </strong>
-                </div>
-
-                <div className="lead-card-contact">
-                    <Phone size={13} strokeWidth={2} aria-hidden="true" />
-                    <span>{customerPhone}</span>
-                </div>
-
-                {/* NEW — vehicle row */}
-                <div className="lead-card-vehicle">
-                    <CarFront size={14} strokeWidth={2} aria-hidden="true" />
-                    <div>
-                        <span>Vehicle</span>
-                        <strong title={vehicleName}>{vehicleName}</strong>
-                    </div>
-                </div>
-
-                {/* NEW — primary item row (only if present) */}
-                {primaryItem && (
-                    <div className="lead-card-item-preview">
-                        <span>Item</span>
-                        <strong title={primaryItem}>{primaryItem}</strong>
-                    </div>
-                )}
-
-                <div className="lead-card-requirement">
-                    <span>Requirement</span>
-                    <textarea
-                        className="lead-card-requirement-input"
-                        value={requirement}
-                        readOnly
-                        tabIndex={-1}
-                        rows={3}
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </div>
-
-                <div className="lead-card-footer-row">
-                    <div className="lead-card-salesperson">
-                        <UserCircle size={14} strokeWidth={2} aria-hidden="true" />
-                        <span title={salespersonName}>{salespersonName}</span>
-                    </div>
-
-                    <span className="lead-card-stage-badge">{getStageDefinition(stage).label}</span>
-
-                    {["NEW", "PROCUREMENT"].includes(stage) && (
-                        <button
-                            type="button"
-                            className="lead-card-procurement-btn"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onProcurement?.(lead);
-                            }}
-                        >
-                            <PackageCheck size={12} />
-                            Open Procurement
-                        </button>
-                    )}
-                </div>
-            </div>
-        </article>
-    );
-}
-
 
 /* ============================================================
    MAIN COMPONENT
@@ -2075,472 +977,209 @@ function LeadCard({ lead, onView, onEdit, onProcurement }) {
 
 function LeadList() {
     const navigate = useNavigate();
-
     const location = useLocation();
 
+    const basePath = location.pathname.startsWith("/owner/")
+        ? "/owner/sales"
+        : "/store/sales";
 
-    const basePath =
-        location.pathname.startsWith(
-            "/owner/"
-        )
-            ? "/owner/sales"
-            : "/store/sales";
+    const [showCreateLeadDrawer, setShowCreateLeadDrawer] = useState(false);
+    const [leads, setLeads] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState("");
 
-
-    const [
-        showCreateLeadDrawer,
-        setShowCreateLeadDrawer,
-    ] = useState(false);
-
-
-    const [leads, setLeads] =
-        useState([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [errorMessage, setErrorMessage] =
-        useState("");
-
-
-    const [page, setPage] =
-        useState(0);
-
+    const [page, setPage] = useState(0);
     const pageSize = 30;
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0);
 
+    const [selectedStage, setSelectedStage] = useState("ALL");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [salesperson, setSalesperson] = useState("");
+    const [store, setStore] = useState("");
+    const [authorizedStores, setAuthorizedStores] = useState([]);
+    const [refreshTick, setRefreshTick] = useState(0);
+    const loadVersion = useRef(0);
+    const [source, setSource] = useState("");
+    const [filterStatus, setFilterStatus] = useState("");
+    const [followUpAlertVisible, setFollowUpAlertVisible] = useState(true);
 
-    const [totalPages, setTotalPages] =
-        useState(0);
+    const [editingLead, setEditingLead] = useState(null);
+    const [editingMode, setEditingMode] = useState("view"); 
 
-    const [totalElements, setTotalElements] =
-        useState(0);
+    /* ---- drawer state ---- */
+    const [procurementLead, setProcurementLead] = useState(null);
+    const [followUpLead, setFollowUpLead] = useState(null);
 
+    /* ---- toasts ---- */
+    const [toasts, setToasts] = useState([]);
 
-    const [selectedStage, setSelectedStage] =
-        useState("ALL");
+    const pushToast = (message, type = "success") => {
+        const id = Date.now() + Math.random();
+        setToasts((current) => [...current, { id, message, type }]);
+        setTimeout(() => {
+            setToasts((current) => current.filter((t) => t.id !== id));
+        }, 3200);
+    };
 
-    const [searchTerm, setSearchTerm] =
-        useState("");
+    const removeToast = (id) =>
+        setToasts((current) => current.filter((t) => t.id !== id));
 
-    const [salesperson, setSalesperson] =
-        useState("");
-
-    const [store, setStore] =
-        useState("");
-
-    const [source, setSource] =
-        useState("");
-
-    const [filterStatus, setFilterStatus] =
-        useState("");
-
-    const [
-        followUpAlertVisible,
-        setFollowUpAlertVisible,
-    ] = useState(true);
-
-
-    const [editingLead, setEditingLead] =
-        useState(null);
-
-    const [viewingLead, setViewingLead] =
-        useState(null);
-
-
-    /*
-     * ============================================================
-     * NEW PROCUREMENT STATE
-     * ============================================================
-     */
-
-    const [
-        procurementLead,
-        setProcurementLead,
-    ] = useState(null);
-
-
+    /* ---- load leads ---- */
     const loadLeads = async () => {
+        const version = ++loadVersion.current;
         setLoading(true);
         setErrorMessage("");
-
-
         try {
-            const response =
-                await getLeads(
-                    page,
-                    pageSize,
-                    "createdAt",
-                    "DESC"
-                );
-
-
-            const content =
-                Array.isArray(
-                    response?.content
-                )
-                    ? response.content
-                    : [];
-
-
+            const response = await getLeads(
+                page,
+                pageSize,
+                "createdAt",
+                "DESC",
+                store ? Number(store) : null
+            );
+            if (version !== loadVersion.current) return;
+            const content = Array.isArray(response?.content)
+                ? response.content
+                : [];
             setLeads(content);
-
-            setTotalPages(
-                Number(
-                    response?.totalPages || 0
-                )
-            );
-
-            setTotalElements(
-                Number(
-                    response?.totalElements ||
-                        0
-                )
-            );
+            setTotalPages(Number(response?.totalPages || 0));
+            setTotalElements(Number(response?.totalElements || 0));
         } catch (error) {
-            console.error(
-                "Unable to load leads:",
-                error
-            );
-
-
+            if (version !== loadVersion.current) return;
+            console.error("Unable to load leads:", error);
             const message =
-                error?.response?.data
-                    ?.message ||
-                error?.response?.data
-                    ?.error ||
+                error?.response?.data?.message ||
+                error?.response?.data?.error ||
                 "Unable to load leads.";
-
-
             setErrorMessage(message);
-
             setLeads([]);
-
             setTotalPages(0);
-
             setTotalElements(0);
         } finally {
-            setLoading(false);
+            if (version === loadVersion.current) setLoading(false);
         }
     };
 
-
     useEffect(() => {
         loadLeads();
-    }, [page]);
-
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, store, refreshTick]);
 
     const filteredLeads = useMemo(() => {
-        const query =
-            searchTerm
-                .trim()
-                .toLowerCase();
-
-
-        return leads.filter(
-            (lead) => {
-
-                const searchableValues =
-                    getLeadSearchValues(
-                        lead
-                    );
-
-
-                const matchesSearch =
-                    !query ||
-                    searchableValues.some(
-                        (item) =>
-                            item.includes(
-                                query
-                            )
-                    );
-
-
-                const matchesSalesperson =
-                    !salesperson ||
-                    String(
-                        lead?.salespersonId ||
-                            ""
-                    ) ===
-                        String(
-                            salesperson
-                        );
-
-
-                const matchesStore =
-                    !store ||
-                    String(
-                        lead?.storeId || ""
-                    ) ===
-                        String(store);
-
-
-                const leadSource =
-                    firstValue(
-                        lead?.sourceId,
-                        lead?.source,
-                        lead?.sourceName
-                    );
-
-
-                const matchesSource =
-                    !source ||
-                    String(
-                        leadSource || ""
-                    ) ===
-                        String(source);
-
-
-                const matchesStatus =
-                    !filterStatus ||
-                    getStage(lead) ===
-                        filterStatus;
-
-
-                return (
-                    matchesSearch &&
-                    matchesSalesperson &&
-                    matchesStore &&
-                    matchesSource &&
-                    matchesStatus
-                );
-            }
-        );
-    }, [
-        leads,
-        searchTerm,
-        salesperson,
-        store,
-        source,
-        filterStatus,
-    ]);
-
+        const query = searchTerm.trim().toLowerCase();
+        return leads.filter((lead) => {
+            const searchableValues = getLeadSearchValues(lead);
+            const matchesSearch =
+                !query ||
+                searchableValues.some((item) => item.includes(query));
+            const matchesSalesperson =
+                !salesperson ||
+                String(lead?.salespersonId || "") === String(salesperson);
+            const matchesStore =
+                !store || String(lead?.storeId || "") === String(store);
+            const leadSource = firstValue(
+                lead?.sourceId,
+                lead?.source,
+                lead?.sourceName
+            );
+            const matchesSource =
+                !source || String(leadSource || "") === String(source);
+            const matchesStatus =
+                !filterStatus || getStage(lead) === filterStatus;
+            return (
+                matchesSearch &&
+                matchesSalesperson &&
+                matchesStore &&
+                matchesSource &&
+                matchesStatus
+            );
+        });
+    }, [leads, searchTerm, salesperson, store, source, filterStatus]);
 
     const counts = useMemo(() => {
         const result = {
             total: totalElements,
             new: 0,
             procurement: 0,
-            proforma: 0,
             followUp: 0,
             won: 0,
             lost: 0,
         };
-
-
         leads.forEach((lead) => {
-            const stage =
-                getStage(lead);
-
-
-            if (stage === "NEW") {
-                result.new += 1;
-            }
-
-            if (
-                stage ===
-                "PROCUREMENT"
-            ) {
-                result.procurement += 1;
-            }
-
-            if (
-                stage ===
-                "PROFORMA"
-            ) {
-                result.proforma += 1;
-            }
-
-            if (
-                stage ===
-                "FOLLOW_UP"
-            ) {
-                result.followUp += 1;
-            }
-
-            if (stage === "WON") {
-                result.won += 1;
-            }
-
-            if (stage === "LOST") {
-                result.lost += 1;
-            }
+            const stage = getStage(lead);
+            if (stage === "NEW") result.new += 1;
+            if (stage === "PROCUREMENT") result.procurement += 1;
+            if (stage === "FOLLOW_UP") result.followUp += 1;
+            if (stage === "WON") result.won += 1;
+            if (stage === "LOST") result.lost += 1;
         });
-
-
         return result;
-    }, [
-        leads,
-        totalElements,
-    ]);
+    }, [leads, totalElements]);
 
-
-    const groupedByStage =
-        useMemo(() => {
-            const groups =
-                Object.fromEntries(
-                    STAGES.map(
-                        (stage) => [
-                            stage.key,
-                            [],
-                        ]
-                    )
-                );
-
-
-            filteredLeads.forEach(
-                (lead) => {
-                    const stage =
-                        getStage(lead);
-
-
-                    if (
-                        groups[stage]
-                    ) {
-                        groups[
-                            stage
-                        ].push(lead);
-                    }
-                }
-            );
-
-
-            return groups;
-        }, [filteredLeads]);
-
-
-    const stageCounts =
-        useMemo(
-            () => ({
-                NEW: counts.new,
-                PROCUREMENT:
-                    counts.procurement,
-                PROFORMA:
-                    counts.proforma,
-                FOLLOW_UP:
-                    counts.followUp,
-                WON: counts.won,
-                LOST: counts.lost,
-            }),
-            [counts]
+    const groupedByStage = useMemo(() => {
+        const groups = Object.fromEntries(
+            STAGES.map((stage) => [stage.key, []])
         );
+        filteredLeads.forEach((lead) => {
+            const stage = getStage(lead);
+            if (groups[stage]) groups[stage].push(lead);
+        });
+        return groups;
+    }, [filteredLeads]);
 
+    const stageCounts = useMemo(
+        () => ({
+            NEW: counts.new,
+            PROCUREMENT: counts.procurement,
+            FOLLOW_UP: counts.followUp,
+            WON: counts.won,
+            LOST: counts.lost,
+        }),
+        [counts]
+    );
 
-    const salespersonOptions =
-        useMemo(() => {
-            const map =
-                new Map();
+    const salespersonOptions = useMemo(() => {
+        const map = new Map();
+        leads.forEach((lead) => {
+            const id = lead?.salespersonId;
+            const name = lead?.salespersonName;
+            if (id != null && name) map.set(String(id), name);
+        });
+        return Array.from(map.entries());
+    }, [leads]);
 
+    useEffect(() => {
+        let cancelled = false;
+        getAllStores().then(response => {
+            if (!cancelled) {
+                let user = {}; try { user = JSON.parse(localStorage.getItem("user") || "{}"); } catch { /* Invalid session data: no extra store choices. */ }
+                const rows = Array.isArray(response) ? response : response?.content || [];
+                setAuthorizedStores(user.role === "SUPER_ADMIN" ? rows : rows.filter(row => String(row.id) === String(user.storeId)));
+            }
+        }).catch(() => { if (!cancelled) setAuthorizedStores([]); });
+        return () => { cancelled = true; };
+    }, []);
+    const storeOptions = useMemo(() => {
+        const map = new Map();
+        authorizedStores.forEach(row => map.set(String(row.id), row.storeName || row.storeCode));
+        leads.forEach(row => { if (row.storeId != null && row.storeName) map.set(String(row.storeId), row.storeName); });
+        return Array.from(map.entries());
+    }, [leads, authorizedStores]);
 
-            leads.forEach(
-                (lead) => {
-                    const id =
-                        lead?.salespersonId;
+    const sourceOptions = useMemo(() => {
+        const map = new Map();
+        leads.forEach((lead) => {
+            const id = firstValue(lead?.sourceId, lead?.source);
+            const name = firstValue(lead?.sourceName, lead?.source);
+            if (id && name) map.set(String(id), name);
+        });
+        return Array.from(map.entries());
+    }, [leads]);
 
-                    const name =
-                        lead?.salespersonName;
-
-
-                    if (
-                        id !== null &&
-                        id !== undefined &&
-                        name
-                    ) {
-                        map.set(
-                            String(id),
-                            name
-                        );
-                    }
-                }
-            );
-
-
-            return Array.from(
-                map.entries()
-            );
-        }, [leads]);
-
-
-    const storeOptions =
-        useMemo(() => {
-            const map =
-                new Map();
-
-
-            leads.forEach(
-                (lead) => {
-                    const id =
-                        lead?.storeId;
-
-                    const name =
-                        lead?.storeName;
-
-
-                    if (
-                        id !== null &&
-                        id !== undefined &&
-                        name
-                    ) {
-                        map.set(
-                            String(id),
-                            name
-                        );
-                    }
-                }
-            );
-
-
-            return Array.from(
-                map.entries()
-            );
-        }, [leads]);
-
-
-    const sourceOptions =
-        useMemo(() => {
-            const map =
-                new Map();
-
-
-            leads.forEach(
-                (lead) => {
-                    const id =
-                        firstValue(
-                            lead?.sourceId,
-                            lead?.source
-                        );
-
-                    const name =
-                        firstValue(
-                            lead?.sourceName,
-                            lead?.source
-                        );
-
-
-                    if (id && name) {
-                        map.set(
-                            String(id),
-                            name
-                        );
-                    }
-                }
-            );
-
-
-            return Array.from(
-                map.entries()
-            );
-        }, [leads]);
-
-
-    const isFiltered =
-        Boolean(
-            searchTerm.trim() ||
-                salesperson ||
-                store ||
-                source ||
-                filterStatus
-        );
-
+    const isFiltered = Boolean(
+        searchTerm.trim() || salesperson || store || source || filterStatus
+    );
 
     const resetFilters = () => {
         setSearchTerm("");
@@ -2551,803 +1190,456 @@ function LeadList() {
         setPage(0);
     };
 
+    const handleStageSelect = (stage) => setSelectedStage(stage);
 
-    const handleStageSelect =
-        (stage) => {
-            setSelectedStage(
-                stage
-            );
-        };
+    /* -------- Card handlers -------- */
 
+    // Card body → opens editable overview
+    const handleOpenOverview = (lead) => {
+    setEditingMode("view");
+    setEditingLead(lead);
+};
+const handleEditLead = (lead) => {
+    setEditingMode("edit");
+    setEditingLead(lead);
+};
 
-    /*
-     * ============================================================
-     * PROCUREMENT HANDLER
-     * ============================================================
-     *
-     * Previously this only logged to console.
-     * Now it opens the procurement drawer.
-     */
+    const handleOpenProcurement = (lead) => {
+        if (lead?.id) setProcurementLead(lead);
+    };
 
-    const handleProcurement =
-        (lead) => {
-            if (!lead) return;
+    const handleOpenFollowUp = (lead) => {
+        if (lead?.id) setFollowUpLead(lead);
+    };
 
-            setProcurementLead(
-                lead
-            );
-        };
-
-
-    const handleViewLead =
-        (lead) => {
-            if (lead) {
-                setViewingLead(
-                    lead
-                );
-            }
-        };
-
-
-    const handleEditLead =
-        (lead) => {
-            setEditingLead(
-                lead
-            );
-        };
-
+    // Procurement → Follow-up: direct move, no drawer
+   const handleMoveToFollowUp = async (lead) => {
+    if (!lead?.id) return;
+    try {
+        await completeLeadProcurement(lead.id);
+        pushToast(
+            `${lead.leadNumber || "Lead"} moved to Customer Follow-up`,
+            "success"
+        );
+        loadLeads();
+    } catch (error) {
+        pushToast(
+            error?.response?.data?.message ||
+                error?.response?.data?.error ||
+                "Unable to move lead to follow-up.",
+            "error"
+        );
+    }
+};
+    const refreshAfterAction = () => {
+        setProcurementLead(null);
+        setFollowUpLead(null);
+        loadLeads();
+    };
 
     return (
         <section className="lead-page">
-
-            {/* ============================================================
-                HEADER
-                ============================================================ */}
-
             <header className="lead-header">
-
-                <h1 className="lead-title">
-                    Leads
-                </h1>
-
-
+                <h1 className="lead-title">Leads</h1>
                 <div className="lead-header-actions">
-
                     <button
                         type="button"
                         className="lead-new-btn"
-                        onClick={() =>
-                            setShowCreateLeadDrawer(
-                                true
-                            )
-                        }
+                        onClick={() => setShowCreateLeadDrawer(true)}
                     >
-                        <Plus
-                            size={16}
-                            strokeWidth={2.2}
-                        />
-
+                        <Plus size={16} strokeWidth={2.4} />
                         New Lead
                     </button>
-
                 </div>
-
             </header>
 
-
-            {/* ============================================================
+            {/* ==============================
                 KPI CARDS
-                ============================================================ */}
-
-            <section
-                className="lead-kpi-grid"
-                aria-label="Lead summary"
-            >
-
-                {KPI_DEFINITIONS.map(
-                    (definition) => {
-
-                        const stageByKpi =
-                            {
-                                total:
-                                    "ALL",
-
-                                followUp:
-                                    "FOLLOW_UP",
-
-                                won:
-                                    "WON",
-
-                                lost:
-                                    "LOST",
-                            };
-
-
-                        return (
-                            <KpiCard
-                                key={
-                                    definition.key
-                                }
-
-                                definition={
-                                    definition
-                                }
-
-                                count={
-                                    counts[
-                                        definition
-                                            .key
-                                    ] || 0
-                                }
-
-                                selected={
-                                    selectedStage ===
-                                    stageByKpi[
-                                        definition
-                                            .key
-                                    ]
-                                }
-
-                                onClick={() =>
-                                    handleStageSelect(
-                                        stageByKpi[
-                                            definition
-                                                .key
-                                        ]
-                                    )
-                                }
-                            />
-                        );
-                    }
-                )}
-
+            ============================== */}
+            <section className="lead-kpi-grid" aria-label="Lead summary">
+                {KPI_DEFINITIONS.map((definition) => {
+                    const stageByKpi = {
+                        total: "ALL",
+                        followUp: "FOLLOW_UP",
+                        won: "WON",
+                        lost: "LOST",
+                    };
+                    return (
+                        <KpiCard
+                            key={definition.key}
+                            definition={definition}
+                            count={counts[definition.key] || 0}
+                            selected={
+                                selectedStage === stageByKpi[definition.key]
+                            }
+                            onClick={() =>
+                                handleStageSelect(stageByKpi[definition.key])
+                            }
+                        />
+                    );
+                })}
             </section>
 
-
-            {/* ============================================================
+            {/* ==============================
                 TOOLBAR
-                ============================================================ */}
-
+            ============================== */}
             <section className="lead-toolbar">
-
                 <div className="lead-toolbar-search">
-
                     <Search size={15} />
-
                     <input
                         type="text"
                         placeholder="Search leads, customers, vehicles..."
                         value={searchTerm}
-                        onChange={(e) =>
-                            setSearchTerm(
-                                e.target.value
-                            )
-                        }
+                        onChange={(e) => setSearchTerm(e.target.value)}
                     />
-
                 </div>
-
 
                 <select
                     className="lead-toolbar-select"
                     value={source}
-                    onChange={(e) =>
-                        setSource(
-                            e.target.value
-                        )
-                    }
+                    onChange={(e) => setSource(e.target.value)}
                 >
-                    <option value="">
-                        All Sources
-                    </option>
-
-                    {sourceOptions.map(
-                        ([id, name]) => (
-                            <option
-                                key={id}
-                                value={id}
-                            >
-                                {name}
-                            </option>
-                        )
-                    )}
-
+                    <option value="">All Sources</option>
+                    {sourceOptions.map(([id, name]) => (
+                        <option key={id} value={id}>
+                            {name}
+                        </option>
+                    ))}
                 </select>
-
 
                 <select
                     className="lead-toolbar-select"
                     value={salesperson}
-                    onChange={(e) =>
-                        setSalesperson(
-                            e.target.value
-                        )
-                    }
+                    onChange={(e) => setSalesperson(e.target.value)}
                 >
-                    <option value="">
-                        All Salespersons
-                    </option>
-
-                    {salespersonOptions.map(
-                        ([id, name]) => (
-                            <option
-                                key={id}
-                                value={id}
-                            >
-                                {name}
-                            </option>
-                        )
-                    )}
-
+                    <option value="">All Salespersons</option>
+                    {salespersonOptions.map(([id, name]) => (
+                        <option key={id} value={id}>
+                            {name}
+                        </option>
+                    ))}
                 </select>
-
 
                 <select
                     className="lead-toolbar-select"
                     value={store}
-                    onChange={(e) =>
-                        setStore(
-                            e.target.value
-                        )
-                    }
+                    onChange={(e) => { setPage(0); setStore(e.target.value); }}
                 >
-                    <option value="">
-                        All Stores
-                    </option>
-
-                    {storeOptions.map(
-                        ([id, name]) => (
-                            <option
-                                key={id}
-                                value={id}
-                            >
-                                {name}
-                            </option>
-                        )
-                    )}
-
+                    <option value="">All Stores</option>
+                    {storeOptions.map(([id, name]) => (
+                        <option key={id} value={id}>
+                            {name}
+                        </option>
+                    ))}
                 </select>
-
 
                 <select
                     className="lead-toolbar-select"
                     value={filterStatus}
-                    onChange={(e) =>
-                        setFilterStatus(
-                            e.target.value
-                        )
-                    }
+                    onChange={(e) => setFilterStatus(e.target.value)}
                 >
-                    <option value="">
-                        All Statuses
-                    </option>
-
-                    {STAGES.map(
-                        (stage) => (
-                            <option
-                                key={
-                                    stage.key
-                                }
-                                value={
-                                    stage.key
-                                }
-                            >
-                                {stage.label}
-                            </option>
-                        )
-                    )}
-
+                    <option value="">All Statuses</option>
+                    {STAGES.map((stage) => (
+                        <option key={stage.key} value={stage.key}>
+                            {stage.label}
+                        </option>
+                    ))}
                 </select>
-
 
                 {isFiltered && (
                     <button
                         type="button"
                         className="lead-toolbar-reset"
-                        onClick={
-                            resetFilters
-                        }
+                        onClick={resetFilters}
                     >
                         Reset
                     </button>
                 )}
-
             </section>
 
-
-            {/* ============================================================
+            {/* ==============================
                 FOLLOW-UP ALERT
-                ============================================================ */}
-
-            {followUpAlertVisible &&
-                counts.followUp > 0 && (
-                    <div
-                        className="lead-followup-alert"
-                        role="status"
-                    >
-
-                        <div className="lead-alert-content">
-
-                            <span
-                                className="lead-alert-icon"
-                                aria-hidden="true"
-                            >
-                                <AlertTriangle
-                                    size={15}
-                                />
+            ============================== */}
+            {followUpAlertVisible && counts.followUp > 0 && (
+                <div className="lead-followup-alert" role="status">
+                    <div className="lead-alert-content">
+                        <span className="lead-alert-icon" aria-hidden="true">
+                            <AlertTriangle size={15} />
+                        </span>
+                        <div>
+                            <strong>
+                                {counts.followUp} follow-up
+                                {counts.followUp === 1 ? "" : "s"} need
+                                attention
+                            </strong>
+                            <span>
+                                Open the Follow-up column to review these
+                                leads.
                             </span>
-
-
-                            <div>
-
-                                <strong>
-                                    {
-                                        counts.followUp
-                                    }{" "}
-                                    follow-up
-                                    {counts.followUp ===
-                                    1
-                                        ? ""
-                                        : "s"}{" "}
-                                    need attention
-                                </strong>
-
-                                <span>
-                                    Open the
-                                    Follow-up
-                                    column to
-                                    review
-                                    these
-                                    leads.
-                                </span>
-
-                            </div>
-
                         </div>
-
-
-                        <button
-                            type="button"
-                            className="lead-alert-action"
-                            onClick={() =>
-                                handleStageSelect(
-                                    "FOLLOW_UP"
-                                )
-                            }
-                        >
-                            View reminders
-
-                            <ChevronRight
-                                size={14}
-                            />
-                        </button>
-
-
-                        <button
-                            type="button"
-                            className="lead-alert-close"
-                            onClick={() =>
-                                setFollowUpAlertVisible(
-                                    false
-                                )
-                            }
-                            aria-label="Dismiss follow-up alert"
-                        >
-                            <X size={15} />
-                        </button>
-
                     </div>
-                )}
+                    <button
+                        type="button"
+                        className="lead-alert-action"
+                        onClick={() => handleStageSelect("FOLLOW_UP")}
+                    >
+                        View reminders
+                        <ChevronRight size={14} />
+                    </button>
+                    <button
+                        type="button"
+                        className="lead-alert-close"
+                        onClick={() => setFollowUpAlertVisible(false)}
+                        aria-label="Dismiss follow-up alert"
+                    >
+                        <X size={15} />
+                    </button>
+                </div>
+            )}
 
-
-            {/* ============================================================
+            {/* ==============================
                 KANBAN BOARD
-                ============================================================ */}
-
+            ============================== */}
             <section className="lead-kanban">
-
                 {loading ? (
-
                     <div className="lead-empty-state">
-
-                        <strong>
-                            Loading leads...
-                        </strong>
-
-                        <span>
-                            Fetching lead
-                            information
-                            from backend.
-                        </span>
-
+                        <strong>Loading leads...</strong>
+                        <span>Fetching lead information from backend.</span>
                     </div>
-
                 ) : errorMessage ? (
-
                     <div className="lead-empty-state">
-
-                        <strong>
-                            Unable to load
-                            leads
-                        </strong>
-
-                        <span>
-                            {errorMessage}
-                        </span>
-
+                        <strong>Unable to load leads</strong>
+                        <span>{errorMessage}</span>
                         <button
                             type="button"
                             className="lead-toolbar-reset"
-                            onClick={
-                                loadLeads
-                            }
+                            onClick={loadLeads}
                         >
                             Retry
                         </button>
-
                     </div>
-
                 ) : (
-
                     <div className="lead-kanban-grid">
+                        {STAGES.map((stage) => {
+                            const stageLeads =
+                                groupedByStage[stage.key] || [];
+                            const Icon = stage.Icon;
+                            const isActive = selectedStage === stage.key;
+                            return (
+                                <div
+                                    key={stage.key}
+                                    className={`lead-kanban-col lead-kanban-col--${stage.key.toLowerCase()}${
+                                        isActive ? " is-active" : ""
+                                    }`}
+                                >
+                                    <div className="lead-kanban-col-head">
+                                        <span className="lead-kanban-col-title">
+                                            <Icon size={14} />
+                                            {stage.label}
+                                        </span>
+                                        <span className="lead-kanban-col-count">
+                                            {stageCounts[stage.key]}
+                                        </span>
+                                    </div>
 
-                        {STAGES.map(
-                            (stage) => {
-
-                                const stageLeads =
-                                    groupedByStage[
-                                        stage.key
-                                    ] || [];
-
-                                const Icon =
-                                    stage.Icon;
-
-                                const isActive =
-                                    selectedStage ===
-                                    stage.key;
-
-
-                                return (
-                                    <div
-                                        key={
-                                            stage.key
-                                        }
-                                        className={`lead-kanban-col lead-kanban-col--${stage.key.toLowerCase()}${
-                                            isActive
-                                                ? " is-active"
-                                                : ""
-                                        }`}
-                                    >
-
-                                        <div className="lead-kanban-col-head">
-
-                                            <span className="lead-kanban-col-title">
-
-                                                <Icon
-                                                    size={
-                                                        14
+                                    <div className="lead-kanban-col-body">
+                                        {stageLeads.length === 0 ? (
+                                            <div className="lead-kanban-empty">
+                                                No leads
+                                            </div>
+                                        ) : (
+                                            stageLeads.map((lead) => (
+                                                <LeadKanbanCard
+                                                    key={lead.id}
+                                                    lead={lead}
+                                                    stage={getStage(lead)}
+                                                    onView={handleOpenOverview}
+                                                    onEdit={handleEditLead}
+                                                    onProcurement={
+                                                        handleOpenProcurement
+                                                    }
+                                                    onMoveToFollowUp={
+                                                        handleMoveToFollowUp
+                                                    }
+                                                    onFollowUp={
+                                                        handleOpenFollowUp
                                                     }
                                                 />
-
-                                                {
-                                                    stage.label
-                                                }
-
-                                            </span>
-
-
-                                            <span className="lead-kanban-col-count">
-
-                                                {
-                                                    stageCounts[
-                                                        stage.key
-                                                    ]
-                                                }
-
-                                            </span>
-
-                                        </div>
-
-
-                                        <div className="lead-kanban-col-body">
-
-                                            {stageLeads.length ===
-                                            0 ? (
-
-                                                <div className="lead-kanban-empty">
-                                                    No leads
-                                                </div>
-
-                                            ) : (
-
-                                                stageLeads.map(
-                                                    (
-                                                        lead
-                                                    ) => (
-                                                        <LeadCard
-                                                            key={
-                                                                lead.id
-                                                            }
-
-                                                            lead={
-                                                                lead
-                                                            }
-
-                                                            onView={
-                                                                handleViewLead
-                                                            }
-
-                                                            onEdit={
-                                                                handleEditLead
-                                                            }
-
-                                                            onProcurement={
-                                                                handleProcurement
-                                                            }
-                                                        />
-                                                    )
-                                                )
-
-                                            )}
-
-                                        </div>
-
+                                            ))
+                                        )}
                                     </div>
-                                );
-                            }
-                        )}
-
+                                </div>
+                            );
+                        })}
                     </div>
-
                 )}
-
             </section>
 
-
-            {/* ============================================================
+            {/* ==============================
                 PAGINATION
-                ============================================================ */}
-
-            {!loading &&
-                totalPages > 1 && (
-                    <div className="lead-pagination">
-
-                        <button
-                            type="button"
-                            disabled={
-                                page === 0
-                            }
-                            onClick={() =>
-                                setPage(
-                                    (current) =>
-                                        Math.max(
-                                            0,
-                                            current -
-                                                1
-                                        )
-                                )
-                            }
-                        >
-                            Previous
-                        </button>
-
-
-                        <span>
-                            Page{" "}
-                            {page + 1} of{" "}
-                            {totalPages}
-                        </span>
-
-
-                        <button
-                            type="button"
-                            disabled={
-                                page >=
-                                totalPages -
-                                    1
-                            }
-                            onClick={() =>
-                                setPage(
-                                    (current) =>
-                                        Math.min(
-                                            totalPages -
-                                                1,
-                                            current +
-                                                1
-                                        )
-                                )
-                            }
-                        >
-                            Next
-                        </button>
-
-                    </div>
-                )}
-
-
-            {/* ============================================================
-                LEAD VIEW MODAL
-                ============================================================ */}
-
-            {viewingLead && (
-                <LeadViewModal
-                    lead={
-                        viewingLead
-                    }
-
-                    onClose={() =>
-                        setViewingLead(
-                            null
-                        )
-                    }
-
-                    onEdit={(lead) => {
-                        setViewingLead(
-                            null
-                        );
-
-                        setEditingLead(
-                            lead
-                        );
-                    }}
-                />
+            ============================== */}
+            {!loading && totalPages > 1 && (
+                <div className="lead-pagination">
+                    <button
+                        type="button"
+                        disabled={page === 0}
+                        onClick={() =>
+                            setPage((current) => Math.max(0, current - 1))
+                        }
+                    >
+                        Previous
+                    </button>
+                    <span>
+                        Page {page + 1} of {totalPages}
+                    </span>
+                    <button
+                        type="button"
+                        disabled={page >= totalPages - 1}
+                        onClick={() =>
+                            setPage((current) =>
+                                Math.min(totalPages - 1, current + 1)
+                            )
+                        }
+                    >
+                        Next
+                    </button>
+                </div>
             )}
 
-
-            {/* ============================================================
-                EDIT LEAD DRAWER
-                ============================================================ */}
-
+            {/* ==============================
+                EDIT LEAD DRAWER (also the "overview")
+            ============================== */}
             {editingLead && (
                 <div
                     className="lead-drawer-backdrop"
-                    onClick={() =>
-                        setEditingLead(
-                            null
-                        )
-                    }
+                    onClick={() => setEditingLead(null)}
                 >
-
                     <aside
                         className="lead-drawer lead-drawer--narrow"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
+                        onClick={(event) => event.stopPropagation()}
                     >
-
                         <EditLeadModal
-                            lead={
-                                editingLead
-                            }
-
-                            onClose={() =>
-                                setEditingLead(
-                                    null
-                                )
-                            }
-
-                            onSaved={(
-                                updatedLead
-                            ) => {
-
-                                setLeads(
-                                    (
-                                        currentLeads
-                                    ) =>
-                                        currentLeads.map(
-                                            (
-                                                item
-                                            ) =>
-                                                String(
-                                                    item?.id
-                                                ) ===
-                                                String(
-                                                    updatedLead?.id
-                                                )
-                                                    ? {
-                                                          ...item,
-                                                          ...updatedLead,
-                                                      }
-                                                    : item
-                                        )
+                            lead={editingLead}
+                             mode={editingMode}
+                            onClose={() => setEditingLead(null)}
+                            onSaved={(updatedLead) => {
+                                setLeads((currentLeads) =>
+                                    currentLeads.map((item) =>
+                                        String(item?.id) ===
+                                        String(updatedLead?.id)
+                                            ? { ...item, ...updatedLead }
+                                            : item
+                                    )
                                 );
-
-
-                                setEditingLead(
-                                    null
-                                );
-
+                                setEditingLead(null);
+                                pushToast("Lead updated successfully.", "success");
                                 loadLeads();
                             }}
                         />
-
                     </aside>
-
                 </div>
             )}
 
-
-            {/* ============================================================
+            {/* ==============================
                 PROCUREMENT DRAWER
-                ============================================================ */}
-
+            ============================== */}
             {procurementLead && (
                 <div
                     className="lead-drawer-backdrop"
-                    onClick={() => {
-                        setProcurementLead(
-                            null
-                        );
-                        loadLeads();
-                    }}
+                    onClick={refreshAfterAction}
                 >
-
                     <aside
                         className="lead-drawer procurement-drawer"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
+                        onClick={(event) => event.stopPropagation()}
                     >
-
                         <LeadProcurementDrawer
+                            lead={procurementLead}
                             onUpdated={() => loadLeads()}
-                            lead={
-                                procurementLead
-                            }
-
-                            onClose={() => {
-                                setProcurementLead(
-                                    null
-                                );
-                                loadLeads();
-                            }}
+                            onClose={refreshAfterAction}
+                            onToast={pushToast}
                         />
-
                     </aside>
-
                 </div>
             )}
 
+            {/* ==============================
+                FOLLOW-UP DRAWER
+            ============================== */}
+            {followUpLead && (
+                <div
+                    className="lead-drawer-backdrop"
+                    onClick={refreshAfterAction}
+                >
+                    <aside
+                        className="lead-drawer procurement-drawer"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <LeadFollowUpDrawer
+                            lead={followUpLead}
+                            onUpdated={() => loadLeads()}
+                            onClose={refreshAfterAction}
+                            onToast={pushToast}
+                        />
+                    </aside>
+                </div>
+            )}
 
-            {/* ============================================================
+            {/* ==============================
                 CREATE LEAD DRAWER
-                ============================================================ */}
-
+            ============================== */}
             {showCreateLeadDrawer && (
                 <div
                     className="lead-drawer-backdrop"
-                    onClick={() =>
-                        setShowCreateLeadDrawer(
-                            false
-                        )
-                    }
+                    onClick={() => setShowCreateLeadDrawer(false)}
                 >
-
                     <aside
                         className="lead-drawer lead-drawer--narrow"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
+                        onClick={(event) => event.stopPropagation()}
                     >
-
                         <LeadCreate
+                            onSaved={(created) => {
+                                setPage(0);
+                                setStore(current => current ? String(created.storeId) : "");
+                                setRefreshTick(current => current + 1);
+                            }}
                             onClose={() => {
-                                setShowCreateLeadDrawer(
-                                    false
-                                );
-
+                                setShowCreateLeadDrawer(false);
+                                pushToast("Lead created successfully.", "success");
                                 loadLeads();
                             }}
                         />
-
                     </aside>
-
                 </div>
             )}
 
+            {/* ==============================
+                TOAST STACK
+            ============================== */}
+            <div className="lead-toast-stack" aria-live="polite">
+                {toasts.map((t) => (
+                    <div
+                        key={t.id}
+                        className={`lead-toast lead-toast--${t.type}`}
+                        role="status"
+                    >
+                        {t.type === "success" ? (
+                            <CheckCircle2 size={16} />
+                        ) : (
+                            <AlertCircle size={16} />
+                        )}
+                        <span>{t.message}</span>
+                        <button
+                            type="button"
+                            onClick={() => removeToast(t.id)}
+                            aria-label="Dismiss"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                ))}
+            </div>
         </section>
     );
 }
-
 
 export default LeadList;

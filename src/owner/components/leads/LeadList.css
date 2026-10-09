@@ -19,7 +19,7 @@
 
     width: 100%;
     min-height: 100%;
-    padding: 0 20px 24px;                /* no top gap */
+    padding: 15px 20px 24px;                /* no top gap */
     background: #ffffff;
     color: var(--text);
 
@@ -409,7 +409,7 @@
 
 .lead-kanban-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(240px, 1fr));
+    grid-template-columns: repeat(5, minmax(240px, 1fr));
     gap: 12px;
     align-items: start;
     min-width: 100%;
@@ -433,10 +433,6 @@
 .lead-kanban-col--procurement {
     background: #fff7ed;
     border-color: #fed7aa;
-}
-.lead-kanban-col--proforma {
-    background: #f5f3ff;
-    border-color: #ddd6fe;
 }
 .lead-kanban-col--follow_up {
     background: #fffbeb;
@@ -464,12 +460,8 @@
     border-color: #ea580c;
     box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
 }
-.lead-kanban-col--proforma.is-active {
-    border-color: #7c3aed;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
-}
 .lead-kanban-col--follow_up.is-active {
-    border-color: #d97706;
+    border-color: #7c3aed;
     box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
 }
 .lead-kanban-col--won.is-active {
@@ -1525,4 +1517,142 @@
 
 .lead-card-procurement-btn {
     flex-shrink: 0;
+}
+/* ============================================================
+   NEW LEAD BUTTON — enhanced
+   ============================================================ */
+.lead-new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 18px;
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    color: #ffffff;
+    border: 1px solid #2563eb;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    transition: transform 0.12s ease, box-shadow 0.15s ease,
+        background-color 0.15s ease;
+}
+.lead-new-btn svg {
+    flex-shrink: 0;
+}
+.lead-new-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.32);
+}
+.lead-new-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+.lead-new-btn:focus-visible {
+    outline: 2px solid #1d4ed8;
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   TOAST STACK
+   ============================================================ */
+.lead-toast-stack {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: min(360px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+.lead-toast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+    pointer-events: auto;
+    animation: leadToastIn 0.2s ease both;
+}
+@keyframes leadToastIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.lead-toast--success {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+}
+.lead-toast--success svg {
+    color: #059669;
+}
+
+.lead-toast--error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+}
+.lead-toast--error svg {
+    color: #dc2626;
+}
+
+.lead-toast span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.lead-toast button {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 4px;
+    opacity: 0.75;
+}
+.lead-toast button:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 480px) {
+    .lead-toast-stack {
+        bottom: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+    }
+}
+
+/* ============================================================
+   All drawers: single-column form fields
+   ============================================================ */
+.lead-drawer .lead-section-grid,
+.lead-drawer--narrow .lead-section-grid,
+.lead-drawer .lead-create-row {
+    grid-template-columns: 1fr !important;
+    display: grid;
+    gap: 12px;
+}
+
+/* The EditLeadModal uses the same class, so it inherits this */
+.lead-drawer .lead-create-row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
 }

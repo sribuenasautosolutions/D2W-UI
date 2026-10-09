@@ -303,7 +303,7 @@ function Sidebar() {
                         "linear-gradient(180deg,#071633 0%,#0B2A66 50%,#1247A8 100%)",
                     color: "#FFFFFF",
                     minHeight: "100vh",
-                    padding: collapsed ? "18px 8px 14px" : "18px 14px 14px",
+                    padding: collapsed ? "8px 8px 14px" : "8px 14px 14px",
                     display: "flex",
                     flexDirection: "column",
                     fontFamily:
@@ -312,6 +312,8 @@ function Sidebar() {
                     boxSizing: "border-box",
                     flexShrink: 0,
                     transition: "width 0.2s ease, padding 0.2s ease",
+                    height: "100vh",                    /* ← add: fills viewport exactly */
+                    margin: 0, 
                 }}
             >
                 {/* header: logo + hamburger */}

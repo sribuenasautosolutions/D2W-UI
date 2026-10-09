@@ -6,10 +6,14 @@ import {
 } from "react";
 
 import {
-    FileText,
-    RefreshCw,
     Search,
     Plus,
+    Bell,
+    ChevronDown,
+    FileText,
+    Wallet,
+    TrendingUp,
+    Store,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -61,6 +65,21 @@ export default function SalesPage() {
 
     const isSuperAdmin =
         user?.role === "SUPER_ADMIN";
+
+
+    const displayName =
+        user?.fullName ||
+        user?.name ||
+        user?.username ||
+        (isSuperAdmin ? "Super Admin" : "User");
+
+    const initials =
+        displayName
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0].toUpperCase())
+            .join("") || "U";
 
 
     const [stores, setStores] = useState([]);
@@ -142,6 +161,9 @@ export default function SalesPage() {
 
     /*
      * Load sales according to role/store.
+     * Called automatically on mount and whenever
+     * the selected store changes — React re-renders
+     * handle the "refresh" for us.
      */
     const loadSales = useCallback(
         async () => {
@@ -160,7 +182,6 @@ export default function SalesPage() {
                 } else {
 
                    data = await getAllOrders();
-                        
 
                 }
 
@@ -258,6 +279,35 @@ export default function SalesPage() {
     }, [visibleSales]);
 
 
+    /*
+     * Display-only helper used by the value bar animation.
+     * Nothing is recalculated on the backend.
+     */
+    const allSalesValue = useMemo(() => {
+
+        return sales.reduce(
+            (sum, sale) =>
+                sum +
+                Number(
+                    sale.totalAmount || 0
+                ),
+            0
+        );
+
+    }, [sales]);
+
+
+    const valueShare = allSalesValue > 0
+        ? Math.min(
+            100,
+            Math.max(
+                0,
+                (totalSalesValue / allSalesValue) * 100
+            )
+        )
+        : 0;
+
+
     const selectedStore = useMemo(() => {
 
         return stores.find(
@@ -268,263 +318,184 @@ export default function SalesPage() {
                 ) === selectedStoreId
         );
 
-    }, [
-        stores,
-        selectedStoreId,
-    ]);
+    }, [stores,selectedStoreId,]);
 
 
-    const handleViewInvoice = (
-        orderId
-    ) => {
-
+    const handleViewInvoice = (orderId) => {
         navigate(
             `invoice/${orderId}`
         );
-
     };
 
 
-    return (
+   return (
+    <section className="sales-page">
 
-        <section className="sales-page">
+        {/* NAVBAR */}
+        <header className="sales-navbar">
+            <h1 className="sales-navbar-title">Sales Invoices</h1>
+            <div className="sales-navbar-right">
+                <div className="sales-search">
+                    <Search size={16} />
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search invoice, customer, phone..."
+                    />
+                </div>
+                <button type="button" className="sales-icon-button" aria-label="Notifications">
+                    <Bell size={18} />
+                    <span className="sales-notification-dot" />
+                </button>
+                <button type="button" className="sales-profile" aria-label="Profile">
+                    <span className="sales-avatar">{initials}</span>
+                    <span className="sales-profile-name">{displayName}</span>
+                    <ChevronDown size={16} />
+                </button>
+            </div>
+        </header>
 
-            {/* HEADER */}
+        {/* KPI CARDS */}
+            <div className="sales-kpis">
 
-            <header className="sales-page-header">
-
-                <div>
-
-                    <span className="sales-page-eyebrow">
-                        Sales
-                    </span>
-
-                    <h1>
-                        Sales Invoices
-                    </h1>
-
-                    <p>
-                        View sales invoices and
-                        transaction history.
-                    </p>
-
+                <div className="sales-kpi sales-kpi-blue">
+                    <div className="sales-kpi-icon">
+                        <FileText size={18} />
+                    </div>
+                    <div className="sales-kpi-body">
+                        <span className="sales-kpi-label">Total Invoices</span>
+                        <strong className="sales-kpi-value">{visibleSales.length}</strong>
+                    </div>
                 </div>
 
+                <div className="sales-kpi sales-kpi-green sales-kpi-wide">
+                    <div className="sales-kpi-icon">
+                        <Wallet size={18} />
+                    </div>
+                    <div className="sales-kpi-body">
+                        <span className="sales-kpi-label">Total Revenue</span>
+                        <strong className="sales-kpi-value">{formatMoney(totalSalesValue)}</strong>
+                        <div className="sales-kpi-track">
+                            <span
+                                className="sales-kpi-fill"
+                                style={{ width: `${valueShare}%` }}
+                            />
+                        </div>
+                    </div>
+                </div>
 
-                <div className="sales-header-actions">
+                <div className="sales-kpi sales-kpi-purple">
+                    <div className="sales-kpi-icon">
+                        <TrendingUp size={18} />
+                    </div>
+                    <div className="sales-kpi-body">
+                        <span className="sales-kpi-label">Avg. Order Value</span>
+                        <strong className="sales-kpi-value">
+                            {visibleSales.length
+                                ? formatMoney(totalSalesValue / visibleSales.length)
+                                : formatMoney(0)}
+                        </strong>
+                    </div>
+                </div>
 
                 {isSuperAdmin && (
+                    <div className="sales-kpi sales-kpi-amber">
+                        <div className="sales-kpi-icon">
+                            <Store size={18} />
+                        </div>
+                        <div className="sales-kpi-body">
+                            <span className="sales-kpi-label">Active Stores</span>
+                            <strong className="sales-kpi-value">{stores.length}</strong>
+                        </div>
+                    </div>
+                )}
 
-                    <div className="sales-store-selector">
+            </div>
 
-                        <label htmlFor="sales-store">
-                            Store
-                        </label>
+        {/* FILTER BAR */}
+        <div className="sales-filterbar">
+            <div className="sales-filter-dates">
+                <label className="sales-field">
+                    <span>From</span>
+                    <input
+                        type="date"
+                        value={fromDate}
+                        max={toDate || undefined}
+                        onChange={(e) => setFromDate(e.target.value)}
+                    />
+                </label>
 
+                <label className="sales-field">
+                    <span>To</span>
+                    <input
+                        type="date"
+                        value={toDate}
+                        min={fromDate || undefined}
+                        onChange={(e) => setToDate(e.target.value)}
+                    />
+                </label>
+
+                <button
+                    type="button"
+                    className="sales-clear-btn"
+                    onClick={() => {
+                        setFromDate("");
+                        setToDate("");
+                    }}
+                >
+                    All dates
+                </button>
+            </div>
+
+            <div className="sales-filterbar-right">
+                {isSuperAdmin && (
+                    <label className="sales-field sales-field-store">
+                        <span>Store</span>
                         <select
-                            id="sales-store"
                             value={selectedStoreId}
-                            onChange={(event) =>
-                                setSelectedStoreId(
-                                    event.target.value
-                                )
-                            }
+                            onChange={(e) => setSelectedStoreId(e.target.value)}
                         >
-
-                            <option value="">
-                                All Stores
-                            </option>
-
+                            <option value="">All Stores</option>
                             {stores.map((store) => (
-
                                 <option
-                                    key={
-                                        store.id ??
-                                        store.storeId
-                                    }
-                                    value={
-                                        store.id ??
-                                        store.storeId
-                                    }
+                                    key={store.id ?? store.storeId}
+                                    value={store.id ?? store.storeId}
                                 >
                                     {store.storeName}
-                                    {store.storeCode
-                                        ? ` (${store.storeCode})`
-                                        : ""}
+                                    {store.storeCode ? ` (${store.storeCode})` : ""}
                                 </option>
-
                             ))}
-
                         </select>
-
-                    </div>
-
+                    </label>
                 )}
 
-                    <button
-                        type="button"
-                        className="sales-new-sale-button"
-                        onClick={() => navigate("new")}
-                    >
-                        <Plus size={16} />
-                        New Sale
-                    </button>
-
-                </div>
-
-            </header>
-
-
-            {/* SUMMARY */}
-
-            <div className="sales-summary">
-
-                <div className="sales-summary-card">
-
-                    <FileText size={20} />
-
-                    <div>
-
-                        <span>
-                            Store Scope
-                        </span>
-
-                        <strong>
-                            {selectedStore?.storeName ||
-                                user?.storeName ||
-                                "All Stores"}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="sales-summary-card">
-
-                    <div>
-
-                        <span>
-                            Invoices
-                        </span>
-
-                        <strong>
-                            {visibleSales.length}
-                        </strong>
-
-                    </div>
-
-                    <label className="sales-date-filter"><span>From</span><input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => setFromDate(event.target.value)} /></label>
-                    <label className="sales-date-filter"><span>To</span><input type="date" value={toDate} min={fromDate || undefined} onChange={(event) => setToDate(event.target.value)} /></label>
-                    <button type="button" className="sales-refresh-button" onClick={() => { setFromDate(""); setToDate(""); }}>All dates</button>
-
-                </div>
-
-
-                <div className="sales-summary-card">
-
-                    <div>
-
-                        <span>
-                            Sales Value
-                        </span>
-
-                        <strong>
-                            {formatMoney(
-                                totalSalesValue
-                            )}
-                        </strong>
-
-                    </div>
-
-                </div>
-
+                <button
+                    type="button"
+                    className="sales-new-sale-button"
+                    onClick={() => navigate("new")}
+                >
+                    <Plus size={16} />
+                    New Sale
+                </button>
             </div>
+        </div>
 
+        {/* TABLE PANEL */}
+        <div className="sales-panel">
+            {loading ? (
+                <div className="sales-loading">Loading sales invoices...</div>
+            ) : (
+                <SalesInvoiceTable
+                    sales={visibleSales}
+                    isSuperAdmin={isSuperAdmin}
+                    selectedStoreId={selectedStoreId}
+                    onViewInvoice={handleViewInvoice}
+                />
+            )}
+        </div>
 
-            {/* TABLE PANEL */}
-
-            <div className="sales-panel">
-
-                <div className="sales-toolbar">
-
-                    <div className="sales-search">
-
-                        <Search size={17} />
-
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(event) =>
-                                setSearch(
-                                    event.target.value
-                                )
-                            }
-                            placeholder="Search invoice, customer, phone..."
-                        />
-
-                    </div>
-
-
-                    <button
-                        type="button"
-                        className="sales-refresh-button"
-                        onClick={loadSales}
-                        disabled={loading}
-                    >
-
-                        <RefreshCw
-                            size={16}
-                            className={
-                                loading
-                                    ? "sales-spin"
-                                    : ""
-                            }
-                        />
-
-                        Refresh
-
-                    </button>
-
-                </div>
-
-
-                {error && (
-
-                    <div className="sales-error">
-                        {error}
-                    </div>
-
-                )}
-
-
-                {loading ? (
-
-                    <div className="sales-loading">
-                        Loading sales invoices...
-                    </div>
-
-                ) : (
-
-                    <SalesInvoiceTable
-                        sales={visibleSales}
-                        isSuperAdmin={
-                            isSuperAdmin
-                        }
-                        selectedStoreId={
-                            selectedStoreId
-                        }
-                        onViewInvoice={
-                            handleViewInvoice
-                        }
-                    />
-
-                )}
-
-            </div>
-
-        </section>
-
-    );
+    </section>
+);
 
 }
