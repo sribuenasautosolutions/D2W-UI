@@ -4,6 +4,11 @@ import {
     Trash2,
     X,
 } from "lucide-react";
+import {
+    applyProcurementLookup,
+    formatMrp,
+    procurementTotal,
+} from "./procurementUiUtils";
 
 import {
     completeLeadProcurement,
@@ -11,7 +16,15 @@ import {
     addProcurementItem,
     lookupLeadItemProduct,
     saveLeadItemProcurement,
+    deleteLeadProcurementItem,
+    updateLeadStatus,
+    identifyCustomerRequirement,
+    lookupProcurementProduct,
 } from "../../../services/leadService";
+
+import { procurementWork } from "./leadWorkflowUtils";
+
+import ProcurementSourceSelect from "./ProcurementSourceSelect";
 
 import "./LeadProcurementDrawer.css";
 
@@ -81,7 +94,7 @@ function getItemInitialState(item) {
     };
 }
 
-function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
+function LeadProcurementDrawer({ lead, onClose, onUpdated,onToast }) {
     const [loading, setLoading] = useState(true);
     const [savingItemId, setSavingItemId] = useState(null);
     const [completing, setCompleting] = useState(false);
@@ -112,7 +125,7 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
     const [activeEntryTab, setActiveEntryTab] = useState("single");
     const lookupVersions = useRef({});
     const lookupTimers = useRef({});
-    const readOnly = Boolean(procurementLead && procurementLead.status !== "NEW");
+    const readOnly = Boolean(procurementLead && !["NEW", "PROCUREMENT"].includes(procurementLead.status));
 
     useEffect(() => {
         let cancelled = false;
@@ -151,7 +164,7 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                 setProcurementLead(response);
 
                 const drafts = {};
-                const records = response.items || [];
+                const records = procurementWork(response);
                 setItems(records);
                 records.forEach(
                     (item) => {
@@ -164,23 +177,26 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                 setItemDrafts(drafts);
 
                 setSavedItems(Object.fromEntries(records.map(item => [item.id,
-                    Boolean(item.partNumber && item.requestedQuantity > 0 && item.availabilityStatus && item.procurementSource)])));
+                    Boolean(!item.rawRequirement && item.partNumber && item.requestedQuantity > 0 && item.availabilityStatus && item.procurementSource && (!item.customerChange || item.customerChange.processingState === "READY"))])));
                 // Refresh facts without overwriting saved source, availability, quantity or vendor.
                 for (const item of records) {
-                    if (!item.id || !item.partNumber) continue;
+                    if (!item.id || !item.partNumber || item.rawRequirement) continue;
                     const version = (versions[item.id] || 0) + 1;
                     versions[item.id] = version;
                     setLookupLoading(current => ({ ...current, [item.id]: true }));
                     lookupLeadItemProduct(response.id, item.id, item.partNumber).then(result => {
                         if (cancelled || versions[item.id] !== version) return;
                         setLookupResults(current => ({ ...current, [item.id]: result }));
-                        setItemDrafts(current => ({ ...current, [item.id]: {
-                            ...current[item.id], productName: result.productName || current[item.id].productName,
-                            brandName: result.brandname || current[item.id].brandName,
-                            hsnCode: result.hsnCode || current[item.id].hsnCode,
-                            productItemId: result.productItemId ?? null, localProductId: result.localProductId ?? null,
-                            quotedMrp: current[item.id].quotedMrp !== "" ? current[item.id].quotedMrp : result.mrp ?? ""
-                        }}));
+                        setItemDrafts(current => ({
+                            ...current,
+                            [item.id]: {
+                                ...applyProcurementLookup(current[item.id] || {}, result),
+                                quotedMrp:
+                                    current[item.id]?.quotedMrp !== ""
+                                        ? current[item.id].quotedMrp
+                                        : result.mrp ?? "",
+                            },
+                        }));
                     }).catch(error => {
                         if (cancelled || versions[item.id] !== version) return;
                         setLookupErrors(current => ({ ...current, [item.id]: error?.response?.data?.message || error?.response?.data?.error || "Unable to lookup this part number." }));
@@ -258,49 +274,110 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
         if (items.length === 0) return false;
         return items.every((item) => Boolean(savedItems[item?.id]));
     }, [items, savedItems]);
+    
 
     const updateDraft = (itemId, field, value) => {
-        if (field === "partNumber" && Object.entries(draftRef.current).some(([id, draft]) =>
-                id !== String(itemId) && draft.partNumber.trim().toUpperCase() === value.trim().toUpperCase())) {
-            setItemErrors(current => ({ ...current, [itemId]: "This part number is already in Procurement." }));
-            return;
-        }
-        setSavedItems(current => ({ ...current, [itemId]: false }));
-        setItemErrors(current => ({ ...current, [itemId]: "" }));
+    if (field === "sourceSelection") {
+        setSavedItems((current) => ({ ...current, [itemId]: false }));
+        setItemErrors((current) => ({ ...current, [itemId]: "" }));
         setSuccessMessage("");
-        if (field === "partNumber") {
-            lookupVersions.current[itemId] = (lookupVersions.current[itemId] || 0) + 1;
-            clearTimeout(lookupTimers.current[itemId]);
-            setLookupResults(current => ({ ...current, [itemId]: null }));
-            setLookupErrors(current => ({ ...current, [itemId]: "" }));
-            setLookupLoading(current => ({ ...current, [itemId]: Boolean(value.trim()) }));
-            setItemDrafts(current => ({ ...current, [itemId]: {
-                ...current[itemId], partNumber: value, productName: "", brandName: "", hsnCode: "",
-                productItemId: null, localProductId: null, quotedMrp: "", procurementSource: "",
-                availabilityStatus: "", vendorStockItemId: "", estimatedAvailabilityDate: ""
-            }}));
-            if (value.trim()) lookupTimers.current[itemId] = setTimeout(() => {
+        setItemDrafts((current) => ({
+            ...current,
+            [itemId]: {
+                ...current[itemId],
+                procurementSource: value.startsWith("vendor:")
+                    ? "VENDOR"
+                    : value,
+                vendorStockItemId: value.startsWith("vendor:")
+                    ? value.slice(7)
+                    : "",
+            },
+        }));
+        return;
+    }
+    if (
+        field === "partNumber" &&
+        Object.entries(draftRef.current).some(
+            ([id, draft]) =>
+                id !== String(itemId) &&
+                draft.partNumber.trim().toUpperCase() ===
+                    value.trim().toUpperCase()
+        )
+    ) {
+        setItemErrors((current) => ({
+            ...current,
+            [itemId]: "This part number is already in Procurement.",
+        }));
+        return;
+    }
+
+    setSavedItems((current) => ({ ...current, [itemId]: false }));
+    setItemErrors((current) => ({ ...current, [itemId]: "" }));
+    setSuccessMessage("");
+
+    if (field === "partNumber") {
+        lookupVersions.current[itemId] =
+            (lookupVersions.current[itemId] || 0) + 1;
+        clearTimeout(lookupTimers.current[itemId]);
+        setLookupResults((current) => ({ ...current, [itemId]: null }));
+        setLookupErrors((current) => ({ ...current, [itemId]: "" }));
+        setLookupLoading((current) => ({
+            ...current,
+            [itemId]: Boolean(value.trim()),
+        }));
+        setItemDrafts((current) => ({
+            ...current,
+            [itemId]: {
+                ...current[itemId],
+                partNumber: value,
+                productName: "",
+                brandName: "",
+                hsnCode: "",
+                productItemId: null,
+                localProductId: null,
+                quotedMrp: "",
+                procurementSource: "",
+                availabilityStatus: "",
+                vendorStockItemId: "",
+                estimatedAvailabilityDate: "",
+            },
+        }));
+        if (value.trim()) {
+            lookupTimers.current[itemId] = setTimeout(() => {
                 lookupItem({ id: itemId }, value);
             }, 400);
-            return;
         }
-        setItemDrafts(current => ({ ...current, [itemId]: {
-            ...current[itemId], [field]: value,
-            ...(field === "procurementSource" && value !== "VENDOR" ? { vendorStockItemId: "" } : {}),
-            ...(field === "availabilityStatus" && value !== "ESTIMATED" ? { estimatedAvailabilityDate: "" } : {})
-        }}));
-    };
+        return;
+    }
+
+    setItemDrafts((current) => ({
+        ...current,
+        [itemId]: {
+            ...current[itemId],
+            [field]: value,
+            ...(field === "procurementSource" && value !== "VENDOR"
+                ? { vendorStockItemId: "" }
+                : {}),
+            ...(field === "availabilityStatus" && value !== "ESTIMATED"
+                ? { estimatedAvailabilityDate: "" }
+                : {}),
+        },
+    }));
+};
 
     const applyLookupToDraft = (itemId, result) => {
-        setSavedItems(current => ({ ...current, [itemId]: false }));
-        setItemDrafts(current => ({ ...current, [itemId]: {
-            ...current[itemId], productName: result.productName || "", brandName: result.brandname || "",
-            hsnCode: result.hsnCode || "", productItemId: result.productItemId ?? null,
-            localProductId: result.localProductId ?? null,
-            quotedMrp: result.mrp ?? current[itemId]?.quotedMrp ?? ""
-        }}));
-    };
-
+    setSavedItems(current => ({ ...current, [itemId]: false }));
+    setItemDrafts(current => ({
+        ...current,
+        [itemId]: {
+            ...applyProcurementLookup(current[itemId] || {}, result),
+            quotedMrp:
+                current[itemId]?.quotedMrp !== ""
+                    ? current[itemId].quotedMrp
+                    : result.mrp ?? "",
+        },
+    }));
+};
     const getEffectiveLookupResult = (item) =>
         item?.id ? lookupResults[item.id] || null : null;
 
@@ -331,11 +408,10 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
         }));
 
         try {
-            const result = await lookupLeadItemProduct(
-                procurementLead?.id || lead?.id,
-                item.id,
-                partNumber
-            );
+            const raw = items.find(row => row.id === item.id)?.rawRequirement;
+            const result = raw
+                ? await lookupProcurementProduct(procurementLead?.id || lead?.id, partNumber)
+                : await lookupLeadItemProduct(procurementLead?.id || lead?.id, item.id, partNumber);
 
             if (leadSession.current !== session || lookupVersions.current[item.id] !== version) return null;
             setLookupResults((current) => ({
@@ -427,13 +503,9 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
     };
 
     const changeEntry = value => {
-        setEntryPartNumber(value);
-        setErrorMessage("");
-        clearTimeout(entryTimer.current);
-        const version = ++entryVersion.current;
-        setEntryLoading(Boolean(value.trim()));
-        if (value.trim()) entryTimer.current = setTimeout(() => lookupEntry(value, version), 400);
-    };
+    setEntryPartNumber(value);
+    setErrorMessage("");
+};
 
     const handleBulkLookup = async () => {
         const parts = [...new Set(bulkPartsText.split(/[\r\n,]+/).map(part => part.trim().toUpperCase()).filter(Boolean))];
@@ -483,10 +555,11 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
         const validation = validateDraft(draft, lookupResults[item.id]);
         if (validation) {
             setItemErrors(current => ({ ...current, [item.id]: validation }));
+             onToast?.(validation, "error");
             return false;
         }
         try {
-            const response = await saveLeadItemProcurement(procurementLead.id, item.id, {
+            const payload = {
                 partNumber: draft.partNumber.trim(), requestedQuantity: Number(draft.requestedQuantity),
                 productName: draft.productName?.trim() || null, brandName: draft.brandName?.trim() || null,
                 hsnCode: draft.hsnCode?.trim() || null, quotedMrp: draft.quotedMrp === "" ? null : Number(draft.quotedMrp),
@@ -494,11 +567,18 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                 vendorStockItemId: draft.procurementSource === "VENDOR" ? Number(draft.vendorStockItemId) : null,
                 estimatedAvailabilityDate: draft.availabilityStatus === "ESTIMATED" ? draft.estimatedAvailabilityDate : null,
                 notes: draft.notes?.trim() || null
-            });
-            const saved = response.items.find(row => row.id === item.id);
+            };
+            const response = item.rawRequirement
+                ? await identifyCustomerRequirement(procurementLead.id, item.changeId, payload)
+                : await saveLeadItemProcurement(procurementLead.id, item.id, payload);
+            const saved = procurementWork(response).find(row => item.changeId ? row.changeId === item.changeId : row.id === item.id);
+            setProcurementLead(response);
             setItems(current => current.map(row => row.id === item.id ? saved : row));
-            setItemDrafts(current => ({ ...current, [item.id]: getItemInitialState(saved) }));
-            setSavedItems(current => ({ ...current, [item.id]: true }));
+            setItemDrafts(current => {
+                const next = { ...current }; delete next[item.id];
+                return { ...next, [saved.id]: getItemInitialState(saved) };
+            });
+            setSavedItems(current => ({ ...current, [saved.id]: true }));
             setItemErrors(current => ({ ...current, [item.id]: "" }));
             return true;
         } catch (error) {
@@ -507,61 +587,166 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
         }
     };
 
-    const handleSaveAll = async () => {
-        setSavingItemId("ALL");
-        setSuccessMessage("");
-        try {
-            let success = true;
-            for (const item of items) if (!await saveItem(item)) success = false;
-            if (success) setSuccessMessage("All procurement items saved successfully.");
-        } finally { setSavingItemId(null); }
-    };
+   const handleSaveAll = async () => {
+    setSavingItemId("ALL");
+    setSuccessMessage("");
+    try {
+        let success = true;
+        for (const item of items) {
+            if (!(await saveItem(item))) success = false;
+        }
 
-    const handleCompleteProcurement = async () => {
-        setErrorMessage("");
-        setSuccessMessage("");
-
-        if (!allItemsSaved || creatingItems > 0 || entryLoading || bulkLoading || entryPartNumber.trim() || bulkPartsText.trim()) {
-            setErrorMessage(
-                "Save procurement details for every item before completing procurement."
-            );
+        if (!success) {
+            setErrorMessage("Please fix the highlighted rows.");
+            onToast?.("Please fix the highlighted rows.", "error");
             return;
         }
 
-        setCompleting(true);
+        setSuccessMessage("Procurement saved.");
 
-        try {
-            const response =
-                await completeLeadProcurement(
-                    procurementLead?.id || lead?.id
+        // NEW → PROCUREMENT transition
+        if (procurementLead?.status === "NEW" && items.length > 0) {
+            try {
+                await updateLeadStatus(procurementLead.id, "PROCUREMENT");
+                onToast?.(
+                    `${leadNumber} added to Procurement`,
+                    "success"
                 );
-
-            if (response) {
-                setProcurementLead(response);
-                onUpdated?.(response);
-                const refreshed = await getLeadById(response.id);
-                setProcurementLead(refreshed);
-                onUpdated?.(refreshed);
+            } catch (err) {
+                console.warn("Unable to move lead to PROCUREMENT:", err);
+                onToast?.(
+                    "Saved, but unable to move lead to Procurement.",
+                    "error"
+                );
             }
-
-            setSuccessMessage(
-                "Procurement completed successfully."
-            );
-        } catch (error) {
-            console.error(
-                "Unable to complete procurement:",
-                error
-            );
-
-            setErrorMessage(
-                error?.response?.data?.message ||
-                    error?.response?.data?.error ||
-                    "Unable to complete procurement."
-            );
-        } finally {
-            setCompleting(false);
+        } else {
+            onToast?.("Procurement saved.", "success");
         }
-    };
+
+        onUpdated?.();
+        onClose?.();
+    } catch (err) {
+        onToast?.("Unexpected error while saving.", "error");
+    } finally {
+        setSavingItemId(null);
+    }
+};
+const deleteItem = async (item) => {
+    if (!item?.id || item.rawRequirement) return;
+    if (savingItemId !== null || completing) return;
+    if (
+        !window.confirm(
+            `Remove ${item.partNumber || "this item"} from Procurement?`
+        )
+    )
+        return;
+
+    setSavingItemId(item.id);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+        const response = await deleteLeadProcurementItem(
+            procurementLead?.id || lead?.id,
+            item.id
+        );
+
+        const records = procurementWork(response);
+        setProcurementLead(response);
+        setItems(records);
+        setItemDrafts((current) =>
+            Object.fromEntries(
+                records.map((row) => [
+                    row.id,
+                    current[row.id] || getItemInitialState(row),
+                ])
+            )
+        );
+        setSavedItems((current) =>
+            Object.fromEntries(
+                records.map((row) => [
+                    row.id,
+                    current[row.id] ??
+                        Boolean(
+                            row.requestedQuantity > 0 &&
+                                row.availabilityStatus &&
+                                row.procurementSource
+                        ),
+                ])
+            )
+        );
+        lookupVersions.current[item.id] =
+            (lookupVersions.current[item.id] || 0) + 1;
+        clearTimeout(lookupTimers.current[item.id]);
+
+        onUpdated?.(response);
+        setSuccessMessage("Procurement item deleted.");
+        onToast?.(
+            `${item.partNumber || "Item"} removed from Procurement`,
+            "success"
+        );
+    } catch (error) {
+        const msg =
+            error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            "Unable to delete this item.";
+        setErrorMessage(msg);
+        onToast?.(msg, "error");
+    } finally {
+        setSavingItemId(null);
+    }
+};
+    const handleCompleteProcurement = async () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (
+        !allItemsSaved ||
+        creatingItems > 0 ||
+        entryLoading ||
+        bulkLoading ||
+        entryPartNumber.trim() ||
+        bulkPartsText.trim()
+    ) {
+        setErrorMessage(
+            "Save procurement details for every item before completing procurement."
+        );
+        onToast?.("Save every item before completing procurement.", "error");
+        return;
+    }
+
+    setCompleting(true);
+
+    try {
+        const response = await completeLeadProcurement(
+            procurementLead?.id || lead?.id
+        );
+
+        if (response) {
+            setProcurementLead(response);
+            onUpdated?.(response);
+            const refreshed = await getLeadById(response.id);
+            setProcurementLead(refreshed);
+            onUpdated?.(refreshed);
+        }
+
+        setSuccessMessage("Procurement completed successfully.");
+        onToast?.(
+            `${leadNumber} moved to Customer Follow-up`,
+            "success"
+        );
+    } catch (error) {
+        console.error("Unable to complete procurement:", error);
+        const msg =
+            error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            "Unable to complete procurement.";
+        setErrorMessage(msg);
+        onToast?.(msg, "error");
+    } finally {
+        setCompleting(false);
+    }
+};
 
     const renderEditableRow = (item, index) => {
         const itemId = item?.id;
@@ -633,6 +818,7 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                 </td>
 
                 <td className="procurement-table-name">
+                    
                     {productFound ? (
                         <strong>
                             {lookupResult?.productName ||
@@ -653,12 +839,6 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                             }
                             placeholder="New product name"
                         />
-                    )}
-
-                    {!productFound && lookupResult && (
-                        <span className="procurement-new-label">
-                            New product
-                        </span>
                     )}
                 </td>
 
@@ -688,27 +868,17 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                         onChange={event => updateDraft(itemId, "requestedQuantity", event.target.value)} />
                 </td>
                 <td className="procurement-table-source">
-                    <select className="procurement-table-subselect" aria-label={`Source ${index+1}`}
-                        value={draft.procurementSource}
-                        onChange={event => updateDraft(itemId, "procurementSource", event.target.value)}>
-                        <option value="">Select source</option>
-                        <option value="LOCAL">D2W</option>
-                        <option value="VENDOR">Vendor</option>
-                        <option value="NEW">New</option>
-                        <option value="NOT_AVAILABLE">Not Available</option>
-                    </select>
-                    {lookupResult && <span className="procurement-muted">D2W Stock: {availableQuantity} · Reserved: {lookupResult.reservedQuantity ?? 0}</span>}
-                    {draft.procurementSource === "VENDOR" && <select className="procurement-table-subselect"
-                        aria-label={`Vendor ${index+1}`} value={draft.vendorStockItemId}
-                        onChange={event => updateDraft(itemId,"vendorStockItemId",event.target.value)}>
-                        <option value="">Select vendor</option>
-                        {item.selectedVendorStockItemId && item.selectedVendorName &&
-                            !vendorOptions.some(vendor => String(getVendorStockItemId(vendor)) === String(item.selectedVendorStockItemId)) &&
-                            <option value={item.selectedVendorStockItemId}>{item.selectedVendorName} — Saved availability: {item.vendorAvailableQuantity ?? 0}</option>}
-                        {vendorOptions.map(vendor => <option key={getVendorStockItemId(vendor)}
-                            value={getVendorStockItemId(vendor)}>{getVendorName(vendor)} — Available: {getVendorQuantity(vendor)}</option>)}
-                    </select>}
+                    <ProcurementSourceSelect
+                        draft={draft}
+                        vendors={vendorOptions}
+                        savedVendorName={item.selectedVendorName}
+                        index={index}
+                        onChange={(value) =>
+                            updateDraft(itemId, "sourceSelection", value)
+                        }
+                    />
                 </td>
+                 
 
                 <td className="procurement-table-availability">
                     <select
@@ -765,8 +935,18 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                         </span>
                     )}
                 </td>
-                <td><button type="button" className="procurement-table-remove" aria-label={`Remove row ${index + 1}`}
-                    title="Persisted LeadItems cannot be removed" disabled><Trash2 size={16} /></button></td>
+                <td className="procurement-table-actions-cell">
+                    <button
+                        type="button"
+                        className="procurement-table-remove"
+                        aria-label={`Remove row ${index + 1}`}
+                        title="Remove item"
+                        disabled={savingItemId !== null || completing || item.rawRequirement}
+                        onClick={() => deleteItem(item)}
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                </td>
             </tr>
         );
     };
@@ -857,6 +1037,17 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                     </div>
                 </section>
 
+                {(procurementLead?.customerChanges || []).some(change => change.processingState !== "COMPLETED") &&
+                  <section className="procurement-requirement-panel" style={{ background: "#fff8e7", border: "1px solid #e7bd57" }}>
+                    <div className="procurement-panel-label">New / Changed Customer Requirements</div>
+                    {(procurementLead.customerChanges || []).filter(change => change.processingState !== "COMPLETED").map(change => {
+                      const item = (procurementLead.items || []).find(row => row.id === change.itemId);
+                      return <div key={change.id} className="procurement-requirement-text">
+                        <strong>{change.requestedRequirement || item?.requirement || item?.productName || item?.partNumber}</strong>
+                        <div>Requested quantity: {change.requestedQuantity}</div><div>{change.reason}</div>
+                      </div>;
+                    })}
+                  </section>}
                 <section className="procurement-entry-panel">
     <div className="procurement-entry-row-top">
         {activeEntryTab === "single" && (
@@ -964,9 +1155,7 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                     <div className="procurement-table-heading">
                         <div>
                             <h3>Procurement Items</h3>
-                            <span>
-                                Review stock facts, then choose source, availability and a vendor when needed.
-                            </span>
+                            
                         </div>
 
                         <span className="procurement-table-count">
@@ -1064,7 +1253,7 @@ function LeadProcurementDrawer({ lead, onClose, onUpdated }) {
                 >
                     {completing
                         ? "Completing..."
-                        : "Complete Procurement"}
+                        : "Move to FollowUp"}
                 </button>
             </footer>
         </div>

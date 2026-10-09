@@ -760,6 +760,7 @@ export default function LeadCreate({
         try {
             const result = await createLead(payload);
             setCreatedLead(result);
+            onSaved?.(result);
         } catch (error) {
             console.error(
                 "Unable to create lead:",
@@ -1277,7 +1278,7 @@ export default function LeadCreate({
                                         ? "/owner/sales"
                                         : "/store/sales";
                                     navigate(
-                                        `${base}/leads/${createdLead.id}`
+                                        `${base}/leads/${createdLead.id}?view=readonly`
                                     );
                                 }}
                             >

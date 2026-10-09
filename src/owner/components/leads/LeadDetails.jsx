@@ -3,13 +3,13 @@ import { Link, useLocation, useParams } from "react-router-dom";
 
 import {
   getLeadById,
+  getLeadEstimations,
+  getLeadFollowUpActivities,
   lookupLeadItemProduct,
   saveLeadItemProcurement,
   completeLeadProcurement,
   reopenLeadProcurement,
   saveLeadProcurementTable,
-  createLeadProforma,
-  getLeadProforma,
   markLeadLost,
   updateLead,
 } from "../../../services/leadService";
@@ -150,6 +150,10 @@ const validate = (row) => {
 export default function LeadDetails() {
  const { id } = useParams();
   const location = useLocation();
+  const viewOnly = new URLSearchParams(location.search).get("view") === "readonly";
+  const [followUpHistory, setFollowUpHistory] = useState([]);
+  const [estimations, setEstimations] = useState([]);
+  const [historyError, setHistoryError] = useState("");
   const leadsPath = location.pathname.startsWith("/owner/")
   ? "/owner/sales/leads"
   : "/store/sales/leads";
@@ -194,8 +198,6 @@ export default function LeadDetails() {
   const [procurementError, setProcurementError] = useState("");
   const [procurementSuccess, setProcurementSuccess] = useState("");
 
-  const [proforma, setProforma] = useState(null);
-  const [proformaLoading, setProformaLoading] = useState(false);
 
   const [lostReason, setLostReason] = useState("");
 
@@ -218,11 +220,11 @@ export default function LeadDetails() {
     status === "PROCUREMENT_COMPLETED";
 
   const editableLead =
-    status === "NEW";
+    status === "NEW" && !viewOnly;
 
 
   const readOnlyProcurement =
-    closed ||
+    viewOnly || closed ||
     completed;
 
 
@@ -238,7 +240,7 @@ export default function LeadDetails() {
   }
 
   loadLead();
-}, [id]);
+}, [id, viewOnly]);
 
 
   const loadLead = async () => {
@@ -249,6 +251,13 @@ export default function LeadDetails() {
       const data = await getLeadById(id);
 
       setLead(data);
+      if (viewOnly) {
+        try {
+          const [activities, documents] = await Promise.all([getLeadFollowUpActivities(id), getLeadEstimations(id)]);
+          setFollowUpHistory(activities); setEstimations(documents);
+        }
+        catch (historyFailure) { setFollowUpHistory([]); setHistoryError(errorText(historyFailure)); }
+      }
 
       /*
        * IMPORTANT:
@@ -308,14 +317,6 @@ export default function LeadDetails() {
         }
       }
 
-      try {
-        const existingProforma =
-          await getLeadProforma(id);
-
-        setProforma(existingProforma);
-      } catch {
-        setProforma(null);
-      }
 
     } catch (err) {
       setError(errorText(err));
@@ -825,32 +826,7 @@ export default function LeadDetails() {
       }
     };
 
-
-  /* =====================================================
-     CREATE PROFORMA
-  ===================================================== */
-
-  const createOffer = async () => {
-    try {
-      setProformaLoading(true);
-      setProcurementError("");
-
-      const result =
-        await createLeadProforma(
-          lead.id
-        );
-
-      setProforma(result);
-
-    } catch (err) {
-      setProcurementError(
-        errorText(err)
-      );
-    } finally {
-      setProformaLoading(false);
-    }
-  };
-
+ 
 
   /* =====================================================
      MARK LOST
@@ -1000,7 +976,7 @@ export default function LeadDetails() {
           )}
 
 
-          {completed && (
+          {completed && !viewOnly && (
             <button
               type="button"
               className="lead-secondary-button"
@@ -1046,6 +1022,15 @@ export default function LeadDetails() {
         </div>
       )}
 
+
+      {viewOnly && <section className="lead-card">
+        <h2>Follow-up and Estimation</h2>
+        <p>Latest estimation date: {lead.estimationDate || "Not generated"}</p>
+        {estimations.map(document => <p key={document.id}>Estimation #{document.id} · {document.estimationDate} · {document.items.length} items · ₹{document.totalMrp} · {document.showPartNumber ? "Full part numbers" : "Masked part numbers"}</p>)}
+        {historyError ? <p>Unable to load follow-up history: {historyError}</p> : followUpHistory.length ? followUpHistory.map(activity => <p key={activity.id}>
+          {activity.createdByName || "Staff"} · {activity.createdAt || ""} · {activity.customerResponseReason} · Next follow-up: {activity.nextFollowUpAt || "—"}
+        </p>) : <p>No follow-up activities recorded.</p>}
+      </section>}
 
       {/* =================================================
           LEAD SUMMARY
@@ -1446,23 +1431,6 @@ export default function LeadDetails() {
                 Save Table
               </button>
             )}
-
-            {!readOnlyProcurement && (
-              <button
-                type="button"
-                className="lead-primary-button"
-                onClick={createOffer}
-                disabled={
-                  busy ||
-                  proformaLoading
-                }
-              >
-                {proformaLoading
-                  ? "Creating..."
-                  : "Create Proforma"}
-              </button>
-            )}
-
           </div>
 
         </div>
@@ -1508,55 +1476,10 @@ export default function LeadDetails() {
 
 
       {/* =================================================
-          PROFORMA
-      ================================================= */}
-
-      {proforma && (
-        <section className="lead-card">
-
-          <div className="lead-card-header">
-            <div>
-              <h2>
-                Proforma Invoice
-              </h2>
-            </div>
-          </div>
-
-          <div className="lead-proforma-box">
-
-            <div>
-              <strong>
-                Proforma Number
-              </strong>
-
-              <span>
-                {proforma.proformaNumber ||
-                  proforma.invoiceNumber ||
-                  "—"}
-              </span>
-            </div>
-
-            <div>
-              <strong>
-                Status
-              </strong>
-
-              <span>
-                {proforma.status || "—"}
-              </span>
-            </div>
-
-          </div>
-
-        </section>
-      )}
-
-
-      {/* =================================================
           LOST LEAD
       ================================================= */}
 
-      {!closed &&
+      {!viewOnly && !closed &&
         !completed &&
         (
           <section className="lead-card lead-lost-section">
