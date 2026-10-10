@@ -28,8 +28,6 @@ function DashboardLayout({ children }) {
                     overflow: "hidden",
                     background: "#FFFFFF",
                     color: "#0F172A",
-                    fontFamily:
-                        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif",
                 }}
             >
                 <Sidebar />
@@ -47,7 +45,7 @@ function DashboardLayout({ children }) {
                         style={{
                             height: "100vh",
                             width: "100%",
-                            padding: 0,           /* ← was 12px 16px 16px */
+                            padding: "24px 28px",
                             margin: 0,
                             overflow: "auto",
                             boxSizing: "border-box",

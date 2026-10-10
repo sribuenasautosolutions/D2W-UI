@@ -1225,24 +1225,29 @@ export default function CurrentStockSection() {
           {/* Left side: scrollable list */}
           <aside className="stock-browser">
             <div className="stock-list-scroll">
-              {result.content.map((item) => {
-                const itemStatus = statusOf(item);
-
-                return (
-                  <button
-                    type="button"
-                    key={item.inventoryId}
-                    className={`stock-list-row ${
-                      selectedId === item.inventoryId
-                        ? "selected"
-                        : ""
-                    }`}
-                    onClick={() => {
-                      setSelectedId(item.inventoryId);
-                      setDetails(null);
-                      setTab("overview");
-                    }}
-                  >
+             {[...result.content]
+    .sort((a, b) => {
+        // Selected row always first
+        if (a.inventoryId === selectedId) return -1;
+        if (b.inventoryId === selectedId) return 1;
+        // Otherwise preserve server order
+        return 0;
+    })
+    .map((item) => {
+        const itemStatus = statusOf(item);
+        const isSelected = selectedId === item.inventoryId;
+        return (
+            <button
+                type="button"
+                key={item.inventoryId}
+                data-inventory-id={item.inventoryId}
+                className={`stock-list-row ${isSelected ? "selected" : ""}`}
+                onClick={() => {
+                    setSelectedId(item.inventoryId);
+                    setDetails(null);
+                    setTab("overview");
+                }}
+            >
                     <span className="stock-row-icon">
                       <Boxes size={18} />
                     </span>

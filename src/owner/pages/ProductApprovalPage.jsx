@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
     Search, Bell, ChevronDown, ChevronRight, Boxes,
+    CheckCircle2, AlertCircle, X,
 } from "lucide-react";
 
 import PendingApprovalSection from "../../owner/components/productreqest/PendingApprovalSection";
@@ -24,8 +25,21 @@ function ProductApprovalPage() {
     const [reviewData, setReviewData] = useState(null);
     const [refreshSignal, setRefreshSignal] = useState(0);
     const [searchQuery, setSearchQuery] = useState("");
-    console.log("[ProductApprovalPage] searchQuery:", searchQuery);
     const [profileOpen, setProfileOpen] = useState(false);
+
+    /* ================= TOASTS ================= */
+    const [toasts, setToasts] = useState([]);
+
+    const pushToast = (message, type = "success") => {
+        const id = Date.now() + Math.random();
+        setToasts((c) => [...c, { id, message, type }]);
+        setTimeout(() => {
+            setToasts((c) => c.filter((t) => t.id !== id));
+        }, 3200);
+    };
+
+    const removeToast = (id) =>
+        setToasts((c) => c.filter((t) => t.id !== id));
 
     const isDrawerOpen = !!selectedApproval;
 
@@ -54,14 +68,30 @@ function ProductApprovalPage() {
 
     /* Visible steps depend on what the backend allows */
     const visibleSteps = (() => {
-        if (reviewData?.canMerge && !reviewData?.canCreate) {
-            return [{ id: "merge", label: "Merge Product", num: "01" }];
-        }
+    const canCreate = !!reviewData?.canCreate;
+    const canMerge  = !!reviewData?.canMerge;
+
+    // Only merge is possible → show only Merge as step 01
+    if (canMerge && !canCreate) {
+        return [{ id: "merge", label: "Merge Product", num: "01" }];
+    }
+
+    // Only create is possible → show only Create as step 01
+    if (canCreate && !canMerge) {
+        return [{ id: "create", label: "Create Product", num: "01" }];
+    }
+
+    // Both possible (rare) → show both in workflow order
+    if (canCreate && canMerge) {
         return [
             { id: "create", label: "Create Product", num: "01" },
             { id: "merge",  label: "Merge Product",  num: "02" },
         ];
-    })();
+    }
+
+    // Neither — still loading reviewData → show nothing
+    return [];
+})();
 
     const isStepUnlocked = (id) => {
         switch (id) {
@@ -82,15 +112,18 @@ function ProductApprovalPage() {
         setActiveStep("create");
     };
 
-    /* After Approve → refetch review so Merge appears */
-    const handleApproved = () => {
-        setReviewData(null);
-    };
-
-    /* After Merge → close drawer + refresh list */
-    const handleWorkflowComplete = () => {
+    /* ================= WORKFLOW COMPLETE =================
+       Used by BOTH Create and Merge paths.
+       - closes the drawer
+       - bumps refreshSignal → PendingApprovalSection refetches
+         (the approved item disappears from the queue, the new
+         product appears in the global catalogue on next load)
+       - fires a success toast
+    ===================================================== */
+    const handleWorkflowComplete = (message = "Product approved and added to catalogue.") => {
         closeDrawer();
         setRefreshSignal((c) => c + 1);
+        pushToast(message, "success");
     };
 
     return (
@@ -113,10 +146,7 @@ function ProductApprovalPage() {
                             type="text"
                             placeholder="Search pending products..."
                             value={searchQuery}
-                            onChange={(e) => {
-                                console.log("🟢 INPUT FIRED:", e.target.value);
-                                setSearchQuery(e.target.value);
-                            }}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
 
@@ -235,7 +265,12 @@ function ProductApprovalPage() {
                                 <ProductSection
                                     reviewData={reviewData}
                                     selectedApproval={selectedApproval}
-                                    onApproved={handleApproved}
+                                    onApproved={() =>
+                                        handleWorkflowComplete(
+                                            `${selectedApproval?.productName || "Product"} approved and added to catalogue.`
+                                        )
+                                    }
+                                    onToast={pushToast}
                                 />
                             )}
 
@@ -243,7 +278,12 @@ function ProductApprovalPage() {
                                 <MergeSection
                                     reviewData={reviewData}
                                     selectedApproval={selectedApproval}
-                                    onMerged={handleWorkflowComplete}
+                                    onMerged={() =>
+                                        handleWorkflowComplete(
+                                            `${selectedApproval?.productName || "Product"} merged successfully.`
+                                        )
+                                    }
+                                    onToast={pushToast}
                                 />
                             )}
                         </div>
@@ -261,6 +301,33 @@ function ProductApprovalPage() {
                     </aside>
                 </div>
             )}
+
+            {/* ==============================
+                TOAST STACK
+                ============================== */}
+            <div className="pa-toast-stack" aria-live="polite">
+                {toasts.map((t) => (
+                    <div
+                        key={t.id}
+                        className={`pa-toast pa-toast--${t.type}`}
+                        role="status"
+                    >
+                        {t.type === "success" ? (
+                            <CheckCircle2 size={16} />
+                        ) : (
+                            <AlertCircle size={16} />
+                        )}
+                        <span>{t.message}</span>
+                        <button
+                            type="button"
+                            onClick={() => removeToast(t.id)}
+                            aria-label="Dismiss"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
