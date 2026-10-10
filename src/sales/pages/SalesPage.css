@@ -5,8 +5,7 @@
 html, body, #root {
     background: #ffffff;
     color: #0f172a;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-        Roboto, sans-serif;
+    
     -webkit-font-smoothing: antialiased;
 }
 
@@ -29,9 +28,9 @@ h1, h2, h3, h4, h5, h6, strong, b {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: var(--sp-5);
     height: 52px;
-    padding: 0 24px;
+    padding: 0 var(--sp-6);
     background: #ffffff;
     box-shadow: 0 4px 12px -6px rgba(15, 23, 42, 0.12);
     border-bottom: 1px solid #eef0f3;
@@ -48,7 +47,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 .sales-navbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--sp-3);
 }
 
 .sales-search {
@@ -56,8 +55,8 @@ h1, h2, h3, h4, h5, h6, strong, b {
     height: 34px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 14px;
+    gap: var(--sp-2);
+    padding: 0 var(--sp-4);
     border: 1px solid transparent;
     border-radius: 999px;
     background: #f1f3f7;
@@ -115,9 +114,9 @@ h1, h2, h3, h4, h5, h6, strong, b {
 .sales-profile {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     height: 34px;
-    padding: 0 8px 0 3px;
+    padding: 0 var(--sp-2) 0 3px;
     border: 0;
     border-radius: 999px;
     background: transparent;
@@ -153,17 +152,17 @@ h1, h2, h3, h4, h5, h6, strong, b {
 .sales-kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    padding: 18px 24px 0;
+    gap: var(--sp-3);
+    padding: var(--sp-5) var(--sp-6) 0;
 }
 
 .sales-kpi {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 4px;
+    gap: var(--sp-1);
     min-height: 76px;
-    padding: 14px 18px;
+    padding: var(--sp-4) var(--sp-5);
     border: 1px solid #e6e9ee;
     border-radius: 12px;
     background: #ffffff;
@@ -195,7 +194,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 .sales-kpi-wide .sales-kpi-value { font-size: 22px; }
 
 .sales-kpi-track {
-    margin-top: 6px;
+    margin-top: var(--sp-2);
     width: 100%;
     height: 5px;
     border-radius: 999px;
@@ -217,21 +216,21 @@ h1, h2, h3, h4, h5, h6, strong, b {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: var(--sp-4);
     flex-wrap: wrap;
-    padding: 14px 24px 16px;
+    padding: var(--sp-4) var(--sp-6) var(--sp-4);
 }
 
 .sales-filter-dates {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
 }
 
 .sales-filterbar-right {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
 }
 
 /* Shared field style — inputs, selects all look the same */
@@ -239,9 +238,9 @@ h1, h2, h3, h4, h5, h6, strong, b {
 .sales-field {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     height: 40px;
-    padding: 0 12px;
+    padding: 0 var(--sp-3);
     border: 1px solid #e6e9ee;
     border-radius: 10px;
     background: #ffffff;
@@ -281,7 +280,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 
 .sales-clear-btn {
     height: 40px;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     border: 1px solid #d8dce3;
     border-radius: 10px;
     background: #ffffff;
@@ -304,8 +303,8 @@ h1, h2, h3, h4, h5, h6, strong, b {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 0 16px;
+    gap: var(--sp-2);
+    padding: 0 var(--sp-4);
     border: 0;
     border-radius: 10px;
     background: #2458d6;
@@ -329,7 +328,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 /* ============================== TABLE PANEL ============================== */
 
 .sales-panel {
-    margin: 0 24px 24px;
+    margin: 0 var(--sp-6) var(--sp-6);
     border: 1px solid #e6e9ee;
     border-radius: 12px;
     background: #ffffff;
@@ -337,7 +336,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 }
 
 .sales-loading {
-    padding: 48px;
+    padding: var(--sp-9);
     text-align: center;
     font-size: 13.5px;
     font-weight: 500;
@@ -358,7 +357,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 }
 
 .sales-invoice-table th {
-    padding: 12px 16px;
+    padding: var(--sp-3) var(--sp-4);
     text-align: left;
     font-size: 11px;
     font-weight: 700;
@@ -371,7 +370,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 }
 
 .sales-invoice-table td {
-    padding: 14px 16px;
+    padding: var(--sp-4) var(--sp-4);
     font-size: 13px;
     font-weight: 500;
     color: #000000;
@@ -436,7 +435,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 .sales-payment-badge {
     display: inline-flex;
     align-items: center;
-    padding: 5px 10px;
+    padding: var(--sp-1) var(--sp-3);
     border-radius: 999px;
     background: #eef3ff;
     color: #2458d6;
@@ -469,7 +468,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 }
 
 .sales-empty-row {
-    padding: 64px 24px !important;
+    padding: var(--sp-10) var(--sp-6) !important;
     text-align: center;
     font-size: 13.5px;
     font-weight: 500;
@@ -483,17 +482,17 @@ h1, h2, h3, h4, h5, h6, strong, b {
 }
 
 @media (max-width: 900px) {
-    .sales-navbar { height: auto; padding: 12px 16px; flex-wrap: wrap; }
+    .sales-navbar { height: auto; padding: var(--sp-3) var(--sp-4); flex-wrap: wrap; }
     .sales-navbar-right { width: 100%; }
     .sales-search { flex: 1; width: auto; }
     .sales-profile-name { display: none; }
 
-    .sales-kpis { grid-template-columns: 1fr; padding: 14px 16px 0; }
+    .sales-kpis { grid-template-columns: 1fr; padding: var(--sp-4) var(--sp-4) 0; }
 
     .sales-filterbar {
         flex-direction: column;
         align-items: stretch;
-        padding: 12px 16px 14px;
+        padding: var(--sp-3) var(--sp-4) var(--sp-4);
     }
     .sales-filter-dates,
     .sales-filterbar-right { width: 100%; }
@@ -502,15 +501,15 @@ h1, h2, h3, h4, h5, h6, strong, b {
     .sales-clear-btn,
     .sales-new-sale-button { flex: 1 1 auto; }
 
-    .sales-panel { margin: 0 16px 16px; }
+    .sales-panel { margin: 0 var(--sp-4) var(--sp-4); }
 }
 /* ============================== KPI CARDS ============================== */
 
 .sales-kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-    padding: 14px 20px 0;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5) 0;
 }
 
 .sales-kpi {
@@ -518,8 +517,8 @@ h1, h2, h3, h4, h5, h6, strong, b {
     display: flex;
     flex-direction: row;               /* horizontal layout */
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
     border: 1px solid var(--accent-border, #dbe4f3);
     border-radius: 12px;
     background: var(--accent-bg, #f4f8ff); /* light tinted background */
@@ -590,7 +589,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 /* Progress bar (only on the wide revenue card) */
 
 .sales-kpi-track {
-    margin-top: 6px;
+    margin-top: var(--sp-2);
     width: 100%;
     height: 4px;
     border-radius: 999px;

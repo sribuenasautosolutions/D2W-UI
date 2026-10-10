@@ -4,4 +4,4 @@
 
 .vc-shell { scroll-behavior: smooth; }
 
-#makes.vc-section { scroll-margin-top: 24px; }
+#makes.vc-section { scroll-margin-top: var(--sp-6); }

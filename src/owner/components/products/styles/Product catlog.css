@@ -42,14 +42,14 @@
 }
 
 .pc-header {
-  margin-bottom: 20px;
+  margin-bottom: var(--sp-5);
 }
 
 .pc-header-title {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.3px;
-  margin: 0 0 4px 0;
+  margin: 0 0 var(--sp-1) 0;
 }
 
 .pc-header-sub {
@@ -61,7 +61,7 @@
 .pc-grid {
   display: grid;
   grid-template-columns: 380px 1fr;
-  gap: 20px;
+  gap: var(--sp-5);
   align-items: start;
 }
 
@@ -74,24 +74,24 @@
   border: 1px solid var(--pc-border);
   border-radius: var(--pc-radius-lg);
   box-shadow: var(--pc-shadow);
-  padding: 20px;
+  padding: var(--sp-5);
 }
 
 .pc-panel + .pc-panel {
-  margin-top: 20px;
+  margin-top: var(--sp-5);
 }
 
 .pc-panel-title {
   font-size: 15px;
   font-weight: 700;
-  margin: 0 0 16px 0;
+  margin: 0 0 var(--sp-4) 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .pc-field {
-  margin-bottom: 14px;
+  margin-bottom: var(--sp-4);
 }
 
 .pc-label {
@@ -99,14 +99,14 @@
   font-size: 12.5px;
   font-weight: 600;
   color: var(--pc-text-soft);
-  margin-bottom: 6px;
+  margin-bottom: var(--sp-2);
 }
 
 .pc-input,
 .pc-select,
 .pc-textarea {
   width: 100%;
-  padding: 9px 12px;
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--pc-radius-sm);
   border: 1px solid var(--pc-border);
   background: var(--pc-card);
@@ -133,11 +133,11 @@
 .pc-checkbox-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   font-size: 13px;
   color: var(--pc-text-soft);
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-3);
   cursor: pointer;
 }
 
@@ -151,8 +151,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 10px 16px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
   border-radius: var(--pc-radius-sm);
   font-size: 13.5px;
   font-weight: 600;
@@ -187,19 +187,19 @@
 .pc-divider {
   border: none;
   border-top: 1px solid var(--pc-border-soft);
-  margin: 18px 0;
+  margin: var(--sp-5) 0;
 }
 
 .pc-file-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3);
   border: 1px dashed var(--pc-border);
   border-radius: var(--pc-radius-sm);
   font-size: 12.5px;
   color: var(--pc-text-soft);
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
   background: #FBFCFE;
 }
 
@@ -209,8 +209,8 @@
 }
 
 .pc-banner {
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-3);
   border-radius: var(--pc-radius-sm);
   font-size: 12.5px;
   font-weight: 600;
@@ -230,13 +230,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: var(--sp-4);
 }
 
 .pc-count-badge {
   font-size: 11.5px;
   font-weight: 700;
-  padding: 3px 10px;
+  padding: 3px var(--sp-3);
   border-radius: 999px;
   background: var(--pc-primary-soft);
   color: var(--pc-primary-dark);
@@ -245,13 +245,13 @@
 .pc-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .pc-card {
   border: 1px solid var(--pc-border);
   border-radius: var(--pc-radius-md);
-  padding: 14px;
+  padding: var(--sp-4);
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -264,7 +264,7 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--pc-text);
-  margin: 0 0 6px 0;
+  margin: 0 0 var(--sp-2) 0;
 }
 
 .pc-card-row {
@@ -281,13 +281,13 @@
 .pc-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  margin-top: 8px;
-  margin-right: 6px;
+  margin-top: var(--sp-2);
+  margin-right: var(--sp-2);
 }
 
 .pc-tag.on { background: var(--pc-success-bg); color: var(--pc-success); }
@@ -296,7 +296,7 @@
 
 .pc-empty {
   text-align: center;
-  padding: 40px 16px;
+  padding: var(--sp-8) var(--sp-4);
   color: var(--pc-text-faint);
   font-size: 13px;
 }
@@ -304,7 +304,7 @@
 .pc-skeleton {
   color: var(--pc-text-faint);
   font-size: 13px;
-  padding: 20px;
+  padding: var(--sp-5);
   text-align: center;
 }
 

@@ -19,12 +19,11 @@
 
     width: 100%;
     min-height: 100%;
-    padding: 15px 20px 24px;                /* no top gap */
+    /* padding: var(--sp-4) var(--sp-5) var(--sp-6);                 */
     background: #ffffff;
     color: var(--text);
 
-    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    
     font-size: 14px;
     line-height: 1.45;
     box-sizing: border-box;
@@ -51,8 +50,7 @@
 .lead-drawer *,
 .lead-create-page,
 .lead-create-page * {
-    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto,
-        Helvetica, Arial, sans-serif;
+    
 }
 
 /* ==========================================================================
@@ -62,9 +60,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--sp-3);
     margin-top: 0;
-    margin-bottom: 14px;
+    margin-bottom: var(--sp-4);
     padding-top: 0;
     flex-wrap: wrap;
 }
@@ -81,15 +79,15 @@
 .lead-header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
 }
 
 .lead-new-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
     height: 36px;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     background: var(--blue);
     color: #ffffff;
     border: 1px solid var(--blue);
@@ -110,15 +108,15 @@
 .lead-kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
 }
 
 .lead-kpi-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
     border: 1px solid var(--border);
     border-left: 3px solid var(--border-strong);
     border-radius: var(--radius);
@@ -223,10 +221,10 @@
 .lead-toolbar {
     display: grid;
     grid-template-columns: minmax(200px, 1fr) auto auto auto auto auto;
-    gap: 8px;
+    gap: var(--sp-2);
     align-items: center;
-    margin-bottom: 12px;
-    padding: 10px 12px;
+    margin-bottom: var(--sp-3);
+    padding: var(--sp-3) var(--sp-3);
     background: #ffffff;
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -235,9 +233,9 @@
 .lead-toolbar-search {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     height: 36px;
-    padding: 0 10px;
+    padding: 0 var(--sp-3);
     background: var(--surface-soft);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -269,7 +267,7 @@
 
 .lead-toolbar-select {
     height: 36px;
-    padding: 0 10px;
+    padding: 0 var(--sp-3);
     min-width: 140px;
     background: #ffffff;
     border: 1px solid var(--border-strong);
@@ -296,7 +294,7 @@
 
 .lead-toolbar-reset {
     height: 36px;
-    padding: 0 12px;
+    padding: 0 var(--sp-3);
     background: #ffffff;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
@@ -316,10 +314,10 @@
 .lead-followup-alert {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--sp-3);
     flex-wrap: wrap;
-    padding: 10px 12px;
-    margin-bottom: 12px;
+    padding: var(--sp-3) var(--sp-3);
+    margin-bottom: var(--sp-3);
     background: #fffbeb;
     border: 1px solid #fde68a;
     border-left: 3px solid #d97706;
@@ -329,7 +327,7 @@
 .lead-alert-content {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--sp-3);
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -371,8 +369,8 @@
 .lead-alert-action {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 6px 4px;
+    gap: var(--sp-1);
+    padding: var(--sp-2) var(--sp-1);
     color: #d97706;
     font-size: 12.5px;
     font-weight: 700;
@@ -399,7 +397,7 @@
 .lead-kanban {
     width: 100%;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding-bottom: var(--sp-1);
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -410,7 +408,7 @@
 .lead-kanban-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(240px, 1fr));
-    gap: 12px;
+    gap: var(--sp-3);
     align-items: start;
     min-width: 100%;
 }
@@ -421,7 +419,7 @@
     background: var(--surface-soft);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 10px;
+    padding: var(--sp-3);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -477,8 +475,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
     padding: 0 2px;
     background: transparent;
     border: 0;
@@ -487,7 +485,7 @@
 .lead-kanban-col-title {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
     font-size: 12.5px;
     font-weight: 800;
     letter-spacing: -0.01em;
@@ -505,7 +503,7 @@
     justify-content: center;
     min-width: 22px;
     height: 20px;
-    padding: 0 7px;
+    padding: 0 var(--sp-2);
     background: #ffffff;
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 999px;
@@ -522,12 +520,12 @@
 .lead-kanban-col-body {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
     min-height: 40px;
 }
 
 .lead-kanban-empty {
-    padding: 20px 8px;
+    padding: var(--sp-5) var(--sp-2);
     text-align: center;
     color: var(--soft);
     font-size: 12px;
@@ -558,7 +556,7 @@
 .lead-card-body {
     display: flex;
     flex-direction: column;
-    padding: 10px 12px 10px;
+    padding: var(--sp-3) var(--sp-3) var(--sp-3);
 }
 
 /* ---- New card structure ---- */
@@ -566,8 +564,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
 }
 
 .lead-card-number {
@@ -581,8 +579,8 @@
 .lead-card-customer {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
     min-width: 0;
 }
 .lead-card-customer-name {
@@ -600,13 +598,13 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
 }
 .lead-card-title-block {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     min-width: 0;
     flex: 1 1 auto;
 }
@@ -669,8 +667,8 @@
 .lead-card-contact {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 0;
+    gap: var(--sp-2);
+    padding: var(--sp-2) 0;
     color: var(--text);
     font-size: 11.5px;
     font-weight: 500;
@@ -683,8 +681,8 @@
 .lead-card-vehicle {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 0;
+    gap: var(--sp-2);
+    padding: var(--sp-2) 0;
     border-top: 1px solid var(--border);
     min-width: 0;
 }
@@ -718,7 +716,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 6px 0;
+    padding: var(--sp-2) 0;
     border-top: 1px solid var(--border);
     min-width: 0;
 }
@@ -726,8 +724,8 @@
 .lead-card-requirement {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 6px 0;
+    gap: var(--sp-1);
+    padding: var(--sp-2) 0;
     border-top: 1px solid var(--border);
     min-width: 0;
 }
@@ -746,7 +744,7 @@
     font-size: 11.5px;
     font-weight: 600;
     line-height: 1.35;
-    padding: 6px 8px;
+    padding: var(--sp-2) var(--sp-2);
     font-family: inherit;
     pointer-events: none;
 }
@@ -758,9 +756,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding-top: 8px;
-    margin-top: 4px;
+    gap: var(--sp-2);
+    padding-top: var(--sp-2);
+    margin-top: var(--sp-1);
     border-top: 1px solid var(--border);
 }
 
@@ -768,16 +766,16 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
-    padding-top: 8px;
-    margin-top: 4px;
+    gap: var(--sp-2);
+    padding-top: var(--sp-2);
+    margin-top: var(--sp-1);
     border-top: 1px solid var(--border);
 }
 
 .lead-card-salesperson {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
     color: var(--text);
     font-size: 11.5px;
     font-weight: 600;
@@ -796,8 +794,8 @@
 .lead-card-procurement-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
+    gap: var(--sp-1);
+    padding: var(--sp-1) var(--sp-2);
     background: rgba(37, 99, 235, 0.08);
     border: 1px solid rgba(37, 99, 235, 0.3);
     border-radius: var(--radius-sm);
@@ -815,8 +813,8 @@
 .lead-card-stage-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 7px;
+    gap: var(--sp-1);
+    padding: 3px var(--sp-2);
     background: var(--surface-soft);
     border: 1px solid var(--border);
     border-radius: 999px;
@@ -840,8 +838,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 48px 24px;
+    gap: var(--sp-2);
+    padding: var(--sp-9) var(--sp-6);
     text-align: center;
 }
 .lead-empty-state strong {
@@ -861,12 +859,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    margin-top: 16px;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
 }
 .lead-pagination button {
     height: 34px;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     background: #ffffff;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
@@ -930,7 +928,7 @@
     min-height: auto;
     max-height: 100%;
     overflow-y: auto;
-    padding: 16px 20px 24px;
+    padding: var(--sp-4) var(--sp-5) var(--sp-6);
     background: #ffffff;
     flex: 1 1 auto;
     box-sizing: border-box;
@@ -946,7 +944,7 @@
 }
 .lead-drawer > .lead-create-header,
 .lead-drawer > .lead-create-form {
-    padding: 16px 20px;
+    padding: var(--sp-4) var(--sp-5);
 }
 
 
@@ -971,7 +969,7 @@
     flex-direction: column;
     height: 100%;
     max-height: 100vh;
-    padding: 16px 10px 8px;
+    padding: var(--sp-4) var(--sp-3) var(--sp-2);
     box-sizing: border-box;
     overflow: hidden;
     background: #ffffff;
@@ -981,8 +979,8 @@
 /* header — small compact padding, no top gap */
 .lead-drawer--narrow .lead-create-header {
     margin: 0;
-    padding: 12px 14px 8px;
-     padding-top: 4px;
+    padding: var(--sp-3) var(--sp-4) var(--sp-2);
+     padding-top: var(--sp-1);
 }
 
 /* card — remove centering, remove own padding/border, scroll inside */
@@ -990,11 +988,11 @@
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    gap: 14px;                       /* line spacing between fields */
+    gap: var(--sp-4);                       /* line spacing between fields */
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: 0 14px 8px;             /* flush with drawer edges */
+    padding: 0 var(--sp-4) var(--sp-2);             /* flush with drawer edges */
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -1020,8 +1018,8 @@
 
 /* submit bar — sits right after the last field, no auto gap */
 .lead-drawer--narrow .lead-submit-bar {
-    margin: 8px 0 0;                 /* small gap after fields */
-    padding: 12px 14px 14px;
+    margin: var(--sp-2) 0 0;                 /* small gap after fields */
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
     border-top: 1px solid #e5e7eb;
     background: #ffffff;
     flex: 0 0 auto;
@@ -1031,14 +1029,14 @@
 .lead-submit-bar--stacked {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
 }
 
 /* Generic scroll wrapper (used by some drawer forms) */
 .lead-drawer-scroll {
     flex: 1 1 auto;
     overflow-y: auto;
-    padding: 16px 20px 24px;
+    padding: var(--sp-4) var(--sp-5) var(--sp-6);
     box-sizing: border-box;
     scrollbar-width: thin;
     scrollbar-color: rgba(60, 60, 67, 0.2) transparent;
@@ -1069,7 +1067,7 @@
 .lead-submit-bar--stacked {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
 }
 
 /* ==========================================================================
@@ -1080,10 +1078,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: var(--sp-2);
     height: 40px;
     width: 100%;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     background: #ffffff;
     color: var(--blue, #2563eb);
     border: 1px solid var(--blue, #2563eb);
@@ -1131,39 +1129,39 @@
     }
     .lead-kanban-grid {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: var(--sp-3);
     }
 }
 
 /* ---------- ≤ 768px : tablet portrait / large phone ---------- */
 @media (max-width: 768px) {
     .lead-page {
-        padding: 12px 12px 20px;
+        /* padding: var(--sp-3) var(--sp-3) var(--sp-5); */
         min-width: 0;
         overflow-x: hidden;
     }
 
     .lead-header {
-        margin-bottom: 12px;
+        margin-bottom: var(--sp-3);
     }
     .lead-title {
         font-size: 20px;
     }
     .lead-new-btn {
         height: 34px;
-        padding: 0 12px;
+        padding: 0 var(--sp-3);
         font-size: 12.5px;
     }
 
     /* KPI — 2 up */
     .lead-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        margin-bottom: 10px;
+        gap: var(--sp-2);
+        margin-bottom: var(--sp-3);
     }
     .lead-kpi-card {
-        padding: 10px 12px;
-        gap: 10px;
+        /* padding: var(--sp-3) var(--sp-3); */
+        gap: var(--sp-3);
     }
     .lead-kpi-icon {
         flex: 0 0 32px;
@@ -1180,8 +1178,8 @@
     /* Toolbar — single column, full-width controls */
     .lead-toolbar {
         grid-template-columns: 1fr;
-        padding: 8px 10px;
-        gap: 8px;
+        padding: var(--sp-2) var(--sp-3);
+        gap: var(--sp-2);
     }
     .lead-toolbar-search {
         grid-column: 1 / -1;
@@ -1201,10 +1199,10 @@
     }
     .lead-kanban-grid {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: var(--sp-3);
     }
     .lead-kanban-col {
-        padding: 10px;
+        padding: var(--sp-3);
     }
     .lead-kanban-col-title {
         font-size: 11.5px;
@@ -1213,8 +1211,8 @@
     /* Follow-up alert — stack its action */
     .lead-followup-alert {
         flex-wrap: wrap;
-        gap: 8px;
-        padding: 10px;
+        gap: var(--sp-2);
+        padding: var(--sp-3);
     }
     .lead-alert-content {
         flex: 1 1 100%;
@@ -1232,24 +1230,24 @@
         box-shadow: -10px 0 30px rgba(15, 23, 42, 0.18);
     }
     .lead-drawer--narrow .lead-create-header {
-        padding: 12px 14px 8px;
+        padding: var(--sp-3) var(--sp-4) var(--sp-2);
     }
     .lead-drawer--narrow .lead-create-card {
-        padding: 0 14px 8px;
-        gap: 12px;
+        padding: 0 var(--sp-4) var(--sp-2);
+        gap: var(--sp-3);
     }
     .lead-drawer--narrow .lead-submit-bar {
-        padding: 10px 14px 12px;
+        padding: var(--sp-3) var(--sp-4) var(--sp-3);
     }
 
     /* Pagination */
     .lead-pagination {
-        gap: 8px;
-        margin-top: 12px;
+        gap: var(--sp-2);
+        margin-top: var(--sp-3);
     }
     .lead-pagination button {
         height: 32px;
-        padding: 0 12px;
+        padding: 0 var(--sp-3);
         font-size: 12px;
     }
     .lead-pagination span {
@@ -1260,7 +1258,7 @@
 /* ---------- ≤ 480px : small phones ---------- */
 @media (max-width: 480px) {
     .lead-page {
-        padding: 10px 10px 16px;
+        /* padding: var(--sp-3) var(--sp-3) var(--sp-4); */
         min-width: 0;
         overflow-x: hidden;
     }
@@ -1269,25 +1267,25 @@
         font-size: 18px;
     }
     .lead-header {
-        gap: 8px;
+        gap: var(--sp-2);
     }
     .lead-new-btn {
         height: 32px;
-        padding: 0 10px;
+        padding: 0 var(--sp-3);
         font-size: 12px;
-        gap: 4px;
+        gap: var(--sp-1);
     }
 
     /* KPI — single column */
     .lead-kpi-grid {
         grid-template-columns: 1fr;
-        gap: 8px;
+        gap: var(--sp-2);
     }
 
     /* Toolbar — single column */
     .lead-toolbar {
         grid-template-columns: 1fr;
-        padding: 8px;
+        padding: var(--sp-2);
     }
     .lead-toolbar-search input {
         font-size: 12.5px;
@@ -1301,18 +1299,18 @@
     /* Kanban — stacked */
     .lead-kanban-grid {
         grid-template-columns: 1fr;
-        gap: 8px;
+        gap: var(--sp-2);
     }
     .lead-kanban-col {
-        padding: 8px;
+        padding: var(--sp-2);
     }
     .lead-kanban-col-body {
-        gap: 6px;
+        gap: var(--sp-2);
     }
 
     /* Lead card tweaks */
     .lead-card-body {
-        padding: 8px 10px;
+        padding: var(--sp-2) var(--sp-3);
     }
     .lead-card-customer-name {
         font-size: 12.5px;
@@ -1325,11 +1323,11 @@
     }
     .lead-card-requirement-input {
         font-size: 11px;
-        padding: 5px 7px;
+        padding: var(--sp-1) var(--sp-2);
     }
     .lead-card-procurement-btn {
         font-size: 10px;
-        padding: 3px 6px;
+        padding: 3px var(--sp-2);
     }
     .lead-card-salesperson {
         font-size: 11px;
@@ -1340,21 +1338,21 @@
         padding: 0;
     }
     .lead-drawer--narrow .lead-create-header {
-        padding: 10px 12px 6px;
+        padding: var(--sp-3) var(--sp-3) var(--sp-2);
     }
     .lead-drawer--narrow .lead-create-card {
-        padding: 0 12px 8px;
-        gap: 10px;
+        padding: 0 var(--sp-3) var(--sp-2);
+        gap: var(--sp-3);
     }
     .lead-drawer--narrow .lead-submit-bar {
-        padding: 10px 12px 12px;
+        padding: var(--sp-3) var(--sp-3) var(--sp-3);
     }
 }
 
 /* ---------- ≤ 360px : extra small phones ---------- */
 @media (max-width: 360px) {
     .lead-page {
-        padding: 8px 8px 14px;
+        /* padding: var(--sp-2) var(--sp-2) var(--sp-4); */
     }
     .lead-card-requirement-input {
         font-size: 10.5px;
@@ -1367,13 +1365,13 @@
 /* ---------- Landscape phones (short height) ---------- */
 @media (max-height: 500px) and (orientation: landscape) {
     .lead-drawer--narrow .lead-create-header {
-        padding: 8px 14px 4px;
+        padding: var(--sp-2) var(--sp-4) var(--sp-1);
     }
     .lead-drawer--narrow .lead-create-card {
-        gap: 10px;
+        gap: var(--sp-3);
     }
     .lead-drawer--narrow .lead-submit-bar {
-        padding: 8px 14px 10px;
+        padding: var(--sp-2) var(--sp-4) var(--sp-3);
     }
 }
 
@@ -1493,12 +1491,12 @@
 .lead-card-topbar-right {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
     flex-shrink: 0;
 }
 
 .lead-card-item-count {
-    padding: 2px 7px;
+    padding: 2px var(--sp-2);
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--surface-soft);
@@ -1524,9 +1522,9 @@
 .lead-new-btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     height: 40px;
-    padding: 0 18px;
+    padding: 0 var(--sp-5);
     background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
     color: #ffffff;
     border: 1px solid #2563eb;
@@ -1565,7 +1563,7 @@
     z-index: 2000;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
     max-width: min(360px, calc(100vw - 32px));
     pointer-events: none;
 }
@@ -1573,8 +1571,8 @@
 .lead-toast {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-3);
     border-radius: 8px;
     font-size: 12.5px;
     font-weight: 600;
@@ -1648,7 +1646,7 @@
 .lead-drawer .lead-create-row {
     grid-template-columns: 1fr !important;
     display: grid;
-    gap: 12px;
+    gap: var(--sp-3);
 }
 
 /* The EditLeadModal uses the same class, so it inherits this */

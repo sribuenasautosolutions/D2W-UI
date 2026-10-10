@@ -10,8 +10,7 @@
     padding: 0;
     width: 100%;
     background: #ffffff;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-        Roboto, "Helvetica Neue", Arial, sans-serif;
+    
     color: #1f2937;
 
     scrollbar-width: thin;
@@ -28,9 +27,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: var(--sp-4);
     height: 60px;
-    padding: 0 20px;
+    padding: 0 var(--sp-5);
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
 }
@@ -38,7 +37,7 @@
 .pa-breadcrumb {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     font-size: 15px;
     font-weight: 700;
     color: #64748b;
@@ -64,19 +63,19 @@
 .pa-navbar-right {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
     flex: 0 0 auto;
 }
 
 .pa-navbar-search {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--sp-3);
 
     width: 320px;
     max-width: 100%;
     height: 38px;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
 
     background: #f1f5f9;
     border: 1px solid transparent;
@@ -138,9 +137,9 @@
 .pa-navbar-profile {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     height: 38px;
-    padding: 0 10px 0 4px;
+    padding: 0 var(--sp-3) 0 var(--sp-1);
     background: transparent;
     border: 1px solid transparent;
     border-radius: 999px;
@@ -183,7 +182,7 @@
     top: calc(100% + 8px);
     right: 0;
     min-width: 180px;
-    padding: 6px;
+    padding: var(--sp-2);
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -195,7 +194,7 @@
 }
 .pa-navbar-dropdown button {
     width: 100%;
-    padding: 8px 10px;
+    padding: var(--sp-2) var(--sp-3);
     background: transparent;
     border: 0;
     border-radius: 6px;
@@ -214,7 +213,7 @@
    SECTION + KPI
    ========================================================================== */
 .pa-section {
-    padding: 20px;
+    padding: var(--sp-5);
     max-width: 1600px;
     margin: 0 auto;
 }
@@ -222,16 +221,16 @@
 .pa-kpi-grid {
     display: grid;
     grid-template-columns: minmax(240px, 320px);
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
 }
 
 .pa-kpi-card {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: var(--sp-4);
 
-    padding: 16px 18px;
+    padding: var(--sp-4) var(--sp-5);
     background: #f8fbff;
     border: 1px solid #dbeafe;
     border-left: 3px solid #2563eb;
@@ -301,7 +300,7 @@
     letter-spacing: 0.4px;
     text-transform: uppercase;
     color: #070707;
-    padding: 12px 18px;
+    padding: var(--sp-3) var(--sp-5);
     font-weight: 700;
     border-bottom: 1px solid #f3f4f6;
     background: #fafafa;
@@ -318,7 +317,7 @@
 .pa-tr.is-selected .pa-td-mono { background: #eff6ff; }
 
 .pa-td {
-    padding: 12px 18px;
+    padding: var(--sp-3) var(--sp-5);
     font-size: 14px;
     color: #374151;
     vertical-align: middle;
@@ -328,7 +327,7 @@
 }
 
 .pa-td-strong {
-    padding: 12px 18px;
+    padding: var(--sp-3) var(--sp-5);
     font-size: 14px;
     font-weight: 600;
     color: #111827;
@@ -336,7 +335,7 @@
 }
 
 .pa-td-mono {
-    padding: 12px 18px;
+    padding: var(--sp-3) var(--sp-5);
     font-size: 13.5px;
     font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
     color: #475569;
@@ -348,8 +347,8 @@
 .pa-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
+    gap: var(--sp-1);
+    padding: 3px var(--sp-3);
     border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
@@ -363,9 +362,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: var(--sp-2);
     height: 30px;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     background: rgba(37, 99, 235, 0.08);
     border: 1px solid rgba(37, 99, 235, 0.3);
     border-radius: 6px;
@@ -383,24 +382,24 @@
 }
 
 .pa-table-footer {
-    padding: 10px 18px;
+    padding: var(--sp-3) var(--sp-5);
     font-size: 12.5px;
     color: #9ca3af;
     border-top: 1px solid #f3f4f6;
 }
 
 .pa-empty {
-    padding: 48px 24px;
+    padding: var(--sp-9) var(--sp-6);
     text-align: center;
     color: #9ca3af;
     font-size: 14px;
 }
-.pa-empty-icon { font-size: 28px; margin-bottom: 8px; }
+.pa-empty-icon { font-size: 28px; margin-bottom: var(--sp-2); }
 .pa-empty-title {
     font-size: 15px;
     font-weight: 700;
     color: #111827;
-    margin-bottom: 4px;
+    margin-bottom: var(--sp-1);
 }
 
 /* ==========================================================================
@@ -445,8 +444,8 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    padding: 16px 20px 12px;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5) var(--sp-3);
     border-bottom: 1px solid #e5e7eb;
     background: #ffffff;
 }
@@ -457,7 +456,7 @@
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    margin-bottom: 4px;
+    margin-bottom: var(--sp-1);
 }
 
 .pa-drawer-title {
@@ -495,8 +494,8 @@
 .pa-drawer-steps {
     flex: 0 0 auto;
     display: flex;
-    gap: 6px;
-    padding: 12px 20px;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-5);
     border-bottom: 1px solid #f3f4f6;
     background: #fafafa;
 }
@@ -504,9 +503,9 @@
 .pa-drawer-step {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     height: 36px;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -545,7 +544,7 @@
     justify-content: center;
     min-width: 22px;
     height: 20px;
-    padding: 0 6px;
+    padding: 0 var(--sp-2);
     background: rgba(0, 0, 0, 0.06);
     border-radius: 999px;
     font-size: 10.5px;
@@ -563,7 +562,7 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    padding: 16px 20px 20px;
+    padding: var(--sp-4) var(--sp-5) var(--sp-5);
     background: #ffffff;
     scrollbar-width: thin;
     scrollbar-color: rgba(60, 60, 67, 0.2) transparent;
@@ -578,8 +577,8 @@
     flex: 0 0 auto;
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    padding: 12px 20px 16px;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-5) var(--sp-4);
     border-top: 1px solid #e5e7eb;
     background: #fafafa;
 }
@@ -589,7 +588,7 @@
     align-items: center;
     justify-content: center;
     height: 36px;
-    padding: 0 16px;
+    padding: 0 var(--sp-4);
     background: #ffffff;
     color: #374151;
     border: 1px solid #d1d5db;
@@ -611,16 +610,16 @@
 @media (max-width: 900px) {
     .pa-navbar {
         height: auto;
-        padding: 12px 16px;
+        padding: var(--sp-3) var(--sp-4);
         flex-wrap: wrap;
-        gap: 10px;
+        gap: var(--sp-3);
     }
     .pa-breadcrumb { width: 100%; }
     .pa-navbar-right { width: 100%; justify-content: flex-end; }
     .pa-navbar-search { flex: 1 1 auto; width: auto; }
     .pa-navbar-profile-name { display: none; }
 
-    .pa-section { padding: 14px 12px; }
+    .pa-section { padding: var(--sp-4) var(--sp-3); }
 
     .pa-drawer { width: 100vw; }
     .pa-drawer-steps {
@@ -667,7 +666,7 @@
 
 /* Header — tighter */
 .pa-drawer-header {
-    padding: 12px 16px 10px;
+    padding: var(--sp-3) var(--sp-4) var(--sp-3);
 }
 .pa-drawer-title {
     font-size: 16px;
@@ -678,27 +677,27 @@
 
 /* Stepper — tighter */
 .pa-drawer-steps {
-    padding: 8px 16px;
-    gap: 4px;
+    padding: var(--sp-2) var(--sp-4);
+    gap: var(--sp-1);
 }
 .pa-drawer-step {
     height: 32px;
-    padding: 0 10px;
+    padding: 0 var(--sp-3);
     font-size: 12.5px;
 }
 
 /* Body — reduce padding so more content fits */
 .pa-drawer-body {
-    padding: 12px 16px 16px;
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
 }
 
 /* Footer — tighter */
 .pa-drawer-footer {
-    padding: 10px 16px 12px;
+    padding: var(--sp-3) var(--sp-4) var(--sp-3);
 }
 .pa-btn-ghost {
     height: 34px;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     font-size: 12.5px;
 }
 
@@ -711,13 +710,13 @@
 .pa-drawer .vm-grid-3,
 .pa-drawer .vm-grid-4 {
     grid-template-columns: 1fr !important;
-    gap: 10px !important;
+    gap: var(--sp-3) !important;
 }
 
 /* Tighter inputs */
 .pa-drawer .vm-input {
     height: 34px;
-    padding: 0 10px;
+    padding: 0 var(--sp-3);
     font-size: 13px;
 }
 
@@ -738,7 +737,7 @@
     max-height: 160px;
 }
 .pa-drawer .vm-suggest-item {
-    padding: 6px 10px;
+    padding: var(--sp-2) var(--sp-3);
     font-size: 12.5px;
 }
 
@@ -756,8 +755,8 @@
 
 /* Approve button — full width, still compact */
 .pa-drawer .vm-panel-footer {
-    padding-top: 12px;
-    margin-top: 12px;
+    padding-top: var(--sp-3);
+    margin-top: var(--sp-3);
     border-top: 1px solid #f3f4f6;
     display: flex;
     justify-content: stretch;
@@ -767,4 +766,89 @@
     height: 38px;
     font-size: 13px;
     justify-content: center;
+}
+
+/* ============================================================
+   TOAST STACK — bottom-right, palette-aligned
+   ============================================================ */
+.pa-toast-stack {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    max-width: min(360px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+@keyframes paToastIn {
+    from { opacity: 0; transform: translateY(-6px); }   /* slide down from top */
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.pa-toast {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-3);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+    pointer-events: auto;
+    animation: paToastIn 0.2s ease both;
+}
+@keyframes paToastIn {
+    from { opacity: 0; transform: translateY(-6px); }   /* slide down from top */
+    to   { opacity: 1; transform: translateY(0); }
+}
+.pa-toast--success {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+}
+.pa-toast--success svg { color: #059669; }
+
+.pa-toast--error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+}
+.pa-toast--error svg { color: #dc2626; }
+
+.pa-toast > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.pa-toast > button {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 4px;
+    opacity: 0.75;
+}
+.pa-toast > button:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 480px) {
+    .pa-toast-stack {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+    }
 }

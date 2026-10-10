@@ -25,15 +25,7 @@ body,
     box-sizing: border-box;
     overflow: hidden;
 
-    font-family:
-        "Inter",
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        Roboto,
-        Helvetica,
-        Arial,
-        sans-serif;
+    
 
     background-image:
         linear-gradient(
@@ -101,9 +93,7 @@ body,
     */
     margin-right: clamp(25px, 5vw, 85px);
 
-    padding:
-        clamp(32px, 4vw, 46px)
-        clamp(30px, 4vw, 46px);
+    padding: clamp(32px, 4vw, 46px) clamp(30px, 4vw, 46px);
 
     box-sizing: border-box;
 
@@ -187,7 +177,7 @@ body,
 .login-header {
     width: 100%;
 
-    margin-bottom: 30px;
+    margin-bottom: var(--sp-7);
 
     animation:
         contentEnter
@@ -217,7 +207,7 @@ body,
    ========================================================= */
 
 .login-title {
-    margin: 0 0 8px;
+    margin: 0 0 var(--sp-2);
 
     color: #f8fafc;
 
@@ -272,12 +262,12 @@ body,
 
 
 .login-form-group {
-    margin-bottom: 19px;
+    margin-bottom: var(--sp-5);
 }
 
 
 .password-group {
-    margin-bottom: 24px;
+    margin-bottom: var(--sp-6);
 }
 
 
@@ -290,9 +280,9 @@ body,
 
     box-sizing: border-box;
 
-    margin-bottom: 16px;
+    margin-bottom: var(--sp-4);
 
-    padding: 10px 12px;
+    padding: var(--sp-3) var(--sp-3);
 
     border: 1px solid rgba(248, 113, 113, 0.55);
 
@@ -335,7 +325,7 @@ body,
 .login-label {
     display: block;
 
-    margin-bottom: 7px;
+    margin-bottom: var(--sp-2);
 
     color: #e2e8f0;
 
@@ -356,7 +346,7 @@ body,
 
     height: 48px;
 
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
 
     box-sizing: border-box;
 
@@ -446,7 +436,7 @@ body,
 
 
 .password-input {
-    padding-right: 45px;
+    padding-right: var(--sp-9);
 }
 
 
@@ -512,7 +502,7 @@ body,
 
     height: 48px;
 
-    padding: 0 16px;
+    padding: 0 var(--sp-4);
 
     overflow: hidden;
 
@@ -635,7 +625,7 @@ body,
 .login-footer {
     width: 100%;
 
-    margin-top: 25px;
+    margin-top: var(--sp-6);
 
     color:
         rgba(203, 213, 225, 0.72);
@@ -680,9 +670,7 @@ body,
 
         margin-right: 4vw;
 
-        padding:
-            34px
-            38px;
+        padding: var(--sp-7) var(--sp-8);
     }
 
 
@@ -701,7 +689,7 @@ body,
     .login-page {
         justify-content: center;
 
-        padding: 24px;
+        padding: var(--sp-6);
 
         background-image:
             linear-gradient(
@@ -721,9 +709,7 @@ body,
 
         min-height: auto;
 
-        padding:
-            36px
-            40px;
+        padding: var(--sp-8) var(--sp-8);
     }
 }
 
@@ -735,21 +721,19 @@ body,
 @media (max-width: 600px) {
 
     .login-page {
-        padding: 16px;
+        padding: var(--sp-4);
     }
 
 
     .login-card {
         width: 100%;
 
-        padding:
-            30px
-            24px;
+        padding: var(--sp-7) var(--sp-6);
     }
 
 
     .login-header {
-        margin-bottom: 24px;
+        margin-bottom: var(--sp-6);
     }
 
 
@@ -781,14 +765,12 @@ body,
 @media (max-width: 400px) {
 
     .login-page {
-        padding: 12px;
+        padding: var(--sp-3);
     }
 
 
     .login-card {
-        padding:
-            26px
-            20px;
+        padding: var(--sp-7) var(--sp-5);
     }
 
 
@@ -836,13 +818,13 @@ body,
     .login-card {
         min-height: auto;
 
-        padding-top: 22px;
-        padding-bottom: 22px;
+        padding-top: var(--sp-6);
+        padding-bottom: var(--sp-6);
     }
 
 
     .login-header {
-        margin-bottom: 18px;
+        margin-bottom: var(--sp-5);
     }
 
 
@@ -852,12 +834,12 @@ body,
 
 
     .login-form-group {
-        margin-bottom: 13px;
+        margin-bottom: var(--sp-3);
     }
 
 
     .password-group {
-        margin-bottom: 16px;
+        margin-bottom: var(--sp-4);
     }
 
 
@@ -872,7 +854,7 @@ body,
 
 
     .login-footer {
-        margin-top: 16px;
+        margin-top: var(--sp-4);
     }
 }
 
