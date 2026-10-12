@@ -3,8 +3,8 @@ import { CalendarRange, Download, Filter, Plus, Search } from "lucide-react";
 import api from "../../../services/api";
 import VehicleDrawer from "./VehicleDrawer";
 import VehicleStatCard from "./VehicleStatCard";
+import { showToast } from "./VehicleToast";
 import "./styles/vehicle-management.css";
-import "./styles/VehicleGenerationsSection.css";
 
 // Supports records returned by both the corrected API and an older running
 // backend. This can be removed after every environment uses the corrected DTO.
@@ -16,7 +16,7 @@ const getGenerationEndYear = (generation) =>
 
 function VehicleGenerationsSection() {
 
-    // ===== ORIGINAL STATE — unchanged =====
+    // ===== FORM STATE =====
     const [generationName, setGenerationName] = useState("");
     const [generationNumber, setGenerationNumber] = useState("");
     const [facelift, setFacelift] = useState(false);
@@ -26,24 +26,23 @@ function VehicleGenerationsSection() {
     const [selectedModelId, setSelectedModelId] = useState("");
     const [models, setModels] = useState([]);
     const [generations, setGenerations] = useState([]);
-    const [message, setMessage] = useState(null); // { type, text }
 
-    // ===== NEW: Make support =====
+    // ===== Make support =====
     const [makes, setMakes] = useState([]);
-    const [selectedMakeId, setSelectedMakeId] = useState(""); // filter-bar make
-    const [drawerMakeId, setDrawerMakeId] = useState("");     // drawer form make
+    const [selectedMakeId, setSelectedMakeId] = useState("");
+    const [drawerMakeId, setDrawerMakeId] = useState("");
 
-    // ===== NEW UI-ONLY STATE =====
+    // ===== UI STATE =====
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchOpen, setSearchOpen] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
 
-    // ===== NEW: pagination state =====
+    // ===== Pagination =====
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    // ===== ORIGINAL HANDLERS — unchanged =====
+    // ===== Data loading =====
     const loadModels = async () => {
         try {
             const response = await api.get("/vehicle-models");
@@ -53,7 +52,6 @@ function VehicleGenerationsSection() {
         }
     };
 
-    // ===== NEW: load makes =====
     const loadMakes = async () => {
         try {
             const response = await api.get("/vehicle-makes");
@@ -69,6 +67,7 @@ function VehicleGenerationsSection() {
             setGenerations(response.data.data || []);
         } catch (error) {
             console.error(error);
+            showToast("Failed to load generations", "error");
         }
     };
 
@@ -82,33 +81,34 @@ function VehicleGenerationsSection() {
             setGenerations(response.data.data || []);
         } catch (error) {
             console.error(error);
+            showToast("Failed to load generations", "error");
         }
     };
 
     const saveGeneration = async () => {
 
         if (!selectedModelId) {
-            setMessage({ type: "error", text: "Please select a model" });
+            showToast("Please select a model", "error");
             return;
         }
         if (!generationName.trim()) {
-            setMessage({ type: "error", text: "Generation name is required" });
+            showToast("Generation name is required", "error");
             return;
         }
         if (!generationNumber.trim()) {
-            setMessage({ type: "error", text: "Generation number is required" });
+            showToast("Generation number is required", "error");
             return;
         }
         if (!startYear) {
-            setMessage({ type: "error", text: "Start year is required" });
+            showToast("Start year is required", "error");
             return;
         }
         if (!endYear) {
-            setMessage({ type: "error", text: "End year is required" });
+            showToast("End year is required", "error");
             return;
         }
         if (Number(startYear) > Number(endYear)) {
-            setMessage({ type: "error", text: "Start year cannot be greater than end year" });
+            showToast("Start year cannot be greater than end year", "error");
             return;
         }
 
@@ -125,7 +125,7 @@ function VehicleGenerationsSection() {
                 }
             });
 
-            setMessage({ type: "success", text: response.data.message });
+            showToast(response.data?.message || "Generation added", "success");
             setGenerationName("");
             setGenerationNumber("");
             setFacelift(false);
@@ -136,21 +136,13 @@ function VehicleGenerationsSection() {
 
             setIsDrawerOpen(false);
 
-            setTimeout(() => { setMessage(null); }, 3000);
-
         } catch (error) {
             console.error(error);
-
             const backendMessage =
                 error.response?.data?.errors?.join(", ") ||
                 error.response?.data?.message ||
                 "Error saving generation";
-
-            setMessage({ type: "error", text: backendMessage });
-
-            setIsDrawerOpen(true);
-
-            setTimeout(() => { setMessage(null); }, 5000);
+            showToast(backendMessage, "error");
         }
     };
 
@@ -160,23 +152,19 @@ function VehicleGenerationsSection() {
         loadAllGenerations();
     }, []);
 
-    // ===== UI-ONLY HELPERS =====
-
-    // Models shown in the filter-bar dropdown, scoped to the chosen Make
+    // ===== Filter helpers =====
     const filterBarModels = selectedMakeId
-    ? models.filter((m) => String(m.vehicleMake?.id) === String(selectedMakeId))
-    : models;
+        ? models.filter((m) => String(m.vehicleMake?.id) === String(selectedMakeId))
+        : models;
 
-    // Models shown in the drawer's Model dropdown, scoped to the drawer's Make
     const drawerModels = drawerMakeId
         ? models.filter((m) => String(m.vehicleMake?.id) === String(drawerMakeId))
         : models;
 
     const handleFilterMakeChange = (makeId) => {
         setSelectedMakeId(makeId);
-        // Reset model selection since the previous model may not belong to this make
         setSelectedModelId("");
-        loadGenerationsByModel(""); // falls back to loadAllGenerations, then re-narrowed by search/table
+        loadGenerationsByModel("");
     };
 
     const handleFilterModelChange = (modelId) => {
@@ -186,18 +174,18 @@ function VehicleGenerationsSection() {
 
     const handleDrawerMakeChange = (makeId) => {
         setDrawerMakeId(makeId);
-        setSelectedModelId(""); // force re-pick of model under the new make
+        setSelectedModelId("");
     };
 
     const filteredGenerations = generations.filter((g) =>
-    (g.generationName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (g.modelName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (g.makeName || "").toLowerCase().includes(searchTerm.toLowerCase())
-);
+        (g.generationName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (g.modelName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (g.makeName || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const faceliftCount = generations.filter((g) => g.facelift).length;
 
-    // ===== NEW: pagination derived values =====
+    // ===== Pagination =====
     const totalPages = Math.max(1, Math.ceil(filteredGenerations.length / itemsPerPage));
     const safeCurrentPage = Math.min(currentPage, totalPages);
     const paginatedGenerations = filteredGenerations.slice(
@@ -207,7 +195,6 @@ function VehicleGenerationsSection() {
     const rangeStart = filteredGenerations.length === 0 ? 0 : (safeCurrentPage - 1) * itemsPerPage + 1;
     const rangeEnd = Math.min(safeCurrentPage * itemsPerPage, filteredGenerations.length);
 
-    // Reset to page 1 whenever the visible result set changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, selectedMakeId, selectedModelId]);
@@ -220,16 +207,16 @@ function VehicleGenerationsSection() {
     const exportCsv = () => {
         const rows = [
             ["Make", "Model", "Generation", "Generation Number", "Body Type", "Start Year", "End Year", "Facelift"],
-           ...generations.map((g) => [
-    g.makeName,
-    g.modelName,
-    g.generationName,
-    g.generationNumber,
-    g.bodyType,
-    g.productionStartYear,
-    g.productionEndYear,
-    g.facelift ? "Yes" : "No",
-]),
+            ...generations.map((g) => [
+                g.makeName,
+                g.modelName,
+                g.generationName,
+                g.generationNumber,
+                g.bodyType,
+                g.productionStartYear,
+                g.productionEndYear,
+                g.facelift ? "Yes" : "No",
+            ]),
         ];
         const csv = rows.map((r) => r.map((v) => `"${(v ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -239,6 +226,7 @@ function VehicleGenerationsSection() {
         a.download = "vehicle-generations.csv";
         a.click();
         URL.revokeObjectURL(url);
+        showToast("Exported vehicle-generations.csv", "success");
     };
 
     return (
@@ -252,13 +240,14 @@ function VehicleGenerationsSection() {
             </div>
 
             <div className="vm-action-bar">
-                {searchOpen && <div className="vm-search-wrap">
+                {searchOpen && <div className="vm-search-wrap is-open">
                     <span className="vm-search-icon"><Search size={15} /></span>
                     <input
                         className="vm-search-input"
                         placeholder="Search generations…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        autoFocus
                     />
                 </div>}
 
@@ -271,7 +260,10 @@ function VehicleGenerationsSection() {
                     >
                         <Search size={16} />
                     </button>
-                    <button className="vm-btn vm-btn-secondary" onClick={() => setFiltersOpen((open) => !open)}>
+                    <button
+                        className={`vm-btn vm-btn-secondary${filtersOpen ? " is-active" : ""}`}
+                        onClick={() => setFiltersOpen((open) => !open)}
+                    >
                         <Filter size={16} /> Filters
                     </button>
                     <button className="vm-btn vm-btn-secondary" onClick={exportCsv}>
@@ -280,9 +272,6 @@ function VehicleGenerationsSection() {
                     <button
                         className="vm-btn vm-btn-primary"
                         onClick={() => {
-                            setMessage(null);
-
-                            // Clear previous values
                             setDrawerMakeId("");
                             setSelectedModelId("");
                             setGenerationName("");
@@ -291,8 +280,6 @@ function VehicleGenerationsSection() {
                             setFacelift(false);
                             setStartYear("");
                             setEndYear("");
-
-                            // Open drawer
                             setIsDrawerOpen(true);
                         }}
                     >
@@ -322,13 +309,6 @@ function VehicleGenerationsSection() {
                 </div>
             )}
 
-            {message && !isDrawerOpen && (
-                <div className={`vm-alert vm-alert-${message.type}`}>
-                    <span className="vm-alert-icon"><span>{message.type === "success" ? "✓" : "!"}</span></span>
-                    <span>{message.text}</span>
-                </div>
-            )}
-
             <div className="vm-panel">
                 {filteredGenerations.length === 0 ? (
                     <div className="vm-empty">
@@ -355,10 +335,10 @@ function VehicleGenerationsSection() {
                                 {paginatedGenerations.map((generation) => (
                                     <tr key={generation.id}>
                                         <td>
-    <span className="vm-chip">
-         {generation.makeName || "—"}
-    </span>
-</td>
+                                            <span className="vm-chip">
+                                                {generation.makeName || "—"}
+                                            </span>
+                                        </td>
                                         <td>{generation.modelName || "—"}</td>
                                         <td>
                                             <span className="vm-cell-strong">{generation.generationName}</span>
@@ -384,7 +364,7 @@ function VehicleGenerationsSection() {
                     </div>
                 )}
 
-                <div className="vm-table-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <div className="vm-table-footer">
                     <span>
                         {filteredGenerations.length === 0
                             ? `0 of ${generations.length} generations`
@@ -392,7 +372,7 @@ function VehicleGenerationsSection() {
                     </span>
 
                     {totalPages > 1 && (
-                        <div className="vm-pagination" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div className="vm-pagination">
                             <button
                                 className="vm-btn vm-btn-secondary"
                                 onClick={() => goToPage(safeCurrentPage - 1)}
@@ -426,9 +406,9 @@ function VehicleGenerationsSection() {
 
             <VehicleDrawer
                 open={isDrawerOpen}
-                size="wide"
+                variant="compact"
+                eyebrow="Vehicle Generations"
                 onClose={() => setIsDrawerOpen(false)}
-                icon="📅"
                 title="Add New Generation"
                 description="A production generation of a model, with its year range and body type."
                 footer={
@@ -442,13 +422,6 @@ function VehicleGenerationsSection() {
                     </>
                 }
             >
-                {message && (
-                    <div className={`vm-alert vm-alert-${message.type}`}>
-                        <span className="vm-alert-icon"><span>{message.type === "success" ? "✓" : "!"}</span></span>
-                        <span>{message.text}</span>
-                    </div>
-                )}
-
                 <div className="vm-grid-1">
 
                     <div className="vm-grid-2">

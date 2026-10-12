@@ -1,38 +1,19 @@
 import { useState } from "react";
 import api from "../../../services/api";
+import { showToast } from "./VehicleToast";
 import "./styles/vehicle-management.css";
-import "./styles/VehicleBulkUploadSection.css";
 
 function VehicleBulkUploadSection({ onGoToTab }) {
 
-    // ===== ORIGINAL STATE — unchanged =====
     const [file, setFile] = useState(null);
-
     const [result, setResult] = useState(null);
-
     const [loading, setLoading] = useState(false);
-
     const [isDragOver, setIsDragOver] = useState(false);
 
-    const [error, setError] = useState(null);
-
-    // ===== NEW UI-ONLY STATE (history is derived from this session's own results only) =====
     const [history, setHistory] = useState([]);
-
-    // NEW — separate loading flag so the failed-rows download button
-    // doesn't get tangled up with the main upload button's loading state.
     const [downloadingFailedRows, setDownloadingFailedRows] = useState(false);
-
-    // NEW — toggles the full column reference table open/closed so it
-    // doesn't force a huge scroll every time this panel renders.
     const [showColumnReference, setShowColumnReference] = useState(false);
 
-    // NEW: mirrors the exact 19-column contract enforced by
-    // VehicleBulkUploadService.parseAndValidateRow() on the backend — same
-    // column order, same required/optional split. If the backend's
-    // TEMPLATE_HEADERS or its require*/optional* calls ever change, this
-    // list must be updated to match, or the UI will start lying to users
-    // about what the parser actually expects.
     const BULK_UPLOAD_COLUMNS = [
         { name: "Make", required: true, example: "Toyota" },
         { name: "Model", required: true, example: "Corolla" },
@@ -55,37 +36,25 @@ function VehicleBulkUploadSection({ onGoToTab }) {
         { name: "VinPrefix", required: false, example: "JTD" },
     ];
 
-    // ===== ORIGINAL HANDLER — unchanged =====
     const uploadFile = async () => {
 
         if (!file) {
-            setError("Please select an Excel file first");
+            showToast("Please select an Excel file first", "error");
             return;
         }
 
         try {
-
-            setError(null);
             setLoading(true);
 
             const formData = new FormData();
-
             formData.append("file", file);
 
-            const response =
-                await api.post(
-                    "/vehicle-bulk-upload",
-                    formData,
-                    {
-                        headers: {
-                            "Content-Type":
-                                "multipart/form-data"
-                        }
-                    }
-                );
+            const response = await api.post(
+                "/vehicle-bulk-upload",
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } }
+            );
 
-            // FIX: backend now returns { success, message, data, timestamp } —
-            // the bulk-upload result object lives at response.data.data.
             const uploadResult = response.data.data;
             setResult(uploadResult);
 
@@ -100,24 +69,23 @@ function VehicleBulkUploadSection({ onGoToTab }) {
                 ...prev,
             ]);
 
-        } catch (error) {
-
-            console.log(error);
-
-            setError(
-                error.response?.data?.message ||
-                "Upload failed — please check the file and try again"
+            showToast(
+                `Upload complete — ${uploadResult?.successRows ?? 0} rows added`,
+                "success"
             );
-        }
-        finally {
 
+        } catch (error) {
+            console.log(error);
+            showToast(
+                error.response?.data?.message ||
+                "Upload failed — please check the file and try again",
+                "error"
+            );
+        } finally {
             setLoading(false);
         }
     };
 
-    // NEW (Phase 8 / Known Issue #13): template was previously not downloadable
-    // anywhere in the UI, so the Excel column order the backend expects had to
-    // be guessed.
     const downloadTemplate = async () => {
         try {
             const response = await api.get("/vehicle-bulk-upload/template", {
@@ -132,13 +100,13 @@ function VehicleBulkUploadSection({ onGoToTab }) {
             a.download = "vehicle-bulk-upload-template.xlsx";
             a.click();
             URL.revokeObjectURL(url);
+            showToast("Template downloaded", "success");
         } catch (error) {
             console.log(error);
-            setError("Could not download the template — please try again");
+            showToast("Could not download the template — please try again", "error");
         }
     };
 
-    
     const downloadFailedRows = async () => {
 
         if (!result || !result.failedRows || result.failedRows.length === 0) {
@@ -163,16 +131,16 @@ function VehicleBulkUploadSection({ onGoToTab }) {
             a.download = "failed-rows.xlsx";
             a.click();
             URL.revokeObjectURL(url);
+            showToast("Failed rows report downloaded", "success");
 
         } catch (error) {
             console.log(error);
-            setError("Could not download the failed rows report — please try again");
+            showToast("Could not download the failed rows report — please try again", "error");
         } finally {
             setDownloadingFailedRows(false);
         }
     };
 
-    // ===== ORIGINAL HANDLER — unchanged =====
     const handleDrop = (e) => {
         e.preventDefault();
         setIsDragOver(false);
@@ -232,41 +200,26 @@ function VehicleBulkUploadSection({ onGoToTab }) {
                         </button>
                     </div>
 
-                    {error && (
-                        <div className="vm-alert vm-alert-error" style={{ marginTop: 18 }}>
-                            <span className="vm-alert-icon"><span>!</span></span>
-                            <span>{error}</span>
-                        </div>
-                    )}
-
                     {result && (
                         <>
-                            <div className="vm-alert vm-alert-success" style={{ marginTop: 18 }}>
-                                <span className="vm-alert-icon"><span>✓</span></span>
-                                <span>Upload complete — results below.</span>
-                            </div>
-
-                            <div className="vm-stats-row" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 0 }}>
+                            <div className="vm-stats-row" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginTop: 18, marginBottom: 0 }}>
                                 <div className="vm-stat-card">
-                                    <div className="vm-stat-card-top">
+                                    <div className="vm-stat-card-content" style={{ marginLeft: 0 }}>
                                         <span className="vm-stat-card-label">Total rows</span>
-                                        <span className="vm-stat-card-icon blue">Σ</span>
+                                        <div className="vm-stat-card-value">{result.totalRows}</div>
                                     </div>
-                                    <div className="vm-stat-card-value">{result.totalRows}</div>
                                 </div>
                                 <div className="vm-stat-card">
-                                    <div className="vm-stat-card-top">
+                                    <div className="vm-stat-card-content" style={{ marginLeft: 0 }}>
                                         <span className="vm-stat-card-label">Success</span>
-                                        <span className="vm-stat-card-icon green">✓</span>
+                                        <div className="vm-stat-card-value">{result.successRows}</div>
                                     </div>
-                                    <div className="vm-stat-card-value">{result.successRows}</div>
                                 </div>
                                 <div className="vm-stat-card">
-                                    <div className="vm-stat-card-top">
+                                    <div className="vm-stat-card-content" style={{ marginLeft: 0 }}>
                                         <span className="vm-stat-card-label">Skipped</span>
-                                        <span className="vm-stat-card-icon amber">!</span>
+                                        <div className="vm-stat-card-value">{result.skippedRows}</div>
                                     </div>
-                                    <div className="vm-stat-card-value">{result.skippedRows}</div>
                                 </div>
                             </div>
 
@@ -319,7 +272,7 @@ function VehicleBulkUploadSection({ onGoToTab }) {
                             <li>One row per make, model, generation, and variant combination</li>
                             <li>Existing Make/Model/Generation records are matched and reused, not duplicated — only the Variant is new per row</li>
                             <li>Every problem on a row is reported together, so a row with 3 issues shows all 3, not just the first</li>
-                            <li>Need to add data one record at a time instead? Use the {" "}
+                            <li>Need to add data one record at a time instead? Use the{" "}
                                 <a
                                     href="#makes"
                                     onClick={(e) => { e.preventDefault(); onGoToTab && onGoToTab("makes"); }}
