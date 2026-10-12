@@ -3,11 +3,9 @@ import { Download, Filter, Plus, Search, Tags } from "lucide-react";
 import api from "../../../services/api";
 import VehicleDrawer from "./VehicleDrawer";
 import VehicleStatCard from "./VehicleStatCard";
+import { showToast } from "./VehicleToast";
 import "./styles/vehicle-management.css";
-import "./styles/VehicleVariantsSection.css";
 
-// Temporary response compatibility for environments still running the old
-// misspelled DTO fields. Corrected names remain the first choice.
 const getGenerationStartYear = (generation) =>
     generation.productionStartYear ?? generation.gproductionStartYear;
 
@@ -20,24 +18,19 @@ const getVariantEndYear = (variant) =>
 const getEngineCapacity = (variant) =>
     variant.engineCapacity ?? variant.enginecapacity;
 
-// fixed vocab lists — kept at module level so they don't re-create on every render
 const FUEL_TYPES = ["Petrol", "Diesel", "CNG", "Electric", "Hybrid", "LPG"];
 const TRANSMISSIONS = ["Manual", "Automatic", "AMT", "CVT", "DCT", "iMT"];
 const DOOR_OPTIONS = [2, 3, 4, 5];
 const EMISSION_STANDARDS = ["BS3", "BS4", "BS6 Phase 1", "BS6 Phase 2", "Euro 5", "Euro 6"];
 const REGIONS = ["India", "Global", "Europe", "Middle East", "USA"];
 
-// year bounds for the start/end year number inputs
 const MIN_YEAR = 1900;
 const MAX_YEAR = 2099;
 
-// pagination
 const PAGE_SIZE = 10;
 
 function VehicleVariantsSection() {
 
-    // ===== ORIGINAL STATE — unchanged =====
-    // cascading selection state
     const [makes, setMakes] = useState([]);
     const [models, setModels] = useState([]);
     const [generations, setGenerations] = useState([]);
@@ -45,7 +38,6 @@ function VehicleVariantsSection() {
     const [selectedModelId, setSelectedModelId] = useState("");
     const [selectedGenerationId, setSelectedGenerationId] = useState("");
 
-    // variant form fields
     const [variantName, setVariantName] = useState("");
     const [variantStartYear, setVariantStartYear] = useState("");
     const [variantEndYear, setVariantEndYear] = useState("");
@@ -61,16 +53,13 @@ function VehicleVariantsSection() {
     const [region, setRegion] = useState("");
 
     const [variants, setVariants] = useState([]);
-    const [message, setMessage] = useState(null); // { type, text }
 
-    // ===== NEW UI-ONLY STATE =====
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchOpen, setSearchOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [filtersOpen, setFiltersOpen] = useState(false);
 
-    // ===== ORIGINAL HANDLERS — unchanged =====
     const loadMakes = async () => {
         try {
             const response = await api.get("/vehicle-makes");
@@ -106,18 +95,16 @@ function VehicleVariantsSection() {
         }
     };
 
-    // NEW — loads every variant, same role as loadAllModels() on the Models page.
     const loadAllVariants = async () => {
         try {
             const response = await api.get("/vehicle-variants");
             setVariants(response.data.data || []);
         } catch (error) {
             console.error(error);
+            showToast("Failed to load variants", "error");
         }
     };
 
-    // UPDATED — now behaves like loadModels(makeId): falls back to "load everything"
-    // when no generation is selected, instead of clearing the table.
     const loadVariantsByGeneration = async (generationId) => {
         try {
             if (!generationId) {
@@ -128,104 +115,100 @@ function VehicleVariantsSection() {
             setVariants(response.data.data);
         } catch (error) {
             console.error(error);
+            showToast("Failed to load variants", "error");
         }
     };
 
     const saveVariant = async () => {
 
         if (!selectedGenerationId) {
-            setMessage({ type: "error", text: "Please select Make → Model → Generation" });
+            showToast("Please select Make → Model → Generation", "error");
             return;
         }
         if (!variantName.trim()) {
-            setMessage({ type: "error", text: "Variant name is required" });
+            showToast("Variant name is required", "error");
             return;
         }
         if (!variantStartYear) {
-            setMessage({ type: "error", text: "Variant start year is required" });
+            showToast("Variant start year is required", "error");
             return;
         }
         if (!variantEndYear) {
-            setMessage({ type: "error", text: "Variant end year is required" });
+            showToast("Variant end year is required", "error");
             return;
         }
         if (Number(variantStartYear) > Number(variantEndYear)) {
-            setMessage({ type: "error", text: "Start year cannot be greater than end year" });
+            showToast("Start year cannot be greater than end year", "error");
             return;
         }
         if (!fuelType) {
-            setMessage({ type: "error", text: "Please select fuel type" });
+            showToast("Please select fuel type", "error");
             return;
         }
         if (!transmission) {
-            setMessage({ type: "error", text: "Please select transmission" });
+            showToast("Please select transmission", "error");
             return;
         }
         if (!engineCapacity.trim()) {
-            setMessage({ type: "error", text: "Engine capacity is required" });
+            showToast("Engine capacity is required", "error");
             return;
         }
         if (!region) {
-            setMessage({ type: "error", text: "Please select region" });
+            showToast("Please select region", "error");
             return;
         }
+try {
+    const response = await api.post("/vehicle-variants", {
+        variantName: variantName,
+        variantStartYear: variantStartYear,
+        variantEndYear: variantEndYear,
+        doors: doors || null,
+        engineType: engineType,
+        engineCode: engineCode || null,
+        engineCapacity: engineCapacity,
+        emissionStandard: emissionStandard,
+        fuelType: fuelType,
+        transmission: transmission,
+        chassisCode: chassisCode,
+        vinPrefix: vinPrefix,
+        region: region,
+        vehicleGeneration: { id: selectedGenerationId }
+    });
 
-        try {
-            const response = await api.post("/vehicle-variants", {
-                variantName: variantName,
-                variantStartYear: variantStartYear,
-                variantEndYear: variantEndYear,
-                doors: doors || null,
-                engineType: engineType,
-                engineCode: engineCode || null,
-                engineCapacity: engineCapacity,
-                emissionStandard: emissionStandard,
-                fuelType: fuelType,
-                transmission: transmission,
-                chassisCode: chassisCode,
-                vinPrefix: vinPrefix,
-                region: region,
-                vehicleGeneration: { id: selectedGenerationId }
-            });
+    showToast(response.data?.message || "Variant added", "success");
 
-            setMessage({ type: "success", text: response.data.message });
+    setVariantName("");
+    setVariantStartYear("");
+    setVariantEndYear("");
+    setDoors("");
+    setEngineType("");
+    setEngineCode("");
+    setEngineCapacity("");
+    setEmissionStandard("");
+    setFuelType("");
+    setTransmission("");
+    setChassisCode("");
+    setVinPrefix("");
+    setRegion("");
 
-            // reset variant-specific fields only — keep Make/Model/Generation
-            // selected so the user can add another variant to the same generation
-            setVariantName("");
-            setVariantStartYear("");
-            setVariantEndYear("");
-            setDoors("");
-            setEngineType("");
-            setEngineCode("");
-            setEngineCapacity("");
-            setEmissionStandard("");
-            setFuelType("");
-            setTransmission("");
-            setChassisCode("");
-            setVinPrefix("");
-            setRegion("");
+    loadVariantsByGeneration(selectedGenerationId);
+    setIsDrawerOpen(false);        // ← the missing line
 
-            // refresh whatever is currently being viewed (a specific
-            // generation, or the full list) so the new row shows up either way
-            loadVariantsByGeneration(selectedGenerationId);
-
-        } catch (error) {
-            console.log(error);
-            const backendMessage =
-                error.response?.data?.errors?.join(", ") ||
-                error.response?.data?.message ||
-                "Error saving variant";
-            setMessage({ type: "error", text: backendMessage });
-        }
+} catch (error) {
+    console.log(error);
+    const backendMessage =
+        error.response?.data?.errors?.join(", ") ||
+        error.response?.data?.message ||
+        "Error saving variant";
+    showToast(backendMessage, "error");
+    // drawer stays OPEN on error so the user can fix and retry
+}
     };
-
     useEffect(() => {
         loadMakes();
         loadAllVariants();
     }, []);
 
-    // ===== UI-ONLY HELPERS =====
     const filteredVariants = variants.filter((v) =>
         (v.variantName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (v.fuelType || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,7 +217,6 @@ function VehicleVariantsSection() {
 
     const electrifiedCount = variants.filter((v) => v.fuelType === "Electric" || v.fuelType === "Hybrid").length;
 
-    // pagination derived from the filtered list
     const totalPages = Math.max(1, Math.ceil(filteredVariants.length / PAGE_SIZE));
     const safePage = Math.min(currentPage, totalPages);
     const paginatedVariants = filteredVariants.slice(
@@ -242,7 +224,6 @@ function VehicleVariantsSection() {
         safePage * PAGE_SIZE
     );
 
-    // reset to page 1 whenever the underlying list or search term changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, selectedGenerationId, variants.length]);
@@ -265,6 +246,7 @@ function VehicleVariantsSection() {
         a.download = "vehicle-variants.csv";
         a.click();
         URL.revokeObjectURL(url);
+        showToast("Exported vehicle-variants.csv", "success");
     };
 
     return (
@@ -278,13 +260,14 @@ function VehicleVariantsSection() {
             </div>
 
             <div className="vm-action-bar">
-                {searchOpen && <div className="vm-search-wrap">
+                {searchOpen && <div className="vm-search-wrap is-open">
                     <span className="vm-search-icon"><Search size={15} /></span>
                     <input
                         className="vm-search-input"
                         placeholder="Search variants…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        autoFocus
                     />
                 </div>}
 
@@ -297,7 +280,10 @@ function VehicleVariantsSection() {
                     >
                         <Search size={16} />
                     </button>
-                    <button className="vm-btn vm-btn-secondary" onClick={() => setFiltersOpen((open) => !open)}>
+                    <button
+                        className={`vm-btn vm-btn-secondary${filtersOpen ? " is-active" : ""}`}
+                        onClick={() => setFiltersOpen((open) => !open)}
+                    >
                         <Filter size={16} /> Filters
                     </button>
                     <button className="vm-btn vm-btn-secondary" onClick={exportCsv}>
@@ -305,10 +291,7 @@ function VehicleVariantsSection() {
                     </button>
                     <button
                         className="vm-btn vm-btn-primary"
-                        onClick={() => {
-                            setMessage(null);
-                            setIsDrawerOpen(true);
-                        }}
+                        onClick={() => setIsDrawerOpen(true)}
                     >
                         <Plus size={17} /> Add Variant
                     </button>
@@ -318,16 +301,14 @@ function VehicleVariantsSection() {
             {filtersOpen && <div className="vm-filter-panel">
                 <div className="vm-grid-3">
                     <div className="vm-field">
-                        <label className="vm-label">
-                            Make
-                        </label>
+                        <label className="vm-label">Make</label>
                         <select
                             className="vm-select"
                             value={selectedMakeId}
                             onChange={(e) => {
                                 setSelectedMakeId(e.target.value);
                                 loadModelsByMake(e.target.value);
-                                loadVariantsByGeneration(""); // clearing make -> show all variants again
+                                loadVariantsByGeneration("");
                             }}
                         >
                             <option value="">All makes</option>
@@ -338,9 +319,7 @@ function VehicleVariantsSection() {
                     </div>
 
                     <div className="vm-field">
-                        <label className="vm-label">
-                            Model
-                        </label>
+                        <label className="vm-label">Model</label>
                         <select
                             className="vm-select"
                             value={selectedModelId}
@@ -348,7 +327,7 @@ function VehicleVariantsSection() {
                             onChange={(e) => {
                                 setSelectedModelId(e.target.value);
                                 loadGenerationsByModel(e.target.value);
-                                loadVariantsByGeneration(""); // clearing model -> show all variants again
+                                loadVariantsByGeneration("");
                             }}
                         >
                             <option value="">All models</option>
@@ -359,9 +338,7 @@ function VehicleVariantsSection() {
                     </div>
 
                     <div className="vm-field">
-                        <label className="vm-label">
-                            Generation
-                        </label>
+                        <label className="vm-label">Generation</label>
                         <select
                             className="vm-select"
                             value={selectedGenerationId}
@@ -381,13 +358,6 @@ function VehicleVariantsSection() {
                     </div>
                 </div>
             </div>}
-
-            {message && !isDrawerOpen && (
-                <div className={`vm-alert vm-alert-${message.type}`}>
-                    <span className="vm-alert-icon"><span>{message.type === "success" ? "✓" : "!"}</span></span>
-                    <span>{message.text}</span>
-                </div>
-            )}
 
             <div className="vm-panel">
                 {filteredVariants.length === 0 ? (
@@ -420,7 +390,7 @@ function VehicleVariantsSection() {
                                         <td>
                                             <span className="vm-chip-trail">
                                                 <span className="vm-chip">
-                                                         {variant.makeName}
+                                                    {variant.makeName}
                                                 </span>
                                                 <span className="vm-chip-sep">→</span>
                                                 <span>{variant.modelName}</span>
@@ -496,9 +466,9 @@ function VehicleVariantsSection() {
 
             <VehicleDrawer
                 open={isDrawerOpen}
-                size="wide"
+                variant="compact"
+                eyebrow="Vehicle Variants"
                 onClose={() => setIsDrawerOpen(false)}
-                icon="🏷"
                 title="Add New Variant"
                 description="The most specific record — trim, engine, and spec within a generation."
                 footer={
@@ -512,13 +482,6 @@ function VehicleVariantsSection() {
                     </>
                 }
             >
-                {message && (
-                    <div className={`vm-alert vm-alert-${message.type}`}>
-                        <span className="vm-alert-icon"><span>{message.type === "success" ? "✓" : "!"}</span></span>
-                        <span>{message.text}</span>
-                    </div>
-                )}
-
                 <div className="vm-divider">Vehicle hierarchy</div>
 
                 <div className="vm-grid-2" style={{ marginTop: 12, marginBottom: 8 }}>

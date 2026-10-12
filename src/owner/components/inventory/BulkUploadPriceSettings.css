@@ -1,9 +1,9 @@
 .bulk-price-settings {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr;
-  gap: 10px;
-  padding: 11px;
-  margin-bottom: 13px;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
   border: 1px solid #bfdbfe;
   border-radius: 6px;
   background: #eff6ff;
@@ -12,7 +12,7 @@
 .bulk-price-settings label,
 .bulk-price-settings > div {
   display: grid;
-  gap: 5px;
+  gap: var(--sp-1);
 }
 
 .bulk-price-settings span {
@@ -30,7 +30,7 @@
 }
 
 .bulk-price-settings select {
-  padding: 0 9px;
+  padding: 0 var(--sp-2);
 }
 
 .bulk-gst-input {
@@ -41,13 +41,13 @@
 .bulk-gst-input input {
   width: 100%;
   height: 32px;
-  padding: 0 9px;
+  padding: 0 var(--sp-2);
   border: 0;
   outline: 0;
 }
 
 .bulk-gst-input b {
-  padding-right: 9px;
+  padding-right: var(--sp-2);
   color: #475569;
 }
 
@@ -55,7 +55,7 @@
   height: 36px;
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 var(--sp-3);
   border-radius: 5px;
   background: #fff;
   color: #1d4ed8;
@@ -71,15 +71,15 @@
 .bulk-preview-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .bulk-header-setting {
   height: 36px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
   border: 1px solid #cbd5e1;
   border-radius: 5px;
   background: #fff;
@@ -117,6 +117,6 @@
   }
 }
 
-.bulk-discount-control { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:16px; }
-.bulk-discount-control input { width:110px; padding:8px; border:1px solid #cbd5e1; border-radius:6px; }
+.bulk-discount-control { display:flex; align-items:center; flex-wrap:wrap; gap: var(--sp-3); padding: var(--sp-4); background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom: var(--sp-4); }
+.bulk-discount-control input { width:110px; padding: var(--sp-2); border:1px solid #cbd5e1; border-radius:6px; }
 .bulk-discount-control small { flex-basis:100%; color:#475569; }

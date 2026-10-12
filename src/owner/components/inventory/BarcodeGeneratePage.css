@@ -7,11 +7,11 @@
 .barcode-page {
   width: 100%;
   min-height: 100vh;
-  padding: 16px 20px 20px;
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
   background: #ffffff;
   color: #172033;
   box-sizing: border-box;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  
 }
 
 /* =========================================================
@@ -36,8 +36,8 @@
 .barcode-page-heading {
   display: flex;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 16px;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
 }
 
 .barcode-heading-icon {
@@ -80,16 +80,16 @@
 .barcode-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   width: 100%;
-  margin-bottom: 18px;
+  margin-bottom: var(--sp-5);
   flex-wrap: wrap;
 }
 
 .brand-select {
   width: 180px;
   height: 38px;
-  padding: 0 32px 0 12px;
+  padding: 0 var(--sp-7) 0 var(--sp-3);
   border: 1px solid #d5dce5;
   border-radius: 5px;
   background-color: #ffffff;
@@ -131,7 +131,7 @@
 .barcode-search-wrapper input {
   width: 100%;
   height: 100%;
-  padding: 0 12px 0 0;
+  padding: 0 var(--sp-3) 0 0;
   border: 0;
   outline: none;
   background: transparent;
@@ -150,8 +150,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 15px;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-4);
   border: 0;
   border-radius: 5px;
   font-size: 13px;
@@ -226,7 +226,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-3);
   color: #4d5869;
   font-size: 13px;
   font-weight: 600;
@@ -235,13 +235,13 @@
 .entries-control {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .entries-control select {
   width: 62px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
   border: 1px solid #d4dce7;
   border-radius: 5px;
   background: #ffffff;
@@ -296,7 +296,7 @@
 
 .barcode-table th {
   height: 38px;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   border-bottom: 1px solid #dfe5ed;
   color: #3d4759;
   font-size: 12px;
@@ -310,7 +310,7 @@
    it still fits comfortably at this row height. */
 .barcode-table td {
   height: 50px;
-  padding: 6px 12px;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid #e8edf3;
   color: #3c4655;
   font-size: 13px;
@@ -389,8 +389,8 @@
 }
 
 .barcode-cell {
-  padding-top: 4px !important;
-  padding-bottom: 4px !important;
+  padding-top: var(--sp-1) !important;
+  padding-bottom: var(--sp-1) !important;
   text-align: center;
   font-weight: 600;
 }
@@ -401,7 +401,7 @@
   justify-content: center;
   min-width: 150px;
   min-height: 40px;
-  padding: 2px 10px;
+  padding: 2px var(--sp-3);
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -453,7 +453,7 @@
   align-items: center;
   justify-content: space-between;
   min-height: 54px;
-  padding: 8px 10px 8px 15px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
   border-top: 1px solid #e5eaf0;
   background: #ffffff;
 }
@@ -467,13 +467,13 @@
 .pagination {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--sp-1);
 }
 
 .pagination-button {
   min-width: 34px;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 var(--sp-3);
   border: 1px solid #e0e5ec;
   border-radius: 5px;
   background: #ffffff;
@@ -506,7 +506,7 @@
 
 .previous-button,
 .next-button {
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
 }
 
 .pagination-ellipsis {
@@ -537,7 +537,7 @@
   justify-content: center;
   width: 100%;
   min-height: 250px;
-  padding: 25px;
+  padding: var(--sp-6);
   box-sizing: border-box;
   page-break-inside: avoid;
   text-align: center;
@@ -545,7 +545,7 @@
 }
 
 .print-barcode-card h2 {
-  margin: 0 0 10px;
+  margin: 0 0 var(--sp-3);
   color: #000000;
   font-size: 20px;
 }
@@ -553,7 +553,7 @@
 .print-part-number,
 .print-brand,
 .print-barcode-value {
-  margin: 4px 0;
+  margin: var(--sp-1) 0;
   color: #000000;
   font-size: 14px;
 }
@@ -562,7 +562,7 @@
   width: 360px;
   max-width: 100%;
   height: auto;
-  margin-top: 15px;
+  margin-top: var(--sp-4);
 }
 
 /* =========================================================
@@ -597,7 +597,7 @@
 
 @media (max-width: 640px) {
   .barcode-page {
-    padding: 14px 12px 18px;
+    padding: var(--sp-4) var(--sp-3) var(--sp-5);
   }
 
   .barcode-page-heading h1 {
@@ -622,7 +622,7 @@
   .table-top-bar {
     align-items: flex-start;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--sp-3);
   }
 
   .total-items {
@@ -632,7 +632,7 @@
   .barcode-table-footer {
     align-items: flex-start;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--sp-3);
   }
 
   .pagination {
@@ -643,12 +643,12 @@
 
   .pagination-button {
     min-width: 30px;
-    padding: 0 8px;
+    padding: 0 var(--sp-2);
   }
 
   .previous-button,
   .next-button {
-    padding: 0 10px;
+    padding: 0 var(--sp-3);
   }
 }
 

@@ -1,67 +1,105 @@
-/*
- * VehicleDrawer — shared presentational shell for the "add record" panels
- * used across Makes / Models / Generations / Variants.
- *
- * This component holds NO business logic, NO state tied to any entity,
- * and makes NO API calls. It only renders whatever is passed to it via
- * props/children. Each *Section.jsx keeps 100% of its existing state,
- * handlers and API calls — this just gives them a consistent chrome.
- */
-import { CarFront, X } from "lucide-react";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 
 function VehicleDrawer({
-    open,
-    onClose,
-    icon = "🚗",
-    title,
-    description,
-    footer,
-    children,
-    size = "medium",
+  open,
+  size = "medium",
+  onClose,
+  icon,
+  title,
+  description,
+  footer,
+  children,
+  eyebrow,
+  variant = "default",
 }) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
-    return (
-        <>
-            <div
-                className={"vm-drawer-overlay" + (open ? " is-open" : "")}
-                onClick={onClose}
-            />
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose?.();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
-            <div className={`vm-drawer vm-drawer--${size}${open ? " is-open" : ""}`}>
+  const sizeClass =
+    size === "wide"
+      ? "vm-drawer--wide"
+      : size === "medium"
+      ? "vm-drawer--medium"
+      : "";
 
-                <div className="vm-drawer-header">
-                    <div className="vm-drawer-icon">
-                        {typeof icon === "object" ? icon : <CarFront size={21} />}
-                    </div>
-                    <div>
-                        <h3 className="vm-drawer-title">{title}</h3>
-                        {description && (
-                            <p className="vm-drawer-desc">{description}</p>
-                        )}
-                    </div>
-                    <button
-                        type="button"
-                        className="vm-drawer-close"
-                        onClick={onClose}
-                        aria-label="Close"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
+  const isCompact = variant === "compact";
 
-                <div className="vm-drawer-body">
-                    {children}
-                </div>
+  const drawerContent = (
+    <>
+      <div
+        className={`vm-drawer-overlay${open ? " is-open" : ""}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-                {footer && (
-                    <div className="vm-drawer-footer">
-                        {footer}
-                    </div>
-                )}
+      <div
+        className={
+          "vm-drawer" +
+          (isCompact ? " vm-drawer--compact" : "") +
+          (sizeClass ? " " + sizeClass : "") +
+          (open ? " is-open" : "")
+        }
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="vm-drawer-header">
+          {!isCompact && icon && <div className="vm-drawer-icon">{icon}</div>}
 
-            </div>
-        </>
-    );
+          <div className="vm-drawer-header-content">
+            {isCompact && eyebrow && (
+              <div className="vm-drawer-eyebrow">{eyebrow}</div>
+            )}
+            <h2 className="vm-drawer-title">{title}</h2>
+            {description && <p className="vm-drawer-desc">{description}</p>}
+          </div>
+
+          {isCompact ? (
+            <button
+              type="button"
+              className="vm-drawer-close-pill"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={14} />
+              <span>Close</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="vm-drawer-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        <div className="vm-drawer-body">{children}</div>
+
+        {footer && <div className="vm-drawer-footer">{footer}</div>}
+      </div>
+    </>
+  );
+
+  // React Portal — mounts at document.body, escapes every ancestor transform.
+  if (typeof document === "undefined") return null;
+  return createPortal(drawerContent, document.body);
 }
 
 export default VehicleDrawer;

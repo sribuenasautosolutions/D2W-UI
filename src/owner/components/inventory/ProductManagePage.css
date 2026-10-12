@@ -15,11 +15,11 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: 24px;
+  /* */
   overflow: hidden;
   background: #f8fafc;
   color: #1e293b;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  
   -webkit-font-smoothing: antialiased;
 }
 
@@ -29,9 +29,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--sp-5);
   flex-shrink: 0;
-  margin-bottom: 20px;
+  margin-bottom: var(--sp-5);
 }
 
 .manage-page-header h1 {
@@ -43,7 +43,7 @@
 }
 
 .manage-page-header p {
-  margin: 6px 0 0;
+  margin: var(--sp-2) 0 0;
   color: #64748b;
   font-size: 13px;
 }
@@ -81,7 +81,7 @@
   align-items: stretch;
   flex: 1;
   min-height: 0;
-  gap: 20px;
+  gap: var(--sp-5);
   overflow: hidden;
 }
 
@@ -89,14 +89,14 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding-right: 4px;
+  padding-right: var(--sp-1);
   overflow-y: auto;
 }
 
 .manage-side-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-4);
   width: 300px;
   flex-shrink: 0;
   min-height: 0;
@@ -106,8 +106,8 @@
 /* ---------- Cards ---------- */
 
 .manage-card {
-  padding: 22px;
-  margin-bottom: 18px;
+  padding: var(--sp-6);
+  margin-bottom: var(--sp-5);
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #ffffff;
@@ -118,7 +118,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  margin-bottom: 20px;
+  margin-bottom: var(--sp-5);
 }
 
 .manage-card-heading h2 {
@@ -139,17 +139,17 @@
    compact (tighter padding, smaller fields, a 5-up row on wide screens)
    to leave more vertical room for the list below it. */
 .manage-item-information-card {
-  padding: 14px 20px;
-  margin-bottom: 14px;
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-4);
 }
 
 .manage-item-information-card .manage-card-heading {
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 
 .manage-item-information-card .manage-three-column-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .manage-item-information-card .manage-form-field label {
@@ -166,13 +166,13 @@
 .manage-three-column-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--sp-4);
 }
 
 .manage-form-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sp-2);
   min-width: 0;
 }
 
@@ -187,7 +187,7 @@
   box-sizing: border-box;
   width: 100%;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   outline: none;
@@ -222,9 +222,9 @@
 .manage-section-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   min-height: 52px;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   border-bottom: 1px solid #e2e8f0;
   background: #ffffff;
 }
@@ -233,9 +233,9 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-2);
   height: 52px;
-  padding: 0 14px;
+  padding: 0 var(--sp-4);
   border: 0;
   border-bottom: 2px solid transparent;
   outline: none;
@@ -286,13 +286,13 @@
 }
 
 .manage-tab-panel {
-  padding: 22px;
+  padding: var(--sp-6);
   background: #ffffff;
   animation: manage-tab-fade-in 0.18s ease;
 }
 
 .manage-panel-heading {
-  margin-bottom: 18px;
+  margin-bottom: var(--sp-5);
 }
 
 .manage-panel-heading h2 {
@@ -303,7 +303,7 @@
 }
 
 .manage-panel-heading p {
-  margin: 4px 0 0;
+  margin: var(--sp-1) 0 0;
   color: #94a3b8;
   font-size: 12px;
 }
@@ -346,7 +346,7 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 12px 14px;
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #475569;
@@ -359,7 +359,7 @@
 }
 
 .manage-table td {
-  padding: 12px 14px;
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid #f1f5f9;
   color: #64748b;
   vertical-align: middle;
@@ -376,7 +376,7 @@
 .manage-transaction-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 9px;
+  padding: var(--sp-1) var(--sp-2);
   border-radius: 999px;
   background: #eff6ff;
   color: #2563eb;
@@ -385,7 +385,7 @@
 }
 
 .manage-table-empty {
-  padding: 40px 10px !important;
+  padding: var(--sp-8) var(--sp-3) !important;
   color: #94a3b8 !important;
   text-align: center !important;
 }
@@ -395,20 +395,20 @@
 .manage-adjustment-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-4);
 }
 
 .manage-adjustment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--sp-4);
 }
 
 .manage-adjustment-notice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #f8fafc;
@@ -424,9 +424,9 @@
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   min-height: 40px;
-  padding: 0 18px;
+  padding: 0 var(--sp-5);
   border: 1px solid #2563eb;
   border-radius: 8px;
   background: #2563eb;
@@ -453,7 +453,7 @@
 /* ---------- Right summary panel ---------- */
 
 .manage-summary-card {
-  padding: 22px;
+  padding: var(--sp-6);
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #ffffff;
@@ -465,7 +465,7 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  margin-bottom: 16px;
+  margin-bottom: var(--sp-4);
   border-radius: 10px;
   background: linear-gradient(135deg, #eff6ff, #dbeafe);
   color: #2563eb;
@@ -483,7 +483,7 @@
 }
 
 .manage-summary-card p {
-  margin: 5px 0 0;
+  margin: var(--sp-1) 0 0;
   overflow: hidden;
   color: #64748b;
   font-size: 12px;
@@ -494,9 +494,9 @@
 .manage-summary-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 14px;
-  padding: 5px 10px;
+  gap: var(--sp-1);
+  margin-top: var(--sp-4);
+  padding: var(--sp-1) var(--sp-3);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -514,7 +514,7 @@
 
 .manage-summary-divider {
   height: 1px;
-  margin: 18px 0;
+  margin: var(--sp-5) 0;
   background: #f1f5f9;
 }
 
@@ -522,8 +522,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 7px 0;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
   font-size: 13px;
 }
 
@@ -545,8 +545,8 @@
 .manage-actions-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #ffffff;
@@ -556,7 +556,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--sp-2);
   width: 100%;
   min-height: 42px;
   border: 1px solid #2563eb;
@@ -662,8 +662,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 15px;
-  padding: 24px;
+  gap: var(--sp-4);
+  padding: var(--sp-6);
   border: 1px solid #fecaca;
   border-radius: 12px;
   background: #ffffff;
@@ -673,9 +673,9 @@
 .manage-alert {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin-bottom: 16px;
-  padding: 11px 14px;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
   border-radius: 8px;
   font-size: 13px;
 }
@@ -737,15 +737,14 @@
 
 @media (max-width: 700px) {
   .manage-page-shell {
-    padding: 14px;
   }
 
   .manage-card {
-    padding: 16px;
+    padding: var(--sp-4);
   }
 
   .manage-tab-panel {
-    padding: 16px;
+    padding: var(--sp-4);
   }
 
   .manage-section-tabs {

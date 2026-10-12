@@ -16,7 +16,7 @@ const emptyForm = {
     masterName: "",
 };
 
-function ProductSection({ reviewData, selectedApproval, onApproved }) {
+function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
     const [formData, setFormData] = useState(emptyForm);
     const [brands, setBrands] = useState([]);
     const [filteredBrands, setFilteredBrands] = useState([]);
@@ -192,14 +192,22 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
         if (!formData.categoryName.trim())
             errors.categoryName = "Category is required";
         if (!formData.masterName.trim())
-            errors.masterName = "Master is required";
+        if (!formData.hsnCode.trim()) {
+        errors.hsnCode = "HSN Code is required";
+    } else if (!/^\d{4,8}$/.test(formData.hsnCode.trim())) {
+        errors.hsnCode = "HSN Code must be 4 to 8 digits";
+    }
         setErrors(errors);
         return Object.keys(errors).length === 0;
     };
 
-    const handleApprove = async () => {
-        if (!validateForm()) return;
-
+        const handleApprove = async () => {
+    if (!validateForm()) {
+        const firstMessage =
+            Object.values(errors)[0] || "Please fix the highlighted fields.";
+        onToast?.(firstMessage, "error");
+        return;
+    }
         if (!selectedApproval) {
             alert("Please select a product.");
             return;
@@ -420,15 +428,23 @@ function ProductSection({ reviewData, selectedApproval, onApproved }) {
                     </div>
 
                     <div className="vm-field">
-                        <label className="vm-label">HSN Code</label>
+                        <label className="vm-label">
+                            HSN Code <span className="vm-req">*</span>
+                        </label>
                         <input
                             name="hsnCode"
                             value={formData.hsnCode}
                             onChange={handleChange}
-                            className="vm-input"
+                            className={`vm-input${errors.hsnCode ? " has-error" : ""}`}
+                            inputMode="numeric"
+                            maxLength={8}
+                            placeholder="e.g. 8708"
                         />
+                        {errors.hsnCode && (
+                            <span className="vm-field-error">{errors.hsnCode}</span>
+                        )}
                     </div>
-                </div>
+                                    </div>
             </div>
 
             <div className="vm-panel-footer">

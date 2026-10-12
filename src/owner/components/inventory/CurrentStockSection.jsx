@@ -398,13 +398,12 @@ export default function CurrentStockSection() {
       setLoading(true);
       setError("");
 
-      const data = await getCurrentStockPage(storeId, {
+            const data = await getCurrentStockPage(storeId, {
         search: search.trim() || undefined,
         status: status || undefined,
         brandName: brandFilter || undefined,
         categoryName: categoryFilter || undefined,
-        onlyAvailable:
-  view === "table" && status !== "OUT_OF_STOCK",
+        onlyAvailable: status !== "OUT_OF_STOCK",
         page,
         size,
         sortBy,
@@ -423,18 +422,9 @@ export default function CurrentStockSection() {
 
       setResult(safeData);
 
-      if (view === "detail") {
-        setSelectedId((currentSelectedId) => {
-          const selectedStillExists = safeData.content.some(
-            (row) =>
-              row.inventoryId === currentSelectedId
-          );
-
-          return selectedStillExists
-            ? currentSelectedId
-            : safeData.content[0]?.inventoryId || null;
-        });
-      }
+      if (!selectedId && safeData.content.length > 0) {
+    setSelectedId(safeData.content[0].inventoryId);
+}
     } catch (requestError) {
       setResult({
         content: [],
@@ -453,13 +443,12 @@ export default function CurrentStockSection() {
     } finally {
       setLoading(false);
     }
-  }, [
+   }, [
     storeId,
     search,
     status,
     brandFilter,
     categoryFilter,
-    view,
     page,
     size,
     sortBy,
@@ -499,7 +488,9 @@ export default function CurrentStockSection() {
         selectedId
       );
 
-      setDetails(data);
+      if (data?.inventoryId === selectedId) {
+    setDetails(data);
+}
     } catch (requestError) {
       setError(
         errorMessage(
@@ -508,11 +499,22 @@ export default function CurrentStockSection() {
         )
       );
     }
-  }, [selectedId, view, result.content, storeId]);
+  }, [selectedId, view,storeId]);
 
   useEffect(() => {
     loadDetails();
   }, [loadDetails]);
+
+  /*
+   * Scroll the selected sidebar row into view (without reordering)
+   */
+  useEffect(() => {
+    if (!selectedId || view !== "detail") return;
+    const el = document.querySelector(
+      `[data-inventory-id="${selectedId}"]`
+    );
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedId, view]);
 
   /*
    * Load tab-specific data.
@@ -683,13 +685,12 @@ export default function CurrentStockSection() {
       setExporting(true);
       setError("");
 
-      const firstPage = await getCurrentStockPage(storeId, {
+           const firstPage = await getCurrentStockPage(storeId, {
         search: search.trim() || undefined,
         status: status || undefined,
         brandName: brandFilter || undefined,
         categoryName: categoryFilter || undefined,
-      onlyAvailable:
-  view === "table" && status !== "OUT_OF_STOCK",
+        onlyAvailable: status !== "OUT_OF_STOCK",
         page: 0,
         size: 100,
         sortBy,
@@ -705,14 +706,14 @@ export default function CurrentStockSection() {
         nextPage < (firstPage?.totalPages || 1);
         nextPage += 1
       ) {
-        const nextResult = await getCurrentStockPage(
+               const nextResult = await getCurrentStockPage(
           storeId,
           {
             search: search.trim() || undefined,
             status: status || undefined,
             brandName: brandFilter || undefined,
             categoryName: categoryFilter || undefined,
-            onlyAvailable: view === "table",
+            onlyAvailable: status !== "OUT_OF_STOCK",
             page: nextPage,
             size: 100,
             sortBy,
@@ -1225,17 +1226,16 @@ export default function CurrentStockSection() {
           {/* Left side: scrollable list */}
           <aside className="stock-browser">
             <div className="stock-list-scroll">
-              {result.content.map((item) => {
+                           {result.content.map((item) => {
                 const itemStatus = statusOf(item);
-
+                const isSelected = selectedId === item.inventoryId;
                 return (
                   <button
                     type="button"
                     key={item.inventoryId}
+                    data-inventory-id={item.inventoryId}
                     className={`stock-list-row ${
-                      selectedId === item.inventoryId
-                        ? "selected"
-                        : ""
+                      isSelected ? "selected" : ""
                     }`}
                     onClick={() => {
                       setSelectedId(item.inventoryId);
