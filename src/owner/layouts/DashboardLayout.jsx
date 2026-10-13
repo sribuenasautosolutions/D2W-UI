@@ -45,7 +45,7 @@ function DashboardLayout({ children }) {
                         style={{
                             height: "100vh",
                             width: "100%",
-                            padding: "24px 28px",
+                            padding: "24px 28px", //fixed 
                             margin: 0,
                             overflow: "auto",
                             boxSizing: "border-box",
