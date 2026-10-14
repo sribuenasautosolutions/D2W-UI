@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import api from "../../../services/api";
 import { createLocalProduct, getMyLocalProducts } from "../../../services/localProductService";
 import { getAllBrands } from "../../../services/brandService";
 import { searchProductByPartNumber } from "../../../services/productFitmentService";
@@ -13,14 +12,17 @@ const emptyForm = {
   mrp: "",
   purchasePrice: "",
   sellingPrice: "",
-  gstPercentage: "",
-  discountPercentage: "0",
 };
 
-// Product details, quantity and GST are required; any one or more prices may be supplied.
+// Every field is required EXCEPT hsnCode.
 const REQUIRED_FIELDS = [
-  ["partNumber", "Part Number"], ["productName", "Part Name"], ["brand", "Brand"],
-  ["quantity", "Opening Quantity"], ["gstPercentage", "GST Percentage"],
+  ["partNumber", "Part Number"],
+  ["productName", "Part Name"],
+  ["brand", "Brand"],
+  ["quantity", "Opening Quantity"],
+  ["mrp", "MRP"],
+  ["purchasePrice", "Purchase Price"],
+  ["sellingPrice", "Selling Price"],
 ];
 
 const ALL_FIELDS = [
@@ -32,8 +34,6 @@ const ALL_FIELDS = [
   ["mrp", "MRP"],
   ["purchasePrice", "Purchase Price"],
   ["sellingPrice", "Selling Price"],
-  ["gstPercentage", "GST Percentage"],
-  ["discountPercentage", "Purchase Discount %"],
 ];
 
 function requestError(error, fallback) {
@@ -54,7 +54,6 @@ export default function OpeningStockManualEntry({
   compact = false,
 }) {
   const [form, setForm] = useState(emptyForm);
-  const [pricePreview, setPricePreview] = useState(null);
   const [brands, setBrands] = useState([]);
   const [requests, setRequests] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -68,7 +67,6 @@ export default function OpeningStockManualEntry({
   useEffect(() => {
     context.current = storeId;
     setRequests([]);
-    setPricePreview(null);
     setError("");
     setSuccess("");
   }, [storeId]);
@@ -128,13 +126,7 @@ export default function OpeningStockManualEntry({
       errors.push("Opening Quantity must be a positive whole number");
     }
 
-    const priceFields = ["mrp", "purchasePrice", "sellingPrice"].filter(key => String(form[key]).trim() !== "");
-    if (!priceFields.length) errors.push("Enter at least one price");
-    if (validatePrices) validatePrices({ ...form, enteredPriceFields: priceFields }, errors);
-    const gst = Number(form.gstPercentage);
-    const discount = Number(form.discountPercentage || 0);
-    if (!Number.isFinite(gst) || gst < 0 || gst > 100) errors.push("GST must be between 0 and 100");
-    if (!Number.isFinite(discount) || discount < 0 || discount >= 100) errors.push("Discount must be 0 or greater and less than 100%");
+    validatePrices({ ...form, priceSource: "MANUAL" }, errors);
 
     if (errors.length) {
       setError(errors.join("; "));
@@ -146,14 +138,6 @@ export default function OpeningStockManualEntry({
     setBusy(true);
 
     try {
-      if (!pricePreview) {
-        const payload = { storeId: submittedStore, quantity, gstPercentage: gst,
-          discountPercentage: discount, enteredPriceFields: priceFields };
-        ["mrp", "purchasePrice", "sellingPrice"].forEach(key => { payload[key] = priceFields.includes(key) ? Number(form[key]) : null; });
-        const response = await api.post("/store-inventory/bulk-upload/pricing-preview", payload);
-        if (context.current === submittedStore) setPricePreview(response.data);
-        return;
-      }
       const result = await createLocalProduct(
         {
           partNumber: form.partNumber.trim(),
@@ -161,10 +145,9 @@ export default function OpeningStockManualEntry({
           brand: form.brand.trim(),
           hsnCode: hsn || null,
           quantity,
-          gstPercentage: gst,
-          mrp: Number(pricePreview.mrp),
-          purchasePrice: Number(pricePreview.purchasePrice),
-          sellingPrice: Number(pricePreview.sellingPrice),
+          mrp: Number(form.mrp),
+          purchasePrice: Number(form.purchasePrice),
+          sellingPrice: Number(form.sellingPrice),
         },
         submittedStore
       );
@@ -184,7 +167,6 @@ export default function OpeningStockManualEntry({
           `${result.message || "Opening stock processed successfully."} Quantity: ${quantity}.${approvalMessage}`
         );
         setForm(emptyForm);
-        setPricePreview(null);
         if (!compact) await refresh();
       }
     } catch (err) {
@@ -207,7 +189,7 @@ export default function OpeningStockManualEntry({
       if (!product || Number(product.id) !== Number(request.globalProductId)) {
         throw new Error("Approved product is no longer available. Refresh requests.");
       }
-      onSelectApproved?.({
+      onSelectApproved({
         ...request,
         ...product,
         mrp: request.mrp,
@@ -221,6 +203,7 @@ export default function OpeningStockManualEntry({
       setBusy(false);
     }
   };
+  console.log("OpeningStockManualEntry → storeId:", storeId, "| busy:", busy);
   return (
     <div className={`opening-manual-panel${compact ? " opening-manual-panel--compact" : ""}`}>
       {!compact && (
@@ -243,8 +226,7 @@ export default function OpeningStockManualEntry({
           {ALL_FIELDS.map(([key, label]) => {
             const isPrice = ["mrp", "purchasePrice", "sellingPrice"].includes(key);
             const isQuantity = key === "quantity";
-            const isPercentage = ["gstPercentage", "discountPercentage"].includes(key);
-            const isOptional = key === "hsnCode" || isPrice || key === "discountPercentage";
+            const isOptional = key === "hsnCode";
 
             return (
               <label key={key} htmlFor={`opening-manual-${key}`}>
@@ -256,17 +238,16 @@ export default function OpeningStockManualEntry({
                   name={key}
                   required={!isOptional}
                   value={form[key]}
-                  type={isPrice || isQuantity || isPercentage ? "number" : "text"}
-                  min={isPrice ? "0.01" : isQuantity ? "1" : isPercentage ? "0" : undefined}
-                  max={isPercentage ? (key === "discountPercentage" ? "99.99" : "100") : undefined}
-                  step={isPrice || isPercentage ? "0.01" : isQuantity ? "1" : undefined}
+                  type={isPrice || isQuantity ? "number" : "text"}
+                  min={isPrice ? "0.01" : isQuantity ? "1" : undefined}
+                  step={isPrice ? "0.01" : isQuantity ? "1" : undefined}
                   maxLength={
                     { partNumber: 100, productName: 200, brand: 150, hsnCode: 8 }[key]
                   }
                   list={key === "brand" ? "opening-manual-brands" : undefined}
                   placeholder={isOptional ? "Optional" : undefined}
                   onChange={(event) =>
-                    { setForm((current) => ({ ...current, [key]: event.target.value })); setPricePreview(null); }
+                    setForm((current) => ({ ...current, [key]: event.target.value }))
                   }
                 />
               </label>
@@ -280,20 +261,12 @@ export default function OpeningStockManualEntry({
           </datalist>
         </fieldset>
 
-        <p>Enter one, two or all three prices. Purchase price is final cost including GST; selling price excludes GST. Only missing values are calculated.</p>
-        {pricePreview && <div role="status" className="bulk-alert">
-          {["mrp", "purchasePrice", "sellingPrice"].map(key => <div key={key}>
-            {key === "mrp" ? "MRP" : key === "purchasePrice" ? "Purchase Price" : "Selling Price"}: {pricePreview[key]}
-            {pricePreview.enteredPriceFields?.includes(key) ? " (entered)" : key === "mrp" ? " (calculated suggestion — review)" : " (calculated)"}
-          </div>)}
-          Review these prices. No stock has been saved yet.
-        </div>}
         <button
           type="submit"
           className="bulk-button bulk-button--primary"
           disabled={busy || !storeId}
         >
-          {busy ? "Processing…" : pricePreview ? "Confirm Opening Stock" : "Preview Prices"}
+          {busy ? "Processing…" : "Submit Opening Stock"}
         </button>
       </form>
 

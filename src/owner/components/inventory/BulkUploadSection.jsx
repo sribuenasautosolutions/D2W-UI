@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 
 import api from "../../../services/api";
-import OpeningStockManualEntry from "./OpeningStockManualEntry";
 
 import "./BulkUploadSection.css";
 import "./BulkUploadPriceSettings.css";
@@ -50,11 +49,8 @@ function downloadBlob(blob, filename) {
 
 function sourceRow(row) {
   const next = { ...row };
-  const legacyField = { MRP: "mrp", PURCHASE_PRICE: "purchasePrice", SELLING_PRICE: "sellingPrice" }[row.priceSource];
-  const fields = Array.isArray(row.enteredPriceFields) ? row.enteredPriceFields :
-    legacyField ? [legacyField] : PRICE_FIELDS.filter(key => row[key] != null && String(row[key]).trim() !== "");
-  next.enteredPriceFields = [...fields];
-  PRICE_FIELDS.forEach(key => { if (!fields.includes(key)) next[key] = null; });
+  const field = { MRP: "mrp", PURCHASE_PRICE: "purchasePrice", SELLING_PRICE: "sellingPrice" }[row.priceSource];
+  if (field) ["mrp", "purchasePrice", "sellingPrice"].forEach((key) => { if (key !== field) next[key] = null; });
   return next;
 }
 
@@ -74,7 +70,9 @@ function validatePriceSelection(row, errors) {
       if (!Number.isFinite(number) || number <= 0) errors.push(`${label} must be greater than zero`);
     }
   });
-  if (entered === 0) errors.push("Enter at least one price; missing prices will be calculated");
+  if (row.priceSource === "MANUAL" && entered !== 3) errors.push("Manual pricing requires all three prices");
+  else if (entered === 0) errors.push("Enter one price for calculation or all three prices for manual pricing");
+  else if (entered == 2) errors.push("Enter the third price, or keep only one price for calculation");
 }
 
 function validateEditedRow(row) {
@@ -164,7 +162,7 @@ function canCalculate(row) {
     const value = source[field];
     return value !== null && value !== undefined && String(value).trim() !== "";
   }).length;
-  return entered >= 1 && entered <= 3;
+  return entered === 1 || entered === 3;
 }
 
 const EditableRow = memo(function EditableRow({ row, serial, busy, calculating, onChange, onCommit, onRemove }) {
@@ -178,7 +176,6 @@ const EditableRow = memo(function EditableRow({ row, serial, busy, calculating, 
       step={step}
       placeholder={placeholder}
       aria-label={`${label}, row ${serial}`}
-      title={PRICE_FIELDS.includes(name) ? (sourceRow(row).enteredPriceFields.includes(name) ? "Entered price — preserved" : name === "mrp" ? "Calculated suggested MRP — review before import" : "Calculated price — editing makes it an entered value") : label}
       value={row[name] ?? ""}
       disabled={locked}
       onChange={(event) => onChange(row.rowNumber, name, event.target.value)}
@@ -232,7 +229,6 @@ const EditableRow = memo(function EditableRow({ row, serial, busy, calculating, 
 export default function BulkUploadSection({ onClose, hideTitle = false }) {
   const user = currentUser();
   const [allDiscount, setAllDiscount] = useState("");
-  const [showManualEntry, setShowManualEntry] = useState(false);
   const isSuperAdmin = user.role === "SUPER_ADMIN";
 
   const [stores, setStores] = useState([]);
@@ -353,12 +349,10 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
       const nextRows = current.rows.map((row) => {
         if (row.rowNumber !== rowNumber || row.status === "IMPORTED") return row;
         const next = { ...row, [field]: value };
-        if (PRICE_FIELDS.includes(field)) {
-          const fields = new Set(sourceRow(row).enteredPriceFields);
-          if (String(value).trim()) fields.add(field); else fields.delete(field);
-          next.enteredPriceFields = [...fields];
-          next.priceSource = fields.size === 3 ? "MANUAL" : fields.size === 2 ? "PARTIAL" :
-            PRICE_SOURCE_BY_FIELD[next.enteredPriceFields[0]] || null;
+        if (PRICE_FIELDS.includes(field) && row.priceSource !== "MANUAL") {
+          next.purchasePrice = ""; next.sellingPrice = ""; next.mrp = "";
+          next[field] = value;
+          next.priceSource = PRICE_SOURCE_BY_FIELD[field];
         }
         return { ...next, sampleRow: false, errors: validateEditedRow(next) };
       });
@@ -537,11 +531,6 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
           </label>
         )}
 
-        <button type="button" className="bulk-button" disabled={busy} onClick={() => setShowManualEntry(value => !value)}>
-          {showManualEntry ? "Close Manual Entry" : "Manual Entry"}
-        </button>
-        {showManualEntry && <OpeningStockManualEntry compact storeId={fixedStoreId} validatePrices={validatePriceSelection} />}
-        <p>Enter one, two or all three prices. Entered prices are preserved; only blanks are calculated. Hover over a price to see its source. Calculated MRP is a suggestion.</p>
         {/* ---- Upload area (state-driven) ---- */}
         {/* One hidden input shared by every state */}
         <input

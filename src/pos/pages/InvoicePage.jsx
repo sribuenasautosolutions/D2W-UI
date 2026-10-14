@@ -1,9 +1,8 @@
 import { ProductUnitLabel } from "../../components/ProductUnitFields";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Download, Printer, Plus } from "lucide-react";
+import { ArrowLeft, Download, Printer, Eye } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import apiclient from "../../services/apiclient";
-import { useCart } from "../context/CartContext";
 import "./InvoicePage.css";
 
 const money = (value) => Number(value || 0).toLocaleString("en-IN", {
@@ -97,31 +96,79 @@ function TotalLine({ label, value, subtract = false, strong = false }) {
 const COLUMN_WIDTHS_WITH_DISCOUNT = [4, 30, 8, 5, 8, 8, 8, 9, 7, 13];
 const COLUMN_WIDTHS_NO_DISCOUNT = [4, 35, 8, 5, 9, 9, 10, 7, 13];
 
-export default function InvoicePage({ orderIdOverride, embedded = false, onNewSale }) {
+export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const { orderId: routeOrderId } = useParams();
   const orderId = orderIdOverride || routeOrderId;
   const navigate = useNavigate();
   const location = useLocation();
   const printedOrder = useRef(null);
-  const { clearCart } = useCart();
+  const invoiceSheet = useRef(null);
+  const printInProgress = useRef(false);
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [pdfError, setPdfError] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const invoiceRequest = useRef(0);
+  const pdfCache = useRef(null);
+  const pdfRequest = useRef(null);
+  const currentOrder = useRef(orderId);
+  currentOrder.current = orderId;
 
   const loadInvoice = useCallback(async () => {
+    const version = ++invoiceRequest.current;
     setLoading(true);
+    setInvoice(null);
     setError("");
     try {
-      const response = await apiclient.get(`/orders/${orderId}`);
-      setInvoice(response.data);
+      if (!orderId) throw new Error("Invoice identifier is missing.");
+      const response = await apiclient.get(`/orders/${orderId}`, { timeout: 20000 });
+      if (invoiceRequest.current === version) setInvoice(response.data);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to load this invoice.");
+      if (invoiceRequest.current === version) setError(requestError.response?.data?.message || requestError.message || "Unable to load this invoice.");
     } finally {
-      setLoading(false);
+      if (invoiceRequest.current === version) setLoading(false);
     }
   }, [orderId]);
 
-  useEffect(() => { loadInvoice(); }, [loadInvoice]);
+  useEffect(() => {
+    loadInvoice();
+    setShowPreview(false); setPdfUrl(""); setPdfError(""); setPdfLoading(false);
+    if (pdfCache.current) URL.revokeObjectURL(pdfCache.current.url);
+    pdfCache.current = null; pdfRequest.current = null;
+    return () => { invoiceRequest.current += 1; };
+  }, [loadInvoice]);
+  useEffect(() => () => {
+    currentOrder.current = null;
+    if (pdfCache.current) URL.revokeObjectURL(pdfCache.current.url);
+  }, []);
+
+  const handlePrint = useCallback(() => {
+    if (!invoiceSheet.current || printInProgress.current) return;
+    const popup = window.open("", "_blank");
+    if (!popup) { setPdfError("Allow popups to open the invoice print preview."); return; }
+    popup.opener = null;
+    printInProgress.current = true;
+    const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map(node => node.outerHTML).join("\n");
+    popup.document.open();
+    popup.document.write('<!doctype html><html><head><base href="' + window.location.origin + '/">' + styles +
+      '<style>html,body{margin:0;height:auto;overflow:visible}.invoice-page{padding:0;background:white}.invoice-sheet{box-shadow:none;border:0}'+
+      '@media print{body,.invoice-page{display:block!important;visibility:visible!important;overflow:visible!important}}</style></head><body><main class="invoice-page">' + invoiceSheet.current.outerHTML + '</main></body></html>');
+    popup.document.title = "Invoice-" + orderId;
+    popup.onload = async () => {
+      try {
+        if (popup.document.fonts?.ready) await popup.document.fonts.ready;
+        await new Promise(resolve => popup.requestAnimationFrame(() => popup.requestAnimationFrame(resolve)));
+        popup.focus(); popup.print();
+      } catch { setPdfError("Unable to open print preview. Use Save PDF to download the invoice."); }
+      finally { printInProgress.current = false; }
+    };
+    popup.onbeforeunload = () => { printInProgress.current = false; };
+    popup.onafterprint = () => { printInProgress.current = false; popup.close(); };
+    popup.document.close();
+  }, [orderId]);
 
   useEffect(() => {
     if (!location.state?.autoPrint || loading || error || !invoice
@@ -135,10 +182,10 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
         replace: true,
         state: { ...location.state, autoPrint: false },
       });
-      window.print();
+      handlePrint();
     }, 100);
     return () => window.clearTimeout(timer);
-  }, [invoice, loading, error, orderId, location.pathname, location.state, navigate]);
+  }, [invoice, loading, error, orderId, location.pathname, location.state, navigate, handlePrint]);
 
   const items = useMemo(() => invoice?.items || [], [invoice]);
   const payments = useMemo(() => invoice?.payments || [], [invoice]);
@@ -152,18 +199,45 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
   const colWidths = hasDiscount ? COLUMN_WIDTHS_WITH_DISCOUNT : COLUMN_WIDTHS_NO_DISCOUNT;
   const columnCount = colWidths.length;
 
-  const startSale = () => {
-    clearCart();
-    if (embedded && onNewSale) {
-      onNewSale();
-      return;
-    }
-    navigate(location.pathname.startsWith("/owner/") ? "/owner/sales/new"
-      : location.pathname.startsWith("/store/") ? "/store/sales/new" : "/pos");
+  const obtainPdf = async () => {
+    if (pdfCache.current?.orderId === orderId) return pdfCache.current.url;
+    if (pdfRequest.current?.orderId === orderId) return pdfRequest.current.promise;
+    const id = orderId;
+    const promise = apiclient.get(`/orders/${id}/pdf`, { responseType: "blob", timeout: 30000 })
+      .then(({ data }) => {
+        if (currentOrder.current !== id) throw new Error("Invoice changed while PDF was loading.");
+        if (!data || data.size === 0) throw new Error("The server returned an empty PDF.");
+        const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+        pdfCache.current = { orderId: id, url };
+        setPdfUrl(url);
+        return url;
+      }).finally(() => { if (pdfRequest.current?.orderId === id) pdfRequest.current = null; });
+    pdfRequest.current = { orderId: id, promise };
+    return promise;
+  };
+
+  const handlePdf = async (download) => {
+    if (pdfLoading) return;
+    const id = orderId;
+    setPdfLoading(true); setPdfError("");
+    try {
+      const url = await obtainPdf();
+      if (download) {
+        const anchor = document.createElement("a"); anchor.href = url;
+        anchor.download = (invoice.invoiceNumber || "invoice-" + orderId).replace(/[^a-zA-Z0-9_-]/g, "_") + ".pdf";
+        document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      } else setShowPreview(true);
+    } catch (requestError) {
+      let message = requestError.message || "Unable to load PDF.";
+      if (requestError.response?.data instanceof Blob) {
+        try { message = JSON.parse(await requestError.response.data.text()).message || message; } catch { /* retain fallback */ }
+      }
+      if (currentOrder.current === id) setPdfError(message);
+    } finally { if (currentOrder.current === id) setPdfLoading(false); }
   };
 
   if (loading) return <div className="invoice-state">Loading invoice...</div>;
-  if (error || !invoice) return <div className="invoice-state invoice-state--error">{error || "Invoice not found."}</div>;
+  if (error || !invoice) return <div className="invoice-state invoice-state--error"><div>{error || "Invoice not found."}<br /><button className="invoice-button" onClick={loadInvoice}>Retry</button></div></div>;
 
   return <main className="invoice-page">
     <nav className="invoice-toolbar">
@@ -176,13 +250,19 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
             navigate(`${base}/payment/${orderId}`);
           }}>Collect Payment</button>
         )}
-        <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Printer size={16} />Print</button>
-        <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Download size={16} />Save PDF</button>
-        <button className="invoice-button invoice-button--primary" onClick={startSale}><Plus size={16} />New Sale</button>
+        <button className="invoice-button invoice-button--quiet" onClick={handlePrint}><Printer size={16} />Print</button>
+        <button className="invoice-button invoice-button--quiet" disabled={pdfLoading} onClick={() => handlePdf(false)}><Eye size={16} />Preview PDF</button>
+        <button className="invoice-button invoice-button--quiet" disabled={pdfLoading} onClick={() => handlePdf(true)}><Download size={16} />{pdfLoading ? "Loading PDF…" : "Save PDF"}</button>
       </div>
     </nav>
 
-    <article className="invoice-sheet">
+    {pdfError && <div className="invoice-pdf-error" role="alert">{pdfError}</div>}
+    {showPreview && pdfUrl && <section className="invoice-pdf-preview">
+      <button className="invoice-button" onClick={() => setShowPreview(false)}>Close PDF Preview</button>
+      <iframe title="Sales invoice PDF preview" src={pdfUrl} />
+      <p>If your browser cannot display PDF files, use Save PDF to download the invoice.</p>
+    </section>}
+    <article className="invoice-sheet" ref={invoiceSheet}>
       <header className="invoice-header">
         <div className="invoice-brand">
           <div className="invoice-logo">D2W</div>
@@ -279,7 +359,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
           </div>}
           <div className="invoice-terms"><h3>TERMS &amp; CONDITIONS</h3><ol><li>Goods once sold cannot be returned or exchanged.</li><li>Warranty is subject to the manufacturer or brand policy.</li><li>Disputes are subject to the store's local jurisdiction.</li></ol></div>
         </div>
-        <div className="invoice-totals"> 
+        <div className="invoice-totals">
           <TotalLine label="Gross Amount" value={invoice.grossAmount} />
           {Number(invoice.itemDiscountAmount) > 0 && <TotalLine label="Item Discount" value={invoice.itemDiscountAmount} subtract />}
           {Number(invoice.billDiscountAmount) > 0 && <TotalLine label={`Bill Discount (${Number(invoice.billDiscountPercentage || 0)}%)`} value={invoice.billDiscountAmount} subtract />}

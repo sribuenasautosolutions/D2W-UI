@@ -253,6 +253,7 @@
 }
 .bulk-page-shell__dropzone--empty .bulk-page-shell__dropzone-browse {
   display: inline;
+  
 }
 
 /* STATES 2 and 3: compact single row */
