@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Upload } from "lucide-react";
+import { Upload, Plus } from "lucide-react";
 
 import VehicleMakesSection from "./VehicleMakesSection";
 import VehicleModelsSection from "./VehicleModelsSection";
 import VehicleGenerationsSection from "./VehicleGenerationsSection";
 import VehicleVariantsSection from "./VehicleVariantsSection";
 import VehicleBulkUploadSection from "./VehicleBulkUploadSection";
+import VehicleQuickAddDrawer from "./VehicleQuickAddDrawer";
 import { VehicleToastHost } from "./VehicleToast";
 import "./styles/vehicle-management.css";
 
@@ -22,14 +23,14 @@ const UTILITY_TABS = [
 
 function VehicleManagement() {
     const [activeTab, setActiveTab] = useState("makes");
+    const [addVehicleOpen, setAddVehicleOpen] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     return (
         <div className="vm-page">
 
-            {/* Toast host — mounted once for the whole module */}
             <VehicleToastHost />
 
-            {/* ===== TAB BAR ===== */}
             <div className="vm-tabs">
                 <div className="vm-tabs-flow">
                     {PRIMARY_TABS.map((tab) => (
@@ -65,10 +66,17 @@ function VehicleManagement() {
                         </button>
                     ))}
                 </div>
+
+                <button
+                    type="button"
+                    className="vm-btn vm-btn-primary vm-tabs-add"
+                    onClick={() => setAddVehicleOpen(true)}
+                >
+                    <Plus size={16} /> Add Vehicle
+                </button>
             </div>
 
-            {/* ===== TAB CONTENT ===== */}
-            <div key={activeTab} className="vm-tab-content">
+            <div key={`${activeTab}-${refreshKey}`} className="vm-tab-content">
                 {activeTab === "makes"       && <VehicleMakesSection />}
                 {activeTab === "models"      && <VehicleModelsSection />}
                 {activeTab === "generations" && <VehicleGenerationsSection />}
@@ -79,6 +87,15 @@ function VehicleManagement() {
                     />
                 )}
             </div>
+
+            <VehicleQuickAddDrawer
+                open={addVehicleOpen}
+                onClose={() => setAddVehicleOpen(false)}
+                onSaved={() => {
+                    setActiveTab("variants");
+                    setRefreshKey((k) => k + 1);
+                }}
+            />
 
         </div>
     );
