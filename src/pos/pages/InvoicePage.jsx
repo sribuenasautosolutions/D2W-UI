@@ -279,7 +279,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
           </div>}
           <div className="invoice-terms"><h3>TERMS &amp; CONDITIONS</h3><ol><li>Goods once sold cannot be returned or exchanged.</li><li>Warranty is subject to the manufacturer or brand policy.</li><li>Disputes are subject to the store's local jurisdiction.</li></ol></div>
         </div>
-        <div className="invoice-totals">
+        <div className="invoice-totals"> 
           <TotalLine label="Gross Amount" value={invoice.grossAmount} />
           {Number(invoice.itemDiscountAmount) > 0 && <TotalLine label="Item Discount" value={invoice.itemDiscountAmount} subtract />}
           {Number(invoice.billDiscountAmount) > 0 && <TotalLine label={`Bill Discount (${Number(invoice.billDiscountPercentage || 0)}%)`} value={invoice.billDiscountAmount} subtract />}

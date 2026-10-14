@@ -245,7 +245,7 @@ function Sidebar() {
 
     const inventoryItems = [
         { key: "stock", label: "Current Stock", icon: PackageSearch },
-        { key: "bulkstock", label: "Opening & Bulk Stock", icon: Upload },
+        // { key: "bulkstock", label: "Opening & Bulk Stock", icon: Upload },
         { key: "transactions", label: "Transactions", icon: History },
         { key: "adjustment", label: "Adjustments", icon: SlidersHorizontal },
         { key: "batchreport", label: "Batch Report", icon: ClipboardList },

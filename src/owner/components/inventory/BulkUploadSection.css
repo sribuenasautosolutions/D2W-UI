@@ -237,3 +237,381 @@
     justify-content: flex-start;
   }
 }
+
+
+/* ===== Upload area ===== */
+.bulk-page-shell__body > * + * { margin-top: 16px; }
+
+/* STATE 1: medium dropzone (doubled class beats the old fixed height) */
+.bulk-page-shell__dropzone.bulk-page-shell__dropzone--empty {
+  height: 150px;
+  min-height: 0;
+  padding: 16px;
+  gap: 6px;
+  box-sizing: border-box;
+  justify-content: center;
+}
+.bulk-page-shell__dropzone--empty .bulk-page-shell__dropzone-browse {
+  display: inline;
+}
+
+/* STATES 2 and 3: compact single row */
+.bulk-file-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 16px;
+  box-sizing: border-box;
+  border: 1px solid #dbe3f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.bulk-file-bar__icon { flex: 0 0 auto; }
+.bulk-file-bar__name {
+  flex: 0 1 260px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.bulk-file-bar__spacer { flex: 1 1 auto; }
+.bulk-file-bar__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 120px;
+  max-width: 360px;
+}
+.bulk-file-bar__progress .bulk-progress { flex: 1; margin: 0; }
+.bulk-file-bar__pct { font-size: 12px; min-width: 36px; text-align: right; }
+.bulk-file-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .bulk-page-shell__dropzone.bulk-page-shell__dropzone--empty { height: auto; min-height: 140px; }
+  .bulk-file-bar { flex-wrap: wrap; }
+  .bulk-file-bar__name { flex: 1 1 0; }
+  .bulk-file-bar__progress { flex-basis: 100%; max-width: none; order: 3; }
+  .bulk-file-bar__actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+}
+
+/* ===== Preview table ===== */
+.bulk-table-wrap--scroll { overflow-x: auto; max-width: 100%; }
+.bulk-table--wide { min-width: 1150px; width: 100%; }
+.bulk-table--wide th { white-space: nowrap; }
+
+/* Status text: wrap, never truncate */
+.bulk-table--wide th.is-status-head,
+.bulk-table--wide td.is-status { min-width: 220px; max-width: 320px; }
+.bulk-table--wide td.is-status small {
+  display: block;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Row actions: always visible, pinned right */
+.bulk-table--wide th.is-actions,
+.bulk-table--wide td.is-actions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--bulk-surface, #fff);
+  box-shadow: -6px 0 6px -6px rgba(0, 0, 0, 0.15);
+}
+/* Append to the END of BulkUploadSection.css (replaces every previous additions block).
+   The table rules are scoped with a long selector so they win over the old .bulk-table rules. */
+
+/* ===== Vertical rhythm ===== */
+.bulk-page-shell__body > * + * { margin-top: 12px; }
+
+/* ===== Upload area ===== */
+/* STATE 1: medium dropzone */
+.bulk-page-shell__dropzone.bulk-page-shell__dropzone--empty {
+  height: 140px;
+  min-height: 0;
+  padding: 12px 16px;
+  gap: 6px;
+  box-sizing: border-box;
+  justify-content: center;
+}
+.bulk-page-shell__dropzone--empty .bulk-page-shell__dropzone-browse { display: inline; }
+
+/* STATES 2 and 3: compact single row */
+.bulk-file-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 14px;
+  box-sizing: border-box;
+  border: 1px solid #dbe3f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.bulk-file-bar__icon { flex: 0 0 auto; }
+.bulk-file-bar__name {
+  flex: 0 1 260px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.bulk-file-bar__spacer { flex: 1 1 auto; }
+.bulk-file-bar__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 120px;
+  max-width: 360px;
+}
+.bulk-file-bar__progress .bulk-progress { flex: 1; margin: 0; }
+.bulk-file-bar__pct { font-size: 12px; min-width: 36px; text-align: right; }
+.bulk-file-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .bulk-page-shell__dropzone.bulk-page-shell__dropzone--empty { height: auto; min-height: 130px; }
+  .bulk-file-bar { flex-wrap: wrap; }
+  .bulk-file-bar__name { flex: 1 1 0; }
+  .bulk-file-bar__progress { flex-basis: 100%; max-width: none; order: 3; }
+  .bulk-file-bar__actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+}
+
+/* ===== Import Preview header =====
+   20px of space above it (below the file row), 10px below it (above the table). */
+.bulk-page-shell .bulk-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  margin: 20px 0 10px;
+  padding: 0;
+  border: 0;
+}
+.bulk-page-shell .bulk-preview-head h3 { margin: 0; }
+.bulk-preview-count { font-weight: 400; font-size: 13px; opacity: 0.7; }
+
+/* ===== Editable table ===== */
+.bulk-page-shell .bulk-table-wrap--scroll {
+  --grid-line: #e5eaf2;
+  --grid-head-bg: #f5f7fb;
+  --grid-bg: #fff;
+  --grid-hover: #fafbfe;
+  --cell-x: 4px;    /* td padding around an input        */
+  --input-x: 7px;   /* input padding (6px) + border (1px) */
+  --text-x: 11px;   /* = --cell-x + --input-x, used by th and plain-text cells */
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table {
+  width: 100%;
+  min-width: 1300px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Column widths (Product takes the rest) */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table .col-serial { width: 64px; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table .col-store  { width: 130px; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table .col-qty    { width: 84px; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table .col-price  { width: 104px; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table .col-small  { width: 76px; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table .col-status { width: 220px; }
+
+/* Header: one grid, wraps instead of truncating */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table th {
+  position: static;
+  height: auto;
+  max-width: none;
+  padding: 9px var(--text-x);
+  background: var(--grid-head-bg);
+  border: 0;
+  border-right: 1px solid var(--grid-line);
+  border-bottom: 1px solid var(--grid-line);
+  text-align: center;
+  vertical-align: middle;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table th.is-num { text-align: center; }
+
+/* Body cells: same borders on every cell so rows and columns line up exactly */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td {
+  height: auto;
+  max-width: none;
+  padding: 6px var(--cell-x);
+  background: var(--grid-bg);
+  border: 0;
+  border-right: 1px solid var(--grid-line);
+  border-bottom: 1px solid var(--grid-line);
+  vertical-align: middle;
+  overflow: visible;
+  text-overflow: clip;
+}
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td.is-num { text-align: right; }
+
+/* Plain-text cells line up with the header text and with the text inside inputs */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td.is-serial,
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td.is-store,
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td.is-status {
+  padding-left: var(--text-x);
+  padding-right: var(--text-x);
+}
+
+/* No double border against the wrapper's own outline */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table th:last-child,
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td:last-child { border-right: 0; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table tbody tr:last-child td { border-bottom: 0; }
+
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table tbody tr:hover td { background: var(--grid-hover); }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table tr.is-calculating td { opacity: 0.6; }
+
+/* Inputs look like plain text until hovered or focused */
+.bulk-cell-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+.bulk-cell-input.is-num { text-align: right; }
+.bulk-cell-input--title { font-weight: 600; }
+.bulk-cell-input:hover:not(:disabled) { border-color: var(--grid-line, #e5eaf2); }
+.bulk-cell-input:focus {
+  outline: none;
+  background: #fff;
+  border-color: #2563eb;
+}
+.bulk-cell-input:disabled { cursor: not-allowed; }
+.bulk-cell-input[type="number"] { -moz-appearance: textfield; }
+.bulk-cell-input[type="number"]::-webkit-outer-spin-button,
+.bulk-cell-input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Part no. | Brand | HSN under the item name */
+.bulk-cell-sub {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.9fr;
+  gap: 2px;
+  margin-top: 2px;
+}
+.bulk-cell-sub .bulk-cell-input { font-size: 12px; opacity: 0.8; padding: 2px 6px; }
+.bulk-cell-sub .bulk-cell-input:focus { opacity: 1; }
+
+/* Status: badge plus the full reason, wrapped (overrides any old line-clamp) */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td.is-status small {
+  display: block;
+  margin-top: 4px;
+  max-width: none;
+  max-height: none;
+  height: auto;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  -webkit-box-orient: horizontal;
+}
+
+/* Delete column: centered, pinned right, same background as the rest of the row */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table th.is-actions,
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td.is-actions {
+  position: sticky;
+  right: 0;
+  width: 56px;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+}
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table th.is-actions { z-index: 2; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table td.is-actions { z-index: 1; }
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table .bulk-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Delete icon button */
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table button.bulk-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #dc2626;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table button.bulk-icon:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table button.bulk-icon:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.bulk-page-shell .bulk-table-wrap table.bulk-edit-table button.bulk-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Add row button: dashed blue outline, sits directly under the table */
+.bulk-page-shell button.bulk-add-row {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 16px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #f5f9ff;
+  border: 1.5px dashed #93b4f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bulk-page-shell button.bulk-add-row:hover:not(:disabled) {
+  background: #eaf2ff;
+  border-color: #2563eb;
+}
+.bulk-page-shell button.bulk-add-row:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.bulk-page-shell button.bulk-add-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

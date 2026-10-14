@@ -18,7 +18,7 @@ const formatDate = (value) => {
 
     return date.toLocaleString("en-IN", {
         dateStyle: "medium",
-        timeStyle: "short",
+        // timeStyle: "short",
     });
 };
 

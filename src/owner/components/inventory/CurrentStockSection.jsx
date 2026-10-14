@@ -118,9 +118,6 @@ function defaultValidatePrices(row, errors) {
   if (!Number.isFinite(s) || s <= 0) errors.push("Selling Price must be greater than zero");
   if (!Number.isFinite(m) || m <= 0) errors.push("MRP must be greater than zero");
 
-  if (Number.isFinite(p) && Number.isFinite(s) && p > s) {
-    errors.push("Selling Price must be greater than or equal to Purchase Price");
-  }
   if (Number.isFinite(s) && Number.isFinite(m) && s > m) {
     errors.push("MRP must be greater than or equal to Selling Price");
   }
@@ -153,6 +150,11 @@ export const productManageRoute = (inventoryId, storeId) => {
   return `/owner/inventory/products/${inventoryId}/manage${query}`;
 };
 
+function onlyAvailableFilter(status, search) {
+  if (status === "OUT_OF_STOCK") return false;
+  if (status === "") return !search.trim();
+  return true;
+}
 export default function CurrentStockSection() {
   const navigate = useNavigate();
   const [user] = useState(readUser);
@@ -279,7 +281,8 @@ export default function CurrentStockSection() {
         status: status || undefined,
         brandName: brandFilter || undefined,
         categoryName: categoryFilter || undefined,
-        onlyAvailable: status !== "OUT_OF_STOCK",
+        onlyAvailable: onlyAvailableFilter(status, search),
+        // onlyAvailable: status !== "OUT_OF_STOCK",
         page,
         size,
         sortBy,
@@ -396,14 +399,18 @@ export default function CurrentStockSection() {
       const firstPage = await getCurrentStockPage(storeId, {
         search: search.trim() || undefined, status: status || undefined,
         brandName: brandFilter || undefined, categoryName: categoryFilter || undefined,
-        onlyAvailable: status !== "OUT_OF_STOCK", page: 0, size: 100, sortBy, direction: sortDirection,
+        onlyAvailable: onlyAvailableFilter(status, search),
+        // onlyAvailable: status !== "OUT_OF_STOCK",
+         page: 0, size: 100, sortBy, direction: sortDirection,
       });
       const rows = [...(firstPage?.content || [])];
       for (let nextPage = 1; nextPage < (firstPage?.totalPages || 1); nextPage += 1) {
         const nextResult = await getCurrentStockPage(storeId, {
           search: search.trim() || undefined, status: status || undefined,
           brandName: brandFilter || undefined, categoryName: categoryFilter || undefined,
-          onlyAvailable: status !== "OUT_OF_STOCK", page: nextPage, size: 100, sortBy, direction: sortDirection,
+          onlyAvailable: onlyAvailableFilter(status, search),
+          // onlyAvailable: status !== "OUT_OF_STOCK",
+          page: nextPage, size: 100, sortBy, direction: sortDirection,
         });
         rows.push(...(nextResult?.content || []));
       }

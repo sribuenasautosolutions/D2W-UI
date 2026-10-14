@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   CirclePlus,
   Download,
   FileSpreadsheet,
-  Pencil,
   Trash2,
   Upload,
   UploadCloud,
@@ -11,25 +10,19 @@ import {
 } from "lucide-react";
 
 import api from "../../../services/api";
+import OpeningStockManualEntry from "./OpeningStockManualEntry";
 
 import "./BulkUploadSection.css";
 import "./BulkUploadPriceSettings.css";
 
 const CHUNK_SIZE = 100;
 
-const editableFields = [
-  ["partNumber", "Part Number"],
-  ["itemName", "Item Name"],
-  ["brandName", "Brand"],
-  ["hsnCode", "HSN Code"],
-  ["quantity", "Qty"],
-  ["purchasePrice", "Purchase Price"],
-  ["mrp", "MRP"],
-  ["sellingPrice", "Selling Price"],
-  ["gstPercentage", "GST %"],
-  ["discountPercentage", "Discount %"],
-  ["rackNumber", "Rack Number"],
-];
+const PRICE_FIELDS = ["purchasePrice", "sellingPrice", "mrp"];
+// Editing any of these changes the calculated amounts, so the row is recalculated on blur.
+const CALC_FIELDS = [...PRICE_FIELDS, "quantity", "discountPercentage", "gstPercentage"];
+const TEXT_FIELDS = ["partNumber", "itemName", "brandName", "hsnCode", "rackNumber"];
+const PRICE_SOURCE_BY_FIELD = { purchasePrice: "PURCHASE_PRICE", sellingPrice: "SELLING_PRICE", mrp: "MRP" };
+const DUPLICATE_MESSAGE = "Duplicate store and part number in this file";
 
 function currentUser() {
   try {
@@ -57,8 +50,11 @@ function downloadBlob(blob, filename) {
 
 function sourceRow(row) {
   const next = { ...row };
-  const field = { MRP: "mrp", PURCHASE_PRICE: "purchasePrice", SELLING_PRICE: "sellingPrice" }[row.priceSource];
-  if (field) ["mrp", "purchasePrice", "sellingPrice"].forEach((key) => { if (key !== field) next[key] = null; });
+  const legacyField = { MRP: "mrp", PURCHASE_PRICE: "purchasePrice", SELLING_PRICE: "sellingPrice" }[row.priceSource];
+  const fields = Array.isArray(row.enteredPriceFields) ? row.enteredPriceFields :
+    legacyField ? [legacyField] : PRICE_FIELDS.filter(key => row[key] != null && String(row[key]).trim() !== "");
+  next.enteredPriceFields = [...fields];
+  PRICE_FIELDS.forEach(key => { if (!fields.includes(key)) next[key] = null; });
   return next;
 }
 
@@ -78,9 +74,7 @@ function validatePriceSelection(row, errors) {
       if (!Number.isFinite(number) || number <= 0) errors.push(`${label} must be greater than zero`);
     }
   });
-  if (row.priceSource === "MANUAL" && entered !== 3) errors.push("Manual pricing requires all three prices");
-  else if (entered === 0) errors.push("Enter one price for calculation or all three prices for manual pricing");
-  else if (entered == 2) errors.push("Enter the third price, or keep only one price for calculation");
+  if (entered === 0) errors.push("Enter at least one price; missing prices will be calculated");
 }
 
 function validateEditedRow(row) {
@@ -128,9 +122,117 @@ function recheckRows(rows) {
   });
 }
 
+function withCounts(current, nextRows) {
+  return {
+    ...(current || {}),
+    rows: nextRows,
+    totalRows: nextRows.length,
+    validRows: nextRows.filter((row) => row.status === "VALID").length,
+    invalidRows: nextRows.filter((row) => row.status !== "VALID").length,
+    duplicateRows: nextRows.filter((row) => row.status === "DUPLICATE_IN_FILE").length,
+  };
+}
+
+// Re-derives status and in-file duplicates after a single-cell edit while keeping the
+// existing errors (client and server) of untouched rows. Rows that did not change keep
+// the same object so memoized table rows do not re-render.
+function reconcileRows(rows) {
+  const keys = new Map();
+  return rows.map((row) => {
+    if (row.status === "IMPORTED") return row;
+    const previous = row.errors || [];
+    const errors = previous.filter((message) => !message.startsWith("Duplicate"));
+    if (row.storeId && row.partNumber) {
+      const key = `${row.storeId}:${String(row.partNumber).trim().toUpperCase()}`;
+      if (keys.has(key)) errors.push(DUPLICATE_MESSAGE);
+      else keys.set(key, row.rowNumber);
+    }
+    let status = "VALID";
+    if (errors.some((message) => message.startsWith("Duplicate"))) status = "DUPLICATE_IN_FILE";
+    else if (errors.length) status = "INVALID";
+    const unchanged =
+      status === row.status &&
+      errors.length === previous.length &&
+      errors.every((message, index) => message === previous[index]);
+    return unchanged ? row : { ...row, errors, status };
+  });
+}
+
+function canCalculate(row) {
+  const source = sourceRow(row);
+  const entered = PRICE_FIELDS.filter((field) => {
+    const value = source[field];
+    return value !== null && value !== undefined && String(value).trim() !== "";
+  }).length;
+  return entered >= 1 && entered <= 3;
+}
+
+const EditableRow = memo(function EditableRow({ row, serial, busy, calculating, onChange, onCommit, onRemove }) {
+  const locked = busy || row.status === "IMPORTED";
+
+  const field = (name, label, { numeric = false, step, min, placeholder, className = "" } = {}) => (
+    <input
+      className={`bulk-cell-input${numeric ? " is-num" : ""}${className}`}
+      type={numeric ? "number" : "text"}
+      min={min}
+      step={step}
+      placeholder={placeholder}
+      aria-label={`${label}, row ${serial}`}
+      title={PRICE_FIELDS.includes(name) ? (sourceRow(row).enteredPriceFields.includes(name) ? "Entered price — preserved" : name === "mrp" ? "Calculated suggested MRP — review before import" : "Calculated price — editing makes it an entered value") : label}
+      value={row[name] ?? ""}
+      disabled={locked}
+      onChange={(event) => onChange(row.rowNumber, name, event.target.value)}
+      onBlur={() => onCommit(row.rowNumber)}
+      onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+    />
+  );
+
+  return (
+    <tr className={calculating ? "is-calculating" : undefined} aria-busy={calculating}>
+      <td className="is-num is-serial" title={`File row ${row.rowNumber}`}>{serial}</td>
+      <td className="is-product">
+        {field("itemName", "Item name", { placeholder: "Item name", className: " bulk-cell-input--title" })}
+        <div className="bulk-cell-sub">
+          {field("partNumber", "Part number", { placeholder: "Part no." })}
+          {field("brandName", "Brand", { placeholder: "Brand" })}
+          {field("hsnCode", "HSN code", { placeholder: "HSN" })}
+        </div>
+      </td>
+      <td className="is-store">{row.storeName || row.storeCode || "-"}</td>
+      <td className="is-num">{field("quantity", "Quantity", { numeric: true, min: "0" })}</td>
+      <td className="is-num">{field("purchasePrice", "Purchase price", { numeric: true, min: "0", step: "0.01" })}</td>
+      <td className="is-num">{field("sellingPrice", "Selling price", { numeric: true, min: "0", step: "0.01" })}</td>
+      <td className="is-num">{field("mrp", "MRP", { numeric: true, min: "0", step: "0.01" })}</td>
+      <td className="is-num">{field("discountPercentage", "Discount percentage", { numeric: true, min: "0", step: "0.01" })}</td>
+      <td className="is-num">{field("gstPercentage", "GST percentage", { numeric: true, min: "0", step: "0.01" })}</td>
+      <td className="is-status">
+        <span className={`bulk-status bulk-status--${row.status?.toLowerCase()}`}>
+          {row.status?.replaceAll("_", " ")}
+        </span>
+        {row.errors?.length > 0 && <small title={row.errors.join("; ")}>{row.errors.join("; ")}</small>}
+      </td>
+      <td className="is-actions">
+        <div className="bulk-row-actions">
+          <button
+            className="bulk-icon"
+            type="button"
+            title="Remove row"
+            aria-label={`Remove row ${serial}`}
+            disabled={locked}
+            onClick={() => onRemove(row.rowNumber)}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
 export default function BulkUploadSection({ onClose, hideTitle = false }) {
   const user = currentUser();
   const [allDiscount, setAllDiscount] = useState("");
+  const [showManualEntry, setShowManualEntry] = useState(false);
   const isSuperAdmin = user.role === "SUPER_ADMIN";
 
   const [stores, setStores] = useState([]);
@@ -143,11 +245,14 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState("ALL");
-  const [editing, setEditing] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
   const [lastRejectedRows, setLastRejectedRows] = useState([]);
+
+  // Inline editing state
+  const [calculating, setCalculating] = useState({});
+  const calcSeq = useRef({});
+  const dirtyRows = useRef(new Set());
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -158,24 +263,38 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
   }, [isSuperAdmin]);
 
   const rows = preview?.rows || [];
-  const visibleRows = filter === "ALL" ? rows : rows.filter((row) => row.status === filter);
   const validRows = rows.filter((row) => row.status === "VALID");
   const rejectedRows = rows.filter((row) => !["VALID", "IMPORTED"].includes(row.status));
+  const isCalculating = Object.keys(calculating).length > 0;
+
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   const refreshCounts = (nextRows) => {
-    setPreview((current) => ({
-      ...(current || {}),
-      rows: nextRows,
-      totalRows: nextRows.length,
-      validRows: nextRows.filter((row) => row.status === "VALID").length,
-      invalidRows: nextRows.filter((row) => row.status !== "VALID").length,
-      duplicateRows: nextRows.filter((row) => row.status === "DUPLICATE_IN_FILE").length,
-    }));
+    setPreview((current) => withCounts(current, nextRows));
+  };
+
+  const resetCellState = () => {
+    calcSeq.current = {};
+    dirtyRows.current.clear();
+    setCalculating({});
+  };
+
+  // Shared by the dropzone, drag-and-drop and the "Change file" button.
+  const chooseFile = (picked) => {
+    resetCellState();
+    setFile(picked || null);
+    setPreview(null);
+    setImportSummary(null);
+    setLastRejectedRows([]);
+    setProgress(0);
+    setError("");
   };
 
   const previewFile = async () => {
     if (!file) { setError("Choose a CSV, XLS, or XLSX file first."); return; }
     if (!fixedStoreId) { setError("Select the store that will receive this opening stock."); return; }
+    resetCellState();
     setBusy(true); setError(""); setPreview(null); setImportSummary(null); setLastRejectedRows([]); setProgress(2);
     try {
       const data = new FormData();
@@ -198,8 +317,9 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
   };
 
   const clearFile = () => {
+    resetCellState();
     setFile(null); setPreview(null); setProgress(0); setError("");
-    setImportSummary(null); setLastRejectedRows([]); setFilter("ALL"); setEditing(null); setConfirming(false);
+    setImportSummary(null); setLastRejectedRows([]); setConfirming(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -216,26 +336,85 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
     };
     const nextRows = recheckRows([...rows, newRow]);
     refreshCounts(nextRows);
-    setEditing(newRow);
   };
 
-  const removeRow = (rowNumber) => {
-    const nextRows = rows.filter((row) => row.rowNumber !== rowNumber);
-    refreshCounts(recheckRows(nextRows));
-  };
-
-  const updateEditingField = (field, value) => {
-    setEditing((current) => {
+  const removeRow = useCallback((rowNumber) => {
+    setPreview((current) => {
       if (!current) return current;
-      const next = { ...current, [field]: value };
-      if (["purchasePrice", "sellingPrice", "mrp"].includes(field) && current.priceSource !== "MANUAL") {
-        next.purchasePrice = ""; next.sellingPrice = ""; next.mrp = "";
-        next[field] = value;
-        next.priceSource = { purchasePrice: "PURCHASE_PRICE", sellingPrice: "SELLING_PRICE", mrp: "MRP" }[field];
-      }
-      return next;
+      return withCounts(current, reconcileRows(current.rows.filter((row) => row.rowNumber !== rowNumber)));
     });
-  };
+  }, []);
+
+  // Inline cell edit: updates the row immediately and re-validates on the client.
+  const updateCell = useCallback((rowNumber, field, value) => {
+    if (CALC_FIELDS.includes(field)) dirtyRows.current.add(rowNumber);
+    setPreview((current) => {
+      if (!current) return current;
+      const nextRows = current.rows.map((row) => {
+        if (row.rowNumber !== rowNumber || row.status === "IMPORTED") return row;
+        const next = { ...row, [field]: value };
+        if (PRICE_FIELDS.includes(field)) {
+          const fields = new Set(sourceRow(row).enteredPriceFields);
+          if (String(value).trim()) fields.add(field); else fields.delete(field);
+          next.enteredPriceFields = [...fields];
+          next.priceSource = fields.size === 3 ? "MANUAL" : fields.size === 2 ? "PARTIAL" :
+            PRICE_SOURCE_BY_FIELD[next.enteredPriceFields[0]] || null;
+        }
+        return { ...next, sampleRow: false, errors: validateEditedRow(next) };
+      });
+      return withCounts(current, reconcileRows(nextRows));
+    });
+  }, []);
+
+  // Recalculates one row through the same endpoint and payload shape as the bulk recalculation.
+  const recalcRow = useCallback(async (rowNumber) => {
+    const row = rowsRef.current.find((item) => item.rowNumber === rowNumber);
+    if (!row || row.status === "IMPORTED" || !canCalculate(row)) return;
+
+    const seq = (calcSeq.current[rowNumber] || 0) + 1;
+    calcSeq.current[rowNumber] = seq;
+    setCalculating((current) => ({ ...current, [rowNumber]: true }));
+
+    try {
+      const payload = { ...sourceRow(row), discountPercentage: Number(row.discountPercentage || 0) };
+      const response = await api.post("/store-inventory/bulk-upload/recalculate", { rows: [payload] });
+      // Ignore stale responses, or ones that arrive while the user is typing in this row again.
+      if (calcSeq.current[rowNumber] !== seq || dirtyRows.current.has(rowNumber)) return;
+      const calculated = response.data?.rows?.[0];
+      if (!calculated) return;
+
+      setPreview((current) => {
+        if (!current) return current;
+        const nextRows = current.rows.map((item) => {
+          if (item.rowNumber !== rowNumber) return item;
+          const merged = { ...calculated, sampleRow: false };
+          // Keep text edits the user made while the request was in flight.
+          TEXT_FIELDS.forEach((field) => { if (item[field] !== row[field]) merged[field] = item[field]; });
+          const errors = [...new Set([...validateEditedRow(merged), ...(calculated.errors || [])])];
+          return { ...merged, errors };
+        });
+        return withCounts(current, reconcileRows(nextRows));
+      });
+    } catch (requestError) {
+      if (calcSeq.current[rowNumber] === seq) {
+        setError(errorMessage(requestError, "Prices could not be recalculated. Please retry."));
+      }
+    } finally {
+      if (calcSeq.current[rowNumber] === seq) {
+        setCalculating((current) => {
+          const next = { ...current };
+          delete next[rowNumber];
+          return next;
+        });
+      }
+    }
+  }, []);
+
+  const commitCell = useCallback((rowNumber) => {
+    if (!dirtyRows.current.has(rowNumber)) return;
+    dirtyRows.current.delete(rowNumber);
+    recalcRow(rowNumber);
+  }, [recalcRow]);
 
   const recalculateRows = async (nextRows) => {
     setBusy(true); setError("");
@@ -258,11 +437,6 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
       setError(errorMessage(requestError, "Prices could not be recalculated. Please retry."));
       return false;
     } finally { setBusy(false); }
-  };
-
-  const saveEditedRow = async () => {
-    if (!editing || busy) return;
-    if (await recalculateRows(rows.map((row) => row.rowNumber === editing.rowNumber ? editing : row))) setEditing(null);
   };
 
   const applyDiscountToAll = async () => {
@@ -296,7 +470,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
       setImportSummary(summary); setProgress(100);
       if (summary.importedRows > 0) {
         setLastRejectedRows(remainingRejected);
-        setFile(null); setPreview(null); setFilter("ALL"); setEditing(null); setProgress(0);
+        setFile(null); setPreview(null); setProgress(0);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } catch (requestError) {
@@ -363,86 +537,98 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
           </label>
         )}
 
-        {/* ---- Dropzone ---- */}
-        <label
-          className={`bulk-page-shell__dropzone${file ? " has-file" : ""}${busy ? " is-busy" : ""}`}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const dropped = e.dataTransfer.files?.[0];
-            if (dropped) {
-              setFile(dropped);
-              setPreview(null);
-              setImportSummary(null);
-              setLastRejectedRows([]);
-              setProgress(0);
-              setError("");
-            }
-          }}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xls,.xlsx"
-            style={{ display: "none" }}
-            onChange={(event) => {
-              setFile(event.target.files?.[0] || null);
-              setPreview(null);
-              setImportSummary(null);
-              setLastRejectedRows([]);
-              setProgress(0);
-              setError("");
+        <button type="button" className="bulk-button" disabled={busy} onClick={() => setShowManualEntry(value => !value)}>
+          {showManualEntry ? "Close Manual Entry" : "Manual Entry"}
+        </button>
+        {showManualEntry && <OpeningStockManualEntry compact storeId={fixedStoreId} validatePrices={validatePriceSelection} />}
+        <p>Enter one, two or all three prices. Entered prices are preserved; only blanks are calculated. Hover over a price to see its source. Calculated MRP is a suggestion.</p>
+        {/* ---- Upload area (state-driven) ---- */}
+        {/* One hidden input shared by every state */}
+        <input
+          id="bulk-file-input"
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.xls,.xlsx"
+          style={{ display: "none" }}
+          onChange={(event) => chooseFile(event.target.files?.[0])}
+        />
+
+        {!file ? (
+          /* STATE 1: EMPTY -> medium dropzone */
+          <label
+            htmlFor="bulk-file-input"
+            className="bulk-page-shell__dropzone bulk-page-shell__dropzone--empty"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              chooseFile(e.dataTransfer.files?.[0]);
             }}
-          />
+          >
+            <div className="bulk-page-shell__dropzone-icon">
+              <UploadCloud size={22} />
+            </div>
+            <div className="bulk-page-shell__dropzone-title">
+              Drag &amp; drop or{" "}
+              <span className="bulk-page-shell__dropzone-browse">Browse file</span>
+            </div>
+            <div className="bulk-page-shell__dropzone-sub">CSV, XLS or XLSX · maximum 10 MB</div>
+          </label>
+        ) : (
+          /* STATE 2 (busy) and STATE 3 (ready) -> same compact row */
+          <div className={`bulk-file-bar${busy ? " is-uploading" : ""}`}>
+            <FileSpreadsheet size={20} className="bulk-file-bar__icon" />
+            <span className="bulk-file-bar__name" title={file.name}>{file.name}</span>
 
-          <div className="bulk-page-shell__dropzone-icon">
-            <UploadCloud size={22} />
-          </div>
-
-          {file ? (
-            <>
-              <div className="bulk-page-shell__dropzone-title">
-                <FileSpreadsheet size={16} />
-                {file.name}
+            {busy ? (
+              <div className="bulk-file-bar__progress">
+                <div
+                  className="bulk-progress"
+                  role="progressbar"
+                  aria-valuenow={progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Upload progress ${progress}%`}
+                >
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+                <span className="bulk-file-bar__pct">{progress}%</span>
               </div>
-              <div className="bulk-page-shell__dropzone-sub">Click to choose a different file</div>
-            </>
-          ) : (
-            <>
-              <div className="bulk-page-shell__dropzone-title">Drop the file here</div>
-              <div className="bulk-page-shell__dropzone-sub">CSV, XLS or XLSX · maximum 10 MB</div>
-            </>
-          )}
-
-          <span className="bulk-page-shell__dropzone-browse">Browse file</span>
-        </label>
-
-        {/* ---- File row: progress + Remove file ---- */}
-        {(file || progress > 0 || busy) && (
-          <div className="bulk-file-row">
-            {(progress > 0 || busy) && (
-              <div
-                className="bulk-progress"
-                role="progressbar"
-                aria-valuenow={progress}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Upload progress ${progress}%`}
-              >
-                <span style={{ width: `${progress}%` }} />
-              </div>
+            ) : (
+              <span className="bulk-file-bar__spacer" />
             )}
-            {file && (
+
+            <div className="bulk-file-bar__actions">
+              {!busy && (
+                <button
+                  type="button"
+                  className="bulk-button bulk-button--secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Change file
+                </button>
+              )}
               <button
                 type="button"
                 className="bulk-page-shell__remove-file"
                 onClick={clearFile}
-                title="Remove file"
+                disabled={busy}
+                title={busy ? "Please wait until processing finishes" : "Remove file"}
               >
                 <X size={15} />
-                Remove file
+                Remove
               </button>
-            )}
+              {!busy && (
+                <button
+                  type="button"
+                  className="bulk-page-shell__primary"
+                  disabled={!fixedStoreId}
+                  onClick={previewFile}
+                >
+                  <Upload size={15} />
+                  Preview file
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -461,52 +647,13 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
           </div>
         )}
 
-        {/* ---- Footer ---- */}
-        <div className="bulk-page-shell__footer">
-          <button type="button" className="bulk-page-shell__cancel" onClick={onClose || (() => {})}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="bulk-page-shell__primary"
-            disabled={!file || !fixedStoreId || busy}
-            onClick={previewFile}
-          >
-            <Upload size={15} />
-            {busy && !preview ? "Reading..." : "Preview file"}
-          </button>
-        </div>
-
-        {/* ---- Preview ---- */}
+        {/* ---- Preview (editable grid) ---- */}
         {preview && (
           <>
-            {/* Import summary */}
-            <div className="bulk-kpis" role="group" aria-label="Import summary">
-              <button type="button" className={`bulk-kpi bulk-kpi--total${filter === "ALL" ? " is-active" : ""}`} aria-pressed={filter === "ALL"} onClick={() => setFilter("ALL")}>
-                <strong>{rows.length}</strong>
-                <span>Total rows</span>
-              </button>
-              <button type="button" className={`bulk-kpi bulk-kpi--ready${filter === "VALID" ? " is-active" : ""}`} aria-pressed={filter === "VALID"} onClick={() => setFilter("VALID")}>
-                <strong>{validRows.length}</strong>
-                <span>Ready</span>
-              </button>
-              <button type="button" className={`bulk-kpi bulk-kpi--invalid${filter === "INVALID" ? " is-active" : ""}`} aria-pressed={filter === "INVALID"} onClick={() => setFilter("INVALID")}>
-                <strong>{rows.filter((r) => r.status === "INVALID").length}</strong>
-                <span>Invalid</span>
-              </button>
-              <button type="button" className={`bulk-kpi bulk-kpi--duplicate${filter === "DUPLICATE_IN_FILE" ? " is-active" : ""}`} aria-pressed={filter === "DUPLICATE_IN_FILE"} onClick={() => setFilter("DUPLICATE_IN_FILE")}>
-                <strong>{rows.filter((r) => r.status === "DUPLICATE_IN_FILE").length}</strong>
-                <span>Duplicates</span>
-              </button>
-              <button type="button" className={`bulk-kpi bulk-kpi--imported${filter === "IMPORTED" ? " is-active" : ""}`} aria-pressed={filter === "IMPORTED"} onClick={() => setFilter("IMPORTED")}>
-                <strong>{rows.filter((r) => r.status === "IMPORTED").length}</strong>
-                <span>Imported</span>
-              </button>
-            </div>
-
-            {/* Preview toolbar: heading + discount + actions */}
-            <div className="bulk-preview-head">
-              <h3>Import Preview</h3>
+            <div className="bulk-preview-head" style={{ marginTop: 20, marginBottom: 10 }}>
+              <h3>
+                Import Preview <span className="bulk-preview-count">· {rows.length} rows</span>
+              </h3>
 
               <div className="bulk-preview-toolbar">
                 <div className="bulk-discount-inline">
@@ -524,7 +671,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                   <button
                     type="button"
                     className="bulk-button bulk-button--secondary"
-                    disabled={busy || !rows.some((r) => r.status !== "IMPORTED")}
+                    disabled={busy || isCalculating || !rows.some((r) => r.status !== "IMPORTED")}
                     onClick={applyDiscountToAll}
                   >
                     Apply to all rows
@@ -532,9 +679,6 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                 </div>
 
                 <div className="bulk-preview-actions">
-                  <button className="bulk-button bulk-button--secondary" type="button" onClick={addRow}>
-                    <CirclePlus size={14} /> Add row
-                  </button>
                   {rejectedRows.length > 0 && (
                     <button className="bulk-button bulk-button--secondary" type="button" onClick={downloadRejected}>
                       <Download size={14} /> Rejected rows
@@ -543,7 +687,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                   <button
                     className="bulk-button bulk-button--primary"
                     type="button"
-                    disabled={!validRows.length || busy}
+                    disabled={!validRows.length || busy || isCalculating}
                     onClick={() => setConfirming(true)}
                   >
                     Import {validRows.length} valid rows
@@ -552,127 +696,52 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
               </div>
             </div>
 
-            {/* Data table */}
-            <div className="bulk-table-wrap">
-              <table className="bulk-table">
+            <div className="bulk-table-wrap bulk-table-wrap--scroll">
+              <table className="bulk-table bulk-edit-table">
                 <thead>
                   <tr>
-                    <th className="is-num">Row</th>
+                    <th className="is-num col-serial">Sl. no.</th>
                     <th>Product</th>
-                    <th>Store</th>
-                    <th className="is-num">Qty</th>
-                    <th className="is-num">Purchase</th>
-                    <th className="is-num">Selling</th>
-                    <th className="is-num">MRP</th>
-                    <th>Pricing mode</th>
-                    <th className="is-num">Discount %</th>
-                    <th className="is-num">Discount / unit</th>
-                    <th className="is-num">Purchase total</th>
-                    <th className="is-num">GST</th>
-                    <th>Match</th>
-                    <th>Status / reason</th>
+                    <th className="col-store">Store</th>
+                    <th className="is-num col-qty">Quantity</th>
+                    <th className="is-num col-price">Purchase price</th>
+                    <th className="is-num col-price">Selling price</th>
+                    <th className="is-num col-price">MRP</th>
+                    <th className="is-num col-small">Disc. %</th>
+                    <th className="is-num col-small">GST %</th>
+                    <th className="col-status">Status / reason</th>
                     <th className="is-actions" aria-label="Row actions" />
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleRows.map((row) => (
-                    <tr key={row.rowNumber}>
-                      <td className="is-num">{row.rowNumber}</td>
-                      <td className="is-product">
-                        <strong>{row.itemName || "-"}</strong>
-                        <span>{row.partNumber || "No part number"} | {row.brandName || "No brand"}</span>
-                      </td>
-                      <td className="is-store">{row.storeName || row.storeCode || "-"}</td>
-                      <td className="is-num">{row.quantity ?? "-"}</td>
-                      <td className="is-num">{row.purchasePrice ?? "-"}</td>
-                      <td className="is-num">{row.sellingPrice ?? "-"}</td>
-                      <td className="is-num">{row.mrp ?? "-"}</td>
-                      <td className="is-mode">{row.priceSource === "MANUAL" ? "All three prices" : "Calculated"}</td>
-                      <td className="is-num">{row.discountPercentage ?? 0}%</td>
-                      <td className="is-num">{row.discountAmount ?? "-"}</td>
-                      <td className="is-num">{row.lineTotal ?? "-"}</td>
-                      <td className="is-num">{row.gstPercentage ?? "-"}%</td>
-                      <td><span className="bulk-tag">{row.productMatch || "-"}</span></td>
-                      <td className="is-status">
-                        <span className={`bulk-status bulk-status--${row.status?.toLowerCase()}`}>
-                          {row.status?.replaceAll("_", " ")}
-                        </span>
-                        {row.errors?.length > 0 && <small title={row.errors.join("; ")}>{row.errors.join("; ")}</small>}
-                      </td>
-                      <td className="is-actions">
-                        <div className="bulk-row-actions">
-                          <button className="bulk-icon" type="button" title="Edit row" aria-label={`Edit row ${row.rowNumber}`} disabled={busy || row.status === "IMPORTED"} onClick={() => setEditing(sourceRow(row))}>
-                            <Pencil size={14} />
-                          </button>
-                          <button className="bulk-icon" type="button" title="Remove row" aria-label={`Remove row ${row.rowNumber}`} disabled={busy || row.status === "IMPORTED"} onClick={() => removeRow(row.rowNumber)}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                  {rows.map((row, index) => (
+                    <EditableRow
+                      key={row.rowNumber}
+                      row={row}
+                      serial={index + 1}
+                      busy={busy}
+                      calculating={Boolean(calculating[row.rowNumber])}
+                      onChange={updateCell}
+                      onCommit={commitCell}
+                      onRemove={removeRow}
+                    />
                   ))}
                 </tbody>
               </table>
-              {visibleRows.length === 0 && <div className="bulk-empty">No rows match this filter.</div>}
+              {rows.length === 0 && <div className="bulk-empty">No rows yet. Use Add row below.</div>}
             </div>
+
+            <button
+              type="button"
+              className="bulk-button bulk-button--secondary bulk-add-row"
+              onClick={addRow}
+              disabled={busy}
+            >
+              <CirclePlus size={14} /> Add row
+            </button>
           </>
         )}
       </div>
-
-      {/* ---- Edit modal (unchanged) ---- */}
-      {editing && (
-        <div className="bulk-modal-backdrop">
-          <div className="bulk-modal" role="dialog" aria-modal="true">
-            <div className="bulk-modal__head">
-              <div>
-                <h3>Edit row {editing.rowNumber}</h3>
-                <span>Enter one price to calculate the rest, or choose all three prices to keep your own values.</span>
-              </div>
-              <button className="bulk-icon" onClick={() => setEditing(null)}><X size={18} /></button>
-            </div>
-
-            <label style={{ display: "block", marginBottom: 16 }}>
-              Pricing mode
-              <select
-                value={editing.priceSource === "MANUAL" ? "MANUAL" : "AUTO"}
-                disabled={busy}
-                onChange={(event) => setEditing((current) => event.target.value === "MANUAL"
-                  ? { ...current, priceSource: "MANUAL" }
-                  : { ...current, priceSource: null, purchasePrice: "", sellingPrice: "", mrp: "" })}
-              >
-                <option value="AUTO">Calculate from one price</option>
-                <option value="MANUAL">Use all three prices</option>
-              </select>
-              <p>Purchase price is final cost including GST and discount. Selling price excludes GST. MRP includes GST. Manual prices are not reduced again by Discount %.</p>
-            </label>
-
-            <div className="bulk-edit-grid">
-              {editableFields.map(([field, label]) => (
-                <label key={field}>
-                  <span>{label}</span>
-                  <input
-                    type={["quantity", "purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "number" : "text"}
-                    min={["quantity", "purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "0" : undefined}
-                    step={["purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "0.01" : undefined}
-                    value={editing[field] ?? ""}
-                    onChange={(event) => updateEditingField(field, event.target.value)}
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="bulk-modal__actions">
-              <button className="bulk-button bulk-button--danger" onClick={() => { removeRow(editing.rowNumber); setEditing(null); }}>
-                Remove row
-              </button>
-              <button className="bulk-button bulk-button--secondary" onClick={() => setEditing(null)}>Cancel</button>
-              <button className="bulk-button bulk-button--primary" onClick={saveEditedRow}>
-                {busy ? "Calculating..." : "Save row"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {confirming && (
         <div className="bulk-modal-backdrop">
@@ -681,7 +750,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
             <p>This will create or update inventory and batches. Invalid and duplicate rows will remain unimported.</p>
             <div className="bulk-modal__actions">
               <button className="bulk-button bulk-button--secondary" onClick={() => setConfirming(false)}>Cancel</button>
-              <button className="bulk-button bulk-button--primary" onClick={importRows}>Confirm import</button>
+              <button className="bulk-button bulk-button--primary" disabled={isCalculating} onClick={importRows}>Confirm import</button>
             </div>
           </div>
         </div>
