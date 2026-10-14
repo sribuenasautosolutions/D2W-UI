@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { placeOrder, calculateOrder } from "../../services/orderService";
+import { calculateOrder } from "../../services/orderService";
 import { getCustomerByMobile } from "../../services/customerService";
 import PaymentPageor from "./PaymentPageor";
 import { getCalculationLinesForCartItem, sumCalculatedAmount } from "../utils/calculationLines";
@@ -63,6 +63,11 @@ function CheckoutPage() {
 
   /* ---------- Order placement ---------- */
   const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [paymentDraft, setPaymentDraft] = useState(null);
+  const [checkingQuantity, setCheckingQuantity] = useState(false);
+  const quantityCheckRef = useRef(false);
+  const currentCartRef = useRef(cartItems);
+  currentCartRef.current = cartItems;
   const [activeOrderId, setActiveOrderId] = useState(searchParams.get("orderId") || "");
   const [activeDraftId] = useState(searchParams.get("draftId") || localStorage.getItem("pos_active_draft_id") || "");
 
@@ -194,12 +199,12 @@ function CheckoutPage() {
   };
 
   /* ============================================================
-     PLACE ORDER — POST /orders
+     OPEN PAYMENT — no order is persisted until payment confirmation
      Sends ONLY raw inputs. Backend recalculates everything.
      ============================================================ */
 
   const handlePlaceOrder = async (action = "PAY") => {
-    if (creatingInvoice || calcLoading || !calculation) return;
+    if (creatingInvoice || checkingQuantity || paymentDraft || calcLoading || !calculation) return;
 
     if (cartItems.length === 0) {
       alert("Cart is empty. Please add at least one item before creating an invoice.");
@@ -253,7 +258,7 @@ function CheckoutPage() {
         customerEmail: selectedCustomer?.email ?? null,
         billingAddress: address || selectedCustomer?.billingAddress || null,
         shippingAddress: selectedCustomer?.shippingAddress || address || null,
-        paymentMethod: "PENDING", // payment is collected on the Payment page
+        paymentMethod: "PENDING", // committed only with successful payment
         billDiscountPercent: Number(billDiscount || 0),
         items: cartItems.map((item) => ({
           inventoryId: item.inventoryId,
@@ -265,18 +270,50 @@ function CheckoutPage() {
         })),
       };
 
-      const orderId = await placeOrder(orderData);
+      setPaymentDraft({
+        order: orderData,
+        calculation: buildCalculationRequest(),
+        invoice: {
+          customerName: orderData.customerName, phone, address,
+          orderStatus: "PENDING_PAYMENT", totalAmount: calculation.netPayable,
+          paidAmount: 0, balanceAmount: calculation.netPayable,
+          items: calculation.items,
+        },
+      });
+    } catch (error) {
+      alert(extractError(error));
+    } finally {
+      setCreatingInvoice(false);
+    }
+  };
+
+  const handlePaymentSaved = () => {
       if (activeDraftId) {
         let held = [];
         try { held = JSON.parse(localStorage.getItem("pos_held_payments") || "[]"); } catch { held = []; }
         localStorage.setItem("pos_held_payments", JSON.stringify(held.filter((entry) => String(entry.draftId) !== String(activeDraftId))));
         localStorage.removeItem("pos_active_draft_id");
       }
-      setActiveOrderId(String(orderId));
+  };
+
+  const handleIncreaseQuantity = async (item) => {
+    if (quantityCheckRef.current) return;
+    const snapshot = cartItems;
+    quantityCheckRef.current = true;
+    setCheckingQuantity(true);
+    try {
+      const request = buildCalculationRequest();
+      request.items = request.items.map((line) =>
+        line.inventoryId === item.inventoryId && line.batchId === item.batchId
+          ? { ...line, quantity: Number(line.quantity) + 1 } : line);
+      // Validate against current server stock BEFORE changing the cart.
+      await calculateOrder(request);
+      if (currentCartRef.current === snapshot) increaseQuantity(item.inventoryId, item.batchId);
     } catch (error) {
       alert(extractError(error));
     } finally {
-      setCreatingInvoice(false);
+      quantityCheckRef.current = false;
+      setCheckingQuantity(false);
     }
   };
 
@@ -285,7 +322,7 @@ function CheckoutPage() {
      ============================================================ */
 
   const disablePlaceOrder =
-    creatingInvoice || calcLoading || !calculation || cartItems.length === 0 || !!calcError;
+    creatingInvoice || checkingQuantity || calcLoading || !calculation || cartItems.length === 0 || !!calcError;
 
   return (
     <>
@@ -384,7 +421,7 @@ function CheckoutPage() {
                 <span>Payment Information</span>
               </div>
               <p className="checkout-payment-box-text">
-                Payment will be collected after invoice creation.
+                Invoice will be created only after payment is collected and saved.
               </p>
             </div>
           </div>
@@ -498,7 +535,8 @@ function CheckoutPage() {
                               <span className="checkout-qty-value">{item.quantity}</span>
                               <button
                                 type="button"
-                                onClick={() => increaseQuantity(item.inventoryId, item.batchId)}
+                                onClick={() => handleIncreaseQuantity(item)}
+                                disabled={checkingQuantity}
                                 className="checkout-qty-btn"
                                 aria-label="Increase quantity"
                               >
@@ -629,7 +667,7 @@ function CheckoutPage() {
                   className="checkout-action-btn checkout-pay-btn"
                   style={{ opacity: disablePlaceOrder ? 0.6 : 1, cursor: disablePlaceOrder ? "not-allowed" : "pointer" }}
                 >
-                  {creatingInvoice ? "Creating Invoice…" : "Make Payment"}
+                  {creatingInvoice ? "Opening Payment…" : "Make Payment"}
                 </button>
               </div>
             </div>
@@ -637,15 +675,17 @@ function CheckoutPage() {
         </div>
       </div>
 
-      {activeOrderId && (
+      {(paymentDraft || activeOrderId) && (
         <div className="checkout-payment-overlay">
           <div className="checkout-payment-modal">
             <PaymentPageor
               orderIdOverride={activeOrderId}
+              checkoutDraft={paymentDraft}
+              onPaymentSaved={handlePaymentSaved}
               embedded
               compact
-              onCancel={() => navigate(`/pos/invoice/${activeOrderId}`)}
-              onInvoice={() => navigate(`/pos/invoice/${activeOrderId}`)}
+              onCancel={() => { setPaymentDraft(null); setActiveOrderId(""); }}
+              onInvoice={(orderId) => navigate(`/pos/invoice/${orderId}`)}
               onNewSale={() => navigate("/pos")}
             />
           </div>

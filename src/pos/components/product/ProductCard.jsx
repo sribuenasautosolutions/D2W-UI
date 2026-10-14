@@ -133,6 +133,8 @@ function ProductCard({ product }) {
                         ...product,
                         batchId: batch.batchId,
                         batchNumber: batch.batchNumber,
+                        availableQuantity: batch.availableQuantity,
+                        inventoryStock: product.quantity,
                         mrp: batch.mrp,
                         sellingPrice: batch.sellingPrice,
                         purchasePrice: batch.purchasePrice

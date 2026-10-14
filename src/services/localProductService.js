@@ -1,5 +1,15 @@
 import api from "./api";
 
+export const createLocalProduct = async (product, storeId) => {
+    const response = await api.post("/local-products", product, { params: { storeId } });
+    return response.data;
+};
+
+export const getMyLocalProducts = async (storeId) => {
+    const response = await api.get("/local-products/my", { params: { storeId } });
+    return response.data;
+};
+
 /* =========================
    PENDING APPROVALS
 ========================= */

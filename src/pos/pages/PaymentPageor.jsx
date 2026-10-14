@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getInvoice } from "../../services/orderService";
-import { calculatePayment, addPayment } from "../../services/paymentService";
+import { calculatePayment, addPayment, previewPosPayment, checkoutPosPayment } from "../../services/paymentService";
 import { useCart } from "../context/CartContext";
 
 /* ============================================================
@@ -98,9 +98,10 @@ const removeHeldPayment = (orderId) => {
    COMPONENT
    ============================================================ */
 
-function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInvoice, onNewSale, onCancel }) {
+function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInvoice, onNewSale, onCancel, checkoutDraft, onPaymentSaved }) {
   const { orderId: routeOrderId } = useParams();
-  const orderId = orderIdOverride || routeOrderId;
+  const [createdOrderId, setCreatedOrderId] = useState(null);
+  const orderId = createdOrderId || orderIdOverride || routeOrderId;
   const navigate = useNavigate();
   const location = useLocation();
   const salesBase = location.pathname.startsWith("/owner/") ? "/owner/sales"
@@ -127,6 +128,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
   /* ---------- Save state ---------- */
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const saveInProgressRef = useRef(false);
 
   /* ---------- Change-return confirmation ----------
      Only relevant when the entered payment(s) exceed the balance
@@ -153,6 +155,11 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
     let cancelled = false;
     setLoading(true);
     setLoadError("");
+    if (checkoutDraft && !createdOrderId) {
+      setInvoice(checkoutDraft.invoice);
+      setLoading(false);
+      return () => { cancelled = true; };
+    }
     getInvoice(orderId)
       .then((data) => {
         if (cancelled) return;
@@ -168,7 +175,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
     return () => {
       cancelled = true;
     };
-  }, [orderId]);
+  }, [orderId, checkoutDraft, createdOrderId]);
 
 
   const buildPaymentsPayload = useCallback(() => {
@@ -234,7 +241,9 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
       setCalcLoading(true);
       setCalcError("");
       try {
-        const response = await calculatePayment({ orderId, payments });
+        const response = checkoutDraft && !createdOrderId
+          ? await previewPosPayment({ calculation: checkoutDraft.calculation, payments })
+          : await calculatePayment({ orderId, payments });
         if (requestId === requestIdRef.current) setCalc(response);
       } catch (error) {
         if (requestId === requestIdRef.current) {
@@ -250,7 +259,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
       clearTimeout(debounceRef.current);
       requestIdRef.current += 1;
     };
-  }, [rows, orderId, invoice, saved, buildPaymentsPayload]);
+  }, [rows, orderId, invoice, saved, buildPaymentsPayload, checkoutDraft, createdOrderId]);
 
   /* ============================================================
      ROW HANDLERS
@@ -335,7 +344,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
      ============================================================ */
 
   const handleSavePayment = async (nextAction) => {
-    if (saving || saved || locked || calcLoading) return;
+    if (saveInProgressRef.current || saving || saved || locked || calcLoading) return;
 
     const payments = buildPaymentsPayload();
     if (payments.length === 0) {
@@ -367,13 +376,15 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
       return;
     }
 
+    saveInProgressRef.current = true;
     setSaving(true);
     try {
-      const response = await addPayment({
-        orderId,
-        collectedBy: collectedBy.trim(),
-        payments,
-      });
+      const response = checkoutDraft && !createdOrderId
+        ? await checkoutPosPayment({ order: checkoutDraft.order, collectedBy: collectedBy.trim(), payments })
+        : await addPayment({ orderId, collectedBy: collectedBy.trim(), payments });
+      const completedOrderId = response.orderId || orderId;
+      if (checkoutDraft) setCreatedOrderId(completedOrderId);
+      if (onPaymentSaved) onPaymentSaved(completedOrderId);
 
       setInvoice((prev) => ({
         ...prev,
@@ -389,7 +400,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
         paymentCompleted: Number(response.balanceAmount) <= 0,
       }));
       setSaved(true);
-      removeHeldPayment(orderId);
+      removeHeldPayment(completedOrderId);
 
       // FIX: the sale is only truly complete once payment is saved — so
       // this is the correct moment to clear the cart, not before (Checkout
@@ -397,7 +408,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
       // (which left the cart re-billable if the cashier hit Back instead).
       if (!salesBase) clearCart();
       if (embedded && nextAction === "INVOICE" && onInvoice) {
-        onInvoice(orderId);
+        onInvoice(completedOrderId);
         return;
       }
       if (embedded && nextAction === "NEW_SALE" && onNewSale) {
@@ -413,6 +424,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
     } catch (error) {
       alert(extractError(error));
     } finally {
+      saveInProgressRef.current = false;
       setSaving(false);
     }
   };
@@ -752,7 +764,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
       <div style={compact ? { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "18px", paddingTop: "14px", borderTop: "1px solid #e2e8f0" } : footerBarStyle}>
         {!saved ? (
           <>
-            {compact && <button style={backFooterBtnStyle} onClick={onCancel || handleHoldPayment}>Cancel</button>}
+            {compact && <button style={backFooterBtnStyle} disabled={saving} onClick={() => { if (!saveInProgressRef.current) (onCancel || handleHoldPayment)(); }}>Cancel</button>}
             {!embedded && <button style={backFooterBtnStyle} onClick={() => navigate(-1)}>← Back</button>}
             <div style={{ display: "flex", gap: "10px" }}>
               {!embedded && <button style={holdBtnStyle} onClick={handleHoldPayment}>Hold Payment</button>}

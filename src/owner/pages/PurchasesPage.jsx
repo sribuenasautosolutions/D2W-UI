@@ -37,15 +37,21 @@ export default function PurchasesPage() {
 
     const isBillsView = normalizedView === "bills";
 
+    // Vendor Orders renders its own header row (title + filters side by side)
+    // so this page does not add the standard eyebrow / title / description block.
+    const sectionRendersOwnHeader = normalizedView === "vendororders";
+
     return (
         <main style={isBillsView ? S.billsMain : undefined}>
-            {!isBillsView && <header style={S.header}>
-                <div>
-                    <span style={S.eyebrow}>Purchases</span>
-                    <h1 style={S.title}>{activeView.title}</h1>
-                    <p style={S.description}>{activeView.description}</p>
-                </div>
-            </header>}
+            {!isBillsView && !sectionRendersOwnHeader && (
+                <header style={S.header}>
+                    <div>
+                        <span style={S.eyebrow}>Purchases</span>
+                        <h1 style={S.title}>{activeView.title}</h1>
+                        <p style={S.description}>{activeView.description}</p>
+                    </div>
+                </header>
+            )}
             <ActiveComponent />
         </main>
     );
