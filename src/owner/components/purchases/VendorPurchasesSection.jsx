@@ -53,11 +53,6 @@ function isValidGstValue(value) {
   return /^[A-Za-z0-9]{1,15}$/.test(trimmed);
 }
 
-function csvValue(value) {
-  const text = String(value ?? "");
-  return `"${text.replaceAll('"', '""')}"`;
-}
-
 function formatMoney(value) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency", currency: "INR", maximumFractionDigits: 2,
@@ -560,7 +555,7 @@ function ManualStockReceipt() {
       if (!row.itemName.trim()) return `${label}: Item Name is required`;
       if (!row.brandName.trim()) return `${label}: Brand is required`;
       if (row.importStatus === "NEW" && !row.hsnCode.trim()) return `${label}: HSN is required for new imported items`;
-      if (Number(row.quantity) <= 0) return `${label}: Quantity must be greater than zero`;
+      if (!Number.isSafeInteger(Number(row.quantity)) || Number(row.quantity) <= 0) return `${label}: Quantity must be a positive whole number`;
       const unavailable = Number(row.damagedQuantity || 0) + Number(row.rejectedQuantity || 0);
       if (unavailable >= Number(row.quantity)) return `${label}: accepted quantity must be greater than zero`;
       if (Number(row.purchasePrice) <= 0 || row.purchasePrice === "") return `${label}: Purchase Price must be greater than zero`;
@@ -823,21 +818,19 @@ function ManualStockReceipt() {
     setScreen("editor");
   };
 
-  const exportBills = () => {
-    const header = ["Date", "Bill Number", "Vendor Name", "Status", "Due Date", "Amount", "Balance Due"];
-    const rowsCsv = visiblePurchases.map((bill) => [
-      bill.invoiceDate, bill.vendorInvoiceNumber, bill.vendorName,
-      displayBillStatus(bill), bill.dueDate || bill.invoiceDate,
-      Number(bill.totalAmount || 0).toFixed(2),
-      Number(bill.balanceDue || 0).toFixed(2),
-    ]);
-    const csv = [header, ...rowsCsv].map((row) => row.map(csvValue).join(",")).join("\n");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    link.download = "vendor-bills.csv";
-    link.click();
-    URL.revokeObjectURL(link.href);
-    setMoreMenuOpen(false);
+  const exportBills = async () => {
+    if (!visiblePurchases.length) { setMessage({type:"error",text:"No bills to export."}); return; }
+    setSaving(true);
+    try {
+      const response = await api.post("/vendor-purchases/export", visiblePurchases.map(bill => bill.receiptId), {responseType:"blob"});
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href=url; link.download="vendor-bills.xlsx";
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setMoreMenuOpen(false);
+    } catch { setMessage({type:"error",text:"Unable to export vendor bills. Please retry."}); }
+    finally { setSaving(false); }
   };
 
   const openBillImport = () => {
@@ -1075,7 +1068,7 @@ function ManualStockReceipt() {
                     >
                       <Filter size={15} /> Sort: {sortLabel(sortMode)}
                     </button>
-                    <button type="button" onClick={exportBills}>
+                    <button type="button" disabled={saving} onClick={exportBills}>
                       <Download size={15} /> Export Bills
                     </button>
                   </div>

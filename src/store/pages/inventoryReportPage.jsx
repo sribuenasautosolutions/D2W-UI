@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { printCleanDocument } from "../../utils/cleanPrint";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   getInventoryReport,
@@ -120,8 +121,8 @@ export default function InventoryReportPage() {
         <h1>Inventory Report</h1>
         <p>Stock quantity and inventory analysis</p>
         <button onClick={() => navigate("/admin/reports")}>← Back</button>
-        <button onClick={() => window.print()}>🖨️ Print</button>
-        <button onClick={() => window.print()}>📄 Export PDF</button>
+        <button onClick={() => printCleanDocument()}>🖨️ Print</button>
+        <button onClick={() => printCleanDocument()}>📄 Export PDF</button>
         <button onClick={() => alert("Export Excel: wire up your backend endpoint.")}>📊 Export Excel</button>
       </div>
 

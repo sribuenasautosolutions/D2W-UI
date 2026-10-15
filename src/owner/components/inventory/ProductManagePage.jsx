@@ -160,11 +160,9 @@ const ProductManagePage = () => {
     }));
   };
 
-  // Only a LOCAL product's catalogue fields (name/code/HSN/brand/GST) are
-  // editable here — matches the same rule used on the Current Stock page.
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const canEditBasic = product && (
-    product.productSource === "LOCAL" || currentUser.role === "SUPER_ADMIN"
+    ["SUPER_ADMIN", "STORE_OWNER"].includes(currentUser.role)
   );
 
   const saveRackNumber = async (batch) => {
@@ -197,6 +195,9 @@ const ProductManagePage = () => {
           partNumber: formData.itemCode,
           hsnCode: formData.hsn,
           brandName: formData.brand,
+          description: product.description,
+          categoryName: product.categoryName,
+          masterName: product.productMasterName,
           gstPercentage: formData.gst === "" ? null : Number(formData.gst),
         });
       }
@@ -204,10 +205,13 @@ const ProductManagePage = () => {
       // NOTE: there's no purchase-price update endpoint among the imported
       // services, so that field is shown but not persisted yet — wire up a
       // real endpoint here if you need it saved.
-      await updateInventoryPrices(inventoryId, {
-        sellingPrice: Number(formData.sellingPrice),
-        mrp: Number(formData.mrp),
-      });
+      if (Number(formData.sellingPrice) !== Number(product.sellingPrice)
+          || Number(formData.mrp) !== Number(product.mrp)) {
+        await updateInventoryPrices(inventoryId, {
+          sellingPrice: Number(formData.sellingPrice),
+          mrp: Number(formData.mrp),
+        });
+      }
 
       setSaveMessage("Changes saved successfully.");
       await loadProduct();

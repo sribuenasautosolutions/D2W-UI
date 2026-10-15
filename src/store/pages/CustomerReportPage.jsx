@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { printCleanDocument } from "../../utils/cleanPrint";
 import { useNavigate } from "react-router-dom";
 import {
   getCustomerReport,
@@ -190,9 +191,9 @@ export default function CustomerReportPage() {
           style={S.searchInput}
         />
         <div style={{ marginLeft: "auto", display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button style={S.toolBtn("#fee2e2", "#dc2626")} onClick={() => window.print()}>📄 Export PDF</button>
+          <button style={S.toolBtn("#fee2e2", "#dc2626")} onClick={() => printCleanDocument()}>📄 Export PDF</button>
           <button style={S.toolBtn("#dcfce7", "#16a34a")} onClick={() => alert("Export Excel: wire up your backend endpoint.")}>📊 Export Excel</button>
-          <button style={S.toolBtn("#f3f4f6", "#374151")} onClick={() => window.print()}>🖨️ Print</button>
+          <button style={S.toolBtn("#f3f4f6", "#374151")} onClick={() => printCleanDocument()}>🖨️ Print</button>
         </div>
       </div>
 

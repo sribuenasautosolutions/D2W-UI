@@ -148,9 +148,10 @@ export function InfoGrid({ rows, columns = 4 }) {
   );
 }
 
-export const productManageRoute = (inventoryId, storeId) => {
+export const productManageRoute = (inventoryId, storeId, role = "SUPER_ADMIN") => {
   const query = storeId ? `?storeId=${encodeURIComponent(storeId)}` : "";
-  return `/owner/inventory/products/${inventoryId}/manage${query}`;
+  const base = role === "STORE_OWNER" ? "/store" : "/owner";
+  return `${base}/inventory/products/${inventoryId}/manage${query}`;
 };
 
 export default function CurrentStockSection() {
@@ -374,7 +375,7 @@ export default function CurrentStockSection() {
     if (!selectedId) return;
     const selectedRow = result.content.find((row) => row.inventoryId === selectedId);
     const detailStoreId = storeId || selectedRow?.storeId;
-    navigate(productManageRoute(selectedId, detailStoreId));
+    navigate(productManageRoute(selectedId, detailStoreId, user.role));
   };
 
   const changeFilter = (setter) => (event) => {

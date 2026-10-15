@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { printCleanDocument } from "../../../utils/cleanPrint";
 import { ArrowLeft, PackageCheck, Pencil, Printer, Phone, Mail } from "lucide-react";
 
 // ASSUMPTION: adjust this import to match the actual D2W logo file already
@@ -65,6 +66,13 @@ export default function VendorPurchaseInvoiceView({
   onOpenDraft,
   saving
 }) {
+  const billNumber = bill?.vendorInvoiceNumber;
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = billNumber ? `Invoice · ${billNumber}` : "Invoice";
+    return () => { document.title = previousTitle; };
+  }, [billNumber]);
+
   if (!bill) return null;
 
   const items = bill.items || [];
@@ -194,25 +202,12 @@ export default function VendorPurchaseInvoiceView({
     }
     printWindow.focus();
     setTimeout(() => {
-      printWindow.print();
+      printCleanDocument(printWindow);
     }, 300);
   }, 500);
 };
   
   const isIgst = bill.gstMode === "IGST";
-
-  // NEW: reflect "Performa Invoice" (plus bill number) in the browser tab
-  // title too, not just the on-page heading. Restores the previous title
-  // on unmount so navigating away doesn't leave a stale tab title.
-  useEffect(() => {
-    const previousTitle = document.title;
-    document.title = bill.vendorInvoiceNumber
-      ? `Invoice · ${bill.vendorInvoiceNumber}`
-      : " Invoice";
-    return () => {
-      document.title = previousTitle;
-    };
-  }, [bill.vendorInvoiceNumber]);
 
   const totalItemDiscount = items.reduce(
     (total, item) => total + Number(item.discountAmount || 0) * Number(item.acceptedQuantity || 0), 0

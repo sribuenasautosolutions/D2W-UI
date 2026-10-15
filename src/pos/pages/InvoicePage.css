@@ -11,7 +11,6 @@
 .invoice-store-copy h1{font-size:19px;margin: 0 0 3px;color:#1a1a1a;font-weight:700}
 .invoice-store-copy p{margin: 2px 0;font-size:10.5px;line-height:1.35;color:#333}
 .invoice-store-code{font-weight:700;color:#1a1a1a!important}
-.invoice-store-code span{margin-left: var(--sp-2);padding-left: var(--sp-2);border-left:1px solid #999}
 .invoice-gstin{font-weight:700!important;color:#1a1a1a!important}
 .invoice-gstin span{font-weight:800}
 
@@ -84,3 +83,6 @@
   .invoice-items tr,.invoice-summary-grid,.invoice-footer{break-inside:avoid}
   @page{size:A4;margin: 11mm}
 }
+
+.invoice-pdf-error{max-width:210mm;margin:0 auto 12px;color:#b42318;padding:10px;background:#fff1f1}
+@media print{.invoice-pdf-error{display:none}.invoice-sheet,.invoice-sheet *{visibility:visible!important}}

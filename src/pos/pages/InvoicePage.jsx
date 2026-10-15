@@ -1,9 +1,10 @@
 import { ProductUnitLabel } from "../../components/ProductUnitFields";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Download, Printer, Plus } from "lucide-react";
+import { ArrowLeft, Download, Printer } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import apiclient from "../../services/apiclient";
-import { useCart } from "../context/CartContext";
+import { printDisplayedInvoice } from "../utils/printInvoice";
+import { downloadDisplayedInvoicePdf } from "../utils/invoicePdf";
 import "./InvoicePage.css";
 
 const money = (value) => Number(value || 0).toLocaleString("en-IN", {
@@ -97,31 +98,57 @@ function TotalLine({ label, value, subtract = false, strong = false }) {
 const COLUMN_WIDTHS_WITH_DISCOUNT = [4, 30, 8, 5, 8, 8, 8, 9, 7, 13];
 const COLUMN_WIDTHS_NO_DISCOUNT = [4, 35, 8, 5, 9, 9, 10, 7, 13];
 
-export default function InvoicePage({ orderIdOverride, embedded = false, onNewSale }) {
+export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const { orderId: routeOrderId } = useParams();
   const orderId = orderIdOverride || routeOrderId;
   const navigate = useNavigate();
   const location = useLocation();
   const printedOrder = useRef(null);
-  const { clearCart } = useCart();
+  const invoiceSheet = useRef(null);
+  const printInProgress = useRef(false);
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [pdfError, setPdfError] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const invoiceRequest = useRef(0);
+  const pdfInProgress = useRef(false);
+  const currentOrder = useRef(orderId);
 
   const loadInvoice = useCallback(async () => {
+    const version = ++invoiceRequest.current;
     setLoading(true);
+    setInvoice(null);
     setError("");
     try {
-      const response = await apiclient.get(`/orders/${orderId}`);
-      setInvoice(response.data);
+      if (!orderId) throw new Error("Invoice identifier is missing.");
+      const response = await apiclient.get(`/orders/${orderId}`, { timeout: 20000 });
+      if (invoiceRequest.current === version) setInvoice(response.data);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to load this invoice.");
+      if (invoiceRequest.current === version) setError(requestError.response?.data?.message || requestError.message || "Unable to load this invoice.");
     } finally {
-      setLoading(false);
+      if (invoiceRequest.current === version) setLoading(false);
     }
   }, [orderId]);
 
-  useEffect(() => { loadInvoice(); }, [loadInvoice]);
+  useEffect(() => {
+    loadInvoice();
+    setPdfError(""); setPdfLoading(false);
+    return () => { invoiceRequest.current += 1; };
+  }, [loadInvoice]);
+  useEffect(() => {
+    currentOrder.current = orderId;
+    return () => { currentOrder.current = null; };
+  }, [orderId]);
+
+  const handlePrint = useCallback(async () => {
+    if (!invoiceSheet.current || printInProgress.current) return;
+    printInProgress.current = true;
+    setPdfError("");
+    try { await printDisplayedInvoice(invoiceSheet.current); }
+    catch (error) { setPdfError(error.message || "Unable to print invoice. Please retry."); }
+    finally { printInProgress.current = false; }
+  }, []);
 
   useEffect(() => {
     if (!location.state?.autoPrint || loading || error || !invoice
@@ -135,10 +162,10 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
         replace: true,
         state: { ...location.state, autoPrint: false },
       });
-      window.print();
+      handlePrint();
     }, 100);
     return () => window.clearTimeout(timer);
-  }, [invoice, loading, error, orderId, location.pathname, location.state, navigate]);
+  }, [invoice, loading, error, orderId, location.pathname, location.state, navigate, handlePrint]);
 
   const items = useMemo(() => invoice?.items || [], [invoice]);
   const payments = useMemo(() => invoice?.payments || [], [invoice]);
@@ -152,18 +179,25 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
   const colWidths = hasDiscount ? COLUMN_WIDTHS_WITH_DISCOUNT : COLUMN_WIDTHS_NO_DISCOUNT;
   const columnCount = colWidths.length;
 
-  const startSale = () => {
-    clearCart();
-    if (embedded && onNewSale) {
-      onNewSale();
-      return;
+  const handleSavePdf = async () => {
+    if (pdfInProgress.current || !invoiceSheet.current) return;
+    const id = orderId;
+    const node = invoiceSheet.current;
+    pdfInProgress.current = true;
+    setPdfLoading(true); setPdfError("");
+    try {
+      const filename = (invoice.invoiceNumber || "invoice-" + orderId).replace(/[^a-zA-Z0-9_-]/g, "_") + ".pdf";
+      await downloadDisplayedInvoicePdf(node, filename, () => currentOrder.current === id);
+    } catch (requestError) {
+      if (currentOrder.current === id) setPdfError(requestError.message || "Unable to save the invoice PDF.");
+    } finally {
+      pdfInProgress.current = false;
+      if (currentOrder.current === id) setPdfLoading(false);
     }
-    navigate(location.pathname.startsWith("/owner/") ? "/owner/sales/new"
-      : location.pathname.startsWith("/store/") ? "/store/sales/new" : "/pos");
   };
 
   if (loading) return <div className="invoice-state">Loading invoice...</div>;
-  if (error || !invoice) return <div className="invoice-state invoice-state--error">{error || "Invoice not found."}</div>;
+  if (error || !invoice) return <div className="invoice-state invoice-state--error"><div>{error || "Invoice not found."}<br /><button className="invoice-button" onClick={loadInvoice}>Retry</button></div></div>;
 
   return <main className="invoice-page">
     <nav className="invoice-toolbar">
@@ -176,19 +210,19 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
             navigate(`${base}/payment/${orderId}`);
           }}>Collect Payment</button>
         )}
-        <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Printer size={16} />Print</button>
-        <button className="invoice-button invoice-button--quiet" onClick={() => window.print()}><Download size={16} />Save PDF</button>
-        <button className="invoice-button invoice-button--primary" onClick={startSale}><Plus size={16} />New Sale</button>
+        <button className="invoice-button invoice-button--quiet" onClick={handlePrint}><Printer size={16} />Print</button>
+        <button className="invoice-button invoice-button--quiet" disabled={pdfLoading} onClick={handleSavePdf}><Download size={16} />{pdfLoading ? "Saving PDF…" : "Save PDF"}</button>
       </div>
     </nav>
 
-    <article className="invoice-sheet">
+    {pdfError && <div className="invoice-pdf-error" role="alert">{pdfError}</div>}
+    <article className="invoice-sheet" id="invoice-export-sheet" ref={invoiceSheet}>
       <header className="invoice-header">
         <div className="invoice-brand">
           <div className="invoice-logo">D2W</div>
           <div className="invoice-store-copy">
             <h1>{text(invoice.storeName)}</h1>
-            <p className="invoice-store-code">Deals 2 Wheels <span>{text(invoice.storeCode)}</span></p>
+            <p className="invoice-store-code">Deals 2 Wheels</p>
             <p>{invoice.storePhone && `Phone: ${invoice.storePhone}`}{invoice.storePhone && invoice.storeEmail && "  |  "}{invoice.storeEmail && `Email: ${invoice.storeEmail}`}</p>
             <p className="invoice-gstin"><span>GSTIN:</span> {text(invoice.storeGstno)}</p>
           </div>
@@ -247,7 +281,8 @@ export default function InvoicePage({ orderIdOverride, embedded = false, onNewSa
             {items.map((item, index) => <tr key={`${item.batchId || "item"}-${index}`}>
               <td>{index + 1}</td>
               <td>
-                <strong>{text(item.itemName || item.productName)}</strong><ProductUnitLabel product={item}/>
+                <strong>{text(item.itemName || item.productName)}</strong>
+                {item.stockUnit && item.stockUnit !== "PCS" && <ProductUnitLabel product={item} />}
                 <small className="invoice-partno">Part No: {text(item.partNumber)} &nbsp;|&nbsp; HSN: {text(itemHsn(item))}</small>
               </td>
               <td>{text(item.brandName)}</td>

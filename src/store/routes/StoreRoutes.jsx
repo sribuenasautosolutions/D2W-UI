@@ -17,6 +17,7 @@ const DashboardHome = lazy(
 const InventoryPage = lazy(
   () => import("../../owner/pages/InventoryPage")
 );
+const ProductManagePage = lazy(() => import("../../owner/components/inventory/ProductManagePage"));
 
 const PurchasesPage = lazy(
   () => import("../../owner/pages/PurchasesPage")
@@ -123,6 +124,10 @@ function StoreRoutes() {
           }
         />
 
+        <Route
+          path="/inventory/products/:inventoryId/manage"
+          element={<ProductManagePage />}
+        />
         <Route
           path="/purchases"
           element={

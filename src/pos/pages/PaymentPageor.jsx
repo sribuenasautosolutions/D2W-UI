@@ -796,7 +796,7 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
         ) : (
           <div style={{ display: "flex", gap: "10px", marginLeft: "auto" }}>
             <button style={invoiceBtnStyle} onClick={handleViewInvoice}>View Invoice →</button>
-            <button style={newSaleBtnStyle} onClick={handleNewSale}>New Sale</button>
+            {!routeOrderId && <button style={newSaleBtnStyle} onClick={handleNewSale}>New Sale</button>}
           </div>
         )}
       </div>

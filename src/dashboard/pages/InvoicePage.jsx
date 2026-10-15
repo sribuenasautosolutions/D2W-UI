@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { printCleanDocument } from "../../utils/cleanPrint";
 import { useParams } from "react-router-dom";
 import api from "../../services/api";
 
@@ -154,7 +155,7 @@ function InvoicePage() {
 
             <button
                 onClick={() =>
-                    window.print()
+                    printCleanDocument()
                 }
                 style={{
                     padding: "10px 20px",
