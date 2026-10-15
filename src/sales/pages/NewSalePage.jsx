@@ -599,8 +599,12 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     const bulkSaleInputRef = useRef(null);
     const [bulkSalePreview, setBulkSalePreview] = useState(null);
     const [bulkSaleLoading, setBulkSaleLoading] = useState(false);
+    const bulkSaleBusy = useRef(false);
+    const bulkSaleStore = useRef(selectedStoreId);
+    bulkSaleStore.current = selectedStoreId;
 
     const handleBulkSaleFile = async (event) => {
+        if (bulkSaleBusy.current) return;
         const file = event.target.files?.[0];
         event.target.value = "";
         if (!file) return;
@@ -608,9 +612,12 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             alert("Select a store before uploading the sale file.");
             return;
         }
+        const receivingStore = selectedStoreId;
+        bulkSaleBusy.current = true;
         setBulkSaleLoading(true);
         try {
-            const preview = await previewSalesBulkUpload(file, selectedStoreId);
+            const preview = await previewSalesBulkUpload(file, receivingStore);
+            if (String(bulkSaleStore.current) !== String(receivingStore)) return;
             setBulkSalePreview(preview);
             const uploadedItems = (preview.items || []).map((item) => ({
                 productId: item.inventory?.productId ?? null,
@@ -633,11 +640,22 @@ export default function NewSalePage({ documentMode = "SALE" }) {
                 bulkUploaded: true,
             }));
             setItems((current) => {
-                const merged = current.filter((item) => !item.bulkUploaded);
-                uploadedItems.forEach((uploaded) => {
-                    const index = merged.findIndex((item) => String(item.inventoryId) === String(uploaded.inventoryId) && String(item.batchId) === String(uploaded.batchId));
-                    if (index < 0) merged.push(uploaded);
-                    else merged[index] = { ...merged[index], quantity: Number(merged[index].quantity || 0) + uploaded.quantity };
+                const incomingInventory = new Set(uploadedItems.map(item => String(item.inventoryId)));
+                // A corrected file replaces its Excel quantities for the included
+                // inventory items. Keep manual quantities and previously accepted
+                // items absent from the corrected file. Reuploads do not double them.
+                const merged = current.flatMap(item => {
+                    if (!incomingInventory.has(String(item.inventoryId))) return [item];
+                    const oldExcelQty = Number(item.bulkQuantity ?? (item.bulkUploaded ? item.quantity : 0));
+                    const manualQty = Math.max(0, Number(item.quantity || 0) - oldExcelQty);
+                    return manualQty ? [{ ...item, quantity: manualQty, bulkQuantity: 0, bulkUploaded: false }] : [];
+                });
+                uploadedItems.forEach(uploaded => {
+                    const index = merged.findIndex(item => String(item.inventoryId) === String(uploaded.inventoryId)
+                        && String(item.batchId) === String(uploaded.batchId));
+                    if (index < 0) merged.push({ ...uploaded, bulkQuantity: uploaded.quantity });
+                    else merged[index] = { ...merged[index], quantity: Number(merged[index].quantity || 0) + uploaded.quantity,
+                        bulkQuantity: Number(merged[index].bulkQuantity || 0) + uploaded.quantity, bulkUploaded: true };
                 });
                 return merged;
             });
@@ -645,6 +663,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             setBulkSalePreview(null);
             alert(error?.response?.data?.message || error?.response?.data || "Unable to preview the sale file.");
         } finally {
+            bulkSaleBusy.current = false;
             setBulkSaleLoading(false);
         }
     };
@@ -1603,8 +1622,11 @@ const totalMrp = useMemo(
                 return;
             }
 
-            if (bulkSalePreview?.invalidRows > 0) {
-                alert("Fix the invalid Excel rows and upload the corrected file before saving the sale.");
+            // Rejected Excel rows were never added to items. They do not block
+            // saving accepted/corrected rows; server recalculation still validates
+            // every item actually included in the sale.
+            if (bulkSaleBusy.current) {
+                alert("Wait for the Excel preview to finish before saving the sale.");
                 return;
             }
 
@@ -2382,6 +2404,7 @@ const totalMrp = useMemo(
 
                     {bulkSalePreview && <div className={`new-sale-bulk-result ${bulkSalePreview.invalidRows > 0 ? "has-errors" : "is-valid"}`}>
                         <div><strong>{bulkSalePreview.totalRows} rows uploaded</strong><span>{bulkSalePreview.validRows} valid · {bulkSalePreview.invalidRows} invalid</span></div>
+                        {bulkSalePreview.invalidRows > 0 && <p>Rejected rows are excluded from this bill. Valid rows can be saved. Upload corrections to add them; previously accepted items are kept.</p>}
                         {bulkSalePreview.invalidRows > 0 && <div className="new-sale-bulk-errors">{(bulkSalePreview.rows || []).filter((row) => !row.valid).map((row) => <p key={`${row.rowNumber}-${row.partNumber}`}><strong>Row {row.rowNumber}{row.partNumber ? ` · ${row.partNumber}` : ""}</strong><span>{(row.errors || []).join(". ")}</span></p>)}</div>}
                     </div>}
 

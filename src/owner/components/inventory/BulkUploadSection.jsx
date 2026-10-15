@@ -16,6 +16,8 @@ import "./BulkUploadSection.css";
 import "./BulkUploadPriceSettings.css";
 
 const CHUNK_SIZE = 100;
+const PRICE_FIELDS = ["purchasePrice", "sellingPrice", "mrp"];
+const hasValue = value => value !== null && value !== undefined && String(value).trim() !== "";
 
 const editableFields = [
   ["partNumber", "Part Number"],
@@ -57,8 +59,11 @@ function downloadBlob(blob, filename) {
 
 function sourceRow(row) {
   const next = { ...row };
-  const field = { MRP: "mrp", PURCHASE_PRICE: "purchasePrice", SELLING_PRICE: "sellingPrice" }[row.priceSource];
-  if (field) ["mrp", "purchasePrice", "sellingPrice"].forEach((key) => { if (key !== field) next[key] = null; });
+  const legacy = { MRP: "mrp", PURCHASE_PRICE: "purchasePrice", SELLING_PRICE: "sellingPrice" }[row.priceSource];
+  const fields = Array.isArray(row.enteredPriceFields) ? row.enteredPriceFields :
+    legacy ? [legacy] : PRICE_FIELDS.filter(field => hasValue(row[field]));
+  next.enteredPriceFields = [...fields];
+  PRICE_FIELDS.forEach(field => { if (!fields.includes(field)) next[field] = null; });
   return next;
 }
 
@@ -78,9 +83,7 @@ function validatePriceSelection(row, errors) {
       if (!Number.isFinite(number) || number <= 0) errors.push(`${label} must be greater than zero`);
     }
   });
-  if (row.priceSource === "MANUAL" && entered !== 3) errors.push("Manual pricing requires all three prices");
-  else if (entered === 0) errors.push("Enter one price for calculation or all three prices for manual pricing");
-  else if (entered == 2) errors.push("Enter the third price, or keep only one price for calculation");
+  if (entered === 0) errors.push("Enter at least one price; missing prices are calculated");
 }
 
 function validateEditedRow(row) {
@@ -113,6 +116,11 @@ function validateEditedRow(row) {
 function recheckRows(rows) {
   const keys = new Map();
   return rows.map((source) => {
+    if (source.status === "IMPORTED") {
+      if (source.storeId && source.partNumber) keys.set(
+        source.storeId + ":" + String(source.partNumber).trim().toUpperCase(), source.rowNumber);
+      return source;
+    }
     const row = { ...source, sampleRow: false };
     const errors = validateEditedRow(row);
     const key = `${row.storeId || ""}:${String(row.partNumber || "").trim().toUpperCase()}`;
@@ -131,6 +139,7 @@ function recheckRows(rows) {
 export default function BulkUploadSection({ onClose, hideTitle = false }) {
   const user = currentUser();
   const [allDiscount, setAllDiscount] = useState("");
+  const workInProgress = useRef(false);
   const isSuperAdmin = user.role === "SUPER_ADMIN";
 
   const [stores, setStores] = useState([]);
@@ -168,14 +177,16 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
       rows: nextRows,
       totalRows: nextRows.length,
       validRows: nextRows.filter((row) => row.status === "VALID").length,
-      invalidRows: nextRows.filter((row) => row.status !== "VALID").length,
+      invalidRows: nextRows.filter((row) => !["VALID", "IMPORTED"].includes(row.status)).length,
       duplicateRows: nextRows.filter((row) => row.status === "DUPLICATE_IN_FILE").length,
     }));
   };
 
   const previewFile = async () => {
+    if (workInProgress.current) return;
     if (!file) { setError("Choose a CSV, XLS, or XLSX file first."); return; }
     if (!fixedStoreId) { setError("Select the store that will receive this opening stock."); return; }
+    workInProgress.current = true;
     setBusy(true); setError(""); setPreview(null); setImportSummary(null); setLastRejectedRows([]); setProgress(2);
     try {
       const data = new FormData();
@@ -193,11 +204,13 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
       setProgress(0);
       setError(errorMessage(requestError, "The file could not be previewed."));
     } finally {
+      workInProgress.current = false;
       setBusy(false);
     }
   };
 
   const clearFile = () => {
+    if (workInProgress.current) return;
     setFile(null); setPreview(null); setProgress(0); setError("");
     setImportSummary(null); setLastRejectedRows([]); setFilter("ALL"); setEditing(null); setConfirming(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -228,16 +241,22 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
     setEditing((current) => {
       if (!current) return current;
       const next = { ...current, [field]: value };
-      if (["purchasePrice", "sellingPrice", "mrp"].includes(field) && current.priceSource !== "MANUAL") {
-        next.purchasePrice = ""; next.sellingPrice = ""; next.mrp = "";
-        next[field] = value;
-        next.priceSource = { purchasePrice: "PURCHASE_PRICE", sellingPrice: "SELLING_PRICE", mrp: "MRP" }[field];
+      if (PRICE_FIELDS.includes(field)) {
+        // Once all prices are displayed, editing one makes the others fixed inputs.
+        // Automatic calculation starts again after Clear Prices (or all three blanks).
+        const fields = new Set(PRICE_FIELDS.every(key => hasValue(current[key]))
+          ? PRICE_FIELDS : sourceRow(current).enteredPriceFields);
+        if (hasValue(value)) fields.add(field); else fields.delete(field);
+        next.enteredPriceFields = [...fields];
+        next.priceSource = fields.size === 3 ? "MANUAL" : fields.size === 2 ? "PARTIAL" : null;
       }
       return next;
     });
   };
 
   const recalculateRows = async (nextRows) => {
+    if (workInProgress.current) return null;
+    workInProgress.current = true;
     setBusy(true); setError("");
     try {
       const pending = nextRows.filter((row) => row.status !== "IMPORTED")
@@ -253,16 +272,19 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
       });
       const updated = new Map(checked.map((row) => [row.rowNumber, row]));
       refreshCounts(nextRows.map((row) => updated.get(row.rowNumber) || row));
-      return true;
+      return updated;
     } catch (requestError) {
       setError(errorMessage(requestError, "Prices could not be recalculated. Please retry."));
-      return false;
-    } finally { setBusy(false); }
+      return null;
+    } finally { workInProgress.current = false; setBusy(false); }
   };
 
   const saveEditedRow = async () => {
     if (!editing || busy) return;
-    if (await recalculateRows(rows.map((row) => row.rowNumber === editing.rowNumber ? editing : row))) setEditing(null);
+    const updated = await recalculateRows(rows.map((row) => row.rowNumber === editing.rowNumber ? editing : row));
+    const corrected = updated?.get(editing.rowNumber);
+    if (corrected?.status === "VALID") { setEditing(null); setFilter("ALL"); }
+    else if (corrected) { setEditing(corrected); setError(corrected.errors.join("; ")); }
   };
 
   const applyDiscountToAll = async () => {
@@ -275,6 +297,8 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
   };
 
   const importRows = async () => {
+    if (workInProgress.current || !validRows.length) return;
+    workInProgress.current = true;
     setConfirming(false); setBusy(true); setError(""); setProgress(30);
     let processed = 0;
     const summary = { importedRows: 0, failedRows: 0, createdRows: 0, updatedRows: 0 };
@@ -294,14 +318,18 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
       const remainingRejected = nextRows.filter((row) => row.status !== "IMPORTED");
       summary.failedRows = Math.max(summary.failedRows, remainingRejected.length);
       setImportSummary(summary); setProgress(100);
-      if (summary.importedRows > 0) {
-        setLastRejectedRows(remainingRejected);
-        setFile(null); setPreview(null); setFilter("ALL"); setEditing(null); setProgress(0);
+      setLastRejectedRows(remainingRejected);
+      // Keep rejected rows editable; IMPORTED rows stay locked and are excluded
+      // from every later recalculation/import. Uncorrected rows block only themselves.
+      refreshCounts(nextRows);
+      setFilter("ALL"); setEditing(null);
+      if (remainingRejected.length === 0 && summary.importedRows > 0) {
+        setFile(null); setPreview(null); setProgress(0);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } catch (requestError) {
       setError(`${errorMessage(requestError, "Import stopped.")} ${processed} row(s) were completed before it stopped.`);
-    } finally { setBusy(false); }
+    } finally { workInProgress.current = false; setBusy(false); }
   };
 
   const downloadTemplate = async () => {
@@ -348,6 +376,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
             <span>Receiving store</span>
             <select
               value={selectedStoreId}
+              disabled={busy}
               onChange={(event) => {
                 setSelectedStoreId(event.target.value);
                 clearFile();
@@ -369,6 +398,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
+            if (workInProgress.current) return;
             const dropped = e.dataTransfer.files?.[0];
             if (dropped) {
               setFile(dropped);
@@ -383,9 +413,11 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
           <input
             ref={fileInputRef}
             type="file"
+            disabled={busy}
             accept=".csv,.xls,.xlsx"
             style={{ display: "none" }}
             onChange={(event) => {
+              if (workInProgress.current) return;
               setFile(event.target.files?.[0] || null);
               setPreview(null);
               setImportSummary(null);
@@ -587,7 +619,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                       <td className="is-num">{row.purchasePrice ?? "-"}</td>
                       <td className="is-num">{row.sellingPrice ?? "-"}</td>
                       <td className="is-num">{row.mrp ?? "-"}</td>
-                      <td className="is-mode">{row.priceSource === "MANUAL" ? "All three prices" : "Calculated"}</td>
+                      <td className="is-mode">{row.priceSource === "MANUAL" ? "Prices preserved" : row.priceSource === "PARTIAL" ? "Two entered + calculated" : "Calculated"}</td>
                       <td className="is-num">{row.discountPercentage ?? 0}%</td>
                       <td className="is-num">{row.discountAmount ?? "-"}</td>
                       <td className="is-num">{row.lineTotal ?? "-"}</td>
@@ -601,7 +633,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                       </td>
                       <td className="is-actions">
                         <div className="bulk-row-actions">
-                          <button className="bulk-icon" type="button" title="Edit row" aria-label={`Edit row ${row.rowNumber}`} disabled={busy || row.status === "IMPORTED"} onClick={() => setEditing(sourceRow(row))}>
+                          <button className="bulk-icon" type="button" title="Edit row" aria-label={`Edit row ${row.rowNumber}`} disabled={busy || row.status === "IMPORTED"} onClick={() => setEditing({ ...row })}>
                             <Pencil size={14} />
                           </button>
                           <button className="bulk-icon" type="button" title="Remove row" aria-label={`Remove row ${row.rowNumber}`} disabled={busy || row.status === "IMPORTED"} onClick={() => removeRow(row.rowNumber)}>
@@ -626,25 +658,16 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
             <div className="bulk-modal__head">
               <div>
                 <h3>Edit row {editing.rowNumber}</h3>
-                <span>Enter one price to calculate the rest, or choose all three prices to keep your own values.</span>
+                <span>Enter one, two or three prices. Only blanks are calculated. Editing a filled price preserves the others.</span>
               </div>
-              <button className="bulk-icon" onClick={() => setEditing(null)}><X size={18} /></button>
+              <button className="bulk-icon" disabled={busy} onClick={() => setEditing(null)}><X size={18} /></button>
             </div>
 
-            <label style={{ display: "block", marginBottom: 16 }}>
-              Pricing mode
-              <select
-                value={editing.priceSource === "MANUAL" ? "MANUAL" : "AUTO"}
-                disabled={busy}
-                onChange={(event) => setEditing((current) => event.target.value === "MANUAL"
-                  ? { ...current, priceSource: "MANUAL" }
-                  : { ...current, priceSource: null, purchasePrice: "", sellingPrice: "", mrp: "" })}
-              >
-                <option value="AUTO">Calculate from one price</option>
-                <option value="MANUAL">Use all three prices</option>
-              </select>
-              <p>Purchase price is final cost including GST and discount. Selling price excludes GST. MRP includes GST. Manual prices are not reduced again by Discount %.</p>
-            </label>
+            <p>Purchase is final cost including GST and discount. Selling excludes GST. Calculated MRP is a suggestion.</p>
+            <button type="button" className="bulk-button bulk-button--secondary" disabled={busy}
+              onClick={() => setEditing(current => ({ ...current, purchasePrice: "", sellingPrice: "", mrp: "",
+                priceSource: null, enteredPriceFields: [], errors: [] }))}>Clear Prices</button>
+            {editing.errors?.length > 0 && <div className="bulk-alert bulk-alert--error" role="alert">{editing.errors.join("; ")}</div>}
 
             <div className="bulk-edit-grid">
               {editableFields.map(([field, label]) => (
@@ -655,6 +678,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                     min={["quantity", "purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "0" : undefined}
                     step={["purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "0.01" : undefined}
                     value={editing[field] ?? ""}
+                    disabled={busy}
                     onChange={(event) => updateEditingField(field, event.target.value)}
                   />
                 </label>
@@ -662,11 +686,11 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
             </div>
 
             <div className="bulk-modal__actions">
-              <button className="bulk-button bulk-button--danger" onClick={() => { removeRow(editing.rowNumber); setEditing(null); }}>
+              <button className="bulk-button bulk-button--danger" disabled={busy} onClick={() => { removeRow(editing.rowNumber); setEditing(null); }}>
                 Remove row
               </button>
-              <button className="bulk-button bulk-button--secondary" onClick={() => setEditing(null)}>Cancel</button>
-              <button className="bulk-button bulk-button--primary" onClick={saveEditedRow}>
+              <button className="bulk-button bulk-button--secondary" disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
+              <button className="bulk-button bulk-button--primary" disabled={busy} onClick={saveEditedRow}>
                 {busy ? "Calculating..." : "Save row"}
               </button>
             </div>
@@ -681,7 +705,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
             <p>This will create or update inventory and batches. Invalid and duplicate rows will remain unimported.</p>
             <div className="bulk-modal__actions">
               <button className="bulk-button bulk-button--secondary" onClick={() => setConfirming(false)}>Cancel</button>
-              <button className="bulk-button bulk-button--primary" onClick={importRows}>Confirm import</button>
+              <button className="bulk-button bulk-button--primary" disabled={busy || !validRows.length} onClick={importRows}>Confirm import</button>
             </div>
           </div>
         </div>

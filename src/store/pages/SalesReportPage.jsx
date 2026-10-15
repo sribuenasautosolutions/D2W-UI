@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { printCleanDocument } from "../../utils/cleanPrint";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   getSalesReport,
@@ -247,13 +248,13 @@ export default function SalesReportPage() {
         &nbsp;
         <button onClick={() => setCurrentPage(1)}>Search</button>
         &nbsp;
-        <button onClick={() => window.print()}>📄 PDF</button>
+        <button onClick={() => printCleanDocument()}>📄 PDF</button>
         &nbsp;
         <button onClick={() => alert("Export Excel: wire up your backend endpoint.")}>📊 Excel</button>
         &nbsp;
         <button onClick={() => alert("Email Report: wire up your backend endpoint.")}>✉️ Email</button>
         &nbsp;
-        <button onClick={() => window.print()}>🖨️ Print</button>
+        <button onClick={() => printCleanDocument()}>🖨️ Print</button>
       </div>
 
       <hr />

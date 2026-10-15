@@ -1,4 +1,5 @@
 import { ProductUnitLabel } from "../../components/ProductUnitFields";
+import { printCleanDocument } from "../../utils/cleanPrint";
 import { useEffect, useState } from "react";
 
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -111,7 +112,7 @@ const grandTotal = Number(record.netPayable || 0);
 
 {record.sourceLeadId && <button onClick={() => navigate(`${base}/proforma/${record.id}/lead`)}>Customer decision and sales</button>}
 
-        <button className="quiet" onClick={() => window.print()}><Printer size={15}/> PDF / Print</button>
+        <button className="quiet" onClick={() => printCleanDocument()}><Printer size={15}/> PDF / Print</button>
 
         {!record.sourceLeadId && record.status === "SAVED" && <button className="quiet" onClick={() => navigate(`${base}/proforma/${record.id}/edit`)}><Pencil size={15}/> Edit</button>}
 

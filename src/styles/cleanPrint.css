@@ -1,0 +1,16 @@
+/* Browser-generated headers/footers need page-margin space. Keep that space
+   inside the document instead, so date/time, tab title and URL are omitted. */
+@media print {
+  @page { margin: 0 !important; }
+  html { margin: 0 !important; padding: 0 !important; }
+  html, body, #root, .invoice-page, .proforma-invoice-page {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  body {
+    margin: 0 !important;
+    padding: 10mm !important;
+    box-sizing: border-box !important;
+    background: #fff !important;
+  }
+}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CirclePlus, Download, Filter, MoreHorizontal, Power, Search, Store, UserRoundCheck, X } from "lucide-react";
 import api from "../../../services/api";
 import VendorStockModal from "./VendorStockModal";
+import VendorStockSearch from "./VendorStockSearch";
 
 const emptyVendor = {
     vendorName: "", phone: "", contactPerson: "", email: "",
@@ -36,6 +37,8 @@ export default function VendorsSection() {
     const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
     const [vendors, setVendors] = useState([]);
     const [query, setQuery] = useState("");
+    const [stockQuery, setStockQuery] = useState("");
+    const [stockRevision, setStockRevision] = useState(0);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -216,7 +219,7 @@ export default function VendorsSection() {
             </div>
 
             <div style={S.toolbar}>
-                <label style={S.search}><Search size={16} /><input className="vendors-search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search vendors..." /></label>
+                <label style={S.search}><Search size={16} /><input className="vendors-search-input" value={query} onChange={(event) => { setQuery(event.target.value); setStockQuery(""); }} placeholder="Search vendors..." /></label>
                 <div style={S.toolbarActions}>
                     {isSuperAdmin && <select style={S.select} value={storeId} onChange={(event) => setStoreId(event.target.value)}><option value="">Select store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
 
@@ -244,7 +247,10 @@ export default function VendorsSection() {
                 </div>
             </div>
 
-            <div style={S.tableWrap}>
+            <VendorStockSearch key={`${storeId}-${stockRevision}`} storeId={storeId} storeRequired={isSuperAdmin} query={stockQuery} onQueryChange={setStockQuery}
+                onSelectVendor={row => setSelectedVendor(vendors.find(vendor => String(vendor.id) === String(row.vendorId)) || { id: row.vendorId, vendorName: row.vendorName })} />
+
+            {!stockQuery.trim() && <div style={S.tableWrap}>
                 <table className="vendors-table" style={S.table}>
                     <thead><tr><th>Vendor</th><th>Contact</th><th>GST Number</th><th>Location</th><th>Status</th><th aria-label="Manage" /></tr></thead>
                     <tbody>
@@ -260,7 +266,7 @@ export default function VendorsSection() {
                         {loading && <tr><td colSpan="6" style={S.empty}>Loading vendors...</td></tr>}
                     </tbody>
                 </table>
-            </div>
+            </div>}
 
             {modalOpen && <div style={S.backdrop} onMouseDown={closeModal}>
                 <div style={S.modal} role="dialog" aria-modal="true" aria-label="Add vendor" onMouseDown={(event) => event.stopPropagation()}>
@@ -288,7 +294,7 @@ export default function VendorsSection() {
                     <div style={S.modalActions}><button type="button" style={S.secondary} onClick={closeModal} disabled={saving}>Cancel</button><button type="button" style={S.primary} onClick={saveVendor} disabled={saving}>{saving ? "Saving..." : "Save Vendor"}</button></div>
                 </div>
             </div>}
-            {selectedVendor && <VendorStockModal vendor={selectedVendor} onClose={() => setSelectedVendor(null)} />}
+            {selectedVendor && <VendorStockModal vendor={selectedVendor} onClose={() => { setSelectedVendor(null); setStockRevision(value => value + 1); }} />}
         </section>
     );
 }

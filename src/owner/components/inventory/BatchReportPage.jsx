@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getBatchReport } from "../../../services/inventoryService";
 import api from "../../../services/api";
+import { createBatchReportPdf } from "./batchReportPdf";
+import BatchPdfPreview from "./BatchPdfPreview";
 
 /* ============================================================
    CONSTANTS
@@ -544,6 +546,10 @@ function BatchReportPage() {
     const [pageSize, setPageSize] = useState(10);
 
     const [viewBatch, setViewBatch] = useState(null);
+    const batchRequest = useRef(null);
+    const [pdfPreview, setPdfPreview] = useState(null);
+    const [pdfBusy, setPdfBusy] = useState(false);
+    useEffect(() => () => { if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url); }, [pdfPreview]);
 
     const user = getUser();
     const isOwner = (user.role || "").toUpperCase() === "SUPER_ADMIN";
@@ -559,30 +565,38 @@ function BatchReportPage() {
 
     /* ---- existing data load logic (unchanged, only wrapped with loading/error UI state) ---- */
   const loadBatches = async () => {
+    const request = Symbol();
+    batchRequest.current = request;
     try {
         setLoading(true);
         setError(null);
-
-        const data = await getBatchReport(selectedStoreId, {
-            page: page - 1,
-            size: pageSize,
-            sortBy: sortConfig.key,
-            direction: sortConfig.direction.toUpperCase(),
-        });
-
-        setBatches(Array.isArray(data?.content) ? data.content : []);
+        // Filters and pagination below operate locally, so load every server page.
+        const rows = [];
+        let serverPage = 0;
+        let totalPages = 1;
+        do {
+            const data = await getBatchReport(selectedStoreId, {
+                page: serverPage, size: 200, sortBy: "receivedDate", direction: "DESC",
+            });
+            if (request !== batchRequest.current) return;
+            rows.push(...(Array.isArray(data?.content) ? data.content : []));
+            totalPages = data?.totalPages || 1;
+            serverPage++;
+        } while (serverPage < totalPages);
+        setBatches(rows);
     } catch (e) {
         console.error(e);
-        setError("We couldn't load the batch report. Check your connection and try again.");
+        if (request === batchRequest.current) setError("We couldn't load the batch report. Check your connection and try again.");
     } finally {
-        setLoading(false);
+        if (request === batchRequest.current) setLoading(false);
     }
 };
 
     useEffect(() => {
     loadBatches();
+    return () => { batchRequest.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedStoreId, page, pageSize, sortConfig]);
+}, [selectedStoreId]);
 
     /* ---- filter dropdown option lists, derived from loaded data ---- */
     const brandOptions = useMemo(() => uniqueValues(batches, "brandName"), [batches]);
@@ -710,13 +724,19 @@ function BatchReportPage() {
         downloadFile(toCsv(sortedBatches), "batch-report.csv", "text/csv;charset=utf-8;");
     };
 
-    const handleExportPdf = () => {
-        window.print();
+    const handleExportPdf = async (rows = sortedBatches) => {
+        if (pdfBusy) return;
+        setPdfBusy(true);
+        try {
+            const pdf = await createBatchReportPdf(rows);
+            const filename = rows.length === 1 ? `batch-${rows[0].batchId}.pdf` : "batch-report.pdf";
+            setPdfPreview({ url: URL.createObjectURL(pdf.output("blob")), filename });
+            pdf.save(filename);
+        } catch (error) { setError(error.message || "Unable to generate batch PDF. Please retry."); }
+        finally { setPdfBusy(false); }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
+    const handlePrint = () => handleExportPdf(sortedBatches);
 
     const sortIndicator = (key) =>
         sortConfig.key === key ? (
@@ -731,6 +751,7 @@ function BatchReportPage() {
 
     return (
         <div style={S.page}>
+            {pdfPreview && <BatchPdfPreview {...pdfPreview} onClose={() => setPdfPreview(null)} />}
             <style>{`
                 @media print {
                     .no-print { display: none !important; }
@@ -896,7 +917,7 @@ function BatchReportPage() {
                     <button style={{ ...S.btn, ...S.btnSubtle }} className="btn-hover" onClick={handleExportExcel}>
                         <Icon.Excel /> Export Excel
                     </button>
-                    <button style={{ ...S.btn, ...S.btnSubtle }} className="btn-hover" onClick={handleExportPdf}>
+                    <button disabled={pdfBusy} style={{ ...S.btn, ...S.btnSubtle }} className="btn-hover" onClick={() => handleExportPdf()}>
                         <Icon.Pdf /> Export PDF
                     </button>
                     <button style={{ ...S.btn, ...S.btnSubtle }} className="btn-hover" onClick={handlePrint}>
@@ -963,10 +984,10 @@ function BatchReportPage() {
                                                 <button style={S.iconBtn} title="View Batch Details" onClick={() => setViewBatch(batch)}>
                                                     <Icon.Eye />
                                                 </button>
-                                                <button style={S.iconBtn} title="Print Batch" onClick={() => window.print()}>
+                                                <button disabled={pdfBusy} style={S.iconBtn} title="Print Batch" onClick={() => handleExportPdf([batch])}>
                                                     <Icon.Printer />
                                                 </button>
-                                                <button style={{ ...S.iconBtn, marginRight: 0 }} title="Download PDF" onClick={() => window.print()}>
+                                                <button disabled={pdfBusy} style={{ ...S.iconBtn, marginRight: 0 }} title="Download PDF" onClick={() => handleExportPdf([batch])}>
                                                     <Icon.Pdf />
                                                 </button>
                                             </td>
@@ -1011,7 +1032,7 @@ function BatchReportPage() {
                 )}
             </div>
 
-            {viewBatch && <ViewDetailsModal batch={viewBatch} hasStoreData={hasStoreData} hasCategoryData={hasCategoryData} onClose={() => setViewBatch(null)} />}
+            {viewBatch && <ViewDetailsModal batch={viewBatch} hasStoreData={hasStoreData} hasCategoryData={hasCategoryData} onClose={() => setViewBatch(null)} onPrint={() => handleExportPdf([viewBatch])} />}
         </div>
     );
 }
@@ -1110,7 +1131,7 @@ function EmptyState({ hasFilters, onReset, addStockPath }) {
     );
 }
 
-function ViewDetailsModal({ batch, hasStoreData, hasCategoryData, onClose }) {
+function ViewDetailsModal({ batch, hasStoreData, hasCategoryData, onClose, onPrint }) {
     const status = getBatchStatus(batch);
     const badgeStyle =
         status.key === "ACTIVE"
@@ -1156,7 +1177,7 @@ function ViewDetailsModal({ batch, hasStoreData, hasCategoryData, onClose }) {
                     </div>
                 </div>
                 <div style={S.modalFooter}>
-                    <button style={{ ...S.btn, ...S.btnGhost }} onClick={() => window.print()}>
+                    <button style={{ ...S.btn, ...S.btnGhost }} onClick={onPrint}>
                         <Icon.Printer /> Print Batch
                     </button>
                     <button style={{ ...S.btn, ...S.btnPrimary }} onClick={onClose}>

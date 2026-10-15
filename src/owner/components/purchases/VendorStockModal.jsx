@@ -88,6 +88,10 @@ export default function VendorStockModal({ vendor, onClose }) {
     }));
 
     const savePreviewChanges = async () => {
+        if (preview.rows.some(row => !Number.isSafeInteger(Number(row.quantity)) || Number(row.quantity) <= 0)) {
+            setMessage({ type: "error", text: "Quantity must be a positive whole number; decimals are not allowed." });
+            return;
+        }
         setSaving(true); setMessage(null);
         try {
             const response = await api.put(`/api/vendor-stock-uploads/${preview.uploadId}/preview`, { rows: preview.rows });
@@ -152,7 +156,7 @@ function Tab({ active, onClick, children }) { return <button type="button" onCli
 
 function StockTable({ rows, loading, showErrors, editable = false, onChange }) {
     return <div style={S.tableWrap}><table className="vendor-stock-table" style={S.table}><thead><tr><th>Part Number</th><th>Part Name</th><th>Brand</th><th>Quantity</th><th>MRP</th>{showErrors && <th>Validation</th>}</tr></thead><tbody>
-        {rows.map((row, index) => <tr key={`${row.rowNumber || row.partNumber || "row"}-${index}`}><td>{editable ? <input style={S.cellInput} value={row.partNumber || ""} onChange={(e) => onChange(index,"partNumber",e.target.value)} /> : <strong>{row.partNumber || "—"}</strong>}</td><td>{editable ? <input style={S.cellInput} value={row.partName || ""} onChange={(e) => onChange(index,"partName",e.target.value)} /> : row.partName || "—"}</td><td>{editable ? <input style={S.cellInput} value={row.brand || ""} onChange={(e) => onChange(index,"brand",e.target.value)} /> : row.brand || "—"}</td><td>{editable ? <input style={S.numberInput} type="number" min="0" value={row.quantity ?? ""} onChange={(e) => onChange(index,"quantity",e.target.value)} /> : row.quantity ?? "—"}</td><td>{editable ? <input style={S.numberInput} type="number" min="0" value={row.mrp ?? ""} onChange={(e) => onChange(index,"mrp",e.target.value)} /> : row.mrp == null ? "—" : `₹${Number(row.mrp).toLocaleString("en-IN")}`}</td>{showErrors && <td style={row.errors?.length ? S.invalid : S.valid}>{row.errors?.length ? row.errors.join(", ") : "Valid"}</td>}</tr>)}
+        {rows.map((row, index) => <tr key={`${row.rowNumber || row.partNumber || "row"}-${index}`}><td>{editable ? <input style={S.cellInput} value={row.partNumber || ""} onChange={(e) => onChange(index,"partNumber",e.target.value)} /> : <strong>{row.partNumber || "—"}</strong>}</td><td>{editable ? <input style={S.cellInput} value={row.partName || ""} onChange={(e) => onChange(index,"partName",e.target.value)} /> : row.partName || "—"}</td><td>{editable ? <input style={S.cellInput} value={row.brand || ""} onChange={(e) => onChange(index,"brand",e.target.value)} /> : row.brand || "—"}</td><td>{editable ? <input style={S.numberInput} type="number" min="1" step="1" value={row.quantity ?? ""} onChange={(e) => onChange(index,"quantity",e.target.value)} /> : row.quantity ?? "—"}</td><td>{editable ? <input style={S.numberInput} type="number" min="0" value={row.mrp ?? ""} onChange={(e) => onChange(index,"mrp",e.target.value)} /> : row.mrp == null ? "—" : `₹${Number(row.mrp).toLocaleString("en-IN")}`}</td>{showErrors && <td style={row.errors?.length ? S.invalid : S.valid}>{row.errors?.length ? row.errors.join(", ") : "Valid"}</td>}</tr>)}
         {!loading && rows.length === 0 && <tr><td colSpan={showErrors ? 6 : 5} style={S.empty}>No stock available.</td></tr>}
         {loading && <tr><td colSpan={showErrors ? 6 : 5} style={S.empty}>Loading stock...</td></tr>}
     </tbody></table></div>;
