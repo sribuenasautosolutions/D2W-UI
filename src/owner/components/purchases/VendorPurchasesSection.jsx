@@ -130,7 +130,7 @@ function isPriceGroupEmpty(row) {
   return row.purchasePrice === "" && row.mrp === "" && row.sellingPrice === "";
 }
 
-function calculatePricesFromSource(row, source, sourceValue, columnMode = "GST_INCLUSIVE") {
+function calculatePricesFromSource(row, source, sourceValue) {
   const sourcePrice = Number(sourceValue);
 
   const discount = Math.min(
@@ -157,34 +157,17 @@ function calculatePricesFromSource(row, source, sourceValue, columnMode = "GST_I
 
   if (source === "SELLING_PRICE") {
     sellingPrice = sourcePrice;
-
-    if (columnMode === "GST_INCLUSIVE") {
-      mrp = sourcePrice;
-      purchasePrice = (sourcePrice / gstFactor) * discountFactor;
-    } else {
-      mrp = sourcePrice * gstFactor;
-      purchasePrice = sourcePrice * discountFactor;
-    }
+    mrp = Number((sourcePrice * gstFactor).toFixed(2));
+    const discountAmount = Number((sellingPrice * discount / 100).toFixed(2));
+    purchasePrice = Number((sellingPrice - discountAmount).toFixed(2)) * gstFactor;
   } else if (source === "MRP") {
     mrp = sourcePrice;
-
-    if (columnMode === "GST_INCLUSIVE") {
-      sellingPrice = sourcePrice;
-      purchasePrice = (sourcePrice / gstFactor) * discountFactor;
-    } else {
-      sellingPrice = sourcePrice / gstFactor;
-      purchasePrice = sellingPrice * discountFactor;
-    }
+    sellingPrice = sourcePrice / gstFactor;
+    purchasePrice = sourcePrice - Number((sourcePrice * discount / 100).toFixed(2));
   } else if (source === "PURCHASE_PRICE") {
     purchasePrice = sourcePrice;
-
-    if (columnMode === "GST_INCLUSIVE") {
-      sellingPrice = (sourcePrice / discountFactor) * gstFactor;
-      mrp = sellingPrice;
-    } else {
-      sellingPrice = sourcePrice / discountFactor;
-      mrp = sellingPrice * gstFactor;
-    }
+    mrp = Number((sourcePrice / discountFactor).toFixed(2));
+    sellingPrice = mrp / gstFactor;
   } else {
     return null;
   }
@@ -551,6 +534,7 @@ function ManualStockReceipt() {
     for (let i = 0; i < receiptRows.length; i++) {
       const row = receiptRows[i];
       const label = `Row ${i + 1}`;
+      if (row.importErrors?.length) return `${label}: ${row.importErrors.join("; ")}`;
       if (!row.partNumber.trim()) return `${label}: Part Number is required`;
       if (!row.itemName.trim()) return `${label}: Item Name is required`;
       if (!row.brandName.trim()) return `${label}: Brand is required`;
@@ -858,6 +842,7 @@ function ManualStockReceipt() {
         purchasePrice: imported.purchasePrice == null ? "" : String(imported.purchasePrice),
         mrp: imported.mrp == null ? "" : String(imported.mrp),
         sellingPrice: imported.sellingPrice == null ? "" : String(imported.sellingPrice),
+        priceSource: imported.priceSource || "MANUAL",
         discountPercentage: imported.discountPercentage == null ? "0" : String(imported.discountPercentage),
         gstPercentage: String(imported.gstPercentage ?? 18),
         rackNumber: imported.rackNumber || "",
