@@ -1454,3 +1454,1385 @@
     background: #b91c1c;
     border-color: #b91c1c;
 }
+/* ==========================================================================
+   Lead Procurement Drawer — enterprise SaaS redesign
+   All selectors are prefixed `pd-` so the legacy `procurement-*` / `followup-*`
+   rules (still used by the Follow-up drawer) are untouched.
+   Palette: surface #FFFFFF · border #E2E8F0 · muted #F8FAFC · ink #0F172A
+            slate #475569 · royal blue #2563EB
+   ========================================================================== */
+
+.pd-root {
+    --pd-surface: #ffffff;
+    --pd-border: #e2e8f0;
+    --pd-border-strong: #cbd5e1;
+    --pd-muted: #f8fafc;
+    --pd-ink: #0f172a;
+    --pd-slate: #475569;
+    --pd-soft: #94a3b8;
+    --pd-blue: #2563eb;
+    --pd-blue-dark: #1d4ed8;
+    --pd-blue-tint: #eff6ff;
+    --pd-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--pd-muted);
+    color: var(--pd-ink);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+}
+
+.pd-root *,
+.pd-root *::before,
+.pd-root *::after {
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.spin {
+    animation: pd-spin 0.8s linear infinite;
+}
+@keyframes pd-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+.pd-header {
+    flex: 0 0 auto;
+    padding: 16px 24px 16px;
+    background: var(--pd-surface);
+    border-bottom: 1px solid var(--pd-border);
+}
+
+.pd-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pd-header-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pd-header-title h2 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--pd-ink);
+}
+
+.pd-tag {
+    padding: 3px 8px;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    background: var(--pd-blue-tint);
+    color: var(--pd-blue-dark);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 14px;
+}
+
+.pd-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 9px;
+    border: 1px solid var(--pd-border);
+    border-radius: 999px;
+    background: var(--pd-muted);
+    color: var(--pd-slate);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.pd-badge--warn {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.pd-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--pd-border);
+    border-radius: 8px;
+    background: var(--pd-surface);
+    color: var(--pd-slate);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.pd-icon-btn:hover {
+    background: var(--pd-muted);
+    border-color: var(--pd-border-strong);
+    color: var(--pd-ink);
+}
+.pd-icon-btn:focus-visible {
+    outline: 2px solid var(--pd-blue);
+    outline-offset: 2px;
+}
+
+.pd-edit-toggle {
+    width: 28px;
+    height: 28px;
+    border-color: #bfdbfe;
+    background: var(--pd-blue-tint);
+    color: var(--pd-blue);
+}
+.pd-edit-toggle:hover {
+    background: #dbeafe;
+    border-color: var(--pd-blue);
+    color: var(--pd-blue-dark);
+}
+.pd-edit-toggle.is-active {
+    background: var(--pd-blue);
+    border-color: var(--pd-blue);
+    color: #ffffff;
+}
+
+/* ---- Customer meta ---- */
+.pd-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.pd-meta-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.pd-meta-field > span {
+    color: var(--pd-slate);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.pd-meta-field > input {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--pd-muted);
+    color: var(--pd-ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.pd-meta-field > input:focus {
+    outline: none;
+}
+.pd-meta-field.is-editing > input {
+    border-color: var(--pd-border-strong);
+    background: var(--pd-surface);
+}
+.pd-meta-field.is-editing > input:focus {
+    border-color: var(--pd-blue);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* ==========================================================================
+   TABS
+   ========================================================================== */
+.pd-tabs {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+    padding: 0 24px;
+    background: var(--pd-surface);
+    border-bottom: 1px solid var(--pd-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.pd-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.pd-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 42px;
+    padding: 0 14px;
+    border: 0;
+    background: transparent;
+    color: var(--pd-slate);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.pd-tab::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: transparent;
+    transition: background-color 0.15s ease;
+}
+.pd-tab:hover {
+    color: var(--pd-ink);
+}
+.pd-tab.is-active {
+    color: var(--pd-blue);
+    font-weight: 700;
+}
+.pd-tab.is-active::after {
+    background: var(--pd-blue);
+}
+.pd-tab-count {
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: var(--pd-slate);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+.pd-tab.is-active .pd-tab-count {
+    background: var(--pd-blue-tint);
+    color: var(--pd-blue-dark);
+}
+
+/* ==========================================================================
+   BODY + CARDS
+   ========================================================================== */
+.pd-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 24px 24px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+.pd-body::-webkit-scrollbar {
+    width: 6px;
+}
+.pd-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+.pd-body > * {
+    flex: 0 0 auto;
+}
+
+.pd-card {
+    background: var(--pd-surface);
+    border: 1px solid var(--pd-border);
+    border-radius: 12px;
+    box-shadow: var(--pd-shadow);
+    min-width: 0;
+}
+
+.pd-card-head,
+.pd-card-static-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+}
+.pd-card-head {
+    cursor: pointer;
+    border-radius: 12px;
+}
+.pd-card-head:hover .pd-card-title {
+    color: var(--pd-blue-dark);
+}
+.pd-card-head:focus-visible {
+    outline: 2px solid var(--pd-blue);
+    outline-offset: -2px;
+}
+.pd-card-static-head {
+    border-bottom: 1px solid var(--pd-border);
+}
+
+.pd-card-title {
+    flex: 1 1 auto;
+    color: var(--pd-ink);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: color 0.15s ease;
+}
+.pd-card-static-head .pd-card-title {
+    flex: 0 1 auto;
+    margin-right: auto;
+}
+
+.pd-chevron {
+    flex: 0 0 auto;
+    color: var(--pd-soft);
+    transition: transform 0.18s ease;
+    transform: rotate(-90deg);
+}
+.pd-chevron.is-open {
+    transform: rotate(0deg);
+}
+
+.pd-card-body {
+    padding: 0 16px 16px;
+}
+.pd-card-static-head + .pd-card-body {
+    padding-top: 16px;
+}
+
+/* ---- Muted requirement / change-log boxes ---- */
+.pd-muted-box {
+    padding: 10px 12px;
+    border: 1px solid var(--pd-border);
+    border-radius: 8px;
+    background: var(--pd-muted);
+    color: var(--pd-ink);
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.pd-change-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.pd-change {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.pd-change strong {
+    font-weight: 700;
+}
+.pd-change span {
+    color: var(--pd-slate);
+    font-size: 12px;
+}
+
+/* ---- Alerts ---- */
+.pd-alert {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.pd-alert--error {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+}
+.pd-alert--success {
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+/* ==========================================================================
+   ADD PARTS
+   ========================================================================== */
+.pd-entry-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pd-search {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    min-width: 0;
+    padding: 0 12px;
+    border: 1px solid var(--pd-border-strong);
+    border-radius: 8px;
+    background: var(--pd-surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pd-search:focus-within {
+    border-color: var(--pd-blue);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.pd-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--pd-ink);
+    font-size: 13px;
+    font-weight: 500;
+}
+.pd-search input::placeholder {
+    color: var(--pd-soft);
+}
+.pd-search input:disabled {
+    cursor: not-allowed;
+}
+
+.pd-segmented {
+    flex: 0 0 auto;
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+    padding: 3px;
+    border-radius: 8px;
+    background: #f1f5f9;
+}
+.pd-segmented button {
+    height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--pd-slate);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.pd-segmented button:hover {
+    color: var(--pd-ink);
+}
+.pd-segmented button.is-active {
+    background: var(--pd-surface);
+    color: var(--pd-blue);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+
+.pd-bulk {
+    margin-top: 12px;
+}
+.pd-bulk textarea,
+.pd-textarea {
+    display: block;
+    width: 100%;
+    min-height: 84px;
+    padding: 10px 12px;
+    border: 1px solid var(--pd-border-strong);
+    border-radius: 8px;
+    outline: 0;
+    background: var(--pd-surface);
+    color: var(--pd-ink);
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pd-bulk textarea:focus,
+.pd-textarea:focus {
+    border-color: var(--pd-blue);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.pd-bulk textarea::placeholder,
+.pd-textarea::placeholder {
+    color: var(--pd-soft);
+}
+.pd-bulk-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+}
+.pd-bulk-footer span,
+.pd-hint {
+    color: var(--pd-slate);
+    font-size: 11.5px;
+}
+.pd-hint--block {
+    margin: 14px 0 0;
+}
+
+/* ==========================================================================
+   ITEMS TABLE
+   ========================================================================== */
+.pd-table-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--pd-border);
+}
+.pd-table-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pd-table-title h3 {
+    margin: 0;
+    color: var(--pd-ink);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* ---- Metric chips ---- */
+.pd-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.pd-chip {
+    --chip: #475569;
+    --chip-bg: #f8fafc;
+    --chip-border: #e2e8f0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--chip-border);
+    border-radius: 999px;
+    background: var(--chip-bg);
+    color: var(--pd-slate);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.pd-chip i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--chip);
+}
+.pd-chip strong {
+    color: var(--chip);
+    font-size: 12.5px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+.pd-chip--total  { --chip: #2563eb; --chip-bg: #eff6ff; --chip-border: #bfdbfe; }
+.pd-chip--d2w    { --chip: #16a34a; --chip-bg: #f0fdf4; --chip-border: #bbf7d0; }
+.pd-chip--vendor { --chip: #7c3aed; --chip-bg: #f5f3ff; --chip-border: #ddd6fe; }
+.pd-chip--na     { --chip: #dc2626; --chip-bg: #fef2f2; --chip-border: #fecaca; }
+
+/* ---- Table shell ---- */
+.pd-table-wrap {
+    overflow-x: auto;
+    border-radius: 0 0 12px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+.pd-table-wrap::-webkit-scrollbar {
+    height: 6px;
+}
+.pd-table-wrap::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+.pd-fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.pd-table {
+    width: 100%;
+    min-width: 1040px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.pd-table thead th {
+    height: 38px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--pd-border);
+    background: var(--pd-muted);
+    color: var(--pd-ink);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    line-height: 14px;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.pd-table thead th:first-child,
+.pd-table tbody td:first-child {
+    padding-left: 16px;
+}
+.pd-table thead th:last-child,
+.pd-table tbody td:last-child {
+    padding-right: 16px;
+}
+
+.pd-td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--pd-border);
+    background: var(--pd-surface);
+    vertical-align: top;
+    min-width: 0;
+}
+.pd-table tbody tr:last-child .pd-td {
+    border-bottom: 0;
+}
+.pd-table tbody tr:hover .pd-td {
+    background: #fafcff;
+}
+.pd-table tbody tr.has-error .pd-td {
+    background: #fffafa;
+}
+
+/* ---- Inputs ---- */
+.pd-input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--pd-border-strong);
+    border-radius: 8px;
+    outline: 0;
+    background: var(--pd-surface);
+    color: var(--pd-ink);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pd-input::placeholder {
+    color: var(--pd-soft);
+    font-weight: 500;
+}
+.pd-input:hover:not(:disabled):not([readonly]) {
+    border-color: var(--pd-soft);
+}
+.pd-input:focus {
+    border-color: var(--pd-blue);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.pd-input[readonly] {
+    background: var(--pd-muted);
+    color: var(--pd-slate);
+}
+.pd-input:disabled {
+    background: var(--pd-muted);
+    color: var(--pd-soft);
+    cursor: not-allowed;
+}
+.pd-input--qty {
+    text-align: center;
+    font-weight: 800;
+}
+.pd-select {
+    padding-right: 6px;
+    cursor: pointer;
+}
+input[type="date"].pd-input {
+    padding: 0 8px;
+}
+
+.pd-product-name {
+    display: block;
+    padding-top: 7px;
+    color: var(--pd-ink);
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+.pd-dash {
+    display: inline-block;
+    padding-top: 8px;
+    color: var(--pd-soft);
+}
+
+/* ---- Stock line + inline states ---- */
+.pd-stock {
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 14px;
+}
+.pd-stock--ok   { color: #15803d; }
+.pd-stock--idle { color: var(--pd-soft); font-weight: 600; }
+.pd-stock--new  { color: #c2410c; }
+
+.pd-inline-loading {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    color: var(--pd-blue);
+    font-size: 11px;
+    font-weight: 600;
+}
+.pd-cell-error {
+    display: block;
+    margin-top: 4px;
+    color: #dc2626;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 14px;
+}
+
+/* ---- Row remove ---- */
+.pd-td-action {
+    text-align: center;
+}
+.pd-row-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    margin-top: 2px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--pd-soft);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.pd-row-remove:hover:not(:disabled) {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #dc2626;
+}
+.pd-row-remove:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ---- Empty / loading ---- */
+.pd-state {
+    padding: 36px 16px;
+    color: var(--pd-slate);
+    font-size: 12.5px;
+    font-weight: 500;
+    text-align: center;
+}
+.pd-state--flat {
+    padding: 20px 8px;
+}
+
+/* ==========================================================================
+   ACTIVITY & NOTES
+   ========================================================================== */
+.pd-activity-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.pd-type-chip {
+    --tone: #475569;
+    --tone-bg: #f8fafc;
+    --tone-border: #e2e8f0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--tone-border);
+    border-radius: 999px;
+    background: var(--pd-surface);
+    color: var(--pd-slate);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.pd-type-chip:hover {
+    background: var(--tone-bg);
+}
+.pd-type-chip.is-active {
+    border-color: var(--tone);
+    background: var(--tone-bg);
+    color: var(--tone);
+    font-weight: 700;
+}
+.pd-type-chip--note    { --tone: #b45309; --tone-bg: #fffbeb; --tone-border: #fde68a; }
+.pd-type-chip--call    { --tone: #15803d; --tone-bg: #f0fdf4; --tone-border: #bbf7d0; }
+.pd-type-chip--email   { --tone: #2563eb; --tone-bg: #eff6ff; --tone-border: #bfdbfe; }
+.pd-type-chip--meeting { --tone: #7c3aed; --tone-bg: #f5f3ff; --tone-border: #ddd6fe; }
+
+.pd-activity-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+/* ---- Timeline ---- */
+.pd-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.pd-timeline-item {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    padding-bottom: 16px;
+}
+.pd-timeline-item:last-child {
+    padding-bottom: 0;
+}
+.pd-timeline-item::before {
+    content: "";
+    position: absolute;
+    top: 14px;
+    bottom: 0;
+    left: 5px;
+    width: 1px;
+    background: var(--pd-border);
+}
+.pd-timeline-item:last-child::before {
+    display: none;
+}
+.pd-timeline-dot {
+    flex: 0 0 11px;
+    width: 11px;
+    height: 11px;
+    margin-top: 4px;
+    border: 2px solid var(--pd-surface);
+    border-radius: 50%;
+    background: var(--pd-soft);
+    box-shadow: 0 0 0 1px var(--pd-border-strong);
+    z-index: 1;
+}
+.pd-timeline-dot--note    { background: #d97706; }
+.pd-timeline-dot--call    { background: #16a34a; }
+.pd-timeline-dot--email   { background: #2563eb; }
+.pd-timeline-dot--meeting { background: #7c3aed; }
+
+.pd-timeline-content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.pd-timeline-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.pd-timeline-meta time {
+    color: var(--pd-soft);
+    font-size: 11px;
+    font-weight: 500;
+}
+.pd-timeline-content p {
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--pd-border);
+    border-radius: 8px;
+    background: var(--pd-muted);
+    color: var(--pd-ink);
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.pd-type-tag {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: var(--pd-slate);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+.pd-type-tag--note    { background: #fffbeb; color: #b45309; }
+.pd-type-tag--call    { background: #f0fdf4; color: #15803d; }
+.pd-type-tag--email   { background: #eff6ff; color: #1d4ed8; }
+.pd-type-tag--meeting { background: #f5f3ff; color: #6d28d9; }
+
+/* ==========================================================================
+   PIPELINE & ASSIGNMENT
+   ========================================================================== */
+.pd-stage-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.pd-stage {
+    height: 32px;
+    padding: 0 14px;
+    border: 1px solid var(--pd-border);
+    border-radius: 8px;
+    background: var(--pd-surface);
+    color: var(--pd-slate);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.pd-stage:hover {
+    background: var(--pd-muted);
+    color: var(--pd-ink);
+}
+.pd-stage.is-active {
+    border-color: var(--pd-blue);
+    background: var(--pd-blue-tint);
+    color: var(--pd-blue-dark);
+    font-weight: 700;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+.pd-stage--won.is-active  { border-color: #16a34a; background: #f0fdf4; color: #15803d; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12); }
+.pd-stage--lost.is-active { border-color: #dc2626; background: #fef2f2; color: #b91c1c; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+
+.pd-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 14px;
+}
+.pd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+.pd-field > span {
+    color: var(--pd-ink);
+    font-size: 12px;
+    font-weight: 700;
+}
+.pd-field-spacer {
+    display: block;
+}
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+.pd-footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 24px;
+    border-top: 1px solid var(--pd-border);
+    background: var(--pd-muted);
+}
+.pd-footer-primary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pd-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.pd-btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+.pd-btn:focus-visible {
+    outline: 2px solid var(--pd-blue);
+    outline-offset: 2px;
+}
+.pd-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.pd-btn--sm {
+    height: 32px;
+    padding: 0 14px;
+    font-size: 12px;
+}
+
+.pd-btn--ghost {
+    border-color: var(--pd-border-strong);
+    background: var(--pd-surface);
+    color: #334155;
+}
+.pd-btn--ghost:hover:not(:disabled) {
+    background: #f1f5f9;
+}
+
+.pd-btn--outline {
+    border-color: var(--pd-blue);
+    background: var(--pd-surface);
+    color: var(--pd-blue-dark);
+}
+.pd-btn--outline:hover:not(:disabled) {
+    background: var(--pd-blue-tint);
+}
+
+.pd-btn--primary {
+    border-color: var(--pd-blue);
+    background: var(--pd-blue);
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3);
+}
+.pd-btn--primary:hover:not(:disabled) {
+    border-color: var(--pd-blue-dark);
+    background: var(--pd-blue-dark);
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+@media (max-width: 900px) {
+    .pd-meta-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .pd-header,
+    .pd-body,
+    .pd-footer {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    .pd-tabs {
+        padding: 0 8px;
+    }
+    .pd-meta-grid,
+    .pd-form-grid {
+        grid-template-columns: 1fr;
+    }
+    .pd-field-spacer {
+        display: none;
+    }
+    .pd-entry-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .pd-segmented {
+        margin-left: 0;
+    }
+    .pd-segmented button {
+        flex: 1;
+    }
+    .pd-footer {
+        flex-wrap: wrap;
+    }
+    .pd-footer-primary {
+        flex: 1 1 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pd-chevron,
+    .pd-btn,
+    .pd-input,
+    .spin {
+        transition: none;
+        animation-duration: 0.001ms;
+    }
+}
+/* ===== Redesign overrides ===== */
+
+/* Tier 2: Lead Details & Assignment */
+.pd-details {
+    flex: 0 0 auto;
+    padding: 14px 24px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+.pd-details-title {
+    margin: 0 0 10px;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+}
+.pd-details-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+.pd-details .pd-meta-field > span {
+    color: #475569;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+.pd-details .pd-meta-field > input,
+.pd-details .pd-meta-field > select {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 600;
+}
+.pd-details .pd-meta-field > select { cursor: pointer; }
+.pd-details .pd-meta-field.is-editing > input { border-color: #cbd5e1; }
+.pd-details .pd-meta-field > input:focus,
+.pd-details .pd-meta-field > select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Tier 3: slate box, no yellow */
+.pd-muted-box { border: 1px solid #e2e8f0; background: #f8fafc; }
+.pd-badge--warn { border-color: #e2e8f0; background: #f8fafc; color: #475569; }
+
+/* Tier 4: chips top-right */
+.pd-table-head { flex-wrap: nowrap; }
+.pd-chips { margin-left: auto; justify-content: flex-end; }
+
+/* Table: no horizontal scroll + full grid borders */
+.pd-table-wrap { overflow-x: hidden; }
+.pd-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border-top: 1px solid #e2e8f0;
+}
+.pd-table thead th {
+    padding: 0 8px;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: normal;
+}
+.pd-table thead th:last-child { border-right: 0; }
+.pd-table thead th:first-child,
+.pd-table tbody td:first-child { padding-left: 8px; }
+.pd-table thead th:last-child,
+.pd-table tbody td:last-child { padding-right: 8px; }
+.pd-table .pd-td {
+    padding: 8px;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+.pd-table .pd-td:last-child { border-right: 0; }
+.pd-table tbody tr:last-child .pd-td { border-bottom: 0; }
+
+/* Compact controls so every column fits */
+.pd-table .pd-input { height: 32px; padding: 0 8px; font-size: 12px; }
+.pd-table input[type="date"].pd-input { padding: 0 4px; font-size: 11.5px; }
+.pd-table .pd-input--qty { padding: 0 4px; }
+.pd-table .pd-td-action { padding-left: 2px; padding-right: 2px; }
+
+@media (max-width: 1100px) {
+    .pd-details-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+    .pd-details { padding-left: 16px; padding-right: 16px; }
+    .pd-details-grid { grid-template-columns: 1fr 1fr; }
+}
+/* ==========================================================================
+   Inline-editing table cells (borderless, spreadsheet / Notion style)
+   Append at the very bottom of LeadProcurementDrawer.css
+   ========================================================================== */
+
+/* ---- 1. Uniform cell + header spacing so values line up with headings ---- */
+.pd-table thead th {
+    padding: 0 8px;                 /* same left edge as the input text below */
+}
+.pd-table thead th:first-child,
+.pd-table thead th:last-child {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+.pd-table .pd-td,
+.pd-table .pd-td:first-child,
+.pd-table .pd-td:last-child {
+    padding: 6px 0;                 /* inputs supply the horizontal padding */
+}
+
+/* Non-input content in a cell keeps the same 8px left edge */
+.pd-table .pd-td .pd-stock,
+.pd-table .pd-td .pd-inline-loading,
+.pd-table .pd-td .pd-cell-error,
+.pd-table .pd-td .pd-product-name,
+.pd-table .pd-td .pd-dash {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+.pd-table .pd-td .pd-product-name,
+.pd-table .pd-td .pd-dash {
+    padding-top: 0;
+    line-height: 32px;              /* matches the 32px input height */
+}
+
+/* ---- 2. Borderless inputs and selects ---- */
+.pd-table .pd-td .pd-input,
+.pd-table .pd-td select {
+    display: block;
+    width: 100%;
+    height: 32px;
+    padding: 0 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;   /* reserved so hover/focus never shifts layout */
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none;
+    outline: 0;
+    color: #0f172a;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: left;
+    text-overflow: ellipsis;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.pd-table .pd-td .pd-input::placeholder {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+/* Quantity aligns with its header like every other column */
+.pd-table .pd-td .pd-input--qty {
+    text-align: left;
+    font-weight: 600;
+}
+
+/* Remove number spinners so numeric cells look like plain text */
+.pd-table .pd-td input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.pd-table .pd-td input[type="number"]::-webkit-outer-spin-button,
+.pd-table .pd-td input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* ---- 3. Hover / focus: soft tint + blue underline ---- */
+.pd-table .pd-td .pd-input:hover:not(:disabled):not([readonly]),
+.pd-table .pd-td select:hover:not(:disabled) {
+    background-color: #f8fafc;
+    border-bottom-color: #cbd5e1;
+}
+.pd-table .pd-td .pd-input:focus:not([readonly]),
+.pd-table .pd-td select:focus {
+    background-color: #f8fafc;
+    border-bottom-color: #2563eb;
+    box-shadow: none;
+}
+
+/* Read-only (looked-up MRP) and disabled cells read as plain text */
+.pd-table .pd-td .pd-input[readonly] {
+    background-color: transparent;
+    color: #475569;
+    cursor: default;
+}
+.pd-table .pd-td .pd-input:disabled,
+.pd-table .pd-td select:disabled {
+    background-color: transparent;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* ---- 4. Borderless selects with a minimal chevron (Source, Availability) ---- */
+.pd-table .pd-td select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 24px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    background-size: 12px 12px;
+}
+.pd-table .pd-td select:hover:not(:disabled),
+.pd-table .pd-td select:focus {
+    background-color: #f8fafc;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+.pd-table .pd-td select:disabled {
+    background-image: none;
+    padding-right: 8px;
+}
+
+/* ---- 5. Date input: keep the native picker icon compact ---- */
+.pd-table .pd-td input[type="date"].pd-input {
+    padding: 0 4px 0 8px;
+    font-size: 12px;
+}
+
+/* ---- 6. Row error state stays visible without boxing the input ---- */
+.pd-table tbody tr.has-error .pd-td {
+    background: #fffafa;
+}
+.pd-table tbody tr.has-error .pd-td .pd-input {
+    border-bottom-color: #fecaca;
+}
+
+/* ---- 7. Grid structure stays: outer card, grey cell borders, dark headers ---- */
+.pd-table thead th {
+    color: #0f172a;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.pd-table .pd-td {
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.pd-table thead th:last-child,
+.pd-table .pd-td:last-child {
+    border-right: 0;
+}
+.pd-table tbody tr:last-child .pd-td {
+    border-bottom: 0;
+}

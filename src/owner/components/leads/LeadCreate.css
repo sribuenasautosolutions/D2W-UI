@@ -1,881 +1,561 @@
 /* ==========================================================================
-   Create Lead — professional rectangular form
-   System font · white surfaces · black bold headings
+   LeadCreate — page-level / side-drawer card (no dimmed backdrop)
+   Built to live inside ANY container: it fills the width it is given,
+   never overflows it, and never depends on the viewport width.
    ========================================================================== */
 
-.lead-create-page {
-    min-height: 100%;
-    padding: var(--sp-4);
-    background: #f6f8fc;
-    color: #0f172a;
-    box-sizing: border-box;
+.lead-page {
+  --lead-blue: #2563eb;
+  --lead-blue-hover: #1d4ed8;
+  --lead-blue-ring: rgba(37, 99, 235, 0.14);
 
-    
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  --lead-slate-900: #0f172a;
+  --lead-slate-700: #334155;
+  --lead-slate-500: #64748b;
+  --lead-slate-400: #94a3b8;
+  --lead-border: #e2e8f0;
+  --lead-divider: #f1f5f9;
+  --lead-danger: #dc2626;
+
+  --lead-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+
+  /* fill the drawer, never exceed it */
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 24px;
+  background: #ffffff; /* plain white, no box inside */
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  outline: 0;
+  color: var(--lead-slate-900);
+  font-family: var(--lead-font);
+  -webkit-font-smoothing: antialiased;
 }
 
-.lead-create-page *,
-.lead-create-page *::before,
-.lead-create-page *::after {
-    box-sizing: border-box;
+.lead-page,
+.lead-page *,
+.lead-page *::before,
+.lead-page *::after {
+  box-sizing: border-box;
 }
 
-.lead-create-page button,
-.lead-create-page input,
-.lead-create-page select,
-.lead-create-page textarea {
-    font-family: inherit;
+.lead-page button,
+.lead-page input,
+.lead-page select,
+.lead-page textarea {
+  font-family: inherit;
+  max-width: 100%;
 }
 
-/* ==========================================================================
-   HEADER — title left, store + close right
-   ========================================================================== */
-.lead-create-header {
-    max-width: 1200px;
-    margin: 0 auto var(--sp-3);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-4);
-    flex-wrap: wrap;
+.lead-shell {
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
 }
 
-.lead-create-header-left {
-    min-width: 0;
-    flex: 1 1 auto;
+/* ---------------- Header (sits inside the same 16px gutter as the card) ---------------- */
+.lead-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 0;
 }
 
-.lead-create-header-right {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--sp-3);
-    flex: 0 0 auto;
+.lead-header-text {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .lead-eyebrow {
-    color: #2563eb;
-    font-size: 9.5px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 2px;
+  display: block;
+  margin-bottom: 6px;
+  color: var(--lead-blue);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.lead-create-header h1 {
-    margin: 0;
-    font-size: 19px;
-    line-height: 1.15;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: #000000;
+.lead-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lead-slate-900);
 }
 
-/* ==========================================================================
-   BUTTONS — base (RECTANGULAR, small radius)
-   ========================================================================== */
-.lead-back-button,
-.secondary-button,
-.primary-button,
-.create-lead-button {
-    font-family: inherit;
-    cursor: pointer;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
-    line-height: 1;
-    transition: background-color 0.15s ease, border-color 0.15s ease,
-        color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
-    -webkit-tap-highlight-color: transparent;
+.lead-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--lead-slate-500);
 }
 
-.lead-back-button:focus-visible,
-.secondary-button:focus-visible,
-.primary-button:focus-visible,
-.create-lead-button:focus-visible {
-    outline: 2px solid #2563eb;
-    outline-offset: 2px;
+.lead-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--lead-slate-500);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.primary-button:disabled,
-.secondary-button:disabled,
-.create-lead-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+.lead-close-btn:hover {
+  background: var(--lead-divider);
+  color: var(--lead-slate-900);
 }
 
-/* ---------- Back / Close ---------- */
-.lead-back-button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-1);
-    height: 32px;
-    padding: 0 var(--sp-3);
-    background: #ffffff;
-    color: #111827;
-    border-color: #d1d5db;
-    font-size: 12px;
+.lead-close-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--lead-blue-ring);
+  color: var(--lead-blue);
 }
 
-.lead-back-button:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
+.lead-close-btn--sm {
+  width: 30px;
+  height: 30px;
 }
 
-.lead-back-button:active {
-    transform: translateY(1px);
+/* ---------------- Form body: layout only. No box, border, shadow, padding or background. ---------------- */
+.lead-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-/* ==========================================================================
-   MAIN CARD
-   ========================================================================== */
-.lead-create-card {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: var(--sp-4);
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-/* ==========================================================================
-   STORE FIELD (top-right, no overflow)
-   ========================================================================== */
-.lead-store-field {
-    display: grid;
-    gap: 3px;
-    width: 200px;
-    max-width: 200px;
-}
-
-.lead-store-field select {
-    width: 100%;
-    height: 32px;
-    padding: 0 var(--sp-2);
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    color: #111827;
-    font-size: 12.5px;
-    outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.lead-store-field select:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
-.lead-store-field label {
-    color: #000000;
-    font-size: 11px;
-    font-weight: 700;
-}
-
-.lead-store-field label span {
-    color: #dc2626;
-}
-
-/* ==========================================================================
-   GRIDS — every pair of fields side by side
-   ========================================================================== */
-.lead-section-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--sp-3);
-    margin-bottom: var(--sp-3);
-}
-
-.lead-section-grid:last-of-type {
-    margin-bottom: 0;
-}
-
-/* ==========================================================================
-   FIELDS + LABELS
-   ========================================================================== */
+/* ---------------- Fields ---------------- */
 .lead-field {
-    display: grid;
-    gap: var(--sp-1);
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0; /* spacing comes from the parent gap only */
 }
 
-.lead-field label {
-    color: #000000;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: -0.005em;
-    line-height: 1.25;
+.lead-field--full {
+  width: 100%;
 }
 
-.lead-field label span {
-    color: #dc2626;
-    margin-left: 2px;
+.lead-label {
+  display: block;
+  color: var(--lead-slate-700);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
-.lead-field input,
-.lead-field select,
-.lead-field textarea {
-    width: 100%;
-    box-sizing: border-box;
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    color: #111827;
-    font-size: 12.5px;
-    outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+.lead-req {
+  margin-left: 2px;
+  color: var(--lead-danger);
+  font-weight: 700;
 }
 
-.lead-field input,
-.lead-field select {
-    height: 34px;
-    padding: 0 var(--sp-3);
+.lead-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--lead-border);
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: var(--lead-slate-900);
+  font-size: 14px;
+  line-height: normal;
+  text-overflow: ellipsis;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
 }
 
-.lead-field input:hover:not(:disabled):not([readonly]),
-.lead-field select:hover:not(:disabled) {
-    border-color: #9ca3af;
+.lead-input::placeholder {
+  color: var(--lead-slate-400);
+  opacity: 1;
+  text-overflow: ellipsis;
 }
 
-.lead-field input:focus,
-.lead-field select:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+.lead-input:hover:not(:disabled):not(.lead-input--readonly) {
+  border-color: #cbd5e1;
 }
 
-.lead-field input:disabled,
-.lead-field input[readonly] {
-    background: #f9fafb;
-    color: #6b7280;
-    cursor: not-allowed;
+.lead-input:focus {
+  border-color: var(--lead-blue);
+  box-shadow: 0 0 0 3px var(--lead-blue-ring);
 }
 
-.lead-field input::placeholder {
-    color: #9ca3af;
+.lead-input:disabled,
+.lead-input--readonly,
+.lead-input[readonly] {
+  background-color: #f8fafc;
+  color: var(--lead-slate-500);
+  cursor: not-allowed;
 }
 
-/* ==========================================================================
-   LOOKUP INPUT (search icon + input + spinner)
-   ========================================================================== */
-.lookup-input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    min-width: 0;
-    height: 34px;
-    padding: 0 var(--sp-3);
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    color: #9ca3af;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+.lead-textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 96px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--lead-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--lead-slate-900);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical; /* vertical only: can't be dragged past the card */
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.lookup-input-wrap:hover {
-    border-color: #9ca3af;
+.lead-textarea::placeholder {
+  color: var(--lead-slate-400);
+  opacity: 1;
 }
 
-.lookup-input-wrap:focus-within {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+.lead-textarea:hover {
+  border-color: #cbd5e1;
 }
 
-.lookup-input-wrap svg {
-    flex-shrink: 0;
-    color: #9ca3af;
+.lead-textarea:focus {
+  border-color: var(--lead-blue);
+  box-shadow: 0 0 0 3px var(--lead-blue-ring);
 }
 
-.lookup-input-wrap input {
-    flex: 1 1 auto;
-    min-width: 0;
-    height: 32px;
-    padding: 0;
-    border: 0;
-    box-shadow: none !important;
-    background: transparent;
-    font-size: 12.5px;
-    color: #111827;
-    outline: none;
-    font-variant-numeric: tabular-nums;
+/* ---------------- Two-column grid ----------------
+   minmax(0, 1fr) is the key: columns may shrink below their content,
+   so nothing can push the card wider than the drawer. */
+.lead-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 16px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 }
 
-.lookup-input-wrap input::placeholder {
-    color: #9ca3af;
+@media (max-width: 359px) {
+  .lead-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-.lookup-input-wrap input:disabled {
-    background: transparent;
-    color: #9ca3af;
-    cursor: not-allowed;
+/* ---------------- Lookup input (search icon + input + spinner) ---------------- */
+.lead-lookup {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--lead-border);
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Spinner shown while looking up */
-.lookup-spinner {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid rgba(37, 99, 235, 0.2);
-    border-top-color: #2563eb;
-    border-radius: 50%;
-    animation: lookupSpin 0.7s linear infinite;
-    flex-shrink: 0;
+.lead-lookup:hover {
+  border-color: #cbd5e1;
 }
 
-@keyframes lookupSpin {
-    to { transform: rotate(360deg); }
+.lead-lookup:focus-within {
+  border-color: var(--lead-blue);
+  box-shadow: 0 0 0 3px var(--lead-blue-ring);
 }
 
-/* ==========================================================================
-   LOOKUP MESSAGES
-   ========================================================================== */
-.lookup-success,
-.lookup-hint {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-1);
-    margin-top: 3px;
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1.3;
+.lead-lookup-icon {
+  flex: 0 0 auto;
+  color: var(--lead-slate-400);
 }
 
-.lookup-success {
-    color: #15803d;
+.lead-lookup-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--lead-slate-900);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
 }
 
-.lookup-hint {
-    color: #6b7280;
+.lead-lookup-input::placeholder {
+  color: var(--lead-slate-400);
+  opacity: 1;
 }
 
-/* ==========================================================================
-   REQUIREMENT SECTION
-   ========================================================================== */
-.requirement-section {
-    margin-top: var(--sp-3);
-    padding-top: var(--sp-3);
-    border-top: 1px solid #e5e7eb;
+.lead-lookup-input:disabled {
+  color: var(--lead-slate-400);
+  cursor: not-allowed;
 }
 
-.requirement-section h2 {
-    margin: 0 0 var(--sp-2);
-    font-size: 13px;
-    font-weight: 800;
-    color: #000000;
-    letter-spacing: -0.01em;
+.lead-lookup-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(37, 99, 235, 0.25);
+  border-top-color: var(--lead-blue);
+  border-radius: 50%;
+  animation: leadSpin 0.7s linear infinite;
 }
 
-.requirement-section h2 span {
-    color: #dc2626;
+@keyframes leadSpin {
+  to { transform: rotate(360deg); }
 }
 
-.requirement-section textarea {
-    width: 100%;
-    min-height: 84px;
-    padding: var(--sp-2) var(--sp-3);
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    outline: none;
-    resize: vertical;
-    color: #111827;
-    font-size: 12.5px;
-    line-height: 1.5;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+/* ---------------- Hints / errors ---------------- */
+.lead-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--lead-slate-500);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
-.requirement-section textarea:hover {
-    border-color: #9ca3af;
+.lead-hint--success {
+  color: #059669;
 }
 
-.requirement-section textarea:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+.lead-field-error {
+  margin: 0;
+  color: var(--lead-danger);
+  font-size: 12px;
+  font-weight: 500;
 }
 
-.requirement-section textarea::placeholder {
-    color: #9ca3af;
+/* ---------------- Footer: Cancel (white) + primary, right-aligned, never clipped ---------------- */
+.lead-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--lead-divider);
 }
 
-/* ==========================================================================
-   SUBMIT BAR
-   ========================================================================== */
-.lead-submit-bar {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: var(--sp-3);
-    padding-top: var(--sp-3);
-    border-top: 1px solid #e5e7eb;
+/* ---------------- Buttons ---------------- */
+.lead-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.create-lead-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 120px;
-    height: 36px;
-    padding: 0 var(--sp-4);
-    background: #2563eb;
-    color: #ffffff;
-    border-color: #2563eb;
-    font-size: 12.5px;
-    font-weight: 700;
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+.lead-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--lead-blue-ring);
 }
 
-.create-lead-button:hover:not(:disabled) {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
+.lead-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.create-lead-button:active:not(:disabled) {
-    transform: translateY(1px);
+.lead-btn--ghost {
+  background: #ffffff;
+  border-color: var(--lead-border);
+  color: var(--lead-slate-700);
 }
 
-/* ==========================================================================
-   MODALS
-   ========================================================================== */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1100;
-    display: grid;
-    place-items: center;
-    padding: var(--sp-5);
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    animation: lcmFade 0.15s ease both;
+.lead-btn--ghost:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
-@keyframes lcmFade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+.lead-btn--primary {
+  background: var(--lead-blue);
+  border-color: var(--lead-blue);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
 }
 
-.modal-card {
-    width: min(420px, 100%);
-    max-height: calc(100dvh - 40px);
-    overflow: auto;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
-    animation: lcmRise 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes lcmRise {
-    from { opacity: 0; transform: translateY(6px) scale(0.99); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.modal-small {
-    width: min(420px, 100%);
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--sp-3);
-    padding: var(--sp-4) var(--sp-4) var(--sp-3);
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.modal-kicker {
-    display: block;
-    color: #2563eb;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 3px;
-}
-
-.modal-header h2 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 800;
-    color: #000000;
-    letter-spacing: -0.01em;
-}
-
-.modal-close {
-    width: 26px;
-    height: 26px;
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 4px;
-    background: #f3f4f6;
-    color: #6b7280;
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.modal-close:hover {
-    background: #e5e7eb;
-    color: #111827;
-}
-
-.modal-body {
-    display: grid;
-    gap: var(--sp-3);
-    padding: var(--sp-4);
-}
-
-.mobile-lock-card {
-    display: grid;
-    gap: 2px;
-    padding: var(--sp-3) var(--sp-3);
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 4px;
-}
-
-.mobile-lock-card span {
-    color: #6b7280;
-    font-size: 9.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.mobile-lock-card strong {
-    color: #1e40af;
-    font-size: 14px;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-}
-
-.mobile-lock-card small {
-    color: #6b7280;
-    font-size: 10.5px;
-}
-
-.modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--sp-2);
-    padding: var(--sp-3) var(--sp-4) var(--sp-4);
-    border-top: 1px solid #e5e7eb;
-    background: #fafafa;
-}
-
-.secondary-button,
-.primary-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 32px;
-    padding: 0 var(--sp-4);
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.secondary-button {
-    background: #ffffff;
-    color: #111827;
-    border-color: #d1d5db;
-}
-
-.secondary-button:hover:not(:disabled) {
-    background: #f9fafb;
-    border-color: #9ca3af;
-}
-
-.primary-button {
-    min-width: 100px;
-    background: #2563eb;
-    color: #ffffff;
-    border-color: #2563eb;
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
-}
-
-.primary-button:hover:not(:disabled) {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
+.lead-btn--primary:hover:not(:disabled) {
+  background: var(--lead-blue-hover);
+  border-color: var(--lead-blue-hover);
 }
 
 /* ==========================================================================
-   FIELD ERROR
+   SUB-DIALOGS (new customer / new salesperson / success)
+   No dimming, no blur: overlay is transparent and only catches clicks.
    ========================================================================== */
-.field-error {
-    margin-top: 3px;
-    color: #dc2626;
-    font-size: 10.5px;
-    font-weight: 600;
+.lead-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: leadFade 0.15s ease both;
 }
 
-/* ==========================================================================
-   LEAD CREATE MODAL WRAPPER — rectangular, compact
-   ========================================================================== */
-.lead-create-modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--sp-4);
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    animation: lcmFade 0.15s ease both;
+@keyframes leadFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.lead-create-modal {
-    width: 100%;
-    max-width: 680px;
-    max-height: calc(100dvh - 32px);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;              /* ← RECTANGULAR */
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
-    animation: lcmRise 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+.lead-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--lead-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px -6px rgba(15, 23, 42, 0.14),
+    0 1px 3px rgba(15, 23, 42, 0.06);
+  animation: leadRise 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.lead-create-modal .lead-create-page {
-    min-height: auto;
-    max-height: none;
-    padding: var(--sp-4) var(--sp-5) var(--sp-5);
-    background: #ffffff;
-    overflow-y: auto;
-    overflow-x: hidden;
-    flex: 1 1 auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(60, 60, 67, 0.2) transparent;
+@keyframes leadRise {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.lead-create-modal .lead-create-page::-webkit-scrollbar {
-    width: 6px;
+.lead-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--lead-divider);
+  flex-shrink: 0;
 }
 
-.lead-create-modal .lead-create-page::-webkit-scrollbar-thumb {
-    background: rgba(60, 60, 67, 0.2);
-    border-radius: 3px;
+.lead-modal-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--lead-blue);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-/* Header inside modal */
-.lead-create-modal .lead-create-header {
-    margin: 0 0 var(--sp-3);
-    padding-bottom: var(--sp-3);
-    border-bottom: 1px solid #e5e7eb;
-    gap: var(--sp-3);
+.lead-modal-title {
+  margin: 0;
+  color: var(--lead-slate-900);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
-.lead-create-modal .lead-create-header h1 {
-    font-size: 17px;
-    font-weight: 800;
-    color: #000000;
+.lead-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
 }
 
-.lead-create-modal .lead-eyebrow {
-    font-size: 9px;
+.lead-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--lead-divider);
+  background: #ffffff;
+  flex-shrink: 0;
 }
 
-/* Card flattens */
-.lead-create-modal .lead-create-card {
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
+.lead-mobile-lock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #eff6ff;
 }
 
-/* Store field tighter inside modal */
-.lead-create-modal .lead-store-field {
-    width: 180px;
-    max-width: 180px;
+.lead-mobile-lock span {
+  color: var(--lead-slate-500);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.lead-create-modal .lead-store-field select {
-    height: 30px;
-    font-size: 12px;
+.lead-mobile-lock strong {
+  color: #1e40af;
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Compact grids on narrow modal */
-@media (max-width: 640px) {
-    .lead-create-modal .lead-section-grid {
-        grid-template-columns: 1fr;
-    }
+.lead-mobile-lock small {
+  margin-top: 2px;
+  color: var(--lead-slate-500);
+  font-size: 12px;
 }
 
-/* Small buttons inside modal */
-.lead-create-modal .lead-back-button {
-    height: 30px;
-    padding: 0 var(--sp-3);
-    font-size: 11.5px;
-}
-
-.lead-create-modal .lead-field input,
-.lead-create-modal .lead-field select {
-    height: 32px;
-    font-size: 12px;
-}
-
-.lead-create-modal .lookup-input-wrap {
-    height: 32px;
-}
-
-.lead-create-modal .lookup-input-wrap input {
-    height: 30px;
-    font-size: 12px;
-}
-
-.lead-create-modal .requirement-section textarea {
-    min-height: 76px;
-    font-size: 12px;
-}
-
-.lead-create-modal .create-lead-button {
-    height: 34px;
-    min-width: 110px;
-    font-size: 12px;
-}
-
-/* ==========================================================================
-   RESPONSIVE
-   ========================================================================== */
-@media (max-width: 900px) {
-    .lead-create-modal {
-        max-width: 100%;
-    }
-}
-
-/* Phone — bottom sheet */
-@media (max-width: 640px) {
-    .lead-create-page {
-        padding: var(--sp-3);
-    }
-
-    .lead-create-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--sp-3);
-    }
-
-    .lead-create-header-right {
-        width: 100%;
-        align-items: flex-end;
-        flex-wrap: wrap;
-        gap: var(--sp-2);
-    }
-
-    .lead-store-field {
-        flex: 1 1 auto;
-        width: auto;
-        max-width: none;
-    }
-
-    .lead-section-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .lead-submit-bar {
-        justify-content: stretch;
-    }
-
-    .create-lead-button {
-        width: 100%;
-        height: 40px;
-    }
-
-    .lead-create-modal-overlay {
-        padding: 0;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .lead-create-modal {
-        max-width: 100%;
-        max-height: 94dvh;
-        border-radius: 8px 8px 0 0;
-    }
-
-    .lead-create-modal .lead-create-page {
-        padding: var(--sp-4);
-    }
-
-    /* iOS zoom prevention */
-    .lead-create-modal .lead-field input,
-    .lead-create-modal .lead-field select,
-    .lead-create-modal .lookup-input-wrap input,
-    .lead-create-modal .requirement-section textarea {
-        font-size: 16px;
-    }
-
-    .lead-create-modal .lead-field input,
-    .lead-create-modal .lead-field select,
-    .lead-create-modal .lookup-input-wrap {
-        height: 38px;
-    }
-
-    .lead-create-modal .lookup-input-wrap input {
-        height: 36px;
-    }
-
-    .lead-create-modal .create-lead-button {
-        min-height: 40px;
-        font-size: 13.5px;
-    }
-
-    /* Other modals */
-    .modal-overlay {
-        padding: var(--sp-3);
-    }
-
-    .modal-card {
-        max-height: calc(100dvh - 24px);
-    }
-
-    .modal-footer {
-        flex-direction: column-reverse;
-    }
-
-    .modal-footer button {
-        width: 100%;
-    }
-}
-
-/* Very small phone */
-@media (max-width: 380px) {
-    .lead-create-modal .lead-create-page {
-        padding: var(--sp-3);
-    }
-
-    .lead-create-header h1 {
-        font-size: 15px;
-    }
-}
-
-/* Touch devices */
-@media (hover: none) and (pointer: coarse) {
-    .lead-back-button,
-    .primary-button,
-    .secondary-button,
-    .create-lead-button {
-        min-height: 40px;
-    }
-}
-
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-    .lead-create-page *,
-    .lead-create-page *::before,
-    .lead-create-page *::after,
-    .lead-create-modal-overlay,
-    .lead-create-modal,
-    .modal-overlay,
-    .modal-card {
-        animation-duration: 0.001ms !important;
-        transition-duration: 0.001ms !important;
-    }
+  .lead-page *,
+  .lead-page *::before,
+  .lead-page *::after,
+  .lead-modal-overlay,
+  .lead-modal,
+  .lead-lookup-spinner {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }
