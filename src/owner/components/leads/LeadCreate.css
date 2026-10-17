@@ -559,3 +559,44 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+
+/* ==========================================================================
+   SUCCESS POPUP — dimmed, blurred backdrop (same look as the drawer backdrop).
+   Rendered in a portal on <body>, so it declares the tokens it needs.
+   ========================================================================== */
+.lead-modal-overlay--backdrop {
+  --lead-blue: #2563eb;
+  --lead-blue-hover: #1d4ed8;
+  --lead-blue-ring: rgba(37, 99, 235, 0.14);
+  --lead-slate-900: #0f172a;
+  --lead-slate-700: #334155;
+  --lead-slate-500: #64748b;
+  --lead-slate-400: #94a3b8;
+  --lead-border: #e2e8f0;
+  --lead-divider: #f1f5f9;
+
+  z-index: 1500;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.lead-modal-overlay--backdrop,
+.lead-modal-overlay--backdrop *,
+.lead-modal-overlay--backdrop *::before,
+.lead-modal-overlay--backdrop *::after {
+  box-sizing: border-box;
+}
+
+.lead-modal-overlay--backdrop button {
+  font-family: inherit;
+}
+
+.lead-modal-overlay--backdrop .lead-modal {
+  box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.35),
+    0 2px 6px rgba(15, 23, 42, 0.08);
+}

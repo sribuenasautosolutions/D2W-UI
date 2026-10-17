@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { X, Trash2, Download, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { X, Trash2, Download, Plus, Pencil, Check } from "lucide-react";
 
 import {
   getLeadById,
@@ -13,12 +13,34 @@ import "./LeadProcurementDrawer.css";
 import LeadEstimationPreview from "./LeadEstimationPreview";
 import CustomerChangesTable from "./CustomerChangesTable";
 import { prepareCustomerChanges } from "./leadWorkflowUtils";
+import CustomerRequirementTable from "./CustomerRequirementTable";
+import ActivityLogStream from "./ActivityLogStream";
 
 const STATUS_OPTIONS = ["FOLLOW_UP", "WON", "LOST"];
+
+function todayDate() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 function firstValue(...values) {
   return values.find(
     (v) => v !== null && v !== undefined && String(v).trim() !== ""
+  );
+}
+
+function statusLabel(value) {
+  const text = String(value || "").replaceAll("_", " ").toLowerCase();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function MetaField({ label, value, editing, onChange }) {
+  return (
+    <label className={`fu-meta-field${editing ? " is-editing" : ""}${!editing && /not assigned/i.test(String(value || "")) ? " is-unassigned" : ""}`}>
+      <span>{label}</span>
+      <input type="text" value={value} readOnly={!editing} onChange={(e) => onChange?.(e.target.value)} />
+    </label>
   );
 }
 
@@ -27,6 +49,8 @@ export default function LeadFollowUpDrawer({
   onClose,
   onUpdated,
   onToast,
+  onCustomerEdit,
+  assignees,
 }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -34,6 +58,9 @@ export default function LeadFollowUpDrawer({
   const [success, setSuccess] = useState("");
 
   const [fullLead, setFullLead] = useState(null);
+
+  /* UI-only schedule state (mirrors the Procurement drawer; not sent to the API) */
+  const [schedule, setSchedule] = useState({ assignedTo: null, followUpDate: "", followUpTime: "" });
 
   const [status, setStatus] = useState("FOLLOW_UP");
   const [lostReason, setLostReason] = useState("");
@@ -47,6 +74,11 @@ export default function LeadFollowUpDrawer({
   const [previewOpen, setPreviewOpen] = useState(false);
   const downloading = false;
 
+  /* ---- UI-only state: customer edit toggle + activity log ---- */
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [customerEdits, setCustomerEdits] = useState({});
+  const [activities, setActivities] = useState([]);
+
   /* ---------------- LOAD ---------------- */
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +89,9 @@ export default function LeadFollowUpDrawer({
       }
       setLoading(true);
       setError("");
+      setActivities([]);
+      setCustomerEdits({});
+      setEditingCustomer(false);
       try {
         const data = await getLeadById(lead.id);
         if (cancelled) return;
@@ -116,15 +151,59 @@ export default function LeadFollowUpDrawer({
   const items = Array.isArray(fullLead?.items) ? fullLead.items : [];
   const totalMrp = procurementTotal(items);
 
+  /* ---------------- UI-only derived + handlers ---------------- */
+  const shownCustomer = {
+    name: customerEdits.name ?? customerName,
+    phone: customerEdits.phone ?? customerPhone,
+    salesperson: customerEdits.salesperson ?? salespersonName,
+  };
+
+  const toggleCustomerEdit = () => {
+    if (editingCustomer && Object.keys(customerEdits).length > 0) {
+      // Optional hook: the parent may persist these. Nothing is saved here.
+      onCustomerEdit?.({
+        customerName: shownCustomer.name,
+        customerPhone: shownCustomer.phone,
+        salespersonName: shownCustomer.salesperson,
+      });
+    }
+    setEditingCustomer((current) => !current);
+  };
+
+  const updateCustomerEdit = (field, value) =>
+    setCustomerEdits((current) => ({ ...current, [field]: value }));
+
+  const addActivity = (type, text) =>
+    setActivities((current) => [
+      { id: `${Date.now()}-${Math.random()}`, type, text, at: new Date() },
+      ...current,
+    ]);
+
+  const trail = useMemo(() => {
+    const entries = [...activities];
+    if (fullLead?.createdAt) {
+      entries.push({ id: "system-created", type: "System", text: `${leadNumber} created`, at: fullLead.createdAt });
+    }
+    return entries;
+  }, [activities, fullLead?.createdAt, leadNumber]);
+
+  const statusDirty = status !== fullLead?.status;
+
+  const assigneeOptions =
+    Array.isArray(assignees) && assignees.length
+      ? assignees
+      : salespersonName !== "Not assigned"
+      ? [salespersonName]
+      : [];
+  const currentAssignee = schedule.assignedTo ?? (assigneeOptions[0] || "");
+
+  const summaryD2w = items.filter((item) => item.procurementSource === "LOCAL").length;
+  const summaryVendor = items.filter((item) => item.procurementSource === "VENDOR").length;
+  const summaryNotAvailable = items.filter((item) => item.procurementSource === "NOT_AVAILABLE").length;
+
   /* ---------------- DELETE ROW ---------------- */
   const handleDeleteItem = async (item) => {
     if (!item?.id || busy) return;
-    if (
-      !window.confirm(
-        `Remove ${item.partNumber || "this item"} from this lead?`
-      )
-    )
-      return;
 
     setBusy(true);
     setError("");
@@ -134,8 +213,6 @@ export default function LeadFollowUpDrawer({
       const response = await deleteLeadProcurementItem(lead.id, item.id);
       setFullLead(response);
       onUpdated?.(response);
-      setSuccess("Item removed.");
-      onToast?.(`${item.partNumber || "Item"} removed`, "success");
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -215,6 +292,7 @@ export default function LeadFollowUpDrawer({
       onUpdated?.(updated);
       setSuccess(`Lead moved to ${status}.`);
       onToast?.(`Lead moved to ${status.replaceAll("_", " ")}`, "success");
+      addActivity("Status", `Status changed to ${statusLabel(status)}`);
       if (status === "WON" || status === "LOST") onClose?.();
     } catch (e) {
       const msg =
@@ -229,272 +307,225 @@ export default function LeadFollowUpDrawer({
   };
 
   return (
-    <div className="procurement-drawer-content follow-up-drawer-content">
-      {/* ============================================
-          HEADER
-          ============================================ */}
-      <header className="procurement-drawer-header">
-        <div className="procurement-header-main">
-          <div className="procurement-drawer-eyebrow">
-            CUSTOMER FOLLOW-UP
-          </div>
-          <div className="procurement-header-title-row">
-            <h2>{leadNumber}</h2>
-          </div>
-
-          <div className="procurement-customer-meta procurement-customer-meta--with-status">
-            <label className="procurement-meta-field">
-              <span>Customer</span>
-              <input type="text" value={customerName} readOnly />
-            </label>
-            <label className="procurement-meta-field">
-              <span>Mobile</span>
-              <input type="text" value={customerPhone} readOnly />
-            </label>
-            <label className="procurement-meta-field">
-              <span>Salesperson</span>
-              <input type="text" value={salespersonName} readOnly />
-            </label>
-            <label className="procurement-meta-field">
-              <span>Status</span>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                disabled={busy}
+    <div className="fu-root lead-drawer-container">
+      {/* ======================= HEADER ======================= */}
+      <header className="fu-header">
+        <div className="fu-header-top">
+          <div>
+            <div className="fu-eyebrow">CUSTOMER FOLLOW-UP</div>
+            <div className="fu-title-row">
+              <h2>{leadNumber}</h2>
+              <span className="fu-badge">{items.length}</span>
+              <button
+                type="button"
+                className={`fu-icon-btn fu-edit-toggle${editingCustomer ? " is-active" : ""}`}
+                onClick={toggleCustomerEdit}
+                aria-pressed={editingCustomer}
+                aria-label={editingCustomer ? "Finish editing customer info" : "Edit customer info"}
+                title={editingCustomer ? "Done editing" : "Edit customer info"}
               >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s.replaceAll("_", " ")}
-                  </option>
-                ))}
-              </select>
-            </label>
+                {editingCustomer ? <Check size={15} /> : <Pencil size={14} />}
+              </button>
+            </div>
           </div>
+          <button type="button" className="fu-icon-btn" onClick={onClose} aria-label="Close follow-up drawer">
+            <X size={17} />
+          </button>
         </div>
-
-        <button
-          type="button"
-          className="procurement-drawer-close"
-          onClick={onClose}
-          aria-label="Close follow-up drawer"
-        >
-          <X size={17} />
-        </button>
       </header>
 
-      {/* ============================================
-          BODY
-          ============================================ */}
-      <main className="procurement-drawer-body follow-up-body">
+      {/* ======================= BODY ======================= */}
+      <div className="fu-split drawer-body-grid">
+        <div className="fu-left">
+            <section className="fu-info" aria-label="Customer details">
+              <h3 className="fu-section-title">Customer Info</h3>
+              <div className="fu-meta-row">
+              <MetaField label="Customer" value={shownCustomer.name} editing={editingCustomer}
+                onChange={(v) => updateCustomerEdit("name", v)} />
+              <MetaField label="Mobile" value={shownCustomer.phone} editing={editingCustomer}
+                onChange={(v) => updateCustomerEdit("phone", v)} />
+              <MetaField label="Salesperson" value={shownCustomer.salesperson} editing={editingCustomer}
+                onChange={(v) => updateCustomerEdit("salesperson", v)} />
+              <label className="fu-meta-field">
+                <span>Lead ID</span>
+                <input type="text" value={leadNumber} readOnly />
+              </label>
+              <label className="fu-meta-field is-editing">
+                <span>Status</span>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} disabled={busy}>
+                  {STATUS_OPTIONS.map((st) => (
+                    <option key={st} value={st}>{statusLabel(st)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            </section>
+      <main className="fu-body fu-main">
         {loading ? (
-          <div className="procurement-table-state">Loading lead...</div>
+          <div className="fu-state">Loading lead...</div>
         ) : (
           <>
-            {error && (
-              <div className="procurement-message error">{error}</div>
-            )}
-            {success && (
-              <div className="procurement-message success">{success}</div>
-            )}
-
-           {/* Customer Requirement — read-only, styled like Procurement */}
-            <section className="followup-requirement-panel">
-              <div className="followup-requirement-label">
-                Customer Requirement
-              </div>
-              <div className="followup-requirement-text">
-                {customerRequirement}
-              </div>
-            </section>
+            {error && <div className="fu-alert fu-alert--error">{error}</div>}
+            {success && <div className="fu-alert fu-alert--success">{success}</div>}
 
             {status === "LOST" && (
-              <section className="followup-lost-panel">
-                <div className="followup-lost-label">Lost Reason</div>
-                <label className="procurement-meta-field">
-                  <span>Why will the customer not proceed?</span>
+              <section className="fu-lost">
+                <label className="fu-field">
+                  <span>Lost reason</span>
                   <input
+                    className="fu-input"
                     type="text"
                     maxLength={500}
                     value={lostReason}
                     disabled={busy}
                     onChange={(e) => setLostReason(e.target.value)}
-                    placeholder="Enter lost reason..."
+                    placeholder="Why will the customer not proceed?"
                   />
                 </label>
               </section>
             )}
 
-            {status !== fullLead?.status && (
-              <button
-                type="button"
-                className="procurement-complete-btn followup-status-btn"
-                disabled={
-                  busy || (status === "LOST" && !lostReason.trim())
-                }
-                onClick={confirmStatus}
-              >
-                {busy
-                  ? "Updating..."
-                  : `Move to ${status.replaceAll("_", " ")}`}
-              </button>
-            )}
-
-            {/* ============================================
-                PROCUREMENT ITEMS
-                ============================================ */}
-            <section className="procurement-table-section followup-table-section">
-              <div className="followup-table-heading">
-                <div className="followup-table-heading-text">
-                  <h3>Procurement Items</h3>
-                  <span>
-                    Parts Procurement confirmed for this customer.
-                  </span>
-                </div>
-
-                <div className="followup-table-heading-actions">
-                  <button type="button" className="followup-add-requirement-btn" disabled={busy || !items.length}
-                    onClick={() => setEditingRequirements(true)}>Edit Requirements / Quantity</button>
-                  <span className="procurement-table-count">
-                    {items.length}
-                  </span>
-                  <button
-                    type="button"
-                    className="followup-add-requirement-btn"
-                    onClick={() => setAddingRequirement(true)}
-                    disabled={busy || addingRequirement}
-                  >
+            <CustomerRequirementTable
+              requirement={customerRequirement}
+              actions={
+                <>
+                  <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
+                    disabled={busy || !items.length} onClick={() => setEditingRequirements(true)}>
+                    Edit Requirements / Quantity
+                  </button>
+                  <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
+                    onClick={() => setAddingRequirement(true)} disabled={busy || addingRequirement}>
                     <Plus size={14} /> Add Requirement
                   </button>
+                </>
+              }
+            >
+              {editingRequirements && (
+                <div className="fu-panel edit-requirement-card-wrapper">
+                  <div className="edit-requirement-scroll edit-requirement-table-container">
+                    <CustomerChangesTable items={items} drafts={changeDrafts} disabled={busy}
+                      onChange={(id, draft) => setChangeDrafts(current => ({ ...current, [id]: draft }))} />
+                  </div>
+                  {!addingRequirement && (
+                    <div className="fu-panel-actions">
+                      <button type="button" className="fu-btn fu-btn--outline fu-btn--sm" disabled={busy}
+                        onClick={handleSendToProcurement}>Send to Procurement</button>
+                      <button type="button" className="fu-btn fu-btn--ghost fu-btn--sm requirement-cancel-btn" disabled={busy}
+                        onClick={() => { setEditingRequirements(false); setChangeDrafts({}); }}>Cancel</button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
-              {editingRequirements && <div className="followup-new-requirement-panel">
-                <CustomerChangesTable items={items} drafts={changeDrafts} disabled={busy}
-                  onChange={(id, draft) => setChangeDrafts(current => ({ ...current, [id]: draft }))} />
-                {!addingRequirement && <div className="followup-new-requirement-actions">
-                  <button type="button" className="procurement-save-all-btn" disabled={busy} onClick={handleSendToProcurement}>Send to Procurement</button>
-                  <button type="button" className="procurement-cancel-btn" disabled={busy}
-                    onClick={() => { setEditingRequirements(false); setChangeDrafts({}); }}>Cancel</button>
-                </div>}
-              </div>}
               {addingRequirement && (
-                <div className="followup-new-requirement-panel">
-                  <div className="followup-new-requirement-fields">
-                    <label className="procurement-meta-field">
-                      <span>Customer Requirement Description</span>
+                <div className="fu-panel">
+                  <div className="fu-panel-fields">
+                    <label className="fu-field">
+                      <span>Customer requirement description</span>
                       <textarea
+                        className="fu-textarea"
                         rows={3}
                         value={newRequirement}
                         disabled={busy}
-                        onChange={(e) =>
-                          setNewRequirement(e.target.value)
-                        }
+                        onChange={(e) => setNewRequirement(e.target.value)}
                         placeholder="What does the customer want to add or change?"
                       />
                     </label>
-                    <label className="procurement-meta-field followup-qty-field">
+                    <label className="fu-field fu-field--qty">
                       <span>Quantity</span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={newQuantity}
-                        disabled={busy}
-                        onChange={(e) =>
-                          setNewQuantity(e.target.value)
-                        }
-                      />
+                      <input className="fu-input" type="number" min="1" step="1" value={newQuantity}
+                        disabled={busy} onChange={(e) => setNewQuantity(e.target.value)} />
                     </label>
                   </div>
-                  <div className="followup-new-requirement-actions">
-                    <button
-                      type="button"
-                      className="procurement-save-all-btn"
-                      onClick={handleSendToProcurement}
-                      disabled={busy || !newRequirement.trim()}
-                    >
+                  <div className="fu-panel-actions">
+                    <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
+                      onClick={handleSendToProcurement} disabled={busy || !newRequirement.trim()}>
                       {busy ? "Sending..." : "Send to Procurement"}
                     </button>
-                    <button
-                      type="button"
-                      className="procurement-cancel-btn"
-                      onClick={() => {
-                        setAddingRequirement(false);
-                        setNewRequirement("");
-                        setNewQuantity("1");
-                      }}
-                      disabled={busy}
-                    >
+                    <button type="button" className="fu-btn fu-btn--ghost fu-btn--sm requirement-cancel-btn"
+                      onClick={() => { setAddingRequirement(false); setNewRequirement(""); setNewQuantity("1"); }}
+                      disabled={busy}>
                       Cancel
                     </button>
                   </div>
                 </div>
               )}
+            </CustomerRequirementTable>
+
+            {/* ---------- Procurement items ---------- */}
+            <section className="lpt-card">
+              <div className="lpt-head">
+                <div className="lpt-title">
+                  <h3>Procurement Items</h3>
+                  <span className="lpt-count">{items.length}</span>
+                </div>
+                <div className="lpt-chips" aria-label="Procurement summary">
+                  <span className="lpt-chip lpt-chip--total"><i />Total <strong>{items.length}</strong></span>
+                  <span className="lpt-chip lpt-chip--d2w"><i />D2W <strong>{summaryD2w}</strong></span>
+                  <span className="lpt-chip lpt-chip--vendor"><i />Vendor <strong>{summaryVendor}</strong></span>
+                  <span className="lpt-chip lpt-chip--na"><i />Not Available <strong>{summaryNotAvailable}</strong></span>
+                </div>
+                <div className="lpt-total-chip" aria-label="Total MRP">
+                  <span>Total MRP</span>
+                  <strong>{formatMrp(totalMrp)}</strong>
+                </div>
+              </div>
 
               {items.length === 0 ? (
-                <div className="procurement-table-state">
-                  No procurement items recorded for this lead.
-                </div>
+                <div className="lpt-state">No procurement items recorded for this lead.</div>
               ) : (
-                <div className="procurement-table-wrap">
-                  <table className="procurement-table followup-table">
+                <div className="lpt-table-wrap">
+                  <table className="lpt-table lpt-table--followup-lite procurement-grid-table">
+                    <colgroup>
+                        <col style={{ width: "14%" }} />
+                        <col style={{ width: "18%" }} />
+                        <col style={{ width: "9%" }} />
+                        <col style={{ width: "7%" }} />
+                        <col style={{ width: "9%" }} />
+                        <col style={{ width: "12%" }} />
+                        <col style={{ width: "14%" }} />
+                        <col style={{ width: "11%" }} />
+                        <col style={{ width: "56px" }} />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th>Part Number</th>
                         <th>Part Name</th>
                         <th>MRP</th>
-                        <th>Requested Qty</th>
+                        <th>Req. Qty</th>
                         <th>Source</th>
                         <th>Vendor</th>
                         <th>Availability</th>
                         <th>ETA</th>
-                        <th className="followup-delete-col">
-                          Delete
-                        </th>
+                        <th className="lpt-col-action">Delete</th>
                       </tr>
                     </thead>
                     <tbody>
                       {items.map((item, index) => (
                         <tr key={item.id || index}>
-                          <td>{item.partNumber || "—"}</td>
-                          <td className="procurement-table-name">
-                            <strong>
-                              {item.productName ||
-                                item.requirement ||
-                                "—"}
-                            </strong>
+                          <td className="lpt-td">{item.partNumber || "—"}</td>
+                          <td className="lpt-td">
+                            <strong>{item.productName || item.requirement || "—"}</strong>
                           </td>
-                          <td>{formatMrp(item.quotedMrp)}</td>
-                          <td>{item.requestedQuantity || "—"}</td>
-                          <td>
+                          <td className="lpt-td">{formatMrp(item.quotedMrp)}</td>
+                          <td className="lpt-td">{item.requestedQuantity || "—"}</td>
+                          <td className="lpt-td">
                             {item.procurementSource === "LOCAL"
                               ? "D2W"
                               : item.procurementSource === "VENDOR"
                               ? "Vendor"
-                              : (item.procurementSource || "—").replaceAll(
-                                  "_",
-                                  " "
-                                )}
+                              : (item.procurementSource || "—").replaceAll("_", " ")}
                           </td>
-                          <td>{item.selectedVendorName || "—"}</td>
-                          <td>
-                            {(item.availabilityStatus || "—").replaceAll(
-                              "_",
-                              " "
-                            )}
-                          </td>
-                          <td>
-                            {item.estimatedAvailabilityDate || "—"}
-                          </td>
-                          <td className="followup-delete-col">
+                          <td className="lpt-td">{item.selectedVendorName || "—"}</td>
+                          <td className="lpt-td">{(item.availabilityStatus || "—").replaceAll("_", " ")}</td>
+                          <td className="lpt-td">{item.estimatedAvailabilityDate || "—"}</td>
+                          <td className="lpt-td lpt-col-action">
                             <button
                               type="button"
-                              className="procurement-table-remove"
+                              className="lpt-row-remove delete-icon-btn"
                               onClick={() => handleDeleteItem(item)}
                               disabled={busy}
-                              aria-label={`Delete item ${
-                                item.partNumber || index + 1
-                              }`}
+                              aria-label={`Delete item ${item.partNumber || index + 1}`}
                               title="Delete item"
                             >
                               <Trash2 size={15} />
@@ -506,40 +537,61 @@ export default function LeadFollowUpDrawer({
                   </table>
                 </div>
               )}
-
-              <div className="followup-total-mrp">
-                <span>Total MRP</span>
-                <strong>{formatMrp(totalMrp)}</strong>
-              </div>
             </section>
+
           </>
         )}
       </main>
+        </div>
+        <aside className="fu-side" aria-label="Activity and schedule">
+          <section className="fu-schedule" aria-label="Assignment and schedule">
+            <h3 className="fu-side-title">Assignment &amp; Schedule</h3>
+            <label className="fu-meta-field is-editing">
+              <span>Assigned to</span>
+              <select value={currentAssignee}
+                onChange={(e) => setSchedule((c) => ({ ...c, assignedTo: e.target.value }))} disabled={busy}>
+                <option value="">Unassigned</option>
+                {assigneeOptions.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </label>
+            <div className="fu-schedule-row">
+              <label className="fu-meta-field is-editing">
+                <span>Follow-up date</span>
+                <input type="date" min={todayDate()} value={schedule.followUpDate} disabled={busy}
+                  onChange={(e) => setSchedule((c) => ({ ...c, followUpDate: e.target.value }))} />
+              </label>
+              <label className="fu-meta-field is-editing">
+                <span>Follow-up time</span>
+                <input type="time" value={schedule.followUpTime} disabled={busy}
+                  onChange={(e) => setSchedule((c) => ({ ...c, followUpTime: e.target.value }))} />
+              </label>
+            </div>
+          </section>
+          <ActivityLogStream entries={trail} onAdd={addActivity} />
+        </aside>
+      </div>
 
-      {/* ============================================
-          FOOTER — download right, close left
-          ============================================ */}
       {previewOpen && <LeadEstimationPreview leadId={lead.id} itemIds={items.map(item => item.id)}
         onClose={() => setPreviewOpen(false)} onDownloaded={() => onToast?.("Estimation downloaded.", "success")} />}
-      <footer className="follow-up-drawer-footer">
-        <button
-          type="button"
-          className="procurement-cancel-btn"
-          onClick={onClose}
-          disabled={busy || downloading}
-        >
+
+      {/* ======================= FOOTER ======================= */}
+      <footer className="fu-footer">
+        <button type="button" className="fu-btn fu-btn--ghost" onClick={onClose} disabled={busy || downloading}>
           Close
         </button>
-
-        <button
-          type="button"
-          className="procurement-complete-btn followup-download-btn"
-          onClick={handleDownloadEstimation}
-          disabled={busy || downloading || items.length === 0}
-        >
-          <Download size={14} />
-          {downloading ? "Preparing..." : "Download Estimation"}
-        </button>
+        <div className="fu-footer-primary">
+          <button type="button" className="fu-btn fu-btn--outline" onClick={confirmStatus}
+            disabled={busy || !statusDirty || (status === "LOST" && !lostReason.trim())}>
+            {busy ? "Saving..." : "Save Changes"}
+          </button>
+          <button type="button" className="fu-btn fu-btn--primary" onClick={handleDownloadEstimation}
+            disabled={busy || downloading || items.length === 0}>
+            <Download size={14} />
+            {downloading ? "Preparing..." : "Download Estimation / Proforma (PDF)"}
+          </button>
+        </div>
       </footer>
     </div>
   );

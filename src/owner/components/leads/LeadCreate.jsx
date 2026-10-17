@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Search, X } from "lucide-react";
 
@@ -56,6 +57,8 @@ export default function LeadCreate({
     mode = "create",
     lead = null,
     onSaved,
+    onViewLead,
+    onToast,
 }) {
     const isEditMode = mode === "edit";
     const navigate = useNavigate();
@@ -565,14 +568,49 @@ export default function LeadCreate({
             onSaved?.(result);
         } catch (error) {
             console.error("Unable to create lead:", error);
-            alert(
+            const createMessage =
                 error?.response?.data?.message ||
-                    error?.response?.data?.error ||
-                    "Unable to create lead."
-            );
+                error?.response?.data?.error ||
+                "Unable to create lead.";
+            if (typeof onToast === "function") onToast(createMessage, "error");
+            else alert(createMessage);
         } finally {
             setCreatingLead(false);
         }
+    };
+
+    /* ============================== VIEW CREATED LEAD ============================== */
+    // Opens the Lead Overview drawer on the list page. The create response may
+    // omit some display fields, so fill gaps from the form (server values win).
+    const handleViewCreatedLead = () => {
+        if (!createdLead) return;
+
+        if (typeof onViewLead === "function") {
+            const fromForm = {
+                customerId: selectedCustomer?.id ?? null,
+                customerName: selectedCustomer?.customerName || customerName,
+                customerMobile: selectedCustomer?.mobileNumber || customerMobile,
+                salespersonId: selectedSalesperson?.id ?? null,
+                salespersonName: selectedSalesperson?.salespersonName ?? null,
+                salespersonMobile: selectedSalesperson?.mobileNumber ?? null,
+                storeId: selectedStoreId ? Number(selectedStoreId) : null,
+                source: source || null,
+                customerRequirement: customerRequirement.trim() || null,
+                location: location.trim() || null,
+                vinNumber: vinNumber.trim() || null,
+            };
+            const fromServer = Object.fromEntries(
+                Object.entries(createdLead).filter(
+                    ([, value]) => value !== null && value !== undefined && value !== ""
+                )
+            );
+            onViewLead({ ...fromForm, ...fromServer });
+            return;
+        }
+
+        // Fallback (LeadCreate used outside the list page): previous behaviour
+        const base = isSuperAdmin ? "/owner/sales" : "/store/sales";
+        navigate(`${base}/leads/${createdLead.id}?view=readonly`);
     };
 
     /* ============================== BACK / CLOSE ============================== */
@@ -1073,9 +1111,9 @@ export default function LeadCreate({
             {/* ============================================================
                 SUCCESS POPUP
             ============================================================ */}
-            {createdLead && !isEditMode && (
-                <div className="lead-modal-overlay">
-                    <div className="lead-modal">
+            {createdLead && !isEditMode && createPortal(
+                <div className="lead-modal-overlay lead-modal-overlay--backdrop">
+                    <div className="lead-modal" role="dialog" aria-modal="true">
                         <div className="lead-modal-head">
                             <div>
                                 <span className="lead-modal-kicker">
@@ -1121,20 +1159,14 @@ export default function LeadCreate({
                             <button
                                 type="button"
                                 className="lead-btn lead-btn--primary"
-                                onClick={() => {
-                                    const base = isSuperAdmin
-                                        ? "/owner/sales"
-                                        : "/store/sales";
-                                    navigate(
-                                        `${base}/leads/${createdLead.id}?view=readonly`
-                                    );
-                                }}
+                                onClick={handleViewCreatedLead}
                             >
                                 View Lead
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </section>
     );

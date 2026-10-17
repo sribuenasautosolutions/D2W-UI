@@ -1956,3 +1956,23 @@ select.lf-input {
         animation-duration: 0.001ms !important;
     }
 }
+
+
+/* ============================================================
+   TOAST STACK — fixed top-right (above drawers and backdrops)
+   ============================================================ */
+.lead-toast-stack {
+    top: 20px;
+    right: 20px;
+    bottom: auto;
+    left: auto;
+    z-index: 99999;
+}
+@media (max-width: 480px) {
+    .lead-toast-stack {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        bottom: auto;
+    }
+}

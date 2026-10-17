@@ -1678,10 +1678,22 @@ function LeadList() {
                                 setPage(0);
                                 setStore(current => current ? String(created.storeId) : "");
                                 setRefreshTick(current => current + 1);
+                                pushToast(
+                                    `${created?.leadNumber || "Lead"} created successfully.`,
+                                    "success"
+                                );
+                            }}
+                            onToast={pushToast}
+                            onViewLead={(created) => {
+                                setShowCreateLeadDrawer(false);
+                                setDrawer({
+                                    lead: created,
+                                    mode: "view",
+                                    nonce: Date.now(),
+                                });
                             }}
                             onClose={() => {
                                 setShowCreateLeadDrawer(false);
-                                pushToast("Lead created successfully.", "success");
                                 loadLeads();
                             }}
                         />
