@@ -26,7 +26,6 @@ export default function LeadKanbanCard({
 
     const name =
         lead.customerName || lead.customer?.name || "Customer unavailable";
-    const initial = (name.charAt(0) || "?").toUpperCase();
     const number = lead.leadNumber || `LEAD-${lead.id}`;
     const sourceLabel = String(
         lead.source || lead.sourceName || "Source not recorded"
@@ -54,6 +53,13 @@ export default function LeadKanbanCard({
         lead.nextFollowUpAt ||
         (Array.isArray(lead.followUpActivities) &&
             lead.followUpActivities[0]?.nextFollowUpAt);
+
+    // Stage-specific content (all existing data) renders inside ONE
+    // fixed-size details region so every card keeps the same height.
+    const showLostReason = lead.status === "LOST";
+    const showProcurement = procurement;
+    const showFollowUp = followUp && nextFollowUpAt;
+    const hasDetails = showLostReason || showProcurement || showFollowUp;
 
     // ---------- CARD BODY CLICK ----------
     // NEW / WON / LOST → open view drawer (Lead Overview, read-only)
@@ -104,8 +110,11 @@ export default function LeadKanbanCard({
                 }
             }}
         >
+            {/* 1 · Lead ID + edit */}
             <header className="d2w-lead-card-top">
-                <strong className="d2w-lead-number">{number}</strong>
+                <strong className="d2w-lead-number" title={number}>
+                    {number}
+                </strong>
                 <button
                     type="button"
                     className="d2w-lead-edit"
@@ -119,22 +128,13 @@ export default function LeadKanbanCard({
                 </button>
             </header>
 
+            {/* 2 · Customer name (primary) */}
             <div className="d2w-lead-customer">
-                <span className="d2w-lead-avatar" aria-hidden="true">
-                    {initial}
-                </span>
                 <strong title={name}>{name}</strong>
             </div>
 
+            {/* 3 · Lead source + phone */}
             <div className="d2w-lead-info-grid">
-                <div className="d2w-lead-info-field">
-                    <span className="d2w-lead-info-label">
-                        <Phone size={11} aria-hidden="true" /> Mobile
-                    </span>
-                    <span className="d2w-lead-info-value" title={mobile}>
-                        {mobile}
-                    </span>
-                </div>
                 <div className="d2w-lead-info-field">
                     <span className="d2w-lead-info-label">
                         <Tag size={11} aria-hidden="true" /> Lead Source
@@ -143,51 +143,79 @@ export default function LeadKanbanCard({
                         {sourceLabel}
                     </span>
                 </div>
+                <div className="d2w-lead-info-field">
+                    <span className="d2w-lead-info-label">
+                        <Phone size={11} aria-hidden="true" /> Mobile
+                    </span>
+                    <span className="d2w-lead-info-value" title={mobile}>
+                        {mobile}
+                    </span>
+                </div>
             </div>
 
+            {/* 4 · Requirement (max 2 lines) */}
             <div className="d2w-lead-requirement">
                 <span>Requirement</span>
-                <p>{requirement}</p>
+                <p title={requirement}>{requirement}</p>
             </div>
 
-            {lead.status === "LOST" && (
-                <div className="d2w-lead-requirement">
-                    <span>Lost Reason</span>
-                    <p>{lead.lostReason?.trim() || "No reason recorded"}</p>
-                </div>
-            )}
+            {/* 5 · Stage-specific details (fixed-size region) */}
+            <div
+                className={`d2w-lead-details${
+                    hasDetails ? "" : " d2w-lead-details--empty"
+                }`}
+            >
+                {showLostReason && (
+                    <>
+                        <span className="d2w-lead-details-label">
+                            Lost Reason
+                        </span>
+                        <span
+                            className="d2w-lead-details-text"
+                            title={lead.lostReason?.trim() || undefined}
+                        >
+                            {lead.lostReason?.trim() || "No reason recorded"}
+                        </span>
+                    </>
+                )}
 
-            {procurement && (
-                <div className="d2w-lead-procurement-facts">
-                    <span>
-                        {itemsCount} Procurement Item{itemsCount === 1 ? "" : "s"}
+                {showProcurement && (
+                    <>
+                        <span className="d2w-lead-details-label">
+                            {itemsCount} Procurement Item
+                            {itemsCount === 1 ? "" : "s"}
+                        </span>
+                        <strong className="d2w-lead-details-text">
+                            Total MRP: {formatMrp(totalMrp)}
+                        </strong>
+                    </>
+                )}
+
+                {showFollowUp && (
+                    <span className="d2w-lead-details-row">
+                        <Calendar size={12} aria-hidden="true" />
+                        <span className="d2w-lead-details-text">
+                            Next: {new Date(nextFollowUpAt).toLocaleDateString()}
+                        </span>
                     </span>
-                    <strong>Total MRP: {formatMrp(totalMrp)}</strong>
-                </div>
-            )}
+                )}
+            </div>
 
-            {followUp && nextFollowUpAt && (
-                <div className="d2w-lead-followup-date">
-                    <Calendar size={12} aria-hidden="true" />
-                    <span>
-                        Next: {new Date(nextFollowUpAt).toLocaleDateString()}
-                    </span>
-                </div>
-            )}
-
+            {/* 6 · Salesperson + action */}
             <footer className="d2w-lead-footer">
                 <span className="d2w-lead-salesperson" title={salesperson}>
                     <UserCircle size={13} strokeWidth={2} aria-hidden="true" />
-                    {salesperson}
+                    <span>{salesperson}</span>
                 </span>
                 {!closed && (
                     <button
                         type="button"
                         className="d2w-lead-action"
+                        title={actionLabel}
                         onClick={handleAction}
                     >
-                        <ActionIcon size={12} />
-                        {actionLabel}
+                        <ActionIcon size={12} aria-hidden="true" />
+                        <span>{actionLabel}</span>
                     </button>
                 )}
             </footer>

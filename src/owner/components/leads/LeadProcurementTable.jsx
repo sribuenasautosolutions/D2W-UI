@@ -60,7 +60,7 @@ function getItemInitialState(item) {
     };
 }
 
-function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing = false, decisionDrafts = {}, onDecisionEdit, onRequestChange, disabled = false }) {
+function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing = false, decisionDrafts = {}, onDecisionEdit, onRequestChange, disabled = false, onClose }) {
     const [loading, setLoading] = useState(true);
     const [savingItemId, setSavingItemId] = useState(null);
     const [completing, setCompleting] = useState(false);
@@ -561,54 +561,50 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
 
     return (
             <tr key={itemId || index}>
-                <td className="procurement-table-part">
+                <td className="lpt-td">
                     {item.customerChange && <div className="lead-card-subtitle">
                         <strong>{item.customerChange.changeType === "NEW_REQUIREMENT" ? "NEW CUSTOMER REQUIREMENT" : "CUSTOMER CHANGE REQUESTED"}</strong>
                         <p>{item.customerChange.requestedRequirement || item.customerChange.originalRequirement}</p>
                         <p>Original Qty: {item.customerChange.originalQuantity ?? "—"} · Requested Qty: {item.customerChange.requestedQuantity}</p>
                         <p>{item.customerChange.reason}</p>
                     </div>}
-                    <input className="procurement-table-input" aria-label={`Part number ${index + 1}`}
+                    <input className="lpt-input" aria-label={`Part number ${index + 1}`}
                         value={draft.partNumber} onChange={event => updateDraft(itemId, "partNumber", event.target.value)}
                         onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); lookupItem(item); } }} />
 
                     {lookupResult?.foundInCatalogue === false ? (
-                        <span className="procurement-new-availability">
+                        <span className="lpt-stock lpt-stock--new">
                             New item
                         </span>
                     ) : (
                         <span
-                            className={`procurement-availability-line ${
-                                availableQuantity > 0
-                                    ? "available"
-                                    : "neutral"
-                            }`}
+                            className={`lpt-stock ${availableQuantity > 0 ? "lpt-stock--ok" : "lpt-stock--idle"}`}
                         >
                             {lookupResult ? `D2W Stock: ${availableQuantity}` : "Waiting for lookup"}
                         </span>
                     )}
 
                     {isLookingUp && (
-                        <span className="procurement-inline-loading">
+                        <span className="lpt-inline-loading">
                             <Loader2 size={11} />
                             Checking...
                         </span>
                     )}
 
                     {lookupError && (
-                        <span className="procurement-table-error">
+                        <span className="lpt-cell-error">
                             {lookupError}
                         </span>
                     )}
 
                     {itemError && (
-                        <span className="procurement-table-error">
+                        <span className="lpt-cell-error">
                             {itemError}
                         </span>
                     )}
                 </td>
 
-                <td className="procurement-table-name">
+                <td className="lpt-td">
                     {productFound ? (
                         <strong>
                             {lookupResult?.productName ||
@@ -617,7 +613,7 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
                         </strong>
                     ) : (
                         <input
-                            className="procurement-table-input"
+                            className="lpt-input"
                             aria-label={`Part name ${index + 1}`}
                             value={draft.productName || ""}
                             onChange={(event) =>
@@ -631,17 +627,17 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
                         />
                     )}
 
-                    {draft.brandName && <span className="procurement-muted">{draft.brandName}</span>}
-                    {draft.hsnCode && <span className="procurement-muted">HSN: {draft.hsnCode}</span>}
-                    <details className="procurement-row-notes"><summary>Notes</summary><textarea aria-label={`Notes ${index + 1}`} rows={2}
+                    {draft.brandName && <span className="lpt-muted">{draft.brandName}</span>}
+                    {draft.hsnCode && <span className="lpt-muted">HSN: {draft.hsnCode}</span>}
+                    <details className="lpt-notes"><summary>Notes</summary><textarea aria-label={`Notes ${index + 1}`} rows={2}
                         value={draft.notes || ""} onChange={event => updateDraft(itemId, "notes", event.target.value)} /></details>
                 </td>
 
 
 
-                <td className="procurement-table-mrp">
+                <td className="lpt-td">
                     <input
-                        className="procurement-table-input"
+                        className="lpt-input"
                         type="number"
                         min="0"
                         step="0.01"
@@ -657,17 +653,17 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
                         }
                     />
                 </td>
-                <td className="procurement-table-qty-cell">
-                    <input className="procurement-table-input qty" type="number" min="1" step="1"
+                <td className="lpt-td">
+                    <input className="lpt-input lpt-input--qty" type="number" min="1" step="1"
                         aria-label={`Requested quantity ${index + 1}`} readOnly={Boolean(item.customerChange && item.customerChange.processingState !== "READY")} value={draft.requestedQuantity}
                         onChange={event => updateDraft(itemId, "requestedQuantity", event.target.value)} />
                 </td>
-                <td className="procurement-table-source">
+                <td className="lpt-td">
                     <ProcurementSourceSelect draft={draft} vendors={vendorOptions} savedVendorName={item.selectedVendorName}
                         index={index} onChange={value => updateDraft(itemId, "sourceSelection", value)} />
                 </td>
 
-                <td className="procurement-table-availability">
+                <td className="lpt-td">
                     <select
                         aria-label={`Availability ${index + 1}`}
                         value={draft.availabilityStatus || ""}
@@ -677,7 +673,7 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
                                 event.target.value
                             )
                         }
-                        className="procurement-table-subselect"
+                        className="lpt-input lpt-select"
                     >
                         <option value="">
                             Select status
@@ -697,11 +693,11 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
                     </select>
                 </td>
 
-                <td className="procurement-table-estimated-date">
+                <td className="lpt-td">
                     {draft.availabilityStatus ===
                     AVAILABILITY_STATUS.ESTIMATED ? (
                         <input
-                            className="procurement-table-input"
+                            className="lpt-input"
                             type="date"
                             min={todayDate()}
                             aria-label={`Estimated date ${index + 1}`}
@@ -717,15 +713,15 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
                             }
                         />
                     ) : (
-                        <span className="procurement-muted">
+                        <span className="lpt-muted">
                             —
                         </span>
                     )}
                 </td>
-                <td className="procurement-table-actions">
-                    <button type="button" disabled={readOnly || completing || savingItemId !== null || Boolean(lookupLoading[itemId])}
+                <td className="lpt-td lpt-td--actions">
+                    <button type="button" className="lpt-link-btn" disabled={readOnly || completing || savingItemId !== null || Boolean(lookupLoading[itemId])}
                         onClick={async () => { setSavingItemId(itemId); try { await saveItem(item); } finally { setSavingItemId(null); } }}>Save</button>
-                    {!item.rawRequirement && <button type="button" className="procurement-delete-button" disabled={readOnly || completing || savingItemId !== null} onClick={() => deleteItem(item)}>Delete</button>}
+                    {!item.rawRequirement && <button type="button" className="lpt-link-btn lpt-link-btn--danger" disabled={readOnly || completing || savingItemId !== null} onClick={() => deleteItem(item)}>Delete</button>}
                 </td>
             </tr>
         );
@@ -734,36 +730,98 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
     const currentRows = items.map(item => itemDrafts[item.id] || getItemInitialState(item));
     const summary = procurementSummary(currentRows);
 
-        if (mode === "FOLLOW_UP") return <div className="procurement-drawer-content procurement-follow-up">
-        <main className="procurement-drawer-body"><section className="procurement-table-section">
-            <div className="procurement-table-heading"><h3>Procurement Items</h3><span className="procurement-table-count">{lead.items?.length || 0}</span></div>
-            <div className="procurement-table-wrap"><table className="procurement-table">
+        if (mode === "FOLLOW_UP") return <div className="lpt-root lpt-root--follow-up">
+        <main className="lpt-body"><section className="lpt-card">
+            <div className="lpt-head"><div className="lpt-title"><h3>Procurement Items</h3><span className="lpt-count">{lead.items?.length || 0}</span></div>
+            <div className="lpt-total-chip"><span>Total MRP</span><strong>{formatMrp(procurementTotal(lead.items || []))}</strong></div></div>
+            <div className="lpt-table-wrap"><table className="lpt-table lpt-table--followup"><colgroup><col style={{ width: "13%" }} /><col style={{ width: "17%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} /><col style={{ width: "10%" }} /><col style={{ width: "11%" }} /><col style={{ width: "8%" }} /><col style={{ width: "12%" }} /><col style={{ width: "8%" }} /><col style={{ width: "5%" }} /></colgroup>
                 <thead><tr>{["Part Number", "Part Name", "MRP", "Requested Qty", "Source", "Availability", "ETA", "Customer Decision", "Reason", "Action"].map(label => <th key={label}>{label}</th>)}</tr></thead>
                 <tbody>{(lead.items || []).map((item, index) => {
                     const draft = decisionDrafts[item.id] || { leadCustomerDecision: item.leadCustomerDecision || "PENDING", customerRejectionReason: item.customerRejectionReason || "" };
                     return <tr key={item.id}>
-                        <td>{item.partNumber || "—"}</td><td className="procurement-table-name"><strong>{item.productName || "—"}</strong></td>
-                        <td>{formatMrp(item.quotedMrp)}</td><td>{item.requestedQuantity}</td>
-                        <td>{item.procurementSource === "LOCAL" ? "D2W" : item.procurementSource === "VENDOR" ? item.selectedVendorName || "Vendor" : (item.procurementSource || "—").replaceAll("_", " ")}</td>
-                        <td>{(item.availabilityStatus || "—").replaceAll("_", " ")}</td><td>{item.estimatedAvailabilityDate || "—"}</td>
-                        <td>{editing ? <select className="procurement-table-subselect" aria-label={`Customer decision ${index + 1}`} disabled={disabled} value={draft.leadCustomerDecision}
+                        <td className="lpt-td">{item.partNumber || "—"}</td><td className="lpt-td"><strong>{item.productName || "—"}</strong></td>
+                        <td className="lpt-td">{formatMrp(item.quotedMrp)}</td><td className="lpt-td">{item.requestedQuantity}</td>
+                        <td className="lpt-td">{item.procurementSource === "LOCAL" ? "D2W" : item.procurementSource === "VENDOR" ? item.selectedVendorName || "Vendor" : (item.procurementSource || "—").replaceAll("_", " ")}</td>
+                        <td className="lpt-td">{(item.availabilityStatus || "—").replaceAll("_", " ")}</td><td className="lpt-td">{item.estimatedAvailabilityDate || "—"}</td>
+                        <td className="lpt-td">{editing ? <select className="lpt-input lpt-select" aria-label={`Customer decision ${index + 1}`} disabled={disabled} value={draft.leadCustomerDecision}
                             onChange={event => onDecisionEdit(item.id, { ...draft, leadCustomerDecision: event.target.value, customerRejectionReason: "" })}>
                             {["PENDING", "ACCEPTED", "REJECTED"].map(value => <option key={value} value={value}>{value}</option>)}</select> : draft.leadCustomerDecision}</td>
-                        <td>{editing ? <input className="procurement-table-input" aria-label={`Rejection reason ${index + 1}`} list="customer-rejection-reasons" maxLength={2000}
+                        <td className="lpt-td">{editing ? <input className="lpt-input" aria-label={`Rejection reason ${index + 1}`} list="customer-rejection-reasons" maxLength={2000}
                             disabled={disabled || draft.leadCustomerDecision !== "REJECTED"} required={draft.leadCustomerDecision === "REJECTED"} value={draft.customerRejectionReason}
                             onChange={event => onDecisionEdit(item.id, { ...draft, customerRejectionReason: event.target.value })} /> : item.customerRejectionReason || "—"}</td>
-                        <td>{onRequestChange && <button className="procurement-row-action" disabled={disabled || editing} onClick={() => onRequestChange(item)}>Request Change</button>}</td>
+                        <td className="lpt-td">{onRequestChange && <button className="lpt-link-btn" disabled={disabled || editing} onClick={() => onRequestChange(item)}>Request Change</button>}</td>
                     </tr>;
                 })}</tbody>
             </table></div>
             <datalist id="customer-rejection-reasons">{["Price too high", "Customer doesn't need it", "Bought elsewhere", "Not required now", "Other"].map(value => <option key={value} value={value} />)}</datalist>
         </section></main>
-        <div className="procurement-total-mrp"><span>TOTAL MRP</span><strong>{formatMrp(procurementTotal(lead.items || []))}</strong></div>
     </div>;
 
     return (
-        <div className="procurement-drawer-content procurement-inline">
-            <main className="procurement-drawer-body">
+        <div className="lpt-root">
+            <main className="lpt-body">
+                {errorMessage && (
+                    <div className="procurement-message error">
+                        {errorMessage}
+                    </div>
+                )}
+
+                {successMessage && (
+                    <div className="procurement-message success">
+                        {successMessage}
+                    </div>
+                )}
+
+                <section className="lpt-card">
+                    <div className="lpt-head">
+                        <div className="lpt-title">
+                            <h3>Procurement Items</h3>
+                            <span className="lpt-count">{items.length}</span>
+                        </div>
+                        <div className="lpt-chips" aria-label="Procurement summary">
+                            <span className="lpt-chip lpt-chip--total"><i />Total <strong>{items.length}</strong></span>
+                            <span className="lpt-chip lpt-chip--d2w"><i />D2W <strong>{summary.d2w}</strong></span>
+                            <span className="lpt-chip lpt-chip--vendor"><i />Vendor <strong>{summary.vendor}</strong></span>
+                            <span className="lpt-chip lpt-chip--na"><i />Not Available <strong>{summary.notAvailable}</strong></span>
+                        </div>
+                        <div className="lpt-total-chip" aria-label="Total MRP">
+                            <span>Total MRP</span>
+                            <strong>{formatMrp(procurementTotal(currentRows))}</strong>
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div className="lpt-state">
+                            Loading procurement items...
+                        </div>
+                    ) : items.length === 0 ? (
+                        <div className="lpt-state">
+                            Enter a part number below to start Procurement.
+                        </div>
+                    ) : (
+                        <div className="lpt-table-wrap">
+                            <fieldset disabled={loading || bulkLoading || readOnly || savingItemId !== null || completing} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}><table className="lpt-table lpt-table--edit"><colgroup><col style={{ width: "17%" }} /><col style={{ width: "22%" }} /><col style={{ width: "10%" }} /><col style={{ width: "8%" }} /><col style={{ width: "12%" }} /><col style={{ width: "15%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} /></colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>Part Number</th>
+                                        <th>Part Name</th>
+                                        <th>MRP</th>
+                                        <th>Requested Qty</th>
+                                        <th>Source</th>
+                                        <th>Availability</th>
+                                        <th>ETA</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {items.map(renderEditableRow)}
+                                </tbody>
+                            </table></fieldset>
+                        </div>
+                    )}
+                </section>
+
                 {!returning && <section className="procurement-entry-panel">
     <div className="procurement-entry-row-top">
         {activeEntryTab === "single" ? (
@@ -842,92 +900,13 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
         </div>
     )}
 </section>}
-
-                {errorMessage && (
-                    <div className="procurement-message error">
-                        {errorMessage}
-                    </div>
-                )}
-
-                {successMessage && (
-                    <div className="procurement-message success">
-                        {successMessage}
-                    </div>
-                )}
-
-                <section className="procurement-table-section">
-                    <div className="procurement-table-heading">
-                        <div>
-                            <h3>Procurement Items</h3>
-                            <span>
-                                Review MRP, quantity and availability. Choose D2W, a vendor or NEW in Source.
-                            </span>
-                        </div>
-
-                        <span className="procurement-table-count">
-                            {items.length}
-                        </span>
-                    </div>
-
-                    {loading ? (
-                        <div className="procurement-table-state">
-                            Loading procurement items...
-                        </div>
-                    ) : items.length === 0 ? (
-                        <div className="procurement-table-state">
-                            Enter a part number above to start Procurement.
-                        </div>
-                    ) : (
-                        <div className="procurement-table-wrap">
-                            <fieldset disabled={loading || bulkLoading || readOnly || savingItemId !== null || completing} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}><table className="procurement-table">
-                                <thead>
-                                    <tr>
-                                        <th>Part Number</th>
-                                        <th>Part Name</th>
-                                        <th>MRP</th>
-                                        <th>Requested Qty</th>
-                                        <th>Source</th>
-                                        <th>Availability</th>
-                                        <th>ETA</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    {items.map(renderEditableRow)}
-                                </tbody>
-                            </table></fieldset>
-                        </div>
-                    )}
-                </section>
             </main>
-            <div className="procurement-total-mrp"><span>TOTAL MRP</span><strong>{formatMrp(procurementTotal(currentRows))}</strong></div>
-            <div className="procurement-summary-bar">
-                <div>
-                    <span>Items</span>
-                    <strong>{items.length}</strong>
-                </div>
-
-                <div className="internal">
-                    <span>D2W</span>
-                    <strong>{summary.d2w}</strong>
-                </div>
-
-                <div className="vendor">
-                    <span>Vendor</span>
-                    <strong>{summary.vendor}</strong>
-                </div>
-
-                <div className="not-available">
-                    <span>Not Available</span>
-                    <strong>{summary.notAvailable}</strong>
-                </div>
-            </div>
-
-            <footer className="procurement-drawer-footer">
+            <footer className="lpt-footer">
+                {onClose ? <button type="button" className="lpt-btn lpt-btn--ghost" onClick={onClose}>Close</button> : <span />}
+                <div className="lpt-footer-primary">
                 <button
                     type="button"
-                    className="procurement-save-all-btn"
+                    className="lpt-btn lpt-btn--outline"
                     disabled={
                         creatingItems > 0 || entryLoading || bulkLoading || loading || readOnly || completing || savingItemId !== null || Object.values(lookupLoading).some(Boolean) ||
                         items.length === 0
@@ -941,7 +920,7 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
 
                 <button
                     type="button"
-                    className="procurement-complete-btn"
+                    className="lpt-btn lpt-btn--primary"
                     disabled={
                         entryPartNumber.trim() !== "" || bulkPartsText.trim() !== "" || creatingItems > 0 || entryLoading || bulkLoading || loading || readOnly || savingItemId !== null || Object.values(lookupLoading).some(Boolean) || completing ||
                         !allItemsSaved ||
@@ -951,8 +930,9 @@ function LeadProcurementTable({ lead, onUpdated, mode = "PROCUREMENT", editing =
                 >
                     {completing
                         ? "Completing..."
-                        : "Move to Follow-up"}
+                        : "Move to FollowUp"}
                 </button>
+                </div>
             </footer>
         </div>
     );
