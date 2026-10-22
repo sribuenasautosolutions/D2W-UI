@@ -139,7 +139,7 @@ img, svg, video {
 }
 
 /* Consistent focus ring */
-:focus-visible {
+:focus-visible:not(.outline-none):not([class*="outline-none"]) {
   outline: 2px solid var(--c-primary);
   outline-offset: 2px;
 }
