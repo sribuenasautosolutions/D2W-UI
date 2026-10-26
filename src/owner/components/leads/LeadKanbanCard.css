@@ -1,268 +1,318 @@
 /* ============================================================
    D2W Lead Kanban Card
+   Every card is built from the same six grid rows with fixed
+   heights, so card height never depends on content or stage.
    ============================================================ */
 
 .d2w-lead-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-    padding: var(--sp-3) var(--sp-4);
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    background: #ffffff;
-    color: #172033;
-    cursor: pointer;
+    --lead-row-top: 24px;
+    --lead-row-customer: 22px;
+    --lead-row-info: 38px;
+    --lead-row-requirement: 56px; /* label + 2 lines */
+    --lead-row-details: 42px;
+    --lead-row-footer: 36px;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows:
+        var(--lead-row-top)
+        var(--lead-row-customer)
+        var(--lead-row-info)
+        var(--lead-row-requirement)
+        var(--lead-row-details)
+        var(--lead-row-footer);
+    row-gap: 6px;
+    width: 100%;
     min-width: 0;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease,
-        transform 0.08s ease;
+    padding: 12px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
 }
+
+.d2w-lead-card *,
+.d2w-lead-card *::before,
+.d2w-lead-card *::after {
+    box-sizing: border-box;
+}
+
 .d2w-lead-card:hover,
 .d2w-lead-card:focus-visible {
-    border-color: #93b4ee;
-    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.06);
-    transform: translateY(-1px);
+    border-color: #94a3b8;
     outline: none;
 }
 
-/* Top: number + edit icon */
+.d2w-lead-card:focus-visible {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+
+/* Every grid row clips its own content instead of growing */
+.d2w-lead-card > * {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ---------- 1 · Lead ID + edit ---------- */
 .d2w-lead-card-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--sp-2);
+    gap: 8px;
 }
+
 .d2w-lead-number {
-    font-size: 11.5px;
-    font-weight: 800;
-    letter-spacing: -0.005em;
-    color: #000000;
-    font-variant-numeric: tabular-nums;
-}
-.d2w-lead-edit {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    border: 1px solid rgba(37, 99, 235, 0.25);
-    border-radius: 5px;
-    background: rgba(37, 99, 235, 0.08);
-    color: #2563eb;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-.d2w-lead-edit:hover {
-    background: rgba(37, 99, 235, 0.15);
-    border-color: #2563eb;
-}
-
-
-
-/* Avatar + name */
-.d2w-lead-customer {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
     min-width: 0;
-}
-.d2w-lead-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 26px;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: #2563eb;
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: 700;
-}
-.d2w-lead-customer strong {
     overflow: hidden;
-    color: #000000;
-    font-size: 13px;
+    color: #64748b;
+    font-size: 11.5px;
     font-weight: 700;
-    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* ============================================================
-   Mobile + Lead Source — 2-column labelled grid
-   Values align with the label TEXT (not the icon)
-   ============================================================ */
+.d2w-lead-edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+.d2w-lead-edit:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+/* ---------- 2 · Customer name (primary) ---------- */
+.d2w-lead-customer {
+    display: flex;
+    align-items: center;
+}
+
+.d2w-lead-customer strong {
+    min-width: 0;
+    overflow: hidden;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- 3 · Lead source + phone ---------- */
 .d2w-lead-info-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--sp-3);
-    padding-top: var(--sp-3);
-    margin-top: var(--sp-1);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 12px;
+    align-content: end;
+    padding-top: 8px;
     border-top: 1px solid #f1f5f9;
-    align-items: start;
 }
 
 .d2w-lead-info-field {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
 }
 
 .d2w-lead-info-label {
     display: flex;
     align-items: center;
-    gap: var(--sp-1);
-    height: 14px;
-    line-height: 14px;
+    gap: 4px;
+    height: 12px;
+    overflow: hidden;
+    color: #94a3b8;
     font-size: 9.5px;
     font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
     letter-spacing: 0.05em;
+    line-height: 12px;
+    text-transform: uppercase;
     white-space: nowrap;
-    overflow: hidden;
 }
+
 .d2w-lead-info-label svg {
-    flex-shrink: 0;
-    width: 11px;
-    height: 11px;
+    flex: 0 0 auto;
     display: block;
-   
-}
-.d2w-lead-info-field:nth-child(1) .d2w-lead-info-label svg {
-    color: #05cb4a;   
-}
-.d2w-lead-info-field:nth-child(2) .d2w-lead-info-label svg {
-    color: #2563eb;   
 }
 
 .d2w-lead-info-value {
     display: block;
-    padding-left: var(--sp-4);
-    font-size: 11.5px;
-    line-height: 16px;
-    font-weight: 600;
-    color: #172033;
     overflow: hidden;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 16px;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-variant-numeric: tabular-nums;
 }
 
-
-/* Requirement */
+/* ---------- 4 · Requirement (always max 2 lines) ---------- */
 .d2w-lead-requirement {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding-top: var(--sp-2);
+    gap: 2px;
+    padding-top: 8px;
     border-top: 1px solid #f1f5f9;
-    min-width: 0;
 }
+
 .d2w-lead-requirement > span {
+    flex: 0 0 auto;
+    color: #94a3b8;
     font-size: 9.5px;
     font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
     letter-spacing: 0.05em;
+    line-height: 12px;
+    text-transform: uppercase;
 }
+
 .d2w-lead-requirement p {
     margin: 0;
-    font-size: 12px;
-    line-height: 1.5;
-    color: #111827;
     display: -webkit-box;
+    overflow: hidden;
+    color: #334155;
+    font-size: 12px;
+    line-height: 17px;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    overflow: hidden;
-    white-space: pre-line;
-    overflow-wrap: anywhere;
 }
 
-/* Procurement facts */
-.d2w-lead-procurement-facts {
+/* ---------- 5 · Stage-specific details (fixed-size region) ---------- */
+.d2w-lead-details {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: var(--sp-2) var(--sp-3);
+    justify-content: center;
+    gap: 2px;
+    padding: 0 10px;
+    border: 1px solid #e5e7eb;
     border-radius: 6px;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-}
-.d2w-lead-procurement-facts span {
-    color: #475569;
-    font-size: 11px;
-    font-weight: 600;
-}
-.d2w-lead-procurement-facts strong {
-    color: #1d4ed8;
-    font-size: 12px;
-    font-weight: 800;
+    background: #f8fafc;
 }
 
-/* Follow-up date */
-.d2w-lead-followup-date {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-1);
-    padding: var(--sp-2) var(--sp-2);
-    border-radius: 6px;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    color: #92400e;
-    font-size: 11px;
-    font-weight: 700;
+/* Stages with nothing to show keep the space, but draw no box */
+.d2w-lead-details--empty {
+    border-color: transparent;
+    background: transparent;
 }
-.d2w-lead-followup-date svg {
+
+.d2w-lead-details-label {
+    overflow: hidden;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.d2w-lead-details-text {
+    min-width: 0;
+    overflow: hidden;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.d2w-lead-details-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    color: #475569;
+}
+
+.d2w-lead-details-row svg {
     flex: 0 0 auto;
 }
 
-/* Footer */
+/* ---------- 6 · Salesperson + action ---------- */
 .d2w-lead-footer {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: var(--sp-2);
-    padding-top: var(--sp-2);
-    margin-top: 2px;
+    gap: 8px;
+    padding-top: 8px;
     border-top: 1px solid #f1f5f9;
 }
+
 .d2w-lead-salesperson {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-1);
+    flex: 1 1 0;
+    gap: 5px;
     min-width: 0;
-    flex: 1 1 auto;
-    color: #475569;
-    font-size: 11px;
+    height: 28px;
+    color: #64748b;
+    font-size: 11.5px;
     font-weight: 600;
+}
+
+.d2w-lead-salesperson svg {
+    flex: 0 0 auto;
+}
+
+.d2w-lead-salesperson span {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.d2w-lead-salesperson svg {
-    flex: 0 0 auto;
-    color: #7c3aed;
-}
+
 .d2w-lead-action {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-1);
-    flex-shrink: 0;
-    padding: var(--sp-1) var(--sp-2);
-    border: 1px solid rgba(37, 99, 235, 0.3);
-    border-radius: 5px;
-    background: rgba(37, 99, 235, 0.08);
+    justify-content: center;
+    flex: 0 1 auto;
+    gap: 5px;
+    min-width: 0;
+    max-width: 62%;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    background: #eff6ff;
     color: #1d4ed8;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     cursor: pointer;
-    white-space: nowrap;
-    transition: background-color 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
+
+.d2w-lead-action svg {
+    flex: 0 0 auto;
+}
+
+.d2w-lead-action span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .d2w-lead-action:hover {
-    background: rgba(37, 99, 235, 0.15);
+    border-color: #93c5fd;
+    background: #dbeafe;
 }

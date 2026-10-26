@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import {
-    ArrowLeft,
-    CheckCircle2,
-    Search,
-    X,
-} from "lucide-react";
+import { CheckCircle2, Search, X } from "lucide-react";
 
-import {
-    createLead,
-    updateLead,
-} from "../../../services/leadService";
+import { createLead, updateLead } from "../../../services/leadService";
 import { getAllStores } from "../../../services/storeService";
 import {
     getCustomerByMobile,
@@ -57,11 +50,15 @@ const SOURCE_OPTIONS = [
     { value: "OTHER", label: "Other" },
 ];
 
+const NEW_SALESPERSON_VALUE = "__new__";
+
 export default function LeadCreate({
     onClose,
     mode = "create",
     lead = null,
     onSaved,
+    onViewLead,
+    onToast,
 }) {
     const isEditMode = mode === "edit";
     const navigate = useNavigate();
@@ -69,9 +66,7 @@ export default function LeadCreate({
     const user = useMemo(() => readUser(), []);
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
-    /* =========================================================
-       STORE
-    ========================================================= */
+    /* ============================== STORE ============================== */
     const [selectedStoreId, setSelectedStoreId] = useState(
         isSuperAdmin ? "" : String(user?.storeId || "")
     );
@@ -79,9 +74,7 @@ export default function LeadCreate({
     const [storeLoading, setStoreLoading] = useState(false);
     const [storeError, setStoreError] = useState("");
 
-    /* =========================================================
-       CUSTOMER
-    ========================================================= */
+    /* ============================== CUSTOMER ============================== */
     const [customerMobile, setCustomerMobile] = useState("");
     const [customerName, setCustomerName] = useState("");
     const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -92,40 +85,29 @@ export default function LeadCreate({
     const [savingCustomer, setSavingCustomer] = useState(false);
     const customerLookupRequest = useRef(0);
 
-    /* =========================================================
-       SALESPERSON
-    ========================================================= */
+    /* ============================== SALESPERSON ============================== */
     const [salespersons, setSalespersons] = useState([]);
-    const [salespersonMobile, setSalespersonMobile] = useState("");
-    const [salespersonName, setSalespersonName] = useState("");
     const [selectedSalesperson, setSelectedSalesperson] = useState(null);
     const [salespersonLoading, setSalespersonLoading] = useState(false);
-    const [salespersonLookupMessage, setSalespersonLookupMessage] = useState("");
     const [salespersonModalOpen, setSalespersonModalOpen] = useState(false);
     const [salespersonForm, setSalespersonForm] = useState(EMPTY_SALESPERSON);
     const [savingSalesperson, setSavingSalesperson] = useState(false);
 
-    /* =========================================================
-       LEAD
-    ========================================================= */
+    /* ============================== LEAD ============================== */
     const [source, setSource] = useState("");
     const [customerRequirement, setCustomerRequirement] = useState("");
+    const [location, setLocation] = useState("");
+    const [vinNumber, setVinNumber] = useState("");
     const [notes, setNotes] = useState("");
     const [creatingLead, setCreatingLead] = useState(false);
     const [createdLead, setCreatedLead] = useState(null);
     const [savingEdit, setSavingEdit] = useState(false);
 
-    /* =========================================================
-       EDIT MODE INITIALIZATION
-    ========================================================= */
+    /* ============================== EDIT MODE INIT ============================== */
     useEffect(() => {
         if (!isEditMode || !lead) return;
 
-        const storeId =
-            lead?.storeId ??
-            lead?.store?.id ??
-            "";
-
+        const storeId = lead?.storeId ?? lead?.store?.id ?? "";
         setSelectedStoreId(String(storeId || ""));
 
         const customer = {
@@ -143,52 +125,29 @@ export default function LeadCreate({
                 "",
         };
 
-        setSelectedCustomer(
-            customer.id ? customer : null
-        );
+        setSelectedCustomer(customer.id ? customer : null);
         setCustomerMobile(customer.mobileNumber || "");
         setCustomerName(customer.customerName || "");
 
         const salesperson = {
-            id:
-                lead?.salespersonId ??
-                lead?.salesperson?.id ??
-                "",
+            id: lead?.salespersonId ?? lead?.salesperson?.id ?? "",
             salespersonName:
-                lead?.salespersonName ??
-                lead?.salesperson?.salespersonName ??
-                "",
+                lead?.salespersonName ?? lead?.salesperson?.salespersonName ?? "",
             mobileNumber:
-                lead?.salespersonMobile ??
-                lead?.salesperson?.mobileNumber ??
-                "",
+                lead?.salespersonMobile ?? lead?.salesperson?.mobileNumber ?? "",
         };
 
-        setSelectedSalesperson(
-            salesperson.id ? salesperson : null
-        );
-        setSalespersonMobile(
-            salesperson.mobileNumber || ""
-        );
-        setSalespersonName(
-            salesperson.salespersonName || ""
-        );
+        setSelectedSalesperson(salesperson.id ? salesperson : null);
 
-        setSource(
-            lead?.source ??
-                lead?.sourceName ??
-                ""
-        );
-        setCustomerRequirement(
-            lead?.customerRequirement || ""
-        );
+        setSource(lead?.source ?? lead?.sourceName ?? "");
+        setCustomerRequirement(lead?.customerRequirement || "");
+        setLocation(lead?.location || lead?.storeLocation || "");
+        setVinNumber(lead?.vinNumber || lead?.vin || "");
         setNotes(lead?.notes || "");
         setCreatedLead(null);
     }, [isEditMode, lead]);
 
-    /* =========================================================
-       LOAD STORES
-    ========================================================= */
+    /* ============================== LOAD STORES ============================== */
     useEffect(() => {
         if (!isSuperAdmin) return;
 
@@ -206,9 +165,7 @@ export default function LeadCreate({
             } catch (error) {
                 console.error("Failed to load stores:", error);
                 setStores([]);
-                setStoreError(
-                    error?.response?.data?.message || "Unable to load stores."
-                );
+                setStoreError(error?.response?.data?.message || "Unable to load stores.");
             } finally {
                 setStoreLoading(false);
             }
@@ -216,9 +173,7 @@ export default function LeadCreate({
         loadStores();
     }, [isSuperAdmin]);
 
-    /* =========================================================
-       LOAD SALESPERSONS
-    ========================================================= */
+    /* ============================== LOAD SALESPERSONS ============================== */
     const loadSalespersons = useCallback(async (storeId) => {
         if (!storeId) {
             setSalespersons([]);
@@ -238,25 +193,13 @@ export default function LeadCreate({
 
     useEffect(() => {
         loadSalespersons(selectedStoreId);
-
-        // In edit mode, keep the existing salesperson selected.
-        // The existing lead already contains salespersonId, so we must
-        // not clear it when the salesperson list loads.
         if (isEditMode) return;
-
         setSelectedSalesperson(null);
-        setSalespersonMobile("");
-        setSalespersonName("");
-        setSalespersonLookupMessage("");
     }, [selectedStoreId, loadSalespersons, isEditMode]);
 
-    /* =========================================================
-       HYDRATE EXISTING SALESPERSON IN EDIT MODE
-    ========================================================= */
+    /* ============================== HYDRATE SALESPERSON (EDIT MODE) ============================== */
     useEffect(() => {
-        if (!isEditMode || !lead?.salespersonId || !salespersons.length) {
-            return;
-        }
+        if (!isEditMode || !lead?.salespersonId || !salespersons.length) return;
 
         const existing = salespersons.find(
             (item) =>
@@ -265,37 +208,12 @@ export default function LeadCreate({
         );
 
         if (!existing) return;
-
         setSelectedSalesperson(existing);
-        setSalespersonName(
-            existing?.salespersonName ??
-                existing?.name ??
-                lead?.salespersonName ??
-                ""
-        );
-        setSalespersonMobile(
-            existing?.mobileNumber ??
-                existing?.mobile ??
-                lead?.salespersonMobile ??
-                ""
-        );
-        setSalespersonLookupMessage("Existing salesperson selected.");
     }, [isEditMode, lead, salespersons]);
 
-    /* =========================================================
-       HYDRATE EXISTING CUSTOMER IN EDIT MODE
-       The lead API may return customerId/name without mobile.
-       Resolve the same existing customer from the store so the
-       create-style mobile field can show the real value.
-    ========================================================= */
+    /* ============================== HYDRATE CUSTOMER (EDIT MODE) ============================== */
     useEffect(() => {
-        if (
-            !isEditMode ||
-            !selectedStoreId ||
-            !lead?.customerId
-        ) {
-            return;
-        }
+        if (!isEditMode || !selectedStoreId || !lead?.customerId) return;
 
         const searchName =
             lead?.customerName ??
@@ -328,22 +246,13 @@ export default function LeadCreate({
                     ...(previous || {}),
                     ...existing,
                 }));
-                setCustomerMobile(
-                    existing?.mobileNumber ??
-                        existing?.mobile ??
-                        ""
-                );
+                setCustomerMobile(existing?.mobileNumber ?? existing?.mobile ?? "");
                 setCustomerName(
-                    existing?.customerName ??
-                        existing?.name ??
-                        searchName
+                    existing?.customerName ?? existing?.name ?? searchName
                 );
                 setCustomerLookupMessage("Existing customer selected.");
             } catch (error) {
-                console.warn(
-                    "Unable to hydrate existing customer:",
-                    error
-                );
+                console.warn("Unable to hydrate existing customer:", error);
             }
         };
 
@@ -354,9 +263,7 @@ export default function LeadCreate({
         };
     }, [isEditMode, selectedStoreId, lead]);
 
-    /* =========================================================
-       STORE CHANGE
-    ========================================================= */
+    /* ============================== STORE CHANGE ============================== */
     const handleStoreChange = (event) => {
         const value = event.target.value;
         setSelectedStoreId(value);
@@ -367,16 +274,10 @@ export default function LeadCreate({
         setCustomerLookupMessage("");
 
         setSelectedSalesperson(null);
-        setSalespersonMobile("");
-        setSalespersonName("");
-        setSalespersonLookupMessage("");
-
         setSource("");
     };
 
-    /* =========================================================
-       CUSTOMER LOOKUP — runs automatically at 10 digits
-    ========================================================= */
+    /* ============================== CUSTOMER LOOKUP ============================== */
     const lookupCustomer = async (mobile) => {
         if (!selectedStoreId) return;
         if (!/^\d{10}$/.test(mobile)) return;
@@ -386,10 +287,7 @@ export default function LeadCreate({
         setCustomerLookupMessage("");
 
         try {
-            const customer = await getCustomerByMobile(
-                mobile,
-                Number(selectedStoreId)
-            );
+            const customer = await getCustomerByMobile(mobile, Number(selectedStoreId));
 
             if (requestId !== customerLookupRequest.current) return;
 
@@ -408,7 +306,6 @@ export default function LeadCreate({
                 return;
             }
 
-            // Create mode only: allow creating a new customer.
             setCustomerForm({ ...EMPTY_CUSTOMER, mobileNumber: mobile });
             setCustomerModalOpen(true);
         } catch (error) {
@@ -422,14 +319,12 @@ export default function LeadCreate({
                     );
                     return;
                 }
-
                 setCustomerForm({ ...EMPTY_CUSTOMER, mobileNumber: mobile });
                 setCustomerModalOpen(true);
             } else {
                 console.error("Customer lookup failed:", error);
                 setCustomerLookupMessage(
-                    error?.response?.data?.message ||
-                        "Unable to check customer."
+                    error?.response?.data?.message || "Unable to check customer."
                 );
             }
         } finally {
@@ -444,21 +339,17 @@ export default function LeadCreate({
         setCustomerMobile(value);
         setCustomerLookupMessage("");
 
-        // Reset selections when editing
         if (selectedCustomer && selectedCustomer.mobileNumber !== value) {
             setSelectedCustomer(null);
             setCustomerName("");
         }
 
-        // Auto-trigger lookup at 10 digits
         if (value.length === 10 && value !== selectedCustomer?.mobileNumber) {
             lookupCustomer(value);
         }
     };
 
-    /* =========================================================
-       CUSTOMER MODAL
-    ========================================================= */
+    /* ============================== CUSTOMER MODAL ============================== */
     const handleCustomerFormChange = (field, value) => {
         setCustomerForm((current) => {
             const next = { ...current, [field]: value };
@@ -466,10 +357,7 @@ export default function LeadCreate({
                 next.gstRegistrationType = "UNREGISTERED";
                 next.gstin = "";
             }
-            if (
-                field === "gstRegistrationType" &&
-                value === "UNREGISTERED"
-            ) {
+            if (field === "gstRegistrationType" && value === "UNREGISTERED") {
                 next.gstin = "";
             }
             return next;
@@ -497,10 +385,7 @@ export default function LeadCreate({
             customerForm.customerType !== "WALK_IN" &&
             customerForm.gstRegistrationType === "REGISTERED";
 
-        if (
-            requiresGst &&
-            !/^[0-9A-Za-z]{15}$/.test(customerForm.gstin.trim())
-        ) {
+        if (requiresGst && !/^[0-9A-Za-z]{15}$/.test(customerForm.gstin.trim())) {
             alert("A valid 15-character GSTIN is required.");
             return;
         }
@@ -513,9 +398,7 @@ export default function LeadCreate({
                 customerForm.customerType === "WALK_IN"
                     ? "UNREGISTERED"
                     : customerForm.gstRegistrationType,
-            gstin: requiresGst
-                ? customerForm.gstin.trim().toUpperCase()
-                : null,
+            gstin: requiresGst ? customerForm.gstin.trim().toUpperCase() : null,
             storeId: Number(selectedStoreId),
         };
 
@@ -539,56 +422,25 @@ export default function LeadCreate({
         }
     };
 
-    /* =========================================================
-       SALESPERSON LOOKUP — runs automatically at 10 digits
-    ========================================================= */
-    const lookupSalesperson = (mobile) => {
-        if (!selectedStoreId) return;
-        if (!/^\d{10}$/.test(mobile)) return;
+    /* ============================== SALESPERSON DROPDOWN ============================== */
+    const handleSalespersonSelect = (event) => {
+        const value = event.target.value;
+
+        if (value === NEW_SALESPERSON_VALUE) {
+            setSalespersonForm(EMPTY_SALESPERSON);
+            setSalespersonModalOpen(true);
+            return;
+        }
+
+        if (!value) {
+            setSelectedSalesperson(null);
+            return;
+        }
 
         const found = salespersons.find(
-            (sp) => sp.mobileNumber === mobile
+            (item) => String(item?.id ?? item?.salespersonId) === value
         );
-
-        if (found) {
-            setSelectedSalesperson(found);
-            setSalespersonName(found.salespersonName || "");
-            setSalespersonLookupMessage("Existing salesperson found.");
-            return;
-        }
-
-        if (isEditMode) {
-            setSalespersonLookupMessage(
-                "Existing salesperson not found. Select an existing salesperson by mobile number."
-            );
-            return;
-        }
-
-        // Create mode only: allow creating a new salesperson.
-        setSalespersonForm({
-            salespersonName: "",
-            mobileNumber: mobile,
-        });
-        setSalespersonModalOpen(true);
-    };
-
-    const handleSalespersonMobileChange = (event) => {
-        const value = event.target.value.replace(/\D/g, "").slice(0, 10);
-        setSalespersonMobile(value);
-        setSalespersonLookupMessage("");
-
-        if (
-            selectedSalesperson &&
-            selectedSalesperson.mobileNumber !== value
-        ) {
-            setSelectedSalesperson(null);
-            setSalespersonName("");
-        }
-
-        // Auto-trigger lookup at 10 digits
-        if (value.length === 10 && value !== selectedSalesperson?.mobileNumber) {
-            lookupSalesperson(value);
-        }
+        setSelectedSalesperson(found || null);
     };
 
     const handleSaveSalesperson = async () => {
@@ -615,12 +467,9 @@ export default function LeadCreate({
                 mobileNumber: mobile,
                 storeId: Number(selectedStoreId),
             });
-            setSelectedSalesperson(saved);
-            setSalespersonMobile(saved?.mobileNumber || mobile);
-            setSalespersonName(saved?.salespersonName || name);
-            setSalespersonLookupMessage("New salesperson created.");
-            setSalespersonModalOpen(false);
             await loadSalespersons(selectedStoreId);
+            setSelectedSalesperson(saved);
+            setSalespersonModalOpen(false);
         } catch (error) {
             console.error("Unable to save salesperson:", error);
             alert(
@@ -633,32 +482,14 @@ export default function LeadCreate({
         }
     };
 
-    /* =========================================================
-       CREATE / UPDATE LEAD
-    ========================================================= */
+    /* ============================== CREATE / UPDATE ============================== */
     const handleCreateLead = async () => {
         if (!selectedStoreId) {
             alert("Select a store first.");
             return;
         }
-
         if (!selectedCustomer) {
             alert("Enter customer mobile number.");
-            return;
-        }
-
-        if (!selectedSalesperson) {
-            alert("Enter salesperson mobile number.");
-            return;
-        }
-
-        if (!source) {
-            alert("Select a lead source.");
-            return;
-        }
-
-        if (!customerRequirement.trim()) {
-            alert("Customer requirement is required.");
             return;
         }
 
@@ -673,64 +504,39 @@ export default function LeadCreate({
                 salespersonId: selectedSalesperson?.id
                     ? Number(selectedSalesperson.id)
                     : null,
-                source: source.trim(),
-                customerRequirement:
-                    customerRequirement.trim(),
+                source: source.trim() || null,
+                customerRequirement: customerRequirement.trim() || null,
+                location: location.trim() || null,
+                vinNumber: vinNumber.trim() || null,
                 notes: notes.trim() || null,
             };
 
             setSavingEdit(true);
-
             try {
-                const result = await updateLead(
-                    lead.id,
-                    payload
-                );
-
+                const result = await updateLead(lead.id, payload);
                 const mergedLead = {
                     ...lead,
                     ...(result || {}),
-                    customerId:
-                        result?.customerId ??
-                        selectedCustomer.id,
-                    customerName:
-                        result?.customerName ??
-                        selectedCustomer.customerName,
-                    salespersonId:
-                        result?.salespersonId ??
-                        selectedSalesperson.id,
+                    customerId: result?.customerId ?? selectedCustomer.id,
+                    customerName: result?.customerName ?? selectedCustomer.customerName,
+                    salespersonId: result?.salespersonId ?? selectedSalesperson?.id ?? null,
                     salespersonName:
                         result?.salespersonName ??
-                        selectedSalesperson.salespersonName,
-                    source:
-                        result?.source ??
-                        source,
-                    customerRequirement:
-                        result?.customerRequirement ??
-                        customerRequirement.trim(),
-                    notes:
-                        result?.notes ??
-                        lead?.notes ??
+                        selectedSalesperson?.salespersonName ??
                         null,
-                    items:
-                        result?.items ??
-                        lead?.items ??
-                        [],
+                    source: result?.source ?? source,
+                    customerRequirement:
+                        result?.customerRequirement ?? customerRequirement.trim(),
+                    location: result?.location ?? location,
+                    vinNumber: result?.vinNumber ?? vinNumber,
+                    notes: result?.notes ?? lead?.notes ?? null,
+                    items: result?.items ?? lead?.items ?? [],
                 };
 
-                if (typeof onSaved === "function") {
-                    onSaved(mergedLead);
-                }
-
-                if (typeof onClose === "function") {
-                    onClose();
-                }
+                if (typeof onSaved === "function") onSaved(mergedLead);
+                if (typeof onClose === "function") onClose();
             } catch (error) {
-                console.error(
-                    "Unable to update lead:",
-                    error
-                );
-
+                console.error("Unable to update lead:", error);
                 alert(
                     error?.response?.data?.message ||
                         error?.response?.data?.error ||
@@ -739,84 +545,129 @@ export default function LeadCreate({
             } finally {
                 setSavingEdit(false);
             }
-
             return;
         }
 
         const payload = {
             customerId: Number(selectedCustomer.id),
-            salespersonId: Number(selectedSalesperson.id),
-            storeId: isSuperAdmin
-                ? Number(selectedStoreId)
+            salespersonId: selectedSalesperson?.id
+                ? Number(selectedSalesperson.id)
                 : null,
-            source,
-            customerRequirement:
-                customerRequirement.trim(),
+            storeId: isSuperAdmin ? Number(selectedStoreId) : null,
+            source: source || null,
+            customerRequirement: customerRequirement.trim() || null,
+            location: location.trim() || null,
+            vinNumber: vinNumber.trim() || null,
             items: [],
         };
 
         setCreatingLead(true);
-
         try {
             const result = await createLead(payload);
             setCreatedLead(result);
             onSaved?.(result);
         } catch (error) {
-            console.error(
-                "Unable to create lead:",
-                error
-            );
-
-            alert(
+            console.error("Unable to create lead:", error);
+            const createMessage =
                 error?.response?.data?.message ||
-                    error?.response?.data?.error ||
-                    "Unable to create lead."
-            );
+                error?.response?.data?.error ||
+                "Unable to create lead.";
+            if (typeof onToast === "function") onToast(createMessage, "error");
+            else alert(createMessage);
         } finally {
             setCreatingLead(false);
         }
     };
 
-    /* =========================================================
-       BACK / CLOSE
-    ========================================================= */
+    /* ============================== VIEW CREATED LEAD ============================== */
+    // Opens the Lead Overview drawer on the list page. The create response may
+    // omit some display fields, so fill gaps from the form (server values win).
+    const handleViewCreatedLead = () => {
+        if (!createdLead) return;
+
+        if (typeof onViewLead === "function") {
+            const fromForm = {
+                customerId: selectedCustomer?.id ?? null,
+                customerName: selectedCustomer?.customerName || customerName,
+                customerMobile: selectedCustomer?.mobileNumber || customerMobile,
+                salespersonId: selectedSalesperson?.id ?? null,
+                salespersonName: selectedSalesperson?.salespersonName ?? null,
+                salespersonMobile: selectedSalesperson?.mobileNumber ?? null,
+                storeId: selectedStoreId ? Number(selectedStoreId) : null,
+                source: source || null,
+                customerRequirement: customerRequirement.trim() || null,
+                location: location.trim() || null,
+                vinNumber: vinNumber.trim() || null,
+            };
+            const fromServer = Object.fromEntries(
+                Object.entries(createdLead).filter(
+                    ([, value]) => value !== null && value !== undefined && value !== ""
+                )
+            );
+            onViewLead({ ...fromForm, ...fromServer });
+            return;
+        }
+
+        // Fallback (LeadCreate used outside the list page): previous behaviour
+        const base = isSuperAdmin ? "/owner/sales" : "/store/sales";
+        navigate(`${base}/leads/${createdLead.id}?view=readonly`);
+    };
+
+    /* ============================== BACK / CLOSE ============================== */
     const handleBack = () => {
         if (typeof onClose === "function") onClose();
         else
-            navigate(
-                isSuperAdmin ? "/owner/sales/leads" : "/store/sales/leads"
-            );
+            navigate(isSuperAdmin ? "/owner/sales/leads" : "/store/sales/leads");
     };
 
-    /* =========================================================
-       RENDER
-    ========================================================= */
+    /* ============================== RENDER ============================== */
     return (
-        <section className="lead-create-page">
-            {/* =================================================
-                HEADER
-            ================================================= */}
-            <div className="lead-create-header">
-                <div className="lead-create-header-left">
-                    <div className="lead-eyebrow">LEAD MANAGEMENT</div>
-                    <h1>{isEditMode ? "Edit Lead" : "Create Lead"}</h1>
-                </div>
+        <section className="lead-page">
+            <div className="lead-shell">
 
-                <div className="lead-create-header-right">
+                {/* ============ HEADER ============ */}
+                <header className="lead-header">
+                    <div className="lead-header-text">
+                        <span className="lead-eyebrow">Lead Management</span>
+                        <h1 className="lead-title">
+                            {isEditMode ? "Edit Lead" : "Create Lead"}
+                        </h1>
+                        <p className="lead-subtitle">
+                            {isEditMode
+                                ? "Update the prospect's details."
+                                : "Add a prospect to your pipeline."}
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        className="lead-close-btn"
+                        onClick={handleBack}
+                        aria-label="Close"
+                        title="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </header>
+
+                {/* ============ FORM CARD ============ */}
+                <div className="lead-card">
+
+                    {/* Store — full width (super admin only) */}
                     {isSuperAdmin && (
-                        <div className="lead-store-field">
-                            <label>
-                                Store <span>*</span>
+                        <div className="lead-field lead-field--full">
+                            <label htmlFor="lead-store" className="lead-label">
+                                Store <span className="lead-req">*</span>
                             </label>
                             <select
+                                id="lead-store"
                                 value={selectedStoreId}
                                 onChange={handleStoreChange}
                                 disabled={storeLoading || isEditMode}
+                                className="lead-input"
                             >
                                 <option value="">
-                                    {storeLoading
-                                        ? "Loading..."
-                                        : "Select store"}
+                                    {storeLoading ? "Loading..." : "Select store"}
                                 </option>
                                 {stores.map((store) => {
                                     const id = store.id ?? store.storeId;
@@ -832,243 +683,270 @@ export default function LeadCreate({
                                 })}
                             </select>
                             {storeError && (
-                                <div className="field-error">{storeError}</div>
+                                <p className="lead-field-error">{storeError}</p>
                             )}
                         </div>
                     )}
 
-                    <button
-                        type="button"
-                        className="lead-back-button"
-                        onClick={handleBack}
-                    >
-                        <ArrowLeft size={13} />
-                        {onClose ? "Close" : "Back"}
-                    </button>
-                </div>
-            </div>
+                    {/* Two-column grid */}
+                    <div className="lead-grid">
 
-            {/* =================================================
-                MAIN CARD
-            ================================================= */}
-            <div className="lead-create-card">
-                {/* =============================================
-                    CUSTOMER ROW
-                ============================================= */}
-                <div className="lead-section-grid">
-                    <div className="lead-field">
-                        <label>
-                            Customer Mobile <span>*</span>
-                        </label>
-                        <div className="lookup-input-wrap">
-                            <Search size={14} />
-                            <input
-                                type="tel"
-                                inputMode="numeric"
-                                maxLength={10}
-                                value={customerMobile}
-                                onChange={handleCustomerMobileChange}
-                                placeholder="10-digit mobile number"
-                                disabled={!selectedStoreId}
-                            />
-                            {customerLookupLoading && (
-                                <span className="lookup-spinner" />
+                        {/* Customer Mobile — REQUIRED */}
+                        <div className="lead-field">
+                            <label htmlFor="lead-customer-mobile" className="lead-label">
+                                Customer Mobile <span className="lead-req">*</span>
+                            </label>
+                            <div className="lead-lookup">
+                                <Search size={16} className="lead-lookup-icon" />
+                                <input
+                                    id="lead-customer-mobile"
+                                    type="tel"
+                                    inputMode="numeric"
+                                    maxLength={10}
+                                    value={customerMobile}
+                                    onChange={handleCustomerMobileChange}
+                                    placeholder="10-digit mobile"
+                                    disabled={!selectedStoreId}
+                                    className="lead-lookup-input"
+                                />
+                                {customerLookupLoading && (
+                                    <span className="lead-lookup-spinner" aria-hidden="true" />
+                                )}
+                            </div>
+                            {customerLookupMessage && (
+                                <p
+                                    className={
+                                        selectedCustomer
+                                            ? "lead-hint lead-hint--success"
+                                            : "lead-hint"
+                                    }
+                                >
+                                    {selectedCustomer && <CheckCircle2 size={12} />}
+                                    {customerLookupMessage}
+                                </p>
                             )}
                         </div>
-                        {customerLookupMessage && (
-                            <div
-                                className={
-                                    selectedCustomer
-                                        ? "lookup-success"
-                                        : "lookup-hint"
-                                }
-                            >
-                                {selectedCustomer && (
-                                    <CheckCircle2 size={12} />
-                                )}
-                                {customerLookupMessage}
-                            </div>
-                        )}
-                    </div>
 
-                    <div className="lead-field">
-                        <label>Customer Name</label>
-                        <input
-                            type="text"
-                            value={customerName}
-                            placeholder="Auto-filled from mobile"
-                            readOnly
-                            disabled={!selectedCustomer}
-                        />
-                    </div>
-                </div>
-
-                {/* =============================================
-                    SALESPERSON + SOURCE
-                ============================================= */}
-                <div className="lead-section-grid">
-                    <div className="lead-field">
-                        <label>
-                            Salesperson Mobile <span>*</span>
-                        </label>
-                        <div className="lookup-input-wrap">
-                            <Search size={14} />
+                        {/* Customer Name (auto-filled) */}
+                        <div className="lead-field">
+                            <label htmlFor="lead-customer-name" className="lead-label">
+                                Customer Name
+                            </label>
                             <input
-                                type="tel"
-                                inputMode="numeric"
-                                maxLength={10}
-                                value={salespersonMobile}
-                                onChange={handleSalespersonMobileChange}
-                                placeholder="10-digit mobile number"
-                                disabled={!selectedStoreId}
+                                id="lead-customer-name"
+                                type="text"
+                                value={customerName}
+                                placeholder="Auto-filled from mobile"
+                                readOnly
+                                disabled={!selectedCustomer}
+                                className="lead-input lead-input--readonly"
                             />
                         </div>
-                        {salespersonLookupMessage && (
-                            <div
-                                className={
-                                    selectedSalesperson
-                                        ? "lookup-success"
-                                        : "lookup-hint"
+
+                        {/* Assign To — dropdown */}
+                        <div className="lead-field">
+                            <label htmlFor="lead-salesperson" className="lead-label">
+                                Assign To
+                            </label>
+                            <select
+                                id="lead-salesperson"
+                                value={
+                                    selectedSalesperson?.id
+                                        ? String(selectedSalesperson.id)
+                                        : ""
                                 }
+                                onChange={handleSalespersonSelect}
+                                disabled={!selectedStoreId || salespersonLoading}
+                                className="lead-input"
                             >
-                                {selectedSalesperson && (
-                                    <CheckCircle2 size={12} />
-                                )}
-                                {salespersonLookupMessage}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="lead-field">
-                        <label>
-                            Lead Source <span>*</span>
-                        </label>
-                        <select
-                            value={source}
-                            onChange={(event) => setSource(event.target.value)}
-                        >
-                            <option value="">Select source</option>
-                            {SOURCE_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
+                                <option value="">
+                                    {salespersonLoading ? "Loading..." : "Unassigned"}
                                 </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
+                                {salespersons.map((sp) => {
+                                    const id = sp.id ?? sp.salespersonId;
+                                    const label = sp.salespersonName
+                                        ? `${sp.salespersonName}${sp.mobileNumber ? ` · ${sp.mobileNumber}` : ""}`
+                                        : sp.mobileNumber || `Salesperson ${id}`;
+                                    return (
+                                        <option key={id} value={id}>
+                                            {label}
+                                        </option>
+                                    );
+                                })}
+                                <option value={NEW_SALESPERSON_VALUE}>
+                                    + Add new salesperson
+                                </option>
+                            </select>
+                        </div>
 
-                {/* =============================================
-                    NOTES — edit existing notes only
-                ============================================= */}
-                {isEditMode && (
-                    <div className="requirement-section">
-                        <h2>Notes</h2>
+                        {/* Location */}
+                        <div className="lead-field">
+                            <label htmlFor="lead-location" className="lead-label">
+                                Location
+                            </label>
+                            <input
+                                id="lead-location"
+                                type="text"
+                                value={location}
+                                onChange={(event) => setLocation(event.target.value)}
+                                placeholder="City or area"
+                                maxLength={150}
+                                className="lead-input"
+                            />
+                        </div>
+
+                        {/* VIN Number */}
+                        <div className="lead-field">
+                            <label htmlFor="lead-vin" className="lead-label">
+                                VIN Number
+                            </label>
+                            <input
+                                id="lead-vin"
+                                type="text"
+                                value={vinNumber}
+                                onChange={(event) => setVinNumber(event.target.value)}
+                                placeholder="Vehicle identification no."
+                                maxLength={30}
+                                className="lead-input"
+                            />
+                        </div>
+
+                        {/* Lead Source */}
+                        <div className="lead-field">
+                            <label htmlFor="lead-source" className="lead-label">
+                                Lead Source
+                            </label>
+                            <select
+                                id="lead-source"
+                                value={source}
+                                onChange={(event) => setSource(event.target.value)}
+                                className="lead-input"
+                            >
+                                <option value="">Select source</option>
+                                {SOURCE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Notes — edit mode only */}
+                    {isEditMode && (
+                        <div className="lead-field lead-field--full">
+                            <label htmlFor="lead-notes" className="lead-label">
+                                Notes
+                            </label>
+                            <textarea
+                                id="lead-notes"
+                                value={notes}
+                                onChange={(event) => setNotes(event.target.value)}
+                                placeholder="Update existing lead notes..."
+                                rows={3}
+                                className="lead-textarea"
+                            />
+                        </div>
+                    )}
+
+                    {/* Customer Requirement */}
+                    <div className="lead-field lead-field--full">
+                        <label htmlFor="lead-requirement" className="lead-label">
+                            Customer Requirement
+                        </label>
                         <textarea
-                            value={notes}
+                            id="lead-requirement"
+                            value={customerRequirement}
                             onChange={(event) =>
-                                setNotes(event.target.value)
+                                setCustomerRequirement(event.target.value)
                             }
-                            placeholder="Update existing lead notes..."
+                            placeholder="Example: Maruti Swift brake pad, Skoda 2014 oil filter..."
                             rows={3}
+                            className="lead-textarea"
                         />
                     </div>
-                )}
 
-                {/* =============================================
-                    REQUIREMENT
-                ============================================= */}
-                <div className="requirement-section">
-                    <h2>
-                        Customer Requirement <span>*</span>
-                    </h2>
-                    <textarea
-                        value={customerRequirement}
-                        onChange={(event) =>
-                            setCustomerRequirement(event.target.value)
-                        }
-                        placeholder="Example: Maruti Swift brake pad, Skoda 2014 oil filter..."
-                        rows={4}
-                    />
-                </div>
-
-                {/* =============================================
-                    SUBMIT
-                ============================================= */}
-                <div className="lead-submit-bar">
-                    <button
-                        type="button"
-                        className="create-lead-button"
-                        onClick={handleCreateLead}
-                        disabled={creatingLead || savingEdit}
-                    >
-                        {isEditMode
-                            ? savingEdit
-                                ? "Saving..."
-                                : "Save Changes"
-                            : creatingLead
-                            ? "Creating..."
-                            : "Create Lead"}
-                    </button>
+                    {/* ============ FOOTER ============ */}
+                    <div className="lead-footer">
+                        <button
+                            type="button"
+                            className="lead-btn lead-btn--ghost"
+                            onClick={handleBack}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className="lead-btn lead-btn--primary"
+                            onClick={handleCreateLead}
+                            disabled={creatingLead || savingEdit}
+                        >
+                            {isEditMode
+                                ? savingEdit
+                                    ? "Saving..."
+                                    : "Save Changes"
+                                : creatingLead
+                                ? "Creating..."
+                                : "Create Lead"}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* =====================================================
+            {/* ============================================================
                 CUSTOMER MODAL
-            ===================================================== */}
+            ============================================================ */}
             {customerModalOpen && !isEditMode && (
-                <div className="modal-overlay">
-                    <div className="modal-card modal-small">
-                        <div className="modal-header">
+                <div className="lead-modal-overlay">
+                    <div className="lead-modal">
+                        <div className="lead-modal-head">
                             <div>
-                                <span className="modal-kicker">
-                                    NEW CUSTOMER
+                                <span className="lead-modal-kicker">
+                                    New Customer
                                 </span>
-                                <h2>Create Customer</h2>
+                                <h2 className="lead-modal-title">Create Customer</h2>
                             </div>
                             <button
                                 type="button"
-                                className="modal-close"
+                                className="lead-close-btn lead-close-btn--sm"
                                 onClick={() => setCustomerModalOpen(false)}
+                                aria-label="Close"
                             >
-                                <X size={15} />
+                                <X size={16} />
                             </button>
                         </div>
 
-                        <div className="modal-body">
-                            <div className="mobile-lock-card">
+                        <div className="lead-modal-body">
+                            <div className="lead-mobile-lock">
                                 <span>Mobile Number</span>
                                 <strong>{customerForm.mobileNumber}</strong>
                             </div>
 
                             <div className="lead-field">
-                                <label>
-                                    Customer Name <span>*</span>
+                                <label className="lead-label">
+                                    Customer Name <span className="lead-req">*</span>
                                 </label>
                                 <input
                                     value={customerForm.customerName}
                                     onChange={(event) =>
-                                        handleCustomerFormChange(
-                                            "customerName",
-                                            event.target.value
-                                        )
+                                        handleCustomerFormChange("customerName", event.target.value)
                                     }
                                     placeholder="Enter customer name"
                                     autoFocus
+                                    className="lead-input"
                                 />
                             </div>
 
                             <div className="lead-field">
-                                <label>
-                                    Customer Type <span>*</span>
+                                <label className="lead-label">
+                                    Customer Type <span className="lead-req">*</span>
                                 </label>
                                 <select
                                     value={customerForm.customerType}
                                     onChange={(event) =>
-                                        handleCustomerFormChange(
-                                            "customerType",
-                                            event.target.value
-                                        )
+                                        handleCustomerFormChange("customerType", event.target.value)
                                     }
+                                    className="lead-input"
                                 >
                                     <option value="WALK_IN">Walk-in</option>
                                     <option value="GARAGE">Garage</option>
@@ -1080,34 +958,28 @@ export default function LeadCreate({
                             {customerForm.customerType !== "WALK_IN" && (
                                 <>
                                     <div className="lead-field">
-                                        <label>
-                                            GST Registration <span>*</span>
+                                        <label className="lead-label">
+                                            GST Registration <span className="lead-req">*</span>
                                         </label>
                                         <select
-                                            value={
-                                                customerForm.gstRegistrationType
-                                            }
+                                            value={customerForm.gstRegistrationType}
                                             onChange={(event) =>
                                                 handleCustomerFormChange(
                                                     "gstRegistrationType",
                                                     event.target.value
                                                 )
                                             }
+                                            className="lead-input"
                                         >
-                                            <option value="UNREGISTERED">
-                                                Unregistered
-                                            </option>
-                                            <option value="REGISTERED">
-                                                Registered
-                                            </option>
+                                            <option value="UNREGISTERED">Unregistered</option>
+                                            <option value="REGISTERED">Registered</option>
                                         </select>
                                     </div>
 
-                                    {customerForm.gstRegistrationType ===
-                                        "REGISTERED" && (
+                                    {customerForm.gstRegistrationType === "REGISTERED" && (
                                         <div className="lead-field">
-                                            <label>
-                                                GSTIN <span>*</span>
+                                            <label className="lead-label">
+                                                GSTIN <span className="lead-req">*</span>
                                             </label>
                                             <input
                                                 value={customerForm.gstin}
@@ -1119,6 +991,7 @@ export default function LeadCreate({
                                                     )
                                                 }
                                                 placeholder="15-character GSTIN"
+                                                className="lead-input"
                                             />
                                         </div>
                                     )}
@@ -1126,10 +999,10 @@ export default function LeadCreate({
                             )}
                         </div>
 
-                        <div className="modal-footer">
+                        <div className="lead-modal-footer">
                             <button
                                 type="button"
-                                className="secondary-button"
+                                className="lead-btn lead-btn--ghost"
                                 onClick={() => setCustomerModalOpen(false)}
                                 disabled={savingCustomer}
                             >
@@ -1137,7 +1010,7 @@ export default function LeadCreate({
                             </button>
                             <button
                                 type="button"
-                                className="primary-button"
+                                className="lead-btn lead-btn--primary"
                                 onClick={handleSaveCustomer}
                                 disabled={savingCustomer}
                             >
@@ -1148,39 +1021,33 @@ export default function LeadCreate({
                 </div>
             )}
 
-            {/* =====================================================
+            {/* ============================================================
                 SALESPERSON MODAL
-            ===================================================== */}
+            ============================================================ */}
             {salespersonModalOpen && !isEditMode && (
-                <div className="modal-overlay">
-                    <div className="modal-card modal-small">
-                        <div className="modal-header">
+                <div className="lead-modal-overlay">
+                    <div className="lead-modal">
+                        <div className="lead-modal-head">
                             <div>
-                                <span className="modal-kicker">
-                                    NEW SALESPERSON
+                                <span className="lead-modal-kicker">
+                                    New Salesperson
                                 </span>
-                                <h2>Add Salesperson</h2>
+                                <h2 className="lead-modal-title">Add Salesperson</h2>
                             </div>
                             <button
                                 type="button"
-                                className="modal-close"
+                                className="lead-close-btn lead-close-btn--sm"
                                 onClick={() => setSalespersonModalOpen(false)}
+                                aria-label="Close"
                             >
-                                <X size={15} />
+                                <X size={16} />
                             </button>
                         </div>
 
-                        <div className="modal-body">
-                            <div className="mobile-lock-card">
-                                <span>Mobile Number</span>
-                                <strong>
-                                    {salespersonForm.mobileNumber}
-                                </strong>
-                            </div>
-
+                        <div className="lead-modal-body">
                             <div className="lead-field">
-                                <label>
-                                    Salesperson Name <span>*</span>
+                                <label className="lead-label">
+                                    Salesperson Name <span className="lead-req">*</span>
                                 </label>
                                 <input
                                     value={salespersonForm.salespersonName}
@@ -1188,20 +1055,41 @@ export default function LeadCreate({
                                     onChange={(event) =>
                                         setSalespersonForm((current) => ({
                                             ...current,
-                                            salespersonName:
-                                                event.target.value,
+                                            salespersonName: event.target.value,
                                         }))
                                     }
                                     placeholder="Enter salesperson name"
                                     autoFocus
+                                    className="lead-input"
+                                />
+                            </div>
+
+                            <div className="lead-field">
+                                <label className="lead-label">
+                                    Mobile Number <span className="lead-req">*</span>
+                                </label>
+                                <input
+                                    value={salespersonForm.mobileNumber}
+                                    inputMode="numeric"
+                                    maxLength={10}
+                                    onChange={(event) =>
+                                        setSalespersonForm((current) => ({
+                                            ...current,
+                                            mobileNumber: event.target.value
+                                                .replace(/\D/g, "")
+                                                .slice(0, 10),
+                                        }))
+                                    }
+                                    placeholder="10-digit mobile number"
+                                    className="lead-input"
                                 />
                             </div>
                         </div>
 
-                        <div className="modal-footer">
+                        <div className="lead-modal-footer">
                             <button
                                 type="button"
-                                className="secondary-button"
+                                className="lead-btn lead-btn--ghost"
                                 onClick={() => setSalespersonModalOpen(false)}
                                 disabled={savingSalesperson}
                             >
@@ -1209,47 +1097,46 @@ export default function LeadCreate({
                             </button>
                             <button
                                 type="button"
-                                className="primary-button"
+                                className="lead-btn lead-btn--primary"
                                 onClick={handleSaveSalesperson}
                                 disabled={savingSalesperson}
                             >
-                                {savingSalesperson
-                                    ? "Saving..."
-                                    : "Save Salesperson"}
+                                {savingSalesperson ? "Saving..." : "Save Salesperson"}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* =====================================================
+            {/* ============================================================
                 SUCCESS POPUP
-            ===================================================== */}
-            {createdLead && !isEditMode && (
-                <div className="modal-overlay">
-                    <div className="modal-card modal-small">
-                        <div className="modal-header">
+            ============================================================ */}
+            {createdLead && !isEditMode && createPortal(
+                <div className="lead-modal-overlay lead-modal-overlay--backdrop">
+                    <div className="lead-modal" role="dialog" aria-modal="true">
+                        <div className="lead-modal-head">
                             <div>
-                                <span className="modal-kicker">
-                                    LEAD CREATED
+                                <span className="lead-modal-kicker">
+                                    Lead Created
                                 </span>
-                                <h2>Lead Created Successfully</h2>
+                                <h2 className="lead-modal-title">
+                                    Lead Created Successfully
+                                </h2>
                             </div>
                             <button
                                 type="button"
-                                className="modal-close"
+                                className="lead-close-btn lead-close-btn--sm"
                                 onClick={() => setCreatedLead(null)}
+                                aria-label="Close"
                             >
-                                <X size={15} />
+                                <X size={16} />
                             </button>
                         </div>
 
-                        <div className="modal-body">
-                            <div className="mobile-lock-card">
+                        <div className="lead-modal-body">
+                            <div className="lead-mobile-lock">
                                 <span>Lead Number</span>
-                                <strong>
-                                    {createdLead.leadNumber || createdLead.id}
-                                </strong>
+                                <strong>{createdLead.leadNumber || createdLead.id}</strong>
                                 <small>
                                     {createdLead.customerName
                                         ? `Customer: ${createdLead.customerName}`
@@ -1258,35 +1145,28 @@ export default function LeadCreate({
                             </div>
                         </div>
 
-                        <div className="modal-footer">
+                        <div className="lead-modal-footer">
                             <button
                                 type="button"
-                                className="secondary-button"
+                                className="lead-btn lead-btn--ghost"
                                 onClick={() => {
                                     setCreatedLead(null);
-                                    if (typeof onClose === "function")
-                                        onClose();
+                                    if (typeof onClose === "function") onClose();
                                 }}
                             >
                                 Close
                             </button>
                             <button
                                 type="button"
-                                className="primary-button"
-                                onClick={() => {
-                                    const base = isSuperAdmin
-                                        ? "/owner/sales"
-                                        : "/store/sales";
-                                    navigate(
-                                        `${base}/leads/${createdLead.id}?view=readonly`
-                                    );
-                                }}
+                                className="lead-btn lead-btn--primary"
+                                onClick={handleViewCreatedLead}
                             >
                                 View Lead
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </section>
     );

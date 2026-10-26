@@ -1,4 +1,4 @@
-import { useRef,  useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
     AlertCircle,
@@ -148,7 +148,9 @@ function KpiCard({ definition, count, selected, onClick }) {
 }
 
 /* ============================================================
-   EDIT LEAD MODAL
+   LEAD FORM FIELDS  (reusable 2-column grid, used by Overview/Edit)
+   viewMode only changes the look; typing in view mode is caught by
+   the parent's change handlers, which switch the drawer to edit mode.
    ============================================================ */
 
 const EDIT_SOURCE_OPTIONS = [
@@ -162,6 +164,153 @@ const EDIT_SOURCE_OPTIONS = [
     { value: "REFERRAL",  label: "Referral"  },
     { value: "OTHER",     label: "Other"     },
 ];
+
+function FieldHint({ message, found }) {
+    if (!message) return null;
+    return (
+        <div className={found ? "lf-hint lf-hint--ok" : "lf-hint"}>
+            {found && <CheckCircle2 size={12} />}
+            {message}
+        </div>
+    );
+}
+
+function LeadFormFields({
+    viewMode = false,
+    customerMobile,
+    onCustomerMobileChange,
+    customerLoading,
+    customerMessage,
+    customerFound,
+    customerName,
+    source,
+    onSourceChange,
+    salespersonMobile,
+    onSalespersonMobileChange,
+    salespersonMessage,
+    salespersonFound,
+    showLocation = false,
+    location = "",
+    onLocationChange,
+    showAssignTo = false,
+    assignTo = "",
+    onAssignToChange,
+    requirement,
+    onRequirementChange,
+}) {
+    return (
+        <div className={`lf-grid${viewMode ? " lf-grid--view" : ""}`}>
+            {/* Row 1: Customer Mobile | Customer Name */}
+            <div className="lf-field">
+                <label>Customer Mobile</label>
+                <div className="lf-input-wrap">
+                    <Search size={14} />
+                    <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        value={customerMobile}
+                        onChange={onCustomerMobileChange}
+                        placeholder="10-digit mobile number"
+                    />
+                    {customerLoading && <span className="lookup-spinner" />}
+                </div>
+                <FieldHint message={customerMessage} found={customerFound} />
+            </div>
+
+            <div className="lf-field">
+                <label>Customer Name</label>
+                <input
+                    className="lf-input"
+                    type="text"
+                    value={customerName}
+                    placeholder="Auto-filled from mobile"
+                    readOnly
+                />
+            </div>
+
+            {/* Row 2: Lead Source | Salesperson Mobile */}
+            <div className="lf-field">
+                <label>Lead Source</label>
+                <select
+                    className="lf-input"
+                    value={source}
+                    onChange={(e) => onSourceChange(e.target.value)}
+                >
+                    <option value="">Select source</option>
+                    {EDIT_SOURCE_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                            {item.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="lf-field">
+                <label>Salesperson Mobile</label>
+                <div className="lf-input-wrap">
+                    <Search size={14} />
+                    <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        value={salespersonMobile}
+                        onChange={onSalespersonMobileChange}
+                        placeholder="10-digit mobile number"
+                    />
+                </div>
+                <FieldHint
+                    message={salespersonMessage}
+                    found={salespersonFound}
+                />
+            </div>
+
+            {/* Row 3: Location | Assign To (only if present on the lead) */}
+            {showLocation && (
+                <div className="lf-field">
+                    <label>Location</label>
+                    <input
+                        className="lf-input"
+                        type="text"
+                        value={location}
+                        onChange={(e) => onLocationChange?.(e.target.value)}
+                        placeholder="Location"
+                    />
+                </div>
+            )}
+
+            {showAssignTo && (
+                <div className="lf-field">
+                    <label>Assign To</label>
+                    <input
+                        className="lf-input"
+                        type="text"
+                        value={assignTo}
+                        onChange={(e) => onAssignToChange?.(e.target.value)}
+                        placeholder="Assignee"
+                    />
+                </div>
+            )}
+
+            {/* Full width */}
+            <div className="lf-field lf-field--full">
+                <label>Customer Requirement</label>
+                <textarea
+                    className="lf-input lf-textarea"
+                    rows={5}
+                    value={requirement}
+                    onChange={(e) => onRequirementChange(e.target.value)}
+                    placeholder="Customer requirement..."
+                />
+            </div>
+        </div>
+    );
+}
+
+/* ============================================================
+   LEAD OVERVIEW / EDIT DRAWER CONTENT
+   initialMode: "view" (card click) | "edit" (Edit button)
+   ============================================================ */
 
 const normalizeEditSource = (value) => {
     if (value == null) return "";
@@ -185,17 +334,27 @@ const EMPTY_EDIT_CUSTOMER = {
     gstin: "",
 };
 
- function EditLeadModal({ lead, mode = "view", onClose, onSaved }) {
-    const readOnly = mode !== "edit";
-
+function EditLeadModal({ lead, initialMode = "edit", onClose, onSaved }) {
     const user = useMemo(() => {
         try { return JSON.parse(localStorage.getItem("user")); }
         catch { return null; }
     }, []);
 
+    /* ---- drawer mode: "view" | "edit" ---- */
+    const [mode, setMode] = useState(initialMode);
+    const isView = mode === "view";
+    // Any edit interaction while in Overview flips the drawer to Edit mode
+    const enterEdit = () => setMode((current) => (current === "view" ? "edit" : current));
+
     const [storeId] = useState(
         String(lead?.storeId ?? lead?.store?.id ?? user?.storeId ?? "")
     );
+
+    // Optional fields: shown only when the lead actually carries them
+    const hasLocationField =
+        lead?.location != null || lead?.storeLocation != null;
+    const hasAssignField =
+        lead?.assignedTo != null || lead?.assignedToName != null;
 
     const [initialSnapshot] = useState({
         customerId: lead?.customerId ?? lead?.customer?.id ?? "",
@@ -204,6 +363,8 @@ const EMPTY_EDIT_CUSTOMER = {
             lead?.source ?? lead?.sourceName ?? lead?.leadSource ?? ""
         ),
         customerRequirement: lead?.customerRequirement || "",
+        location: lead?.location ?? lead?.storeLocation ?? "",
+        assignTo: lead?.assignedTo ?? lead?.assignedToName ?? "",
     });
 
     const [customerMobile, setCustomerMobile] = useState(
@@ -302,35 +463,45 @@ const EMPTY_EDIT_CUSTOMER = {
     const [customerRequirement, setCustomerRequirement] = useState(
         lead?.customerRequirement || ""
     );
+    const [location, setLocation] = useState(
+        lead?.location ?? lead?.storeLocation ?? ""
+    );
+    const [assignTo, setAssignTo] = useState(
+        lead?.assignedTo ?? lead?.assignedToName ?? ""
+    );
     const [saving, setSaving] = useState(false);
 
+    /* ---- dirty detection ---- */
     const hasChanges = useMemo(() => {
-        const snap = initialSnapshot;
-        if (String(selectedCustomer?.id || "") !== String(snap.customerId || ""))
-            return true;
-        if (
+        const s = initialSnapshot;
+        return (
+            String(selectedCustomer?.id || "") !== String(s.customerId || "") ||
             String(selectedSalesperson?.id || "") !==
-            String(snap.salespersonId || "")
-        )
-            return true;
-        if ((source || "") !== (snap.source || "")) return true;
-        if (
-            (customerRequirement || "").trim() !==
-            (snap.customerRequirement || "").trim()
-        )
-            return true;
-        return false;
+                String(s.salespersonId || "") ||
+            (source || "") !== (s.source || "") ||
+            customerRequirement.trim() !==
+                (s.customerRequirement || "").trim() ||
+            (hasLocationField &&
+                String(location).trim() !== String(s.location || "").trim()) ||
+            (hasAssignField &&
+                String(assignTo).trim() !== String(s.assignTo || "").trim())
+        );
     }, [
         initialSnapshot,
         selectedCustomer?.id,
         selectedSalesperson?.id,
         source,
         customerRequirement,
+        location,
+        assignTo,
+        hasLocationField,
+        hasAssignField,
     ]);
 
+    /* ---- load salespersons ---- */
     useEffect(() => {
         let cancelled = false;
-        if (!storeId || readOnly) return undefined;
+        if (!storeId) return undefined;
         const load = async () => {
             try {
                 const response = await getSalespersons(Number(storeId));
@@ -367,16 +538,12 @@ const EMPTY_EDIT_CUSTOMER = {
         load();
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [storeId, lead, readOnly]);
+    }, [storeId, lead]);
 
+    /* ---- resolve customer mobile if missing ---- */
     useEffect(() => {
         let cancelled = false;
-        if (
-            readOnly ||
-            !storeId ||
-            selectedCustomer?.mobileNumber ||
-            !selectedCustomer?.id
-        )
+        if (!storeId || selectedCustomer?.mobileNumber || !selectedCustomer?.id)
             return undefined;
         const name = firstValue(
             lead?.customerName,
@@ -412,10 +579,10 @@ const EMPTY_EDIT_CUSTOMER = {
         };
         resolve();
         return () => { cancelled = true; };
-    }, [storeId, selectedCustomer?.id, selectedCustomer?.mobileNumber, lead, readOnly]);
+    }, [storeId, selectedCustomer?.id, selectedCustomer?.mobileNumber, lead]);
 
+    /* ---- customer lookup ---- */
     const lookupCustomer = async (mobile) => {
-        if (readOnly) return;
         if (!storeId || !/^\d{10}$/.test(mobile)) return;
         setCustomerLoading(true);
         setCustomerMessage("");
@@ -455,7 +622,7 @@ const EMPTY_EDIT_CUSTOMER = {
     };
 
     const handleCustomerMobileChange = (event) => {
-        if (readOnly) return;
+        enterEdit();
         const value = event.target.value.replace(/\D/g, "").slice(0, 10);
         setCustomerMobile(value);
         setCustomerMessage("");
@@ -508,8 +675,8 @@ const EMPTY_EDIT_CUSTOMER = {
         }
     };
 
+    /* ---- salesperson lookup ---- */
     const lookupSalesperson = (mobile) => {
-        if (readOnly) return;
         if (!storeId || !/^\d{10}$/.test(mobile)) return;
         const found = salespersons.find(
             (item) =>
@@ -527,7 +694,7 @@ const EMPTY_EDIT_CUSTOMER = {
     };
 
     const handleSalespersonMobileChange = (event) => {
-        if (readOnly) return;
+        enterEdit();
         const value = event.target.value.replace(/\D/g, "").slice(0, 10);
         setSalespersonMobile(value);
         setSalespersonMessage("");
@@ -568,8 +735,8 @@ const EMPTY_EDIT_CUSTOMER = {
         }
     };
 
+    /* ---- save lead ---- */
     const handleSave = async () => {
-        if (readOnly) return;
         if (!selectedCustomer?.id)
             return alert("Please select or create the customer.");
         if (!customerRequirement.trim())
@@ -577,7 +744,7 @@ const EMPTY_EDIT_CUSTOMER = {
         if (!source) return alert("Lead source is required.");
         setSaving(true);
         try {
-            const updatedLead = await updateLead(lead.id, {
+            const payload = {
                 customerId: selectedCustomer.id,
                 salespersonId:
                     selectedSalesperson?.id ??
@@ -585,7 +752,12 @@ const EMPTY_EDIT_CUSTOMER = {
                     null,
                 source,
                 customerRequirement: customerRequirement.trim(),
-            });
+            };
+            // Verify these field names against your backend DTO
+            if (hasLocationField) payload.location = String(location).trim();
+            if (hasAssignField) payload.assignedTo = String(assignTo).trim();
+
+            const updatedLead = await updateLead(lead.id, payload);
             onSaved?.(updatedLead);
         } catch (error) {
             alert(
@@ -613,175 +785,102 @@ const EMPTY_EDIT_CUSTOMER = {
     };
 
     return (
-        <section className="lead-create-page">
+        <section className={`lead-ov${isView ? " lead-ov--view" : ""}`}>
             {/* HEADER */}
-            <div className="lead-create-header">
-                <div className="lead-create-header-left">
-                    <div className="lead-eyebrow">LEAD MANAGEMENT</div>
-                    <h1>{readOnly ? "Lead Overview" : "Edit Lead"}</h1>
+            <header className="lead-ov-header">
+                <div>
+                    <div className="lead-ov-eyebrow">LEAD MANAGEMENT</div>
+                    <h1 className="lead-ov-title">
+                        {isView ? "Lead Overview" : "Edit Lead"}
+                    </h1>
                 </div>
-                <div className="lead-create-header-right">
-                    <button
-                        type="button"
-                        className="lead-back-button"
-                        onClick={onClose}
-                    >
-                        <X size={13} /> Close
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    className="lead-ov-close"
+                    onClick={onClose}
+                    aria-label="Close"
+                >
+                    <X size={16} />
+                </button>
+            </header>
+
+            {/* BODY */}
+            <div className="lead-ov-body">
+                <LeadFormFields
+                    viewMode={isView}
+                    customerMobile={customerMobile}
+                    onCustomerMobileChange={handleCustomerMobileChange}
+                    customerLoading={customerLoading}
+                    customerMessage={customerMessage}
+                    customerFound={!!selectedCustomer}
+                    customerName={customerName}
+                    source={source}
+                    onSourceChange={(value) => {
+                        enterEdit();
+                        setSource(value);
+                    }}
+                    salespersonMobile={salespersonMobile}
+                    onSalespersonMobileChange={handleSalespersonMobileChange}
+                    salespersonMessage={salespersonMessage}
+                    salespersonFound={!!selectedSalesperson}
+                    showLocation={hasLocationField}
+                    location={location}
+                    onLocationChange={(value) => {
+                        enterEdit();
+                        setLocation(value);
+                    }}
+                    showAssignTo={hasAssignField}
+                    assignTo={assignTo}
+                    onAssignToChange={(value) => {
+                        enterEdit();
+                        setAssignTo(value);
+                    }}
+                    requirement={customerRequirement}
+                    onRequirementChange={(value) => {
+                        enterEdit();
+                        setCustomerRequirement(value);
+                    }}
+                />
             </div>
 
-            <div className="lead-create-card">
-                {/* Customer / Name / Source — 3 columns */}
-                <div className="lead-customer-row">
-                    <div className="lead-field">
-                        <label>Customer Mobile</label>
-                        <div className="lookup-input-wrap">
-                            <Search size={14} />
-                            <input
-                                type="tel"
-                                inputMode="numeric"
-                                maxLength={10}
-                                value={customerMobile}
-                                onChange={handleCustomerMobileChange}
-                                placeholder="10-digit mobile number"
-                                readOnly={readOnly}
-                                disabled={readOnly}
-                            />
-                            {customerLoading && (
-                                <span className="lookup-spinner" />
-                            )}
-                        </div>
-                        {customerMessage && !readOnly && (
-                            <div
-                                className={
-                                    selectedCustomer
-                                        ? "lookup-success"
-                                        : "lookup-hint"
-                                }
-                            >
-                                {selectedCustomer && (
-                                    <CheckCircle2 size={12} />
-                                )}
-                                {customerMessage}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="lead-field">
-                        <label>Customer Name</label>
-                        <input
-                            type="text"
-                            value={customerName}
-                            placeholder="Auto-filled"
-                            readOnly
-                            disabled={readOnly}
-                        />
-                    </div>
-
-                    <div className="lead-field">
-                        <label>Lead Source</label>
-                        {readOnly ? (
-                            <input
-                                type="text"
-                                value={
-                                    (source || "—").replaceAll("_", " ")
-                                }
-                                readOnly
-                            />
-                        ) : (
-                            <select
-                                value={source}
-                                onChange={(e) => setSource(e.target.value)}
-                            >
-                                <option value="">Select source</option>
-                                {EDIT_SOURCE_OPTIONS.map((item) => (
-                                    <option
-                                        key={item.value}
-                                        value={item.value}
-                                    >
-                                        {item.label}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-                </div>
-
-                {/* Salesperson mobile */}
-                <div className="lead-section-grid">
-                    <div className="lead-field">
-                        <label>Salesperson Mobile</label>
-                        <div className="lookup-input-wrap">
-                            <Search size={14} />
-                            <input
-                                type="tel"
-                                inputMode="numeric"
-                                maxLength={10}
-                                value={salespersonMobile}
-                                onChange={handleSalespersonMobileChange}
-                                placeholder="10-digit mobile number"
-                                readOnly={readOnly}
-                                disabled={readOnly}
-                            />
-                        </div>
-                        {salespersonMessage && !readOnly && (
-                            <div
-                                className={
-                                    selectedSalesperson
-                                        ? "lookup-success"
-                                        : "lookup-hint"
-                                }
-                            >
-                                {selectedSalesperson && (
-                                    <CheckCircle2 size={12} />
-                                )}
-                                {salespersonMessage}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Requirement */}
-                <div className="requirement-section">
-                    <h2>Customer Requirement</h2>
-                    <textarea
-                        value={customerRequirement}
-                        onChange={(e) =>
-                            !readOnly &&
-                            setCustomerRequirement(e.target.value)
-                        }
-                        rows={4}
-                        placeholder="Customer requirement..."
-                        readOnly={readOnly}
-                        disabled={readOnly}
-                    />
-                </div>
-
-                {/* Submit — only in edit mode */}
-                {!readOnly && (
-                    <div className="lead-submit-bar">
+            {/* FOOTER */}
+            <footer className="lead-ov-footer">
+                {isView ? (
+                    <button
+                        type="button"
+                        className="lead-ov-btn lead-ov-btn--ghost"
+                        onClick={onClose}
+                    >
+                        Close
+                    </button>
+                ) : (
+                    <>
                         <button
                             type="button"
-                            className="create-lead-button"
+                            className="lead-ov-btn lead-ov-btn--ghost"
+                            onClick={onClose}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className="lead-ov-btn lead-ov-btn--primary"
                             onClick={handleSave}
                             disabled={saving || !hasChanges}
                         >
-                            {saving ? "Saving..." : "Save Changes"}
+                            {saving ? "Saving..." : "Update Changes"}
                         </button>
-                    </div>
+                    </>
                 )}
-            </div>
+            </footer>
 
-            {/* CUSTOMER MODAL — unchanged, keep whatever you already have */}
+            {/* CUSTOMER MODAL */}
             {customerModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-card modal-small">
                         <div className="modal-header">
                             <div>
-                                <span className="modal-kicker">
-                                    CUSTOMER
-                                </span>
+                                <span className="modal-kicker">CUSTOMER</span>
                                 <h2>Create Customer</h2>
                             </div>
                             <button
@@ -827,9 +926,7 @@ const EMPTY_EDIT_CUSTOMER = {
                                 >
                                     <option value="WALK_IN">Walk-in</option>
                                     <option value="RETAIL">Retail</option>
-                                    <option value="WHOLESALE">
-                                        Wholesale
-                                    </option>
+                                    <option value="WHOLESALE">Wholesale</option>
                                     <option value="BUSINESS">Business</option>
                                 </select>
                             </div>
@@ -901,15 +998,13 @@ const EMPTY_EDIT_CUSTOMER = {
                 </div>
             )}
 
-            {/* SALESPERSON MODAL — unchanged */}
+            {/* SALESPERSON MODAL */}
             {salespersonModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-card modal-small">
                         <div className="modal-header">
                             <div>
-                                <span className="modal-kicker">
-                                    SALESPERSON
-                                </span>
+                                <span className="modal-kicker">SALESPERSON</span>
                                 <h2>Create Salesperson</h2>
                             </div>
                             <button
@@ -923,9 +1018,7 @@ const EMPTY_EDIT_CUSTOMER = {
                         <div className="modal-body">
                             <div className="mobile-lock-card">
                                 <span>Mobile Number</span>
-                                <strong>
-                                    {salespersonForm.mobileNumber}
-                                </strong>
+                                <strong>{salespersonForm.mobileNumber}</strong>
                             </div>
                             <div className="lead-field">
                                 <label>
@@ -1004,8 +1097,8 @@ function LeadList() {
     const [filterStatus, setFilterStatus] = useState("");
     const [followUpAlertVisible, setFollowUpAlertVisible] = useState(true);
 
-    const [editingLead, setEditingLead] = useState(null);
-    const [editingMode, setEditingMode] = useState("view"); 
+    // Overview / Edit drawer: { lead, mode: "view" | "edit", nonce }
+    const [drawer, setDrawer] = useState(null);
 
     /* ---- drawer state ---- */
     const [procurementLead, setProcurementLead] = useState(null);
@@ -1065,6 +1158,16 @@ function LeadList() {
         loadLeads();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, store, refreshTick]);
+
+    /* ---- Esc closes the overview/edit drawer ---- */
+    useEffect(() => {
+        if (!drawer) return undefined;
+        const onKey = (e) => {
+            if (e.key === "Escape") setDrawer(null);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [drawer]);
 
     const filteredLeads = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
@@ -1194,15 +1297,13 @@ function LeadList() {
 
     /* -------- Card handlers -------- */
 
-    // Card body → opens editable overview
-    const handleOpenOverview = (lead) => {
-    setEditingMode("view");
-    setEditingLead(lead);
-};
-const handleEditLead = (lead) => {
-    setEditingMode("edit");
-    setEditingLead(lead);
-};
+    // Card click → read-only Lead Overview (flips to Edit on first keystroke)
+    const handleOpenOverview = (lead) =>
+        setDrawer({ lead, mode: "view", nonce: Date.now() });
+
+    // Edit button → editable "Edit Lead"
+    const handleEditLead = (lead) =>
+        setDrawer({ lead, mode: "edit", nonce: Date.now() });
 
     const handleOpenProcurement = (lead) => {
         if (lead?.id) setProcurementLead(lead);
@@ -1213,24 +1314,25 @@ const handleEditLead = (lead) => {
     };
 
     // Procurement → Follow-up: direct move, no drawer
-   const handleMoveToFollowUp = async (lead) => {
-    if (!lead?.id) return;
-    try {
-        await completeLeadProcurement(lead.id);
-        pushToast(
-            `${lead.leadNumber || "Lead"} moved to Customer Follow-up`,
-            "success"
-        );
-        loadLeads();
-    } catch (error) {
-        pushToast(
-            error?.response?.data?.message ||
-                error?.response?.data?.error ||
-                "Unable to move lead to follow-up.",
-            "error"
-        );
-    }
-};
+    const handleMoveToFollowUp = async (lead) => {
+        if (!lead?.id) return;
+        try {
+            await completeLeadProcurement(lead.id);
+            pushToast(
+                `${lead.leadNumber || "Lead"} moved to Customer Follow-up`,
+                "success"
+            );
+            loadLeads();
+        } catch (error) {
+            pushToast(
+                error?.response?.data?.message ||
+                    error?.response?.data?.error ||
+                    "Unable to move lead to follow-up.",
+                "error"
+            );
+        }
+    };
+
     const refreshAfterAction = () => {
         setProcurementLead(null);
         setFollowUpLead(null);
@@ -1269,9 +1371,7 @@ const handleEditLead = (lead) => {
                 </div>
             </header>
 
-            {/* ==============================
-                KPI CARDS
-            ============================== */}
+            {/* KPI CARDS */}
             <section className="lead-kpi-grid" aria-label="Lead summary">
                 {KPI_DEFINITIONS.map((definition) => {
                     const stageByKpi = {
@@ -1296,9 +1396,7 @@ const handleEditLead = (lead) => {
                 })}
             </section>
 
-            {/* ==============================
-                TOOLBAR
-            ============================== */}
+            {/* TOOLBAR */}
             <section className="lead-toolbar">
                 <div className="lead-toolbar-search">
                     <Search size={15} />
@@ -1373,9 +1471,7 @@ const handleEditLead = (lead) => {
                 )}
             </section>
 
-            {/* ==============================
-                FOLLOW-UP ALERT
-            ============================== */}
+            {/* FOLLOW-UP ALERT */}
             {followUpAlertVisible && counts.followUp > 0 && (
                 <div className="lead-followup-alert" role="status">
                     <div className="lead-alert-content">
@@ -1413,9 +1509,7 @@ const handleEditLead = (lead) => {
                 </div>
             )}
 
-            {/* ==============================
-                KANBAN BOARD
-            ============================== */}
+            {/* KANBAN BOARD */}
             <section className="lead-kanban">
                 {loading ? (
                     <div className="lead-empty-state">
@@ -1491,9 +1585,7 @@ const handleEditLead = (lead) => {
                 )}
             </section>
 
-            {/* ==============================
-                PAGINATION
-            ============================== */}
+            {/* PAGINATION */}
             {!loading && totalPages > 1 && (
                 <div className="lead-pagination">
                     <button
@@ -1522,43 +1614,32 @@ const handleEditLead = (lead) => {
                 </div>
             )}
 
-            {/* ==============================
-                EDIT LEAD DRAWER (also the "overview")
-            ============================== */}
-            {editingLead && (
-                <div
-                    className="lead-drawer-backdrop"
-                    onClick={() => setEditingLead(null)}
-                >
-                    <aside
-                        className="lead-drawer lead-drawer--narrow"
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        <EditLeadModal
-                            lead={editingLead}
-                             mode={editingMode}
-                            onClose={() => setEditingLead(null)}
-                            onSaved={(updatedLead) => {
-                                setLeads((currentLeads) =>
-                                    currentLeads.map((item) =>
-                                        String(item?.id) ===
-                                        String(updatedLead?.id)
-                                            ? { ...item, ...updatedLead }
-                                            : item
-                                    )
-                                );
-                                setEditingLead(null);
-                                pushToast("Lead updated successfully.", "success");
-                                loadLeads();
-                            }}
-                        />
-                    </aside>
-                </div>
+            {/* LEAD OVERVIEW / EDIT DRAWER — no backdrop, compact slide-over */}
+            {drawer && (
+                <aside className="lead-drawer lead-drawer--wide">
+                    <EditLeadModal
+                        key={drawer.nonce}
+                        lead={drawer.lead}
+                        initialMode={drawer.mode}
+                        onClose={() => setDrawer(null)}
+                        onSaved={(updatedLead) => {
+                            setLeads((currentLeads) =>
+                                currentLeads.map((item) =>
+                                    String(item?.id) ===
+                                    String(updatedLead?.id)
+                                        ? { ...item, ...updatedLead }
+                                        : item
+                                )
+                            );
+                            setDrawer(null);
+                            pushToast("Lead updated successfully.", "success");
+                            loadLeads();
+                        }}
+                    />
+                </aside>
             )}
 
-            {/* ==============================
-                PROCUREMENT DRAWER
-            ============================== */}
+            {/* PROCUREMENT DRAWER */}
             {procurementLead && (
                 <div
                     className="lead-drawer-backdrop"
@@ -1578,9 +1659,7 @@ const handleEditLead = (lead) => {
                 </div>
             )}
 
-            {/* ==============================
-                FOLLOW-UP DRAWER
-            ============================== */}
+            {/* FOLLOW-UP DRAWER */}
             {followUpLead && (
                 <div
                     className="lead-drawer-backdrop"
@@ -1600,9 +1679,7 @@ const handleEditLead = (lead) => {
                 </div>
             )}
 
-            {/* ==============================
-                CREATE LEAD DRAWER
-            ============================== */}
+            {/* CREATE LEAD DRAWER */}
             {showCreateLeadDrawer && (
                 <div
                     className="lead-drawer-backdrop"
@@ -1617,10 +1694,22 @@ const handleEditLead = (lead) => {
                                 setPage(0);
                                 setStore(current => current ? String(created.storeId) : "");
                                 setRefreshTick(current => current + 1);
+                                pushToast(
+                                    `${created?.leadNumber || "Lead"} created successfully.`,
+                                    "success"
+                                );
+                            }}
+                            onToast={pushToast}
+                            onViewLead={(created) => {
+                                setShowCreateLeadDrawer(false);
+                                setDrawer({
+                                    lead: created,
+                                    mode: "view",
+                                    nonce: Date.now(),
+                                });
                             }}
                             onClose={() => {
                                 setShowCreateLeadDrawer(false);
-                                pushToast("Lead created successfully.", "success");
                                 loadLeads();
                             }}
                         />
@@ -1628,9 +1717,7 @@ const handleEditLead = (lead) => {
                 </div>
             )}
 
-            {/* ==============================
-                TOAST STACK
-            ============================== */}
+            {/* TOAST STACK */}
             <div className="lead-toast-stack" aria-live="polite">
                 {toasts.map((t) => (
                     <div

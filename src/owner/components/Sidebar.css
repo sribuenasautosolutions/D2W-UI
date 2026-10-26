@@ -1,27 +1,22 @@
 /* ============================================================
-   APP SIDEBAR
+   APP SIDEBAR CONFIGURATIONS (Solid Theme & Sharp Fonts)
    ============================================================ */
 
-/* Hidden scrollbar for the sidebar nav (Firefox / old Edge) */
+/* Force clean hardware subpixel text anti-aliasing across the component */
+.app-sidebar-container, 
+aside, 
+.app-sidebar-nav {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Hidden scrollbar for the sidebar nav */
 .app-sidebar-nav {
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
 
-/* Hidden scrollbar for the sidebar nav (Chrome / Safari) */
-.app-sidebar-nav::-webkit-scrollbar {
-    display: none;
-}
-
-/* ============================================================
-   SIDEBAR — icon rail + flyout
-   ============================================================ */
-
-/* Hidden scrollbar on the nav (Firefox / old Edge) */
-.app-sidebar-nav {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
 .app-sidebar-nav::-webkit-scrollbar {
     display: none;
 }
@@ -31,54 +26,53 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.06);
-    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: #111827;
+    color: #ffffff;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease,
-        border-color 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
     flex-shrink: 0;
 }
+
 .sidebar-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.24);
+    background: #1E293B;
+    border-color: #475569;
 }
+
 .sidebar-toggle-btn:focus-visible {
-    outline: 2px solid rgba(96, 165, 250, 0.65);
+    outline: 2px solid #2563EB;
     outline-offset: 2px;
 }
 
-/* Small divider shown between sections in collapsed mode */
+/* Divider shown between sections in collapsed mode */
 .sidebar-divider {
     height: 1px;
-    margin: var(--sp-3) var(--sp-2);
-    background: rgba(255, 255, 255, 0.08);
+    margin: 12px 8px;
+    background: #1E293B;
 }
 
-/* Flyout panel */
+/* Solid dark slate flyout panel */
 .sidebar-flyout {
     position: fixed;
     z-index: 1000;
-    min-width: 210px;
-    padding: var(--sp-2);
-    background: linear-gradient(180deg, #0b2a66 0%, #1247a8 100%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+    min-width: 220px;
+    padding: 8px;
+    background: #0F172A;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
     color: #ffffff;
-    
-    animation: sidebarFlyoutIn 0.14s ease both;
+    animation: sidebarFlyoutIn 0.14s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes sidebarFlyoutIn {
     from {
         opacity: 0;
-        transform: translateX(-6px);
+        transform: translateX(-4px);
     }
     to {
         opacity: 1;
@@ -87,32 +81,31 @@
 }
 
 .sidebar-flyout-header {
-    padding: var(--sp-1) var(--sp-3) var(--sp-2);
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #93b4ea;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    margin-bottom: var(--sp-2);
+    color: #94A3B8;
+    border-bottom: 1px solid #1E293B;
+    margin-bottom: 6px;
 }
 
 .sidebar-flyout-body {
     display: grid;
     gap: 2px;
 }
+
+/* Micro typography for text labels under icons in collapsed rail mode */
 .sidebar-label-rail {
     display: block;
-    margin-top: var(--sp-1);
-    font-size: 9px;
-    font-weight: 700;
-    line-height: 10px;
-    letter-spacing: 0.02em;
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 14px;
+    letter-spacing: 0.01em;
     text-align: center;
-
-    /* palette-aware colours */
-    color: #f3f5f9;                     
-
+    color: #CBD5E1;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -120,17 +113,16 @@
     transition: color 0.15s ease;
 }
 
-/* Hover state — brighter, friendlier blue */
+/* Clear white contrast adjustments on interaction chains */
 .app-sidebar-nav a:hover .sidebar-label-rail,
 .app-sidebar-nav button:hover .sidebar-label-rail,
 .sidebar-group-button:hover .sidebar-label-rail {
-    color: #E0E8F7;
+    color: #ffffff;
 }
 
-/* Active state — pure white so the current page pops */
 .app-sidebar-nav a[aria-current="page"] .sidebar-label-rail,
 .app-sidebar-nav a.is-active .sidebar-label-rail,
 .sidebar-group-button[aria-expanded="true"] .sidebar-label-rail {
-    color: #FFFFFF;
-    font-weight: 800;
+    color: #ffffff;
+    font-weight: 700;
 }

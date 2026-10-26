@@ -163,25 +163,25 @@ function Sidebar() {
             justifyContent: collapsed ? "center" : "flex-start",
             gap: collapsed ? 0 : "12px",
             minHeight: collapsed ? "60px" : "40px",
-            color: danger ? "#FCA5A5" : isActive ? "#FFFFFF" : "#94A3B8",
+            color: danger ? "#FF8080" : isActive ? "#FFFFFF" : "#CBD5E1",
             textDecoration: "none",
             padding: collapsed ? "8px 0" : "8px 12px",
             borderRadius: "6px",
             fontSize: "13.5px",
-            fontWeight: isActive ? 700 : 600,
+            fontWeight: isActive ? 700 : 500,
             background:
-                isActive && !danger ? "rgba(37, 99, 235, 0.72)" : "transparent",
+                isActive && !danger ? "#1E40AF" : "transparent",
             boxSizing: "border-box",
             flexDirection: collapsed ? "column" : "row",
         };
     };
 
     const sectionLabelStyle = {
-        fontSize: "10.5px",
+        fontSize: "11px",
         fontWeight: 700,
         letterSpacing: "0.8px",
         textTransform: "uppercase",
-        color: "#64748B",
+        color: "#94A3B8",
         padding: "18px 12px 6px",
     };
 
@@ -193,14 +193,14 @@ function Sidebar() {
         alignItems: "center",
         justifyContent: collapsed ? "center" : "flex-start",
         gap: collapsed ? 0 : "12px",
-        color: isActive ? "#FFFFFF" : "#94A3B8",
+        color: isActive ? "#FFFFFF" : "#CBD5E1",
         padding: collapsed ? "8px 0" : "8px 12px",
         border: 0,
         borderRadius: "6px",
-        background: isActive ? "rgba(37, 99, 235, 0.34)" : "transparent",
+        background: isActive ? "#1E3A8A" : "transparent",
         fontFamily: "inherit",
         fontSize: "13.5px",
-        fontWeight: isActive ? 700 : 600,
+        fontWeight: isActive ? 700 : 500,
         cursor: "pointer",
     });
 
@@ -210,7 +210,7 @@ function Sidebar() {
         gap: "10px",
         minHeight: "34px",
         color:
-            routeActive && currentView === view ? "#FFFFFF" : "#94A3B8",
+            routeActive && currentView === view ? "#FFFFFF" : "#CBD5E1",
         textDecoration: "none",
         padding: "7px 12px 7px 40px",
         borderRadius: "6px",
@@ -218,7 +218,7 @@ function Sidebar() {
         fontWeight: routeActive && currentView === view ? 700 : 500,
         background:
             routeActive && currentView === view
-                ? "rgba(37, 99, 235, 0.72)"
+                ? "#1E40AF"
                 : "transparent",
         boxSizing: "border-box",
     });
@@ -235,7 +235,7 @@ function Sidebar() {
         fontSize: "13px",
         fontWeight: isActive ? 700 : 500,
         background: isActive
-            ? "rgba(37, 99, 235, 0.72)"
+            ? "#1E40AF"
             : "transparent",
         whiteSpace: "nowrap",
         boxSizing: "border-box",
@@ -245,7 +245,6 @@ function Sidebar() {
 
     const inventoryItems = [
         { key: "stock", label: "Current Stock", icon: PackageSearch },
-        { key: "bulkstock", label: "Opening & Bulk Stock", icon: Upload },
         { key: "transactions", label: "Transactions", icon: History },
         { key: "adjustment", label: "Adjustments", icon: SlidersHorizontal },
         { key: "batchreport", label: "Batch Report", icon: ClipboardList },
@@ -254,9 +253,9 @@ function Sidebar() {
 
     const purchaseItems = [
         { key: "vendors", label: "Vendors", icon: UsersRound },
-       // { key: "vendororders", label: "Vendor Orders", icon: ClipboardList },
+        { key: "vendororders", label: "Vendor Orders", icon: ClipboardList },
         { key: "bills", label: "Bills", icon: CirclePlus },
-       // { key: "requestd2w", label: "D2W Stock Requests", icon: Truck },
+        { key: "requestd2w", label: "D2W Stock Requests", icon: Truck },
     ];
 
     const salesItems = [
@@ -299,8 +298,7 @@ function Sidebar() {
             <aside
                 style={{
                     width: `${sidebarWidth}px`,
-                    background:
-                        "linear-gradient(180deg,#071633 0%,#0B2A66 50%,#1247A8 100%)",
+                    backgroundColor: "#0A1128", // Solid clean dark slate navy
                     color: "#FFFFFF",
                     minHeight: "100vh",
                     padding: collapsed ? "8px 8px 14px" : "8px 14px 14px",
@@ -308,11 +306,11 @@ function Sidebar() {
                     flexDirection: "column",
                     fontFamily:
                         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif",
-                    borderRight: "1px solid rgba(255,255,255,0.06)",
+                    borderRight: "1px solid #1E293B",
                     boxSizing: "border-box",
                     flexShrink: 0,
                     transition: "width 0.2s ease, padding 0.2s ease",
-                    height: "100vh",                    /* ← add: fills viewport exactly */
+                    height: "100vh",
                     margin: 0, 
                 }}
             >
@@ -326,6 +324,8 @@ function Sidebar() {
                             : "space-between",
                         gap: "8px",
                         padding: collapsed ? "0 0 16px" : "0 4px 16px",
+                        borderBottom: "1px solid #1E293B",
+                        marginBottom: "12px",
                     }}
                 >
                     {!collapsed && (
@@ -371,9 +371,6 @@ function Sidebar() {
                     {isOwner && !collapsed && (
                         <div style={sectionLabelStyle}>Catalog</div>
                     )}
-                    {/* {isOwner && collapsed && (
-                        <div className="sidebar-divider" />
-                    )} */}
 
                     {isOwner && (
                         <Link
@@ -411,7 +408,6 @@ function Sidebar() {
                     {!collapsed && (
                         <div style={sectionLabelStyle}>Operations</div>
                     )}
-                    {/* {collapsed && <div className="sidebar-divider" />} */}
 
                     {/* Inventory group */}
                     <button
@@ -612,7 +608,6 @@ function Sidebar() {
                             {!collapsed && (
                                 <div style={sectionLabelStyle}>Team</div>
                             )}
-                            {/* {collapsed && <div className="sidebar-divider" />} */}
                             <Link
                                 to="/store/users"
                                 style={linkStyle("/store/users")}
@@ -628,7 +623,7 @@ function Sidebar() {
                 {/* footer card */}
                 <div
                     style={{
-                        borderTop: "1px solid rgba(255,255,255,0.08)",
+                        borderTop: "1px solid #1E293B",
                         paddingTop: "14px",
                         marginTop: "12px",
                     }}
@@ -645,8 +640,8 @@ function Sidebar() {
                                 width: "100%",
                                 height: "38px",
                                 borderRadius: "8px",
-                                color: "#FCA5A5",
-                                background: "rgba(248,113,113,0.08)",
+                                color: "#FF8080",
+                                background: "rgba(239, 68, 68, 0.12)",
                                 textDecoration: "none",
                             }}
                         >
@@ -660,23 +655,23 @@ function Sidebar() {
                                     "32px minmax(0, 1fr) 30px",
                                 alignItems: "center",
                                 gap: "8px",
-                                padding: "7px 8px",
-                                borderRadius: "10px",
-                                background: "rgba(255,255,255,0.06)",
-                                border: "1px solid rgba(255,255,255,0.08)",
+                                padding: "8px",
+                                borderRadius: "8px",
+                                background: "#111827",
+                                border: "1px solid #1E293B",
                             }}
                         >
                             <div
                                 style={{
                                     width: "32px",
                                     height: "32px",
-                                    borderRadius: "8px",
+                                    borderRadius: "6px",
                                     display: "grid",
                                     placeItems: "center",
                                     color: "#FFFFFF",
-                                    background: "#3158D4",
-                                    fontSize: "10.5px",
-                                    fontWeight: 800,
+                                    background: "#2563EB",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
                                 }}
                             >
                                 {initials}
@@ -684,8 +679,9 @@ function Sidebar() {
                             <div style={{ minWidth: 0 }}>
                                 <div
                                     style={{
-                                        fontSize: "11.5px",
-                                        fontWeight: 750,
+                                        fontSize: "12px",
+                                        fontWeight: 700,
+                                        color: "#FFFFFF",
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
                                         whiteSpace: "nowrap",
@@ -696,8 +692,8 @@ function Sidebar() {
                                 <div
                                     style={{
                                         marginTop: "2px",
-                                        color: "#8EA0BE",
-                                        fontSize: "9px",
+                                        color: "#94A3B8",
+                                        fontSize: "10px",
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
                                         whiteSpace: "nowrap",
@@ -719,9 +715,9 @@ function Sidebar() {
                                     height: "30px",
                                     display: "grid",
                                     placeItems: "center",
-                                    borderRadius: "7px",
-                                    color: "#FCA5A5",
-                                    background: "rgba(248,113,113,0.08)",
+                                    borderRadius: "6px",
+                                    color: "#FF8080",
+                                    background: "rgba(239, 68, 68, 0.12)",
                                     textDecoration: "none",
                                 }}
                             >
@@ -732,7 +728,7 @@ function Sidebar() {
                 </div>
             </aside>
 
-            {/* Flyout panels — rendered as siblings, positioned with fixed */}
+            {/* Flyout panels */}
             {collapsed && openFlyout && flyoutRect && (
                 <div
                     className="sidebar-flyout"
