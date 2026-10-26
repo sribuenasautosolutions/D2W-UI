@@ -47,6 +47,16 @@ export const getInvoice = async (orderId) => {
   return response.data;
 };
 
+export const previewInvoiceAmendment = async (orderId, payload) => {
+  const response = await apiclient.post(`/orders/${orderId}/amendment-preview`, payload);
+  return response.data;
+};
+
+export const amendInvoice = async (orderId, payload) => {
+  const response = await apiclient.put(`/orders/${orderId}`, payload);
+  return response.data;
+};
+
 /**
  * GET /orders
  * Returns every order across all stores (list/report row shape).

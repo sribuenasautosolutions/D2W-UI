@@ -1245,6 +1245,22 @@ const handleEditLead = (lead) => {
                     <button
                         type="button"
                         className="lead-new-btn"
+                        style={{ background: "#0f766e", borderColor: "#0f766e" }}
+                        onClick={() => navigate(`${basePath}/leads/chats`)}
+                    >
+                        Chats
+                    </button>
+                    <button
+                        type="button"
+                        className="lead-new-btn"
+                        style={{ background: "#16a34a", borderColor: "#16a34a" }}
+                        onClick={() => navigate(`${basePath}/leads/whatsapp`)}
+                    >
+                        WhatsApp
+                    </button>
+                    <button
+                        type="button"
+                        className="lead-new-btn"
                         onClick={() => setShowCreateLeadDrawer(true)}
                     >
                         <Plus size={16} strokeWidth={2.4} />
@@ -1642,4 +1658,4 @@ const handleEditLead = (lead) => {
     );
 }
 
-export default LeadList;
+export default LeadList; 

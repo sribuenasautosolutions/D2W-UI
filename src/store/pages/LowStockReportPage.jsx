@@ -1,35 +1,40 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {getLowStockReport,getLowStockItems} from "../../services/reportService";
 
 function LowStockReportPage() {
+  const navigate = useNavigate();
+  const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
+  const storeId = user.storeId;
+  const [error, setError] = useState("");
 
   const [report, setReport] = useState(null);
   const [items, setItems] = useState([]);
 
-  useEffect(() => {
-    loadReport();
-  }, []);
-
-  const loadReport = async () => {
+  const loadReport = useCallback(async () => {
+    setError("");
 
     try {
 
       const reportData =
-        await getLowStockReport();
+        await getLowStockReport(storeId);
 
       const itemData =
-        await getLowStockItems();
+        await getLowStockItems(storeId);
 
       setReport(reportData);
       setItems(itemData);
 
     } catch (error) {
 
-      console.error(error);
+      setError(error.response?.data?.message || "Unable to load low-stock report.");
 
     }
-  };
+  }, [storeId]);
 
+  useEffect(() => { loadReport(); }, [loadReport]);
+
+  if (error) return <div role="alert">{error}<button onClick={loadReport}>Retry</button></div>;
   if (!report) {
     return <h2>Loading Low Stock Report...</h2>;
   }
@@ -73,7 +78,7 @@ function LowStockReportPage() {
         >
           <h3>Total Low Stock Items</h3>
           <h1>
-            {report.totalLowStockItems}
+            {report.lowStockItems ?? report.totalLowStockItems}
           </h1>
         </div>
 
@@ -174,6 +179,7 @@ function LowStockReportPage() {
 
                   <td style={{ padding: "12px" }}>
                     {item.productName}
+                    {storeId && <button onClick={() => navigate(`/store/inventory/products/${item.inventoryId}/manage?storeId=${storeId}&section=adjustment`)}>Adjust stock</button>}
                   </td>
 
                   <td style={{ padding: "12px" }}>
@@ -181,7 +187,7 @@ function LowStockReportPage() {
                   </td>
 
                   <td style={{ padding: "12px" }}>
-                    {item.quantity}
+                    {item.currentStock}
                   </td>
 
                   <td style={{ padding: "12px" }}>
@@ -190,9 +196,9 @@ function LowStockReportPage() {
 
                   <td style={{ padding: "12px" }}>
 
-                    {item.quantity === 0
+                    {item.currentStock === 0
                       ? "OUT OF STOCK"
-                      : item.quantity <= 2
+                      : item.currentStock <= 2
                       ? "CRITICAL"
                       : "LOW STOCK"}
 

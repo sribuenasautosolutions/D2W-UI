@@ -1,4 +1,4 @@
-import { Eye } from "lucide-react";
+import { Eye, Download, Pencil } from "lucide-react";
 
 const formatMoney = (value) => {
     return `₹ ${Number(value || 0).toLocaleString("en-IN", {
@@ -35,6 +35,8 @@ export default function SalesInvoiceTable({
     isSuperAdmin,
     selectedStoreId,
     onViewInvoice,
+    onDownloadInvoice,
+    onEditInvoice,
 }) {
     const showStoreColumn = isSuperAdmin && !selectedStoreId;
 
@@ -121,12 +123,18 @@ export default function SalesInvoiceTable({
                                     type="button"
                                     className="sales-view-button"
                                     title="View invoice"
+                                    aria-label="View invoice"
                                     onClick={() =>
                                         onViewInvoice(sale.orderId)
                                     }
                                 >
                                     <Eye size={16} />
                                 </button>
+                                <button type="button" className="sales-view-button" title="Download invoice" aria-label="Download invoice"
+                                    onClick={() => onDownloadInvoice(sale.orderId)}><Download size={16} /></button>
+                                <button type="button" className="sales-view-button" title="Edit invoice" aria-label="Edit invoice"
+                                    disabled={["CANCELLED", "RETURNED"].includes(sale.orderStatus)}
+                                    onClick={() => onEditInvoice(sale.orderId)}><Pencil size={16} /></button>
                             </td>
                         </tr>
                     ))}

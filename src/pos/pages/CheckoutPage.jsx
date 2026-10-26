@@ -9,9 +9,6 @@ import d2wLogo from "./D2W-Logo.png";
 import "./CheckoutPage.css";
 
 
-const FIXED_GST_TYPE = "GST_18";
-const FIXED_GST_LABEL = "18%";
-
 const RECALC_DEBOUNCE_MS = 400;
 
 
@@ -67,7 +64,7 @@ function CheckoutPage() {
   const [checkingQuantity, setCheckingQuantity] = useState(false);
   const quantityCheckRef = useRef(false);
   const currentCartRef = useRef(cartItems);
-  currentCartRef.current = cartItems;
+  useEffect(() => { currentCartRef.current = cartItems; }, [cartItems]);
   const [activeOrderId, setActiveOrderId] = useState(searchParams.get("orderId") || "");
   const [activeDraftId] = useState(searchParams.get("draftId") || localStorage.getItem("pos_active_draft_id") || "");
 
@@ -96,11 +93,13 @@ function CheckoutPage() {
      { storeId, billDiscountPercent, items: [{ inventoryId, quantity,
        discountPercentage, gstType }] }
      StoreInventory is the pillar — POS always sells by inventoryId,
-     never by productId (which is null for Local Products). GST is
-     always FIXED_GST_TYPE now — no per-item or per-invoice override.
+     never by productId (which is null for Local Products).
      ============================================================ */
 
-  const effectiveGstType = useCallback(() => FIXED_GST_TYPE, []);
+  const effectiveGstType = useCallback((item) => {
+    const rate = Number(item.gstPercentage ?? 0);
+    return rate === 0 ? "NONE" : `${item.gstType?.startsWith("IGST_") ? "IGST" : "GST"}_${rate}`;
+  }, []);
 
   const buildCalculationRequest = useCallback(
     () => ({
@@ -558,9 +557,8 @@ function CheckoutPage() {
                             />
                           </td>
 
-                          {/* GST — fixed at 18%, no longer editable */}
                           <td>
-                            <span className="checkout-gst-fixed">{FIXED_GST_LABEL}</span>
+                            <span className="checkout-gst-fixed">{Number(item.gstPercentage ?? 0)}%</span>
                           </td>
 
                           {/* Taxable — readonly, from backend */}
