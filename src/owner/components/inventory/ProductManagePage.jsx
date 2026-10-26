@@ -48,7 +48,7 @@ const ProductManagePage = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const [activeSection, setActiveSection] = useState("pricing");
+  const [activeSection, setActiveSection] = useState(searchParams.get("section") === "adjustment" ? "adjustment" : "pricing");
   const [transactions, setTransactions] = useState([]);
   const [batches, setBatches] = useState([]);
   const [rackDrafts, setRackDrafts] = useState({});
@@ -202,12 +202,11 @@ const ProductManagePage = () => {
         });
       }
 
-      // NOTE: there's no purchase-price update endpoint among the imported
-      // services, so that field is shown but not persisted yet — wire up a
-      // real endpoint here if you need it saved.
       if (Number(formData.sellingPrice) !== Number(product.sellingPrice)
-          || Number(formData.mrp) !== Number(product.mrp)) {
+          || Number(formData.mrp) !== Number(product.mrp)
+          || Number(formData.purchasePrice) !== Number(product.purchasePrice)) {
         await updateInventoryPrices(inventoryId, {
+          purchasePrice: Number(formData.purchasePrice),
           sellingPrice: Number(formData.sellingPrice),
           mrp: Number(formData.mrp),
         });
@@ -228,6 +227,9 @@ const ProductManagePage = () => {
 
     try {
       const quantity = Number(adjustmentData.quantity);
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        setAdjustmentError("Enter a positive whole-number quantity."); return;
+      }
       const adjustedQty = adjustmentData.adjustmentType === "add"
         ? Number(availableStock) + quantity
         : Number(availableStock) - quantity;

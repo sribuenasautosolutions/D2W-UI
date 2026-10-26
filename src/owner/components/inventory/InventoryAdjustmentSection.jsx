@@ -40,7 +40,7 @@ export default function InventoryAdjustmentSection() {
     setMessage(null);
     try {
       const response = await api.get(`/store-inventory/store/${storeId}`);
-      setInventory((response.data || []).filter((item) => Number(item.quantity) > 0));
+      setInventory(response.data || []);
     } catch (error) {
       setInventory([]);
       setMessage({ type: "error", text: error.response?.data?.message || "Unable to load available stock" });

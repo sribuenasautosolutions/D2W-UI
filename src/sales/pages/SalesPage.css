@@ -446,6 +446,7 @@ h1, h2, h3, h4, h5, h6, strong, b {
 }
 
 .sales-view-button {
+    margin-left: 3px;
     width: 34px;
     height: 34px;
     display: inline-flex;

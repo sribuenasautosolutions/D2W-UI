@@ -51,6 +51,7 @@ export default function OpeningStockManualEntry({
   storeId,
   validatePrices,
   onSelectApproved,
+  onCreated,
   compact = false,
 }) {
   const [form, setForm] = useState(emptyForm);
@@ -195,6 +196,7 @@ export default function OpeningStockManualEntry({
         setPricePreview(null);
         setEnteredPriceFields([]);
         if (!compact) await refresh();
+        onCreated?.(result);
       }
     } catch (err) {
       setError(requestError(err, "Submission failed. Check your connection and retry."));
@@ -279,7 +281,7 @@ export default function OpeningStockManualEntry({
                       const value = event.target.value;
                       const keys = ["mrp", "purchasePrice", "sellingPrice"];
                       if (keys.includes(key)) {
-                        const fields = new Set(keys.every(field => String(form[field]).trim() !== "") ? keys : enteredPriceFields);
+                        const fields = new Set(enteredPriceFields);
                         if (String(value).trim()) fields.add(key); else fields.delete(key);
                         setEnteredPriceFields([...fields]);
                       }

@@ -25,10 +25,13 @@ import {
 } from "lucide-react";
 
 import { getAllStores } from "../../services/storeService";
-import { getCurrentStockPage } from "../../services/storeInventoryPanelService";
+import { getCurrentStockPage, getManagementBatches } from "../../services/storeInventoryPanelService";
 
 import {
   placeOrder,
+  getInvoice,
+  amendInvoice,
+  previewInvoiceAmendment,
   calculateOrder,
   previewSalesBulkUpload,
   downloadSalesBulkUploadTemplate
@@ -207,8 +210,14 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     const navigate =
         useNavigate();
     const location = useLocation();
-    const { id: proformaEditId } = useParams();
+    const { id: proformaEditId, orderId: editOrderId } = useParams();
     const isProforma = documentMode === "PROFORMA";
+    const isInvoiceEdit = !isProforma && Boolean(editOrderId);
+    const [originalInvoice, setOriginalInvoice] = useState(null);
+    const [invoiceLoading, setInvoiceLoading] = useState(isInvoiceEdit);
+    const [invoiceEditError, setInvoiceEditError] = useState("");
+    const [editReason, setEditReason] = useState("");
+    const amendmentBusy = useRef(false);
 
 
     const user =
@@ -601,7 +610,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     const [bulkSaleLoading, setBulkSaleLoading] = useState(false);
     const bulkSaleBusy = useRef(false);
     const bulkSaleStore = useRef(selectedStoreId);
-    bulkSaleStore.current = selectedStoreId;
+    useEffect(() => { bulkSaleStore.current = selectedStoreId; }, [selectedStoreId]);
 
     const handleBulkSaleFile = async (event) => {
         if (bulkSaleBusy.current) return;
@@ -680,7 +689,8 @@ export default function NewSalePage({ documentMode = "SALE" }) {
      */
 
     const [batchModalOpen, setBatchModalOpen] = useState(false);
-    const [batchLoading] = useState(false);
+    const [batchLoading, setBatchLoading] = useState(false);
+    const batchLookupRequest = useRef(0);
     const [availableBatches, setAvailableBatches] = useState([]);
     const [selectedProductForBatch, setSelectedProductForBatch] = useState(null);
     const [selectedBatchId, setSelectedBatchId] = useState(null);
@@ -876,7 +886,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
         closeBatchSelector();
     };
 
-    const handleAddProduct = (product) => {
+    const handleAddProduct = async (product) => {
         if (
             !selectedStoreId ||
             !product?.inventoryId
@@ -884,8 +894,35 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             return;
         }
 
-        // A null batch delegates allocation to the existing backend FIFO flow.
-        addProductWithBatch(product, null);
+        if (!isInvoiceEdit) {
+            // New sales continue to use backend FIFO allocation.
+            addProductWithBatch(product, null);
+            return;
+        }
+        const requestId = ++batchLookupRequest.current;
+        const receivingStore = selectedStoreId;
+        setBatchLoading(true); setProductSearchError("");
+        try {
+            const response = await getManagementBatches(product.inventoryId);
+            if (requestId !== batchLookupRequest.current || String(bulkSaleStore.current) !== String(receivingStore)) return;
+            const batches = (Array.isArray(response) ? response : [])
+                .filter(batch => Number(batch.availableQuantity) > 0 && batch.active !== false);
+            if (!batches.length) {
+                setProductSearchError("No available stock batch exists for this product. Refresh stock before adding it.");
+                return;
+            }
+            if (batches.length === 1) {
+                addProductWithBatch(product, batches[0]);
+                return;
+            }
+            setSelectedProductForBatch(product); setAvailableBatches(batches);
+            setSelectedBatchId(batches[0].batchId ?? batches[0].id); setBatchModalOpen(true);
+        } catch (error) {
+            if (requestId === batchLookupRequest.current)
+                setProductSearchError(error.response?.data?.message || "Unable to load stock batches. Please retry.");
+        } finally {
+            if (requestId === batchLookupRequest.current) setBatchLoading(false);
+        }
     };
 
     const confirmBatchSelection =
@@ -1188,6 +1225,19 @@ export default function NewSalePage({ documentMode = "SALE" }) {
         );
 
 
+    const buildAmendmentRequest = useCallback((currentItems) => ({
+        editToken: originalInvoice?.editToken,
+        reason: editReason,
+        billDiscountPercent: normalizePercentage(billDiscountPercent),
+        items: currentItems.map(item => ({
+            orderItemId: item.orderItemId ?? null,
+            inventoryId: Number(item.inventoryId), batchId: item.batchId == null ? null : Number(item.batchId),
+            quantity: Number(item.quantity), sellingPrice: Number(item.sellingPrice), mrp: Number(item.mrp),
+            discountPercentage: normalizePercentage(item.discountPercentage),
+            gstType: toBackendGstType(item.gstType, item.gstPercentage),
+        })),
+    }), [originalInvoice, editReason, billDiscountPercent]);
+
     const recalculateBill =
         useCallback(
             async (
@@ -1196,7 +1246,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
 
                 if (
                     !selectedStoreId ||
-                    currentItems.length === 0
+                    (!isInvoiceEdit && currentItems.length === 0)
                 ) {
 
                     setCalculation(null);
@@ -1218,11 +1268,11 @@ export default function NewSalePage({ documentMode = "SALE" }) {
                 try {
 
                     const response =
-                        await calculateOrder(
+                        await (isInvoiceEdit ? previewInvoiceAmendment(editOrderId, buildAmendmentRequest(currentItems)) : calculateOrder(
                             buildCalculationRequest(
                                 currentItems
                             )
-                        );
+                        ));
 
 
                     /*
@@ -1282,6 +1332,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             [
                 selectedStoreId,
                 buildCalculationRequest,
+                isInvoiceEdit, editOrderId, buildAmendmentRequest,
             ]
         );
 
@@ -1290,7 +1341,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
 
         if (
             !selectedStoreId ||
-            items.length === 0
+            (!isInvoiceEdit && items.length === 0)
         ) {
 
             setCalculation(null);
@@ -1348,6 +1399,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
         items,
         selectedStoreId,
         recalculateBill,
+        isInvoiceEdit,
     ]);
 
 
@@ -1362,8 +1414,9 @@ export default function NewSalePage({ documentMode = "SALE" }) {
                 const calculatedLines = calculation?.items ?? [];
 
                 return items.flatMap((item, itemIndex) => {
-                    const allocatedLines = calculatedLines.filter(
+                    const allocatedLines = isInvoiceEdit ? (calculatedLines[itemIndex] ? [calculatedLines[itemIndex]] : []) : calculatedLines.filter(
                         (line) => String(line.inventoryId) === String(item.inventoryId)
+                            && (item.batchId == null || String(line.batchId) === String(item.batchId))
                     );
 
                     if (allocatedLines.length === 0) {
@@ -1381,6 +1434,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             [
                 items,
                 calculation,
+                isInvoiceEdit,
             ]
         );
 
@@ -1589,7 +1643,54 @@ const totalMrp = useMemo(
        CREATE INVOICE
     ===================================================== */
 
+    useEffect(() => {
+        if (!isInvoiceEdit) return;
+        let live = true;
+        setInvoiceLoading(true); setInvoiceEditError("");
+        getInvoice(editOrderId).then(source => {
+            if (!live) return;
+            if (["CANCELLED", "RETURNED"].includes(source.orderStatus))
+                throw new Error("This invoice can no longer be edited.");
+            if (!source.editToken || (source.items || []).some(item => !item.inventoryId || !item.batchId))
+                throw new Error("This invoice is missing stock references. Its historical stock must be repaired before editing.");
+            setOriginalInvoice(source);
+            setSelectedStoreId(String(source.storeId));
+            setSelectedCustomer({ customerName: source.customerName, mobileNumber: source.phone,
+                gstin: source.customerGstin, gstRegistrationType: source.customerGstRegistrationType || "UNREGISTERED",
+                state: source.customerState, email: source.customerEmail,
+                billingAddress: source.billingAddress || source.customerAddress || "", shippingAddress: source.shippingAddress || "" });
+            setCustomerSearch(source.customerName || "");
+            setItems(source.items.map(item => ({ ...item, itemName: item.itemName || item.productName,
+                hsnCode: item.hsncode, quantity: Number(item.quantity),
+                availableQuantity: Number(item.availableQuantity ?? item.quantity),
+                gstType: item.gstType?.startsWith("IGST_") ? "IGST" : item.gstType === "NONE" ? "NONE" : "CGST_SGST",
+                discountPercentage: Number(item.discountPercentage || 0), gstPercentage: Number(item.gstPercentage || 0) })));
+            setBillDiscountPercent(Number(source.billDiscountPercentage || 0));
+            const first = source.items[0];
+            setDefaultGstType(first?.gstType?.startsWith("IGST_") ? "IGST" : first?.gstType === "NONE" ? "NONE" : "CGST_SGST");
+            setDefaultGstPercentage(Number(first?.gstPercentage ?? 18));
+            setInvoiceDate(String(source.orderDate || "").split("T")[0]);
+            setPaymentStatus(Number(source.balanceAmount) > 0 ? "UNPAID" : "PAID");
+            setPaymentMethod(source.payments?.[0]?.paymentMethod || "CASH");
+            setPaymentReference(source.payments?.[0]?.transactionNumber || "");
+        }).catch(error => { if (live) setInvoiceEditError(error.response?.data?.message || error.message || "Unable to load invoice."); })
+          .finally(() => { if (live) setInvoiceLoading(false); });
+        return () => { live = false; };
+    }, [isInvoiceEdit, editOrderId]);
+
     const createInvoice = async () => {
+            if (isInvoiceEdit) {
+                if (amendmentBusy.current) return;
+                if (!editReason.trim()) { setInvoiceEditError("A reason is required to edit this invoice."); return; }
+                amendmentBusy.current = true; setCreatingInvoice(true); setInvoiceEditError("");
+                try {
+                    await amendInvoice(editOrderId, buildAmendmentRequest(items));
+                    navigate(`${isSuperAdmin ? "/owner" : "/store"}/sales/invoice/${editOrderId}`, { replace: true });
+                } catch (error) {
+                    setInvoiceEditError(error.response?.data?.message || "Unable to update invoice. Reload before retrying.");
+                } finally { amendmentBusy.current = false; setCreatingInvoice(false); }
+                return;
+            }
 
             if (
                 creatingInvoice
@@ -1945,6 +2046,9 @@ const totalMrp = useMemo(
        RENDER
     ===================================================== */
 
+    if (isInvoiceEdit && invoiceLoading) return <section className="new-sale-page">Loading invoice for editing...</section>;
+    if (isInvoiceEdit && !originalInvoice) return <section className="new-sale-page" role="alert">{invoiceEditError || "Invoice could not be loaded."}<button onClick={() => window.location.reload()}>Retry</button></section>;
+
     return (
 
         <section className="new-sale-page">
@@ -1957,8 +2061,9 @@ const totalMrp = useMemo(
 
                 <div>
                     <h1>
-                        {isProforma ? (proformaEditId ? "Edit Proforma" : "New Proforma") : "New Sale"}
+                        {isInvoiceEdit ? "Edit Invoice" : isProforma ? (proformaEditId ? "Edit Proforma" : "New Proforma") : "New Sale"}
                     </h1>
+                    {invoiceEditError && <div className="new-sale-field-error" role="alert">{invoiceEditError}</div>}
 
                 </div>
 
@@ -1984,7 +2089,7 @@ const totalMrp = useMemo(
                                     handleStoreChange
                                 }
                                 disabled={
-                                    storeLoading
+                                    storeLoading || isInvoiceEdit
                                 }
                             >
 
@@ -2088,7 +2193,7 @@ const totalMrp = useMemo(
                         </label>
 
                         <div className="new-sale-readonly">
-                            Auto generated
+                            {isInvoiceEdit ? originalInvoice?.invoiceNumber : "Auto generated"}
                         </div>
 
                     </div>
@@ -2110,6 +2215,7 @@ const totalMrp = useMemo(
 
                             <input
                                 type="date"
+                                disabled={isInvoiceEdit}
                                 value={
                                     invoiceDate
                                 }
@@ -2369,7 +2475,7 @@ const totalMrp = useMemo(
 
 
                         <div className="new-sale-item-actions">
-                        {!isProforma && <>
+                        {!isProforma && !isInvoiceEdit && <>
                             <input ref={bulkSaleInputRef} className="new-sale-bulk-file-input" type="file" accept=".csv,.xls,.xlsx" onChange={handleBulkSaleFile}/>
                             <button type="button" className="new-sale-upload-button" disabled={bulkSaleLoading || !selectedStoreId} onClick={() => bulkSaleInputRef.current?.click()}>
                                 <Upload size={15}/>{bulkSaleLoading ? "Reading..." : "Upload Excel"}
@@ -2704,24 +2810,22 @@ const totalMrp = useMemo(
 
                                                     <td>
 
-                                                        {
-                                                            money(
-                                                                line?.mrp ??
-                                                                item.mrp
-                                                            )
-                                                        }
+                                                        {isInvoiceEdit ? <input type="number" min="0.01" step="0.01"
+    aria-label={`MRP for ${item.partNumber}`} value={item.mrp}
+    className="new-sale-quantity-input" disabled={creatingInvoice}
+    onChange={event => setItems(current => current.map((row, index) => index === itemIndex ? { ...row, mrp: event.target.value } : row))} />
+    : money(line?.mrp ?? item.mrp)}
 
                                                     </td>
 
 
                                                     <td>
 
-                                                        {
-                                                            money(
-                                                                line?.sellingPrice ??
-                                                                item.sellingPrice
-                                                            )
-                                                        }
+                                                        {isInvoiceEdit ? <input type="number" min="0.01" step="0.01"
+    aria-label={`Unit price for ${item.partNumber}`} value={item.sellingPrice}
+    className="new-sale-quantity-input" disabled={creatingInvoice}
+    onChange={event => setItems(current => current.map((row, index) => index === itemIndex ? { ...row, sellingPrice: event.target.value } : row))} />
+    : money(line?.sellingPrice ?? item.sellingPrice)}
 
                                                     </td>
 
@@ -2828,7 +2932,7 @@ const totalMrp = useMemo(
                         CUSTOMER
                     ================================================== */}
 
-                    <div className="new-sale-card customer-card">
+                    <fieldset disabled={isInvoiceEdit} className="new-sale-card customer-card" style={{ margin: 0, minWidth: 0 }}>
 
                         <div className="new-sale-card-title">
 
@@ -2905,14 +3009,14 @@ const totalMrp = useMemo(
                             </div>
                         )}
 
-                    </div>
+                    </fieldset>
 
 
                     {/* =================================================
                         PAYMENT TYPE
                     ================================================== */}
 
-                    {!isProforma && <div className="new-sale-card payment-card">
+                    {!isProforma && <fieldset disabled={isInvoiceEdit} className="new-sale-card payment-card" style={{ margin: 0, minWidth: 0 }}>
 
                         <h2>
                             Payment
@@ -2972,7 +3076,7 @@ const totalMrp = useMemo(
                             </p>
                         )}
 
-                    </div>}
+                    </fieldset>}
 
 
                     {/* =================================================
@@ -3228,6 +3332,14 @@ const totalMrp = useMemo(
                     ================================================== */}
 
                     <div className="new-sale-action-card">
+  {isInvoiceEdit && <>
+    <label htmlFor="invoice-edit-reason">Reason for invoice edit <span aria-hidden="true">*</span></label>
+    <textarea id="invoice-edit-reason" required maxLength={500} disabled={creatingInvoice}
+      value={editReason} onChange={event => { setEditReason(event.target.value); setInvoiceEditError(""); }} />
+    <p>Collected: {money(originalInvoice?.paidAmount)}. Existing payments are retained.</p>
+    {Number(originalInvoice?.paidAmount || 0) > Number(calculation?.netPayable || 0) &&
+      <p>Refund due: {money(Number(originalInvoice.paidAmount) - Number(calculation?.netPayable || 0))}</p>}
+  </>}
 
                         <button
                             type="button"
@@ -3247,7 +3359,7 @@ const totalMrp = useMemo(
 
                             ) : (
 
-                                isProforma ? (proformaEditId ? "Update Proforma" : "Save Proforma") : "Save Sale"
+                                isInvoiceEdit ? "Save Invoice Changes" : isProforma ? (proformaEditId ? "Update Proforma" : "Save Proforma") : "Save Sale"
 
                             )}
 

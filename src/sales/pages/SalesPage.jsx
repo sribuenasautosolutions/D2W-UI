@@ -491,6 +491,8 @@ export default function SalesPage() {
                     isSuperAdmin={isSuperAdmin}
                     selectedStoreId={selectedStoreId}
                     onViewInvoice={handleViewInvoice}
+                    onDownloadInvoice={(orderId) => navigate(`invoice/${orderId}?download=1`)}
+                    onEditInvoice={(orderId) => navigate(`edit/${orderId}`)}
                 />
             )}
         </div>

@@ -111,6 +111,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const [error, setError] = useState("");
   const [pdfError, setPdfError] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
+  const downloadedOrder = useRef(null);
   const invoiceRequest = useRef(0);
   const pdfInProgress = useRef(false);
   const currentOrder = useRef(orderId);
@@ -179,7 +180,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const colWidths = hasDiscount ? COLUMN_WIDTHS_WITH_DISCOUNT : COLUMN_WIDTHS_NO_DISCOUNT;
   const columnCount = colWidths.length;
 
-  const handleSavePdf = async () => {
+  const handleSavePdf = useCallback(async () => {
     if (pdfInProgress.current || !invoiceSheet.current) return;
     const id = orderId;
     const node = invoiceSheet.current;
@@ -194,7 +195,18 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
       pdfInProgress.current = false;
       if (currentOrder.current === id) setPdfLoading(false);
     }
-  };
+  }, [invoice, orderId]);
+
+  useEffect(() => {
+    if (loading || !invoice || new URLSearchParams(location.search).get("download") !== "1"
+        || downloadedOrder.current === orderId) return;
+    const timer = window.setTimeout(() => {
+      downloadedOrder.current = orderId;
+      handleSavePdf();
+      navigate(location.pathname, { replace: true });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [loading, invoice, orderId, location.search, location.pathname, navigate, handleSavePdf]);
 
   if (loading) return <div className="invoice-state">Loading invoice...</div>;
   if (error || !invoice) return <div className="invoice-state invoice-state--error"><div>{error || "Invoice not found."}<br /><button className="invoice-button" onClick={loadInvoice}>Retry</button></div></div>;
@@ -203,6 +215,9 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
     <nav className="invoice-toolbar">
       {!embedded && <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}><ArrowLeft size={16} />Back</button>}
       <div>
+        {["SUPER_ADMIN", "STORE_OWNER"].includes(JSON.parse(localStorage.getItem("user") || "{}").role)
+          && items.length > 0 && !["CANCELLED", "RETURNED"].includes(invoice.orderStatus) &&
+          <button className="invoice-button" disabled={pdfLoading} onClick={() => navigate(`${location.pathname.startsWith("/owner/") ? "/owner" : "/store"}/sales/edit/${orderId}`)}>Edit Invoice</button>}
         {invoice.orderStatus === "PENDING_PAYMENT" && Number(invoice.balanceAmount) > 0 && (
           <button className="invoice-button invoice-button--primary" onClick={() => {
             const base = location.pathname.startsWith("/owner/") ? "/owner/sales"
@@ -312,7 +327,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
               {payment.transactionNumber && <small>{payment.transactionNumber}</small>}
             </div>)}
           </div>}
-          <div className="invoice-terms"><h3>TERMS &amp; CONDITIONS</h3><ol><li>Goods once sold cannot be returned or exchanged.</li><li>Warranty is subject to the manufacturer or brand policy.</li><li>Disputes are subject to the store's local jurisdiction.</li></ol></div>
+          <div className="invoice-terms"><h3>TERMS &amp; CONDITIONS</h3><ol><li>Returns and exchanges are subject to store approval.</li><li>Warranty is subject to the manufacturer or brand policy.</li><li>Disputes are subject to the store's local jurisdiction.</li></ol></div>
         </div>
         <div className="invoice-totals">
           <TotalLine label="Gross Amount" value={invoice.grossAmount} />
@@ -327,6 +342,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
           <div className="invoice-words"><h3>AMOUNT IN WORDS</h3><p>{amountInWords(invoice.totalAmount)}</p></div>
           <TotalLine label="Paid Amount" value={invoice.paidAmount} />
           <TotalLine label="Balance Due" value={invoice.balanceAmount} strong />
+          {Number(invoice.refundDue) > 0 && <TotalLine label="Refund Due" value={invoice.refundDue} strong />}
         </div>
       </section>
 

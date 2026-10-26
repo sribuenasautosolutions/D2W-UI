@@ -1,0 +1,25 @@
+/* Mobile first: one column, large tap targets. */
+.wa-page { max-width: 520px; margin: 0 auto; padding: 16px; }
+.wa-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 8px 0; font-size: 14px; color: var(--blue, #2563eb); cursor: pointer; }
+.wa-title { font-size: 20px; margin: 8px 0 4px; }
+.wa-sub { margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: #475569; }
+.wa-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 13px; font-weight: 600; }
+.wa-field select { height: 44px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 10px; font-size: 15px; background: #fff; }
+.wa-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #fff; }
+.wa-state { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.wa-state--ok { color: #15803d; }
+.wa-state--off { color: #b91c1c; align-items: flex-start; }
+.wa-muted { font-size: 13px; color: #64748b; margin-top: 2px; font-weight: 400; }
+.wa-qr-block { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.wa-qr { width: 100%; max-width: 280px; height: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+.wa-steps { align-self: stretch; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
+.wa-actions { margin-top: 16px; }
+.wa-btn { width: 100%; min-height: 46px; border-radius: 10px; border: 1px solid transparent; font-size: 15px; font-weight: 600; cursor: pointer; }
+.wa-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.wa-btn--primary { background: #16a34a; color: #fff; }
+.wa-btn--danger { background: #fff; color: #b91c1c; border-color: #fca5a5; }
+.wa-banner { border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 14px; }
+.wa-banner--error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.wa-spin { animation: wa-spin 1s linear infinite; }
+@keyframes wa-spin { to { transform: rotate(360deg); } }
+@media (min-width: 640px) { .wa-btn { width: auto; padding: 0 24px; } }

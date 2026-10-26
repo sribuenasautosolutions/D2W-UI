@@ -59,6 +59,10 @@ const LeadList = lazy(
   () => import("../../owner/components/leads/LeadList")
 );
 
+const WhatsAppChats = lazy(() => import("../../owner/components/leads/WhatsAppChats"));
+
+const WhatsAppConnect = lazy(() => import("../../owner/components/leads/WhatsAppConnect"));
+
 const StoreWiseReportPage = lazy(
   () => import("../../store/pages/StoreWiseReportPage")
 );
@@ -155,7 +159,11 @@ function StoreRoutes() {
           }
         />
 
-        <Route
+        <Route path="/sales/leads/chats" element={<DashboardLayout><WhatsAppChats /></DashboardLayout>} />
+
+        <Route path="/sales/leads/whatsapp" element={<DashboardLayout><WhatsAppConnect /></DashboardLayout>} />
+
+<Route
           path="/sales/leads/new"
           element={
             <DashboardLayout>
@@ -164,6 +172,7 @@ function StoreRoutes() {
           }
         />
 
+        <Route path="/sales/edit/:orderId" element={<NewSalePage />} />
         <Route
           path="/sales/new"
           element={<NewSalePage />}

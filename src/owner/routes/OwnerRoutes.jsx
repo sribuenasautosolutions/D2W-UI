@@ -55,6 +55,10 @@ const LeadList = lazy(
   () => import("../components/leads/LeadList")
 );
 
+const WhatsAppChats = lazy(() => import("../components/leads/WhatsAppChats"));
+
+const WhatsAppConnect = lazy(() => import("../components/leads/WhatsAppConnect"));
+
 const InvoicePage = lazy(
   () => import("../../pos/pages/InvoicePage")
 );
@@ -202,7 +206,8 @@ function OwnerRoutes() {
 
 
 
-      <Route
+      <Route path="/sales/edit/:orderId" element={<NewSalePage />} />
+        <Route
 
         path="/sales/new"
 
@@ -251,6 +256,10 @@ function OwnerRoutes() {
 />
 
 
+
+<Route path="/sales/leads/chats" element={<DashboardLayout><WhatsAppChats /></DashboardLayout>} />
+
+<Route path="/sales/leads/whatsapp" element={<DashboardLayout><WhatsAppConnect /></DashboardLayout>} />
 
 <Route
 

@@ -110,20 +110,10 @@ function csvCell(value) {
 // Fallback price validation used by OpeningStockManualEntry when the parent
 // doesn't provide its own. Matches the same rule set the backend expects.
 function defaultValidatePrices(row, errors) {
-  const p = Number(row.purchasePrice);
-  const s = Number(row.sellingPrice);
-  const m = Number(row.mrp);
-
-  if (!Number.isFinite(p) || p <= 0) errors.push("Purchase Price must be greater than zero");
-  if (!Number.isFinite(s) || s <= 0) errors.push("Selling Price must be greater than zero");
-  if (!Number.isFinite(m) || m <= 0) errors.push("MRP must be greater than zero");
-
-  if (Number.isFinite(p) && Number.isFinite(s) && p > s) {
-    errors.push("Selling Price must be greater than or equal to Purchase Price");
-  }
-  if (Number.isFinite(s) && Number.isFinite(m) && s > m) {
-    errors.push("MRP must be greater than or equal to Selling Price");
-  }
+  (row.enteredPriceFields || []).forEach((field) => {
+    if (!Number.isFinite(Number(row[field])) || Number(row[field]) <= 0)
+      errors.push(`${field} must be greater than zero`);
+  });
 }
 
 function SortIndicator({ active, direction }) {
@@ -857,6 +847,7 @@ export default function CurrentStockSection() {
               compact
               storeId={storeId || user.storeId || null}
               validatePrices={defaultValidatePrices}
+              onCreated={() => { setAddItemOpen(false); loadPage(); }}
               onSelectApproved={() => {
                 setAddItemOpen(false);
                 loadPage();

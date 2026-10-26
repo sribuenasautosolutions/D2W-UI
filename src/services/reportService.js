@@ -72,14 +72,14 @@ export const getInventoryItems = async (storeId) => {
 
 export const getLowStockReport = async (storeId) => {
   const response = await api.get(
-    `/reports/low-stock?storeId=${storeId}`
+    storeId ? `/store-inventory/dashboard/store/${storeId}` : "/store-inventory/dashboard"
   );
   return response.data;
 };
 
 export const getLowStockItems = async (storeId) => {
   const response = await api.get(
-    `/reports/low-stock/items?storeId=${storeId}`
+    storeId ? `/store-inventory/low-stock/${storeId}` : "/store-inventory/low-stock"
   );
   return response.data;
 };
