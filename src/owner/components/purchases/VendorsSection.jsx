@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CirclePlus, Download, Filter, MoreHorizontal, Power, Search, Store, UserRoundCheck, X } from "lucide-react";
 import api from "../../../services/api";
-import VendorStockModal from "./VendorStockModal";
-import "./Vendorssection.css";
 
+import VendorStockModal from "./VendorStockModal";
+import "./vendorssection.css";
 const emptyVendor = {
     vendorName: "", phone: "", contactPerson: "", email: "",
     gstNumber: "", state: "", pincode: "", address: "",
