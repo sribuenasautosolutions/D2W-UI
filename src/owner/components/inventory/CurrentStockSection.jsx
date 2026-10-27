@@ -399,11 +399,21 @@ export default function CurrentStockSection() {
         rows.push(...(nextResult?.content || []));
       }
       const csvLines = [
-        ["Part Number", "Item Name", "Brand", "Quantity", "Purchase Price", "Selling Price", "MRP", "Store", "Status"].map(csvCell).join(","),
-        ...rows.map((item) => [
-          item.partNumber, item.itemName, item.brandName, item.quantity,
-          item.purchasePrice, item.sellingPrice, item.mrp, item.storeName, statusOf(item).label,
-        ].map(csvCell).join(",")),
+        ["Part Number", "Item Name", "Brand", "Quantity", "Purchase Price", "Selling Price", "MRP", "Store","Rack Number", "Status"].map(csvCell).join(","),
+        
+...rows.map((item) => [
+  item.partNumber,
+  item.itemName,
+  item.brandName,
+  item.quantity,
+  item.purchasePrice,
+  item.sellingPrice,
+  item.mrp,
+  item.storeName,
+  item.rackNumber ?? "",
+  statusOf(item).label,
+].map(csvCell).join(",")),
+
       ];
       const blob = new Blob([`\uFEFF${csvLines.join("\r\n")}`], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
