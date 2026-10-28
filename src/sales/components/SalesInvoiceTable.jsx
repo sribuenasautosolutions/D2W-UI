@@ -1,4 +1,6 @@
-import { Eye, Download, Pencil } from "lucide-react";
+import { useState } from "react";
+import InvoiceHistory from "./InvoiceHistory";
+import { Eye, Download, Pencil, History } from "lucide-react";
 
 const formatMoney = (value) => {
     return `₹ ${Number(value || 0).toLocaleString("en-IN", {
@@ -38,10 +40,12 @@ export default function SalesInvoiceTable({
     onDownloadInvoice,
     onEditInvoice,
 }) {
+    const [historyOrderId, setHistoryOrderId] = useState(null);
     const showStoreColumn = isSuperAdmin && !selectedStoreId;
 
     return (
         <div className="sales-invoice-table-wrapper">
+            {historyOrderId && <InvoiceHistory orderId={historyOrderId} onClose={() => setHistoryOrderId(null)} />}
             <table className="sales-invoice-table">
                 <thead>
                     <tr>
@@ -82,6 +86,8 @@ export default function SalesInvoiceTable({
                                         {String(sale.orderId).padStart(6, "0")}
                                     </strong>
 
+                                    {sale.orderStatus === "DRAFT" && <span className="sales-payment-badge">Draft</span>}
+                                    {sale.edited && <span className="sales-payment-badge">Edited</span>}
                                     <small>
                                         Order #{sale.orderId}
                                     </small>
@@ -103,7 +109,7 @@ export default function SalesInvoiceTable({
                             <td>
                                 <span className="sales-payment-badge">
                                     {formatPaymentMethod(
-                                        sale.paymentMethod
+                                        sale.orderStatus === "DRAFT" ? "DRAFT" : sale.paymentMethod
                                     )}
                                 </span>
                             </td>
@@ -122,19 +128,20 @@ export default function SalesInvoiceTable({
                                 <button
                                     type="button"
                                     className="sales-view-button"
-                                    title="View invoice"
+                                    title={sale.orderStatus === "DRAFT" ? "Open draft" : "View invoice"}
                                     aria-label="View invoice"
                                     onClick={() =>
-                                        onViewInvoice(sale.orderId)
+                                        sale.orderStatus === "DRAFT" ? onEditInvoice(sale.orderId) : onViewInvoice(sale.orderId)
                                     }
                                 >
                                     <Eye size={16} />
                                 </button>
-                                <button type="button" className="sales-view-button" title="Download invoice" aria-label="Download invoice"
+                                <button type="button" className="sales-view-button" title="Download invoice" aria-label="Download invoice" disabled={sale.orderStatus === "DRAFT"}
                                     onClick={() => onDownloadInvoice(sale.orderId)}><Download size={16} /></button>
                                 <button type="button" className="sales-view-button" title="Edit invoice" aria-label="Edit invoice"
                                     disabled={["CANCELLED", "RETURNED"].includes(sale.orderStatus)}
                                     onClick={() => onEditInvoice(sale.orderId)}><Pencil size={16} /></button>
+                                {sale.edited && <button type="button" className="sales-view-button" title="Edit history" aria-label="Edit history" onClick={() => setHistoryOrderId(sale.orderId)}><History size={16} /></button>}
                             </td>
                         </tr>
                     ))}

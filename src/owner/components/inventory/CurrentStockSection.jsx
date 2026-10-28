@@ -24,9 +24,9 @@ import {
 } from "lucide-react";
 
 import api from "../../../services/api";
-import { getAllBrands } from "../../../services/brandService";
 import {
   getCurrentStockPage,
+  getLocalStockFilterOptions,
   getManagementBatches,
   getProductDetails,
   getProductLocations,
@@ -212,20 +212,16 @@ export default function CurrentStockSection() {
       .catch((e) => setError(errorMessage(e, "Unable to load stores.")));
   }, [isSuperAdmin]);
 
-  /* Load brands */
+  /* Filter options come from local products stocked in the selected store. */
   useEffect(() => {
-    getAllBrands()
-      .then((data) => setBrands(Array.isArray(data) ? data : data?.content || []))
-      .catch(() => setBrands([]));
-  }, []);
-
-  /* Load categories */
-  useEffect(() => {
-    api
-      .get("/categories", { params: { page: 0, size: 100 } })
-      .then(({ data }) => setCategories(Array.isArray(data) ? data : data?.content || []))
-      .catch(() => setCategories([]));
-  }, []);
+    let active = true;
+    getLocalStockFilterOptions(storeId).then(data => {
+      if (active) { setBrands(data.brands || []); setCategories(data.categories || []); }
+    }).catch(() => {
+      if (active) setError("Unable to load local product filters.");
+    });
+    return () => { active = false; };
+  }, [storeId, result]);
 
   /* Click outside filters */
   useEffect(() => {
@@ -268,7 +264,7 @@ export default function CurrentStockSection() {
       const data = await getCurrentStockPage(storeId, {
         search: search.trim() || undefined,
         status: status || undefined,
-        brandName: brandFilter || undefined,
+        brand: brandFilter || undefined,
         categoryName: categoryFilter || undefined,
         onlyAvailable: status !== "OUT_OF_STOCK",
         page,
@@ -386,14 +382,14 @@ export default function CurrentStockSection() {
       setError("");
       const firstPage = await getCurrentStockPage(storeId, {
         search: search.trim() || undefined, status: status || undefined,
-        brandName: brandFilter || undefined, categoryName: categoryFilter || undefined,
+        brand: brandFilter || undefined, categoryName: categoryFilter || undefined,
         onlyAvailable: status !== "OUT_OF_STOCK", page: 0, size: 100, sortBy, direction: sortDirection,
       });
       const rows = [...(firstPage?.content || [])];
       for (let nextPage = 1; nextPage < (firstPage?.totalPages || 1); nextPage += 1) {
         const nextResult = await getCurrentStockPage(storeId, {
           search: search.trim() || undefined, status: status || undefined,
-          brandName: brandFilter || undefined, categoryName: categoryFilter || undefined,
+          brand: brandFilter || undefined, categoryName: categoryFilter || undefined,
           onlyAvailable: status !== "OUT_OF_STOCK", page: nextPage, size: 100, sortBy, direction: sortDirection,
         });
         rows.push(...(nextResult?.content || []));
@@ -436,7 +432,7 @@ export default function CurrentStockSection() {
   const currentStatus = statusOf(current);
 
   const showStoreColumn = isSuperAdmin;
-  const columnCount = showStoreColumn ? 9 : 8;
+  const columnCount = showStoreColumn ? 10 : 9;
   const activeFilterCount = [brandFilter, categoryFilter].filter(Boolean).length;
 
   const badgeClasses = {
@@ -490,8 +486,7 @@ export default function CurrentStockSection() {
                 <select value={brandFilter} onChange={changeFilter(setBrandFilter)}>
                   <option value="">All brands</option>
                   {brands.map((brand) => {
-                    const name = brand.brandName || brand.name;
-                    return <option key={brand.id || brand.brandId || name} value={name}>{name}</option>;
+                    return <option key={brand} value={brand}>{brand}</option>;
                   })}
                 </select>
               </label>
@@ -500,8 +495,7 @@ export default function CurrentStockSection() {
                 <select value={categoryFilter} onChange={changeFilter(setCategoryFilter)}>
                   <option value="">All categories</option>
                   {categories.map((category) => {
-                    const name = category.categoryName || category.name;
-                    return <option key={category.id || category.categoryId || name} value={name}>{name}</option>;
+                    return <option key={category} value={category}>{category}</option>;
                   })}
                 </select>
               </label>
@@ -538,7 +532,7 @@ export default function CurrentStockSection() {
             <select
               aria-label="Filter by store"
               value={storeId}
-              onChange={(event) => { setStoreId(event.target.value); setPage(0); }}
+              onChange={(event) => { setStoreId(event.target.value); setBrandFilter(""); setCategoryFilter(""); setPage(0); }}
               className="stock-store-select"
             >
               <option value="">All stores</option>
@@ -624,7 +618,7 @@ export default function CurrentStockSection() {
           <div className="stock-table-scroll">
             <table className="stock-main-table">
               <colgroup>
-                <col /><col /><col /><col /><col /><col /><col />
+                <col /><col /><col /><col /><col /><col /><col /><col />
                 {showStoreColumn && <col />}
                 <col />
               </colgroup>
@@ -638,6 +632,7 @@ export default function CurrentStockSection() {
                   </th>
                   <th>Item name</th>
                   <th>Brand</th>
+                  <th>Rack No.</th>
                   <th>Quantity</th>
                   <th>Purchase price</th>
                   <th>Selling price</th>
@@ -672,6 +667,7 @@ export default function CurrentStockSection() {
                         </div>
                       </td>
                       <td title={item.brandName}>{display(item.brandName)}</td>
+                      <td title={item.rackNumber}>{display(item.rackNumber)}</td>
                       <td className="stock-quantity-cell">{display(item.quantity)}</td>
                       <td>{money(item.purchasePrice)}</td>
                       <td>{money(item.sellingPrice)}</td>
@@ -807,6 +803,7 @@ export default function CurrentStockSection() {
                           ["Brand", current.brandName],
                           ["Part number", current.partNumber],
                           ["HSN code", current.hsncode],
+                          ["Rack No.", current.rackNumber],
                         ]}
                       />
                       <div className="stock-summary-cards">

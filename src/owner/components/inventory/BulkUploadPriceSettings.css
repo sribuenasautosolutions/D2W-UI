@@ -304,21 +304,44 @@
   cursor: not-allowed;
 }
 
-/* ---- 3.8 Table wrapper — hidden scrollbar ---- */
+/* ---- 3.8 Table wrapper ---- */
 .bulk-page-shell .bulk-table-wrap {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
-  scrollbar-width: none;          /* Firefox */
+  scrollbar-width: thin;
 }
-.bulk-page-shell .bulk-table-wrap::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;                  /* WebKit / Blink */
+
+.bulk-page-shell .bulk-inline-cell {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 3px 2px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.bulk-page-shell .is-num .bulk-inline-cell { text-align: right; }
+.bulk-page-shell .bulk-inline-cell:hover:not(:disabled) { border-color: #cbd5e1; }
+.bulk-page-shell .bulk-inline-cell:focus { outline: 2px solid #93c5fd; background: #fff; }
+.bulk-page-shell .bulk-inline-cell:disabled { opacity: 1; }
+.bulk-page-shell .is-product > .bulk-inline-cell:first-child { font-weight: 600; }
+.bulk-page-shell .bulk-inline-details summary { font-size: 11px; color: #64748b; cursor: pointer; }
+.bulk-page-shell .bulk-inline-clear {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  cursor: pointer;
 }
 
 /* ---- 3.9 Table — fixed layout, compact, percentage widths ---- */
