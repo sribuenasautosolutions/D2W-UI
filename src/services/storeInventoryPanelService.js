@@ -27,6 +27,11 @@ export const getCurrentStockPage = async (storeId, filters = {}) => {
   return response.data;
 };
 
+export const getLocalStockFilterOptions = async (storeId) => {
+  const response = await api.get("/store-inventory/filter-options", { params: { storeId: storeId || undefined } });
+  return response.data;
+};
+
 // Overview tab — full detail for one inventory row.
 export const getProductDetails = async (storeId, inventoryId) => {
   const response = await api.get(`/store-inventory/product-details`, {

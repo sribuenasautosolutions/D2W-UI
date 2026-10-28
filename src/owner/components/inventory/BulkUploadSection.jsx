@@ -3,7 +3,6 @@ import {
   CirclePlus,
   Download,
   FileSpreadsheet,
-  Pencil,
   Trash2,
   Upload,
   UploadCloud,
@@ -154,6 +153,9 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("ALL");
   const [editing, setEditing] = useState(null);
+  const activeCell = useRef(null);
+  const latestRows = useRef([]);
+  const dirtyRows = useRef(new Set());
   const [confirming, setConfirming] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
   const [lastRejectedRows, setLastRejectedRows] = useState([]);
@@ -167,11 +169,13 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
   }, [isSuperAdmin]);
 
   const rows = preview?.rows || [];
-  const visibleRows = filter === "ALL" ? rows : rows.filter((row) => row.status === filter);
+  useEffect(() => { latestRows.current = preview?.rows || []; }, [preview]);
+  const visibleRows = filter === "ALL" ? rows : rows.filter((row) => row.status === filter || row.rowNumber === editing?.rowNumber);
   const validRows = rows.filter((row) => row.status === "VALID");
   const rejectedRows = rows.filter((row) => !["VALID", "IMPORTED"].includes(row.status));
 
   const refreshCounts = (nextRows) => {
+    latestRows.current = nextRows;
     setPreview((current) => ({
       ...(current || {}),
       rows: nextRows,
@@ -198,6 +202,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
           if (total) setProgress(Math.max(2, Math.round((loaded / total) * 25)));
         },
       });
+      dirtyRows.current.clear(); activeCell.current = null; setEditing(null);
       setPreview(response.data);
       setProgress(30);
     } catch (requestError) {
@@ -213,6 +218,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
     if (workInProgress.current) return;
     setFile(null); setPreview(null); setProgress(0); setError("");
     setImportSummary(null); setLastRejectedRows([]); setFilter("ALL"); setEditing(null); setConfirming(false);
+    dirtyRows.current.clear(); activeCell.current = null;
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -229,17 +235,19 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
     };
     const nextRows = recheckRows([...rows, newRow]);
     refreshCounts(nextRows);
-    setEditing(newRow);
+    setFilter("ALL");
+    requestAnimationFrame(() => document.getElementById(`bulk-cell-${nextRowNumber}-partNumber`)?.focus());
   };
 
   const removeRow = (rowNumber) => {
+    dirtyRows.current.delete(rowNumber);
     const nextRows = rows.filter((row) => row.rowNumber !== rowNumber);
     refreshCounts(recheckRows(nextRows));
   };
 
-  const updateEditingField = (field, value) => {
-    setEditing((current) => {
-      if (!current) return current;
+  const updateRowField = (rowNumber, field, value) => {
+    const nextRows = latestRows.current.map(current => {
+      if (current.rowNumber !== rowNumber || current.status === "IMPORTED") return current;
       const next = { ...current, [field]: value };
       if (PRICE_FIELDS.includes(field)) {
         // Once all prices are displayed, editing one makes the others fixed inputs.
@@ -250,16 +258,19 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
         next.enteredPriceFields = [...fields];
         next.priceSource = fields.size === 3 ? "MANUAL" : fields.size === 2 ? "PARTIAL" : null;
       }
-      return next;
+      dirtyRows.current.add(rowNumber);
+      const errors = validateEditedRow(next);
+      return { ...next, status: "INVALID", errors: errors.length ? errors : ["Pending validation"] };
     });
+    refreshCounts(nextRows);
   };
 
-  const recalculateRows = async (nextRows) => {
+  const recalculateRows = async (nextRows, rowNumber = null) => {
     if (workInProgress.current) return null;
     workInProgress.current = true;
     setBusy(true); setError("");
     try {
-      const pending = nextRows.filter((row) => row.status !== "IMPORTED")
+      const pending = nextRows.filter((row) => row.status !== "IMPORTED" && (rowNumber === null || row.rowNumber === rowNumber))
         .map((row) => ({ ...sourceRow(row), discountPercentage: Number(row.discountPercentage || 0) }));
       const calculated = [];
       for (let offset = 0; offset < pending.length; offset += CHUNK_SIZE) {
@@ -271,7 +282,15 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
         return { ...row, errors, status: errors.length ? "INVALID" : "VALID" };
       });
       const updated = new Map(checked.map((row) => [row.rowNumber, row]));
-      refreshCounts(nextRows.map((row) => updated.get(row.rowNumber) || row));
+      const merged = nextRows.map((row) => updated.get(row.rowNumber) || row);
+      const duplicateChecks = recheckRows(merged);
+      refreshCounts(merged.map((row, index) => {
+        if (row.status === "IMPORTED") return row;
+        const duplicates = duplicateChecks[index].errors.filter(message => message.startsWith("Duplicate"));
+        const errors = [...new Set([...(row.errors || []).filter(message => !message.startsWith("Duplicate")), ...duplicates])];
+        return { ...row, errors, status: duplicates.length ? "DUPLICATE_IN_FILE" : errors.length ? "INVALID" : "VALID" };
+      }));
+      updated.forEach((_, number) => dirtyRows.current.delete(number));
       return updated;
     } catch (requestError) {
       setError(errorMessage(requestError, "Prices could not be recalculated. Please retry."));
@@ -279,12 +298,44 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
     } finally { workInProgress.current = false; setBusy(false); }
   };
 
-  const saveEditedRow = async () => {
-    if (!editing || busy) return;
-    const updated = await recalculateRows(rows.map((row) => row.rowNumber === editing.rowNumber ? editing : row));
-    const corrected = updated?.get(editing.rowNumber);
-    if (corrected?.status === "VALID") { setEditing(null); setFilter("ALL"); }
-    else if (corrected) { setEditing(corrected); setError(corrected.errors.join("; ")); }
+  const finishCell = async () => {
+    const cell = activeCell.current;
+    activeCell.current = null;
+    setEditing(null);
+    if (cell && dirtyRows.current.has(cell.rowNumber)) await recalculateRows(latestRows.current, cell.rowNumber);
+  };
+
+  const renderCell = (row, field) => {
+    const label = editableFields.find(([key]) => key === field)[1];
+    const numeric = ["quantity", ...PRICE_FIELDS, "gstPercentage", "discountPercentage"].includes(field);
+    return <input id={`bulk-cell-${row.rowNumber}-${field}`} className="bulk-inline-cell"
+      aria-label={`${label}, row ${row.rowNumber}`} title={label}
+      type={numeric ? "number" : "text"} min={numeric ? "0" : undefined}
+      step={numeric && field !== "quantity" ? "0.01" : undefined}
+      value={row[field] ?? ""} placeholder={label} disabled={busy || row.status === "IMPORTED"}
+      onFocus={() => {
+        activeCell.current = { rowNumber: row.rowNumber, original: { ...row }, wasDirty: dirtyRows.current.has(row.rowNumber) };
+        setEditing({ rowNumber: row.rowNumber, field });
+      }}
+      onChange={event => updateRowField(row.rowNumber, field, event.target.value)}
+      onBlur={event => {
+        // Let Tab move between cells before calculating missing prices for the row.
+        if (event.relatedTarget?.matches("input.bulk-inline-cell")
+            && event.currentTarget.closest("tr")?.contains(event.relatedTarget)) return;
+        finishCell();
+      }}
+      onKeyDown={event => {
+        if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          const cell = activeCell.current;
+          if (cell) {
+            refreshCounts(latestRows.current.map(current => current.rowNumber === cell.rowNumber ? cell.original : current));
+            if (!cell.wasDirty) dirtyRows.current.delete(cell.rowNumber);
+          }
+          activeCell.current = null; setEditing(null); event.currentTarget.blur();
+        }
+      }} />;
   };
 
   const applyDiscountToAll = async () => {
@@ -564,7 +615,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                 </div>
 
                 <div className="bulk-preview-actions">
-                  <button className="bulk-button bulk-button--secondary" type="button" onClick={addRow}>
+                  <button className="bulk-button bulk-button--secondary" type="button" disabled={busy} onClick={addRow}>
                     <CirclePlus size={14} /> Add row
                   </button>
                   {rejectedRows.length > 0 && (
@@ -585,7 +636,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
             </div>
 
             {/* Data table */}
-            <div className="bulk-table-wrap">
+            <div className="bulk-table-wrap" tabIndex={0} role="region" aria-label="Opening stock preview rows">
               <table className="bulk-table">
                 <thead>
                   <tr>
@@ -611,19 +662,35 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                     <tr key={row.rowNumber}>
                       <td className="is-num">{row.rowNumber}</td>
                       <td className="is-product">
-                        <strong>{row.itemName || "-"}</strong>
-                        <span>{row.partNumber || "No part number"} | {row.brandName || "No brand"}</span>
+                        {renderCell(row, "itemName")}
+                        {renderCell(row, "partNumber")}
+                        {renderCell(row, "brandName")}
+                        <details className="bulk-inline-details">
+                          <summary>HSN / Rack</summary>
+                          {renderCell(row, "hsnCode")}
+                          {renderCell(row, "rackNumber")}
+                        </details>
                       </td>
                       <td className="is-store">{row.storeName || row.storeCode || "-"}</td>
-                      <td className="is-num">{row.quantity ?? "-"}</td>
-                      <td className="is-num">{row.purchasePrice ?? "-"}</td>
-                      <td className="is-num">{row.sellingPrice ?? "-"}</td>
-                      <td className="is-num">{row.mrp ?? "-"}</td>
-                      <td className="is-mode">{row.priceSource === "MANUAL" ? "Prices preserved" : row.priceSource === "PARTIAL" ? "Two entered + calculated" : "Calculated"}</td>
-                      <td className="is-num">{row.discountPercentage ?? 0}%</td>
+                      <td className="is-num">{renderCell(row, "quantity")}</td>
+                      <td className="is-num">{renderCell(row, "purchasePrice")}</td>
+                      <td className="is-num">{renderCell(row, "sellingPrice")}</td>
+                      <td className="is-num">{renderCell(row, "mrp")}</td>
+                      <td className="is-mode">{row.priceSource === "MANUAL" ? "Prices preserved" : row.priceSource === "PARTIAL" ? "Two entered + calculated" : "Calculated"}
+                        <button type="button" className="bulk-inline-clear" disabled={busy || row.status === "IMPORTED"}
+                          aria-label={`Clear prices, row ${row.rowNumber}`} onClick={() => {
+                            dirtyRows.current.add(row.rowNumber);
+                            refreshCounts(latestRows.current.map(current => current.rowNumber === row.rowNumber
+                              ? { ...current, purchasePrice: "", sellingPrice: "", mrp: "", priceSource: null,
+                                enteredPriceFields: [], status: "INVALID", errors: ["Enter at least one price; missing prices are calculated"] }
+                              : current));
+                            setFilter("ALL");
+                          }}>Clear Prices</button>
+                      </td>
+                      <td className="is-num">{renderCell(row, "discountPercentage")}</td>
                       <td className="is-num">{row.discountAmount ?? "-"}</td>
                       <td className="is-num">{row.lineTotal ?? "-"}</td>
-                      <td className="is-num">{row.gstPercentage ?? "-"}%</td>
+                      <td className="is-num">{renderCell(row, "gstPercentage")}%</td>
                       <td><span className="bulk-tag">{row.productMatch || "-"}</span></td>
                       <td className="is-status">
                         <span className={`bulk-status bulk-status--${row.status?.toLowerCase()}`}>
@@ -633,9 +700,6 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
                       </td>
                       <td className="is-actions">
                         <div className="bulk-row-actions">
-                          <button className="bulk-icon" type="button" title="Edit row" aria-label={`Edit row ${row.rowNumber}`} disabled={busy || row.status === "IMPORTED"} onClick={() => setEditing({ ...row })}>
-                            <Pencil size={14} />
-                          </button>
                           <button className="bulk-icon" type="button" title="Remove row" aria-label={`Remove row ${row.rowNumber}`} disabled={busy || row.status === "IMPORTED"} onClick={() => removeRow(row.rowNumber)}>
                             <Trash2 size={14} />
                           </button>
@@ -650,53 +714,6 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
           </>
         )}
       </div>
-
-      {/* ---- Edit modal (unchanged) ---- */}
-      {editing && (
-        <div className="bulk-modal-backdrop">
-          <div className="bulk-modal" role="dialog" aria-modal="true">
-            <div className="bulk-modal__head">
-              <div>
-                <h3>Edit row {editing.rowNumber}</h3>
-                <span>Enter one, two or three prices. Only blanks are calculated. Editing a filled price preserves the others.</span>
-              </div>
-              <button className="bulk-icon" disabled={busy} onClick={() => setEditing(null)}><X size={18} /></button>
-            </div>
-
-            <p>Purchase is final cost including GST and discount. Selling excludes GST. Calculated MRP is a suggestion.</p>
-            <button type="button" className="bulk-button bulk-button--secondary" disabled={busy}
-              onClick={() => setEditing(current => ({ ...current, purchasePrice: "", sellingPrice: "", mrp: "",
-                priceSource: null, enteredPriceFields: [], errors: [] }))}>Clear Prices</button>
-            {editing.errors?.length > 0 && <div className="bulk-alert bulk-alert--error" role="alert">{editing.errors.join("; ")}</div>}
-
-            <div className="bulk-edit-grid">
-              {editableFields.map(([field, label]) => (
-                <label key={field}>
-                  <span>{label}</span>
-                  <input
-                    type={["quantity", "purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "number" : "text"}
-                    min={["quantity", "purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "0" : undefined}
-                    step={["purchasePrice", "sellingPrice", "mrp", "gstPercentage", "discountPercentage"].includes(field) ? "0.01" : undefined}
-                    value={editing[field] ?? ""}
-                    disabled={busy}
-                    onChange={(event) => updateEditingField(field, event.target.value)}
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="bulk-modal__actions">
-              <button className="bulk-button bulk-button--danger" disabled={busy} onClick={() => { removeRow(editing.rowNumber); setEditing(null); }}>
-                Remove row
-              </button>
-              <button className="bulk-button bulk-button--secondary" disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
-              <button className="bulk-button bulk-button--primary" disabled={busy} onClick={saveEditedRow}>
-                {busy ? "Calculating..." : "Save row"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {confirming && (
         <div className="bulk-modal-backdrop">

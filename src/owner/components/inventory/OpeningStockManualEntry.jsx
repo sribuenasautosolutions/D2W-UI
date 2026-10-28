@@ -13,14 +13,12 @@ const emptyForm = {
   mrp: "",
   purchasePrice: "",
   sellingPrice: "",
-  gstPercentage: "",
-  discountPercentage: "0",
 };
 
-// Product details, quantity and GST are required; any one or more prices may be supplied.
+// Manual opening stock requires MRP and selling price.
 const REQUIRED_FIELDS = [
   ["partNumber", "Part Number"], ["productName", "Part Name"], ["brand", "Brand"],
-  ["quantity", "Opening Quantity"], ["gstPercentage", "GST Percentage"],
+  ["quantity", "Opening Quantity"], ["mrp", "MRP"], ["sellingPrice", "Selling Price"],
 ];
 
 const ALL_FIELDS = [
@@ -32,8 +30,6 @@ const ALL_FIELDS = [
   ["mrp", "MRP"],
   ["purchasePrice", "Purchase Price"],
   ["sellingPrice", "Selling Price"],
-  ["gstPercentage", "GST Percentage"],
-  ["discountPercentage", "Purchase Discount %"],
 ];
 
 function requestError(error, fallback) {
@@ -133,12 +129,12 @@ export default function OpeningStockManualEntry({
     }
 
     const priceFields = enteredPriceFields;
-    if (!priceFields.length) errors.push("Enter at least one price");
+    for (const key of ["mrp", "sellingPrice"]) {
+      if (!Number.isFinite(Number(form[key])) || Number(form[key]) <= 0) errors.push(`${key === "mrp" ? "MRP" : "Selling price"} must be greater than zero`);
+    }
     if (validatePrices) validatePrices({ ...form, enteredPriceFields: priceFields }, errors);
-    const gst = Number(form.gstPercentage);
-    const discount = Number(form.discountPercentage || 0);
-    if (!Number.isFinite(gst) || gst < 0 || gst > 100) errors.push("GST must be between 0 and 100");
-    if (!Number.isFinite(discount) || discount < 0 || discount >= 100) errors.push("Discount must be 0 or greater and less than 100%");
+    const gst = 0;
+    const discount = 0;
 
     if (errors.length) {
       setError(errors.join("; "));
@@ -254,8 +250,7 @@ export default function OpeningStockManualEntry({
           {ALL_FIELDS.map(([key, label]) => {
             const isPrice = ["mrp", "purchasePrice", "sellingPrice"].includes(key);
             const isQuantity = key === "quantity";
-            const isPercentage = ["gstPercentage", "discountPercentage"].includes(key);
-            const isOptional = key === "hsnCode" || isPrice || key === "discountPercentage";
+            const isOptional = key === "hsnCode" || key === "purchasePrice";
 
             return (
               <label key={key} htmlFor={`opening-manual-${key}`}>
@@ -267,10 +262,9 @@ export default function OpeningStockManualEntry({
                   name={key}
                   required={!isOptional}
                   value={form[key]}
-                  type={isPrice || isQuantity || isPercentage ? "number" : "text"}
-                  min={isPrice ? "0.01" : isQuantity ? "1" : isPercentage ? "0" : undefined}
-                  max={isPercentage ? (key === "discountPercentage" ? "99.99" : "100") : undefined}
-                  step={isPrice || isPercentage ? "0.01" : isQuantity ? "1" : undefined}
+                  type={isPrice || isQuantity ? "number" : "text"}
+                  min={isPrice ? "0.01" : isQuantity ? "1" : undefined}
+                  step={isPrice ? "0.01" : isQuantity ? "1" : undefined}
                   maxLength={
                     { partNumber: 100, productName: 200, brand: 150, hsnCode: 8 }[key]
                   }
@@ -304,7 +298,7 @@ export default function OpeningStockManualEntry({
           setForm(current => ({ ...current, mrp: "", purchasePrice: "", sellingPrice: "" }));
           setEnteredPriceFields([]); setPricePreview(null);
         }}>Clear Prices</button>
-        <p>Enter one, two or all three prices. Purchase price is final cost including GST; selling price excludes GST. Only missing values are calculated.</p>
+        <p>MRP and selling price are required. Purchase price is optional; review the calculated purchase price before confirming.</p>
         {pricePreview && <div role="status" className="bulk-alert">
           {["mrp", "purchasePrice", "sellingPrice"].map(key => <div key={key}>
             {key === "mrp" ? "MRP" : key === "purchasePrice" ? "Purchase Price" : "Selling Price"}: {pricePreview[key]}

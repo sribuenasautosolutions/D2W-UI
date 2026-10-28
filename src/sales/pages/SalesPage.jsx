@@ -96,8 +96,8 @@ export default function SalesPage() {
     const [search, setSearch] =
         useState("");
 
-    const [fromDate, setFromDate] = useState(() => localDateValue());
-    const [toDate, setToDate] = useState(() => localDateValue());
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
 
     const [loading, setLoading] =
         useState(false);
@@ -265,9 +265,10 @@ export default function SalesPage() {
      * Summary values are only for display.
      * They do NOT replace backend financial calculations.
      */
+    const completedInvoiceCount = visibleSales.filter(sale => sale.orderStatus !== "DRAFT").length;
     const totalSalesValue = useMemo(() => {
 
-        return visibleSales.reduce(
+        return visibleSales.filter(sale => sale.orderStatus !== "DRAFT").reduce(
             (sum, sale) =>
                 sum +
                 Number(
@@ -285,7 +286,7 @@ export default function SalesPage() {
      */
     const allSalesValue = useMemo(() => {
 
-        return sales.reduce(
+        return sales.filter(sale => sale.orderStatus !== "DRAFT").reduce(
             (sum, sale) =>
                 sum +
                 Number(
@@ -392,8 +393,8 @@ export default function SalesPage() {
                     <div className="sales-kpi-body">
                         <span className="sales-kpi-label">Avg. Order Value</span>
                         <strong className="sales-kpi-value">
-                            {visibleSales.length
-                                ? formatMoney(totalSalesValue / visibleSales.length)
+                            {completedInvoiceCount
+                                ? formatMoney(totalSalesValue / completedInvoiceCount)
                                 : formatMoney(0)}
                         </strong>
                     </div>

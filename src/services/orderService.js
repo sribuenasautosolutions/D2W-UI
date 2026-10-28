@@ -128,3 +128,8 @@ export const downloadSalesBulkUploadTemplate = async () => {
 
   return response.data;
 };
+
+export const getInvoiceHistory = async (orderId) => {
+  const response = await apiclient.get(`/orders/${orderId}/history`);
+  return response.data;
+};

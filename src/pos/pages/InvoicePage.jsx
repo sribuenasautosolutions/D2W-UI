@@ -124,13 +124,19 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
     try {
       if (!orderId) throw new Error("Invoice identifier is missing.");
       const response = await apiclient.get(`/orders/${orderId}`, { timeout: 20000 });
-      if (invoiceRequest.current === version) setInvoice(response.data);
+      if (invoiceRequest.current === version) {
+        if (response.data.orderStatus === "DRAFT") {
+          navigate((location.pathname.startsWith("/owner") ? "/owner" : "/store") + "/sales/edit/" + orderId, { replace: true });
+          return;
+        }
+        setInvoice(response.data);
+      }
     } catch (requestError) {
       if (invoiceRequest.current === version) setError(requestError.response?.data?.message || requestError.message || "Unable to load this invoice.");
     } finally {
       if (invoiceRequest.current === version) setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, navigate, location.pathname]);
 
   useEffect(() => {
     loadInvoice();
@@ -215,16 +221,6 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
     <nav className="invoice-toolbar">
       {!embedded && <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}><ArrowLeft size={16} />Back</button>}
       <div>
-        {["SUPER_ADMIN", "STORE_OWNER"].includes(JSON.parse(localStorage.getItem("user") || "{}").role)
-          && items.length > 0 && !["CANCELLED", "RETURNED"].includes(invoice.orderStatus) &&
-          <button className="invoice-button" disabled={pdfLoading} onClick={() => navigate(`${location.pathname.startsWith("/owner/") ? "/owner" : "/store"}/sales/edit/${orderId}`)}>Edit Invoice</button>}
-        {invoice.orderStatus === "PENDING_PAYMENT" && Number(invoice.balanceAmount) > 0 && (
-          <button className="invoice-button invoice-button--primary" onClick={() => {
-            const base = location.pathname.startsWith("/owner/") ? "/owner/sales"
-              : location.pathname.startsWith("/store/") ? "/store/sales" : "/pos";
-            navigate(`${base}/payment/${orderId}`);
-          }}>Collect Payment</button>
-        )}
         <button className="invoice-button invoice-button--quiet" onClick={handlePrint}><Printer size={16} />Print</button>
         <button className="invoice-button invoice-button--quiet" disabled={pdfLoading} onClick={handleSavePdf}><Download size={16} />{pdfLoading ? "Saving PDF…" : "Save PDF"}</button>
       </div>
