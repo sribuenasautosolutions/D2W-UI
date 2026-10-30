@@ -6,6 +6,7 @@ import {
     Pencil,
     Plus,
     Search,
+    Trash2,
     X
 } from "lucide-react";
 import api from "../../services/api";
@@ -32,6 +33,11 @@ const COLORS = {
 const FONT_DISPLAY = "'Space Grotesk', 'Segoe UI', sans-serif";
 const FONT_BODY = "'Inter', 'Segoe UI', Helvetica, Arial, sans-serif";
 const FONT_MONO = "'IBM Plex Mono', 'Consolas', monospace";
+
+const isSuperAdmin = (() => {
+    try { return JSON.parse(localStorage.getItem("user") || "null")?.role === "SUPER_ADMIN"; }
+    catch { return false; }
+})();
 
 
 const emptyStore = {
@@ -76,6 +82,7 @@ function StoresPage() {
     const lastPincodeLookupRef = useRef(null);
     const pincodeRequestRef = useRef(0);
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [showInitialPassword, setShowInitialPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -567,6 +574,30 @@ function StoresPage() {
         }
     };
 
+    const deleteStore = async () => {
+        if (!selected || deleting) return;
+        const confirmed = window.confirm(
+            `Permanently delete ${selected.storeName} (${selected.storeCode}) and all data owned by this store?\n\n` +
+            `This includes invoices, payments, inventory and transactions, local products, customers, users, suppliers, purchasing, leads, requests, and store communications. Product approval history will be retained with store and local-product links cleared. Global products will be kept. This cannot be undone.`
+        );
+        if (!confirmed) return;
+        setDeleting(true);
+        try {
+            const response = await api.delete(`/stores/${selected.id}`);
+            const deletedRecords = response.data?.deletedRecords || response.data;
+            const summary = deletedRecords && typeof deletedRecords === "object"
+                ? Object.entries(deletedRecords).map(([name, count]) => `${name}: ${count}`).join(", ")
+                : response.data?.message || "Store and its data were deleted.";
+            setSelectedId(null);
+            setMessage({ type: "success", text: `Store deleted. ${summary}. Global products and product approval history were preserved.` });
+            await loadStores();
+        } catch (error) {
+            setMessage({ type: "error", text: error.response?.data?.message || "Unable to delete store" });
+        } finally {
+            setDeleting(false);
+        }
+    };
+
 
     return (
 
@@ -951,6 +982,12 @@ function StoresPage() {
                                         : "Deactivate"}
 
                                 </button>
+
+                                {isSuperAdmin && (
+                                    <button type="button" onClick={deleteStore} disabled={deleting} style={S.deactivate}>
+                                        <Trash2 size={14} /> {deleting ? "Deleting…" : "Delete store"}
+                                    </button>
+                                )}
 
                             </div>
 

@@ -5,6 +5,7 @@ const LoginPage = lazy(() => import("../pages/LoginPage"));
 const OwnerRoutes = lazy(() => import("../owner/routes/OwnerRoutes"));
 const StoreRoutes = lazy(() => import("../store/routes/StoreRoutes"));
 const POSRoutes = lazy(() => import("../pos/routes/POSRoutes"));
+const LeadStaffRoutes = lazy(() => import("../store/routes/LeadStaffRoutes"));
 import PublicRoute from "../auth/PublicRoute";
 
 import ProtectedRoute from "../auth/ProtectedRoute";
@@ -60,6 +61,13 @@ function AppRoutesNew() {
           </ProtectedRoute>
         }
       />
+
+      <Route path="/salesperson/*" element={
+        <ProtectedRoute allowedRoles={["SALESPERSON"]}><LeadStaffRoutes role="SALESPERSON" /></ProtectedRoute>
+      } />
+      <Route path="/procurement/*" element={
+        <ProtectedRoute allowedRoles={["PROCUREMENT"]}><LeadStaffRoutes role="PROCUREMENT" /></ProtectedRoute>
+      } />
 
     </Routes>
     </Suspense>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -146,6 +146,8 @@ export const productManageRoute = (inventoryId, storeId, role = "SUPER_ADMIN") =
 
 export default function CurrentStockSection() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const overview = location.state?.inventoryOverview;
   const [user] = useState(readUser);
 
   const isSuperAdmin = user.role === "SUPER_ADMIN";
@@ -156,10 +158,10 @@ export default function CurrentStockSection() {
   const [categories, setCategories] = useState([]);
 
   const [storeId, setStoreId] = useState(
-    user.storeId ? String(user.storeId) : ""
+    overview?.storeId || (user.storeId ? String(user.storeId) : "")
   );
 
-  const [view, setView] = useState("table"); // "table" | "detail" | "bulk-upload"
+  const [view, setView] = useState(overview ? "detail" : "table");
 
   const [result, setResult] = useState({
     content: [],
@@ -169,7 +171,7 @@ export default function CurrentStockSection() {
     size: 20,
   });
 
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(overview?.inventoryId || null);
   const [details, setDetails] = useState(null);
 
   const [batches, setBatches] = useState([]);
@@ -361,7 +363,9 @@ export default function CurrentStockSection() {
     if (!selectedId) return;
     const selectedRow = result.content.find((row) => row.inventoryId === selectedId);
     const detailStoreId = storeId || selectedRow?.storeId;
-    navigate(productManageRoute(selectedId, detailStoreId, user.role));
+    navigate(productManageRoute(selectedId, detailStoreId, user.role), {
+      state: { returnTo: location.pathname + location.search },
+    });
   };
 
   const changeFilter = (setter) => (event) => {

@@ -4,6 +4,8 @@ import { createLocalProduct, getMyLocalProducts } from "../../../services/localP
 import { getAllBrands } from "../../../services/brandService";
 import { searchProductByPartNumber } from "../../../services/productFitmentService";
 
+const OPENING_GST_PERCENTAGE = 18;
+
 const emptyForm = {
   partNumber: "",
   productName: "",
@@ -52,6 +54,8 @@ export default function OpeningStockManualEntry({
 }) {
   const [form, setForm] = useState(emptyForm);
   const [pricePreview, setPricePreview] = useState(null);
+  const [calculating, setCalculating] = useState(false);
+  const [pricingError, setPricingError] = useState("");
   const [enteredPriceFields, setEnteredPriceFields] = useState([]);
   const [brands, setBrands] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -62,9 +66,52 @@ export default function OpeningStockManualEntry({
 
   const submitting = useRef(false);
   const context = useRef(storeId);
+  const priceVersion = useRef(0);
+  const priceInputs = JSON.stringify(Object.fromEntries(
+    enteredPriceFields.map(key => [key, form[key]])
+  ));
+
+  useEffect(() => {
+    let active = true;
+    const version = priceVersion.current;
+    const inputs = JSON.parse(priceInputs);
+    setPricePreview(null);
+    setPricingError("");
+    if (!storeId || !Object.keys(inputs).length ||
+        Object.values(inputs).some(value => !Number.isFinite(Number(value)) || Number(value) <= 0)) {
+      setCalculating(false);
+      return;
+    }
+    setCalculating(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await api.post("/store-inventory/bulk-upload/pricing-preview", {
+          storeId, quantity: 1, gstPercentage: OPENING_GST_PERCENTAGE, discountPercentage: 0,
+          enteredPriceFields: Object.keys(inputs),
+          ...Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key, Number(value)])),
+        });
+        if (!active || version !== priceVersion.current) return;
+        setPricePreview(data);
+        // Keep typed values intact (including an unfinished decimal). Only fill
+        // prices that the user has left to automatic calculation.
+        setForm(current => ({ ...current, ...Object.fromEntries(
+          ["mrp", "purchasePrice", "sellingPrice"]
+            .filter(key => !Object.hasOwn(inputs, key))
+            .map(key => [key, String(data[key])])
+        ) }));
+      } catch (err) {
+        if (active && version === priceVersion.current)
+          setPricingError(requestError(err, "Unable to calculate prices."));
+      } finally {
+        if (active && version === priceVersion.current) setCalculating(false);
+      }
+    }, 300);
+    return () => { active = false; clearTimeout(timer); };
+  }, [priceInputs, storeId]);
 
   useEffect(() => {
     context.current = storeId;
+    priceVersion.current += 1;
     setForm(emptyForm);
     setRequests([]);
     setPricePreview(null);
@@ -133,7 +180,7 @@ export default function OpeningStockManualEntry({
       if (!Number.isFinite(Number(form[key])) || Number(form[key]) <= 0) errors.push(`${key === "mrp" ? "MRP" : "Selling price"} must be greater than zero`);
     }
     if (validatePrices) validatePrices({ ...form, enteredPriceFields: priceFields }, errors);
-    const gst = 0;
+    const gst = OPENING_GST_PERCENTAGE;
     const discount = 0;
 
     if (errors.length) {
@@ -146,19 +193,13 @@ export default function OpeningStockManualEntry({
     setBusy(true);
 
     try {
-      if (!pricePreview) {
-        const payload = { storeId: submittedStore, quantity, gstPercentage: gst,
-          discountPercentage: discount, enteredPriceFields: priceFields };
-        ["mrp", "purchasePrice", "sellingPrice"].forEach(key => { payload[key] = priceFields.includes(key) ? Number(form[key]) : null; });
-        const response = await api.post("/store-inventory/bulk-upload/pricing-preview", payload);
-        if (context.current === submittedStore) {
-          setPricePreview(response.data);
-          setEnteredPriceFields(response.data.enteredPriceFields || priceFields);
-          setForm(current => ({ ...current, mrp: String(response.data.mrp),
-            purchasePrice: String(response.data.purchasePrice), sellingPrice: String(response.data.sellingPrice) }));
-        }
-        return;
-      }
+      const payload = { storeId: submittedStore, quantity, gstPercentage: gst,
+        discountPercentage: discount, enteredPriceFields: priceFields };
+      ["mrp", "purchasePrice", "sellingPrice"].forEach(key => {
+        payload[key] = priceFields.includes(key) ? Number(form[key]) : null;
+      });
+      const { data: prices } = await api.post("/store-inventory/bulk-upload/pricing-preview", payload);
+      if (context.current !== submittedStore) return;
       const result = await createLocalProduct(
         {
           partNumber: form.partNumber.trim(),
@@ -167,9 +208,9 @@ export default function OpeningStockManualEntry({
           hsnCode: hsn || null,
           quantity,
           gstPercentage: gst,
-          mrp: Number(pricePreview.mrp),
-          purchasePrice: Number(pricePreview.purchasePrice),
-          sellingPrice: Number(pricePreview.sellingPrice),
+          mrp: Number(prices.mrp),
+          purchasePrice: Number(prices.purchasePrice),
+          sellingPrice: Number(prices.sellingPrice),
         },
         submittedStore
       );
@@ -234,8 +275,8 @@ export default function OpeningStockManualEntry({
         <>
           <h3>Manual Entry — Opening Stock</h3>
           <p>
-            Enter the product details and opening quantity. The backend processes the inventory entry
-            and returns the result along with an approval request ID when available.
+            Enter the product details, MRP and opening quantity. Other prices fill automatically
+            and can be edited before saving.
           </p>
         </>
       )}
@@ -275,11 +316,13 @@ export default function OpeningStockManualEntry({
                       const value = event.target.value;
                       const keys = ["mrp", "purchasePrice", "sellingPrice"];
                       if (keys.includes(key)) {
+                        priceVersion.current += 1;
+                        setPricePreview(null);
                         const fields = new Set(enteredPriceFields);
                         if (String(value).trim()) fields.add(key); else fields.delete(key);
                         setEnteredPriceFields([...fields]);
                       }
-                      setForm(current => ({ ...current, [key]: value })); setPricePreview(null);
+                      setForm(current => ({ ...current, [key]: value }));
                     }
                   }
                 />
@@ -294,24 +337,16 @@ export default function OpeningStockManualEntry({
           </datalist>
         </fieldset>
 
-        <button type="button" className="bulk-button" disabled={busy} onClick={() => {
-          setForm(current => ({ ...current, mrp: "", purchasePrice: "", sellingPrice: "" }));
-          setEnteredPriceFields([]); setPricePreview(null);
-        }}>Clear Prices</button>
-        <p>MRP and selling price are required. Purchase price is optional; review the calculated purchase price before confirming.</p>
-        {pricePreview && <div role="status" className="bulk-alert">
-          {["mrp", "purchasePrice", "sellingPrice"].map(key => <div key={key}>
-            {key === "mrp" ? "MRP" : key === "purchasePrice" ? "Purchase Price" : "Selling Price"}: {pricePreview[key]}
-            {pricePreview.enteredPriceFields?.includes(key) ? " (entered)" : key === "mrp" ? " (calculated suggestion — review)" : " (calculated)"}
-          </div>)}
-          Review these prices. No stock has been saved yet.
-        </div>}
+        <p>GST: 18%. Enter MRP to calculate prices automatically. You can edit any price manually;
+          clear an edited price to calculate it again.</p>
+        {calculating && <p role="status">Calculating prices…</p>}
+        {pricingError && <div role="alert" className="bulk-alert bulk-alert--error">{pricingError}</div>}
         <button
           type="submit"
           className="bulk-button bulk-button--primary"
-          disabled={busy || !storeId}
+          disabled={busy || calculating || !pricePreview || Boolean(pricingError) || !storeId}
         >
-          {busy ? "Processing…" : pricePreview ? "Confirm Opening Stock" : "Preview Prices"}
+          {busy ? "Saving…" : "Save Opening Stock"}
         </button>
       </form>
 

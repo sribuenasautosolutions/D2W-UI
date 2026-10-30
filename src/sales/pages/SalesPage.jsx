@@ -328,6 +328,26 @@ export default function SalesPage() {
         );
     };
 
+    const handleDeleteInvoice = async (sale) => {
+        const invoiceNumber = `INV-${String(sale.orderId).padStart(6, "0")}`;
+        const confirmed = window.confirm(
+            `Permanently delete ${invoiceNumber} for ${sale.customerName || "this customer"}?\n\n` +
+            `This removes the invoice, its line items, payments, ledger entries, returns, amendments, and linked stock transactions. Inventory will be adjusted to account for returned items. This cannot be undone.`
+        );
+        if (!confirmed) return;
+        try {
+            const response = await apiclient.delete(`/orders/${sale.orderId}`);
+            const details = response.data?.deletedRecords || response.data;
+            const summary = details && typeof details === "object"
+                ? Object.entries(details).map(([name, count]) => `${name}: ${count}`).join(", ")
+                : response.data?.message || `${invoiceNumber} deleted.`;
+            window.alert(`Invoice deleted successfully.\n\n${summary}`);
+            await loadSales();
+        } catch (requestError) {
+            window.alert(requestError.response?.data?.message || "Unable to delete the invoice.");
+        }
+    };
+
 
    return (
     <section className="sales-page">
@@ -494,6 +514,7 @@ export default function SalesPage() {
                     onViewInvoice={handleViewInvoice}
                     onDownloadInvoice={(orderId) => navigate(`invoice/${orderId}?download=1`)}
                     onEditInvoice={(orderId) => navigate(`edit/${orderId}`)}
+                    onDeleteInvoice={handleDeleteInvoice}
                 />
             )}
         </div>
