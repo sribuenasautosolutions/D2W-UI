@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeftRight,
   Boxes,
@@ -43,6 +43,7 @@ const ProductManagePage = () => {
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get("storeId") || "";
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,7 @@ const ProductManagePage = () => {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isAdjusting, setIsAdjusting] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [adjustmentError, setAdjustmentError] = useState("");
@@ -127,7 +129,7 @@ const ProductManagePage = () => {
   }, [inventoryId, activeSection]);
 
   useEffect(() => {
-    if (!inventoryId || activeSection !== "batches") return;
+    if (!inventoryId) return;
 
     getManagementBatches(inventoryId)
       .then((data) => {
@@ -140,7 +142,7 @@ const ProductManagePage = () => {
       .catch((error) => {
         setSaveError(errorMessage(error, "Unable to load batch rack numbers."));
       });
-  }, [inventoryId, activeSection]);
+  }, [inventoryId]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -165,25 +167,8 @@ const ProductManagePage = () => {
     ["SUPER_ADMIN", "STORE_OWNER"].includes(currentUser.role)
   );
 
-  const saveRackNumber = async (batch) => {
-    setSaveError("");
-    try {
-      const updated = await updateInventoryBatch(batch.batchId, {
-        purchasePrice: batch.purchasePrice,
-        sellingPrice: batch.sellingPrice,
-        mrp: batch.mrp,
-        rackNumber: (rackDrafts[batch.batchId] || "").trim(),
-      });
-      setBatches((current) => current.map((item) =>
-        item.batchId === batch.batchId ? updated : item
-      ));
-      setSaveMessage("Rack number saved successfully.");
-    } catch (error) {
-      setSaveError(errorMessage(error, "Unable to save rack number."));
-    }
-  };
-
   const handleSaveChanges = async () => {
+    if (isSaving) return;
     setIsSaving(true);
     setSaveMessage("");
     setSaveError("");
@@ -202,6 +187,13 @@ const ProductManagePage = () => {
         });
       }
 
+      for (const batch of batches) {
+        const rackNumber = (rackDrafts[batch.batchId] || "").trim();
+        if (rackNumber !== (batch.rackNumber || "")) {
+          await updateInventoryBatch(batch.batchId, { purchasePrice: batch.purchasePrice,
+            sellingPrice: batch.sellingPrice, mrp: batch.mrp, rackNumber });
+        }
+      }
       if (Number(formData.sellingPrice) !== Number(product.sellingPrice)
           || Number(formData.mrp) !== Number(product.mrp)
           || Number(formData.purchasePrice) !== Number(product.purchasePrice)) {
@@ -212,8 +204,10 @@ const ProductManagePage = () => {
         });
       }
 
-      setSaveMessage("Changes saved successfully.");
-      await loadProduct();
+      navigate(location.state?.returnTo || (currentUser.role === "STORE_OWNER" ? "/store/inventory" : "/owner/inventory"), {
+        replace: true,
+        state: { inventoryOverview: { inventoryId: Number(inventoryId), storeId } },
+      });
     } catch (error) {
       setSaveError(errorMessage(error, "Unable to save changes."));
     } finally {
@@ -223,6 +217,7 @@ const ProductManagePage = () => {
 
   const handleStockAdjustment = async (event) => {
     event.preventDefault();
+    if (isAdjusting) return;
     setAdjustmentError("");
 
     try {
@@ -239,10 +234,12 @@ const ProductManagePage = () => {
         return;
       }
 
+      setIsAdjusting(true);
       await api.post("/inventory-adjustment", {
         inventoryId: Number(inventoryId),
         storeId: Number(storeId),
-        adjustedQty,
+        adjustmentType: adjustmentData.adjustmentType.toUpperCase(),
+        quantity,
         reason: adjustmentData.reason,
         remarks: `${adjustmentData.adjustmentType === "add" ? "Added" : "Removed"} ${quantity} from Current Stock`,
       });
@@ -253,6 +250,8 @@ const ProductManagePage = () => {
       setAdjustmentError(
         errorMessage(error, "Unable to save the stock adjustment.")
       );
+    } finally {
+      setIsAdjusting(false);
     }
   };
 
@@ -589,7 +588,6 @@ const ProductManagePage = () => {
                         <th>MRP</th>
                         <th>Available</th>
                         <th>Rack number</th>
-                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -610,20 +608,11 @@ const ProductManagePage = () => {
                               placeholder="Enter rack number"
                             />
                           </td>
-                          <td>
-                            <button
-                              type="button"
-                              className="manage-adjustment-button"
-                              onClick={() => saveRackNumber(batch)}
-                            >
-                              <Save size={14} /> Save
-                            </button>
-                          </td>
                         </tr>
                       ))}
                       {!batches.length && (
                         <tr>
-                          <td colSpan="5" className="manage-table-empty">
+                          <td colSpan="4" className="manage-table-empty">
                             No batches available.
                           </td>
                         </tr>
@@ -713,14 +702,19 @@ const ProductManagePage = () => {
                   <div className="manage-adjustment-notice">
                     Current available stock:{" "}
                     <strong>{availableStock}</strong>
+                    {Number.isInteger(Number(adjustmentData.quantity)) && Number(adjustmentData.quantity) > 0 && (
+                      <span> → After adjustment: <strong>{Number(availableStock) +
+                        (adjustmentData.adjustmentType === "add" ? 1 : -1) * Number(adjustmentData.quantity)}</strong></span>
+                    )}
                   </div>
 
                   <button
                     type="submit"
                     className="manage-adjustment-button"
+                    disabled={isAdjusting}
                   >
                     <ClipboardEdit size={15} />
-                    Apply Stock Adjustment
+                    {isAdjusting ? "Applying…" : "Apply Stock Adjustment"}
                   </button>
                 </form>
               </div>
@@ -791,6 +785,7 @@ const ProductManagePage = () => {
               second trigger, since a lone icon in the corner is easy to
               miss or mistake for not working. Both navigate back now. */}
           <section className="manage-actions-card">
+            {saveError && <div role="alert" className="manage-alert manage-alert-error">{saveError}</div>}
             <button
               type="button"
               className="manage-save-button"

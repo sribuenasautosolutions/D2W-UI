@@ -154,7 +154,7 @@ function UsersPage() {
         if (isSuperAdmin &&
             form.role !== "SUPER_ADMIN" &&
             !form.storeId) {
-            setCreateError("Select a store for the Store Owner or Cashier");
+            setCreateError("Select a store for this user");
             return;
         }
 
@@ -165,13 +165,8 @@ function UsersPage() {
             password: form.password,
         };
 
-        if (isSuperAdmin) {
-            payload.role = form.role;
-
-            if (form.role !== "SUPER_ADMIN") {
-                payload.storeId = Number(form.storeId);
-            }
-        }
+        payload.role = form.role;
+        if (isSuperAdmin && form.role !== "SUPER_ADMIN") payload.storeId = Number(form.storeId);
 
         setSaving(true);
 
@@ -181,8 +176,8 @@ function UsersPage() {
             setCreateOpen(false);
             setSuccess(
                 isSuperAdmin
-                    ? "User created successfully"
-                    : "Cashier created and assigned to your store"
+                ? "User created successfully"
+                    : `${roleLabel(form.role)} created and assigned to your store`
             );
             await loadUsers();
         } catch (requestError) {
@@ -236,12 +231,8 @@ function UsersPage() {
         if (changePassword) {
             payload.newPassword = editForm.newPassword;
         }
-        if (isSuperAdmin) {
-            payload.role = editForm.role;
-            if (editForm.role !== "SUPER_ADMIN") {
-                payload.storeId = Number(editForm.storeId);
-            }
-        }
+        payload.role = editForm.role;
+        if (isSuperAdmin && editForm.role !== "SUPER_ADMIN") payload.storeId = Number(editForm.storeId);
 
         setSaving(true);
         try {
@@ -416,7 +407,7 @@ function UsersPage() {
                             </div>
                         </Field>
 
-                        {isSuperAdmin && (
+                        {
                             <Field label="Role">
                                 <select
                                     value={form.role}
@@ -429,12 +420,14 @@ function UsersPage() {
                                     }}
                                     style={S.input}
                                 >
-                                    <option value="SUPER_ADMIN">Super Admin</option>
-                                    <option value="STORE_OWNER">Store Owner</option>
+                                    {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
+                                    {isSuperAdmin && <option value="STORE_OWNER">Store Owner</option>}
                                     <option value="CASHIER">Cashier</option>
+                                    <option value="SALESPERSON">Salesperson</option>
+                                    <option value="PROCUREMENT">Procurement</option>
                                 </select>
                             </Field>
-                        )}
+                        }
 
                         {isSuperAdmin && form.role !== "SUPER_ADMIN" && (
                             <Field label="Assigned store">
@@ -493,6 +486,8 @@ function UsersPage() {
                                 <option value="SUPER_ADMIN">Super Admin</option>
                                 <option value="STORE_OWNER">Store Owner</option>
                                 <option value="CASHIER">Cashier</option>
+                                <option value="SALESPERSON">Salesperson</option>
+                                <option value="PROCUREMENT">Procurement</option>
                             </select>
                             {isSuperAdmin && (
                                 <select aria-label="Filter by store" value={storeFilter}
@@ -555,7 +550,7 @@ function UsersPage() {
                                         <span style={S.email}>{selectedUser.email}</span>
                                     </div>
                                 </div>
-                                {(isSuperAdmin || selectedUser.role === "CASHIER") && (
+                                {(isSuperAdmin || !["SUPER_ADMIN", "STORE_OWNER"].includes(selectedUser.role)) && (
                                     <div style={S.userActions}>
                                         <button type="button" onClick={() => setSelectedId(null)} style={S.editButton}>Back to table</button>
                                         <button type="button" onClick={() => openEdit(selectedUser)}
@@ -677,7 +672,7 @@ function UsersPage() {
                                     </Field>
                                 </>
                             )}
-                            {isSuperAdmin && (
+                            {
                                 <Field label="Role">
                                     <select style={S.input} value={editForm.role}
                                         onChange={(e) => setEditForm({
@@ -685,12 +680,14 @@ function UsersPage() {
                                             role: e.target.value,
                                             storeId: e.target.value === "SUPER_ADMIN" ? "" : editForm.storeId,
                                         })}>
-                                        <option value="SUPER_ADMIN">Super Admin</option>
-                                        <option value="STORE_OWNER">Store Owner</option>
+                                        {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
+                                        {isSuperAdmin && <option value="STORE_OWNER">Store Owner</option>}
                                         <option value="CASHIER">Cashier</option>
+                                        <option value="SALESPERSON">Salesperson</option>
+                                        <option value="PROCUREMENT">Procurement</option>
                                     </select>
                                 </Field>
-                            )}
+                            }
                             {isSuperAdmin && editForm.role !== "SUPER_ADMIN" && (
                                 <Field label="Assigned store">
                                     <select required style={S.input} value={editForm.storeId}
@@ -791,6 +788,8 @@ function roleLabel(role) {
         SUPER_ADMIN: "Super Admin",
         STORE_OWNER: "Store Owner",
         CASHIER: "Cashier",
+        SALESPERSON: "Salesperson",
+        PROCUREMENT: "Procurement",
     }[role] || role;
 }
 

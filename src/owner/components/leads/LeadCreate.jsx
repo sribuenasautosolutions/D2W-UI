@@ -13,6 +13,7 @@ import {
 import {
     createSalesperson,
     getSalespersons,
+    getProcurementAssignees,
 } from "../../../services/salespersonService";
 
 import "./LeadCreate.css";
@@ -65,6 +66,7 @@ export default function LeadCreate({
 
     const user = useMemo(() => readUser(), []);
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    const leadBase = isSuperAdmin ? "/owner/sales" : user?.role === "SALESPERSON" ? "/salesperson/sales" : user?.role === "PROCUREMENT" ? "/procurement/sales" : "/store/sales";
 
     /* ============================== STORE ============================== */
     const [selectedStoreId, setSelectedStoreId] = useState(
@@ -92,6 +94,10 @@ export default function LeadCreate({
     const [salespersonModalOpen, setSalespersonModalOpen] = useState(false);
     const [salespersonForm, setSalespersonForm] = useState(EMPTY_SALESPERSON);
     const [savingSalesperson, setSavingSalesperson] = useState(false);
+    const [procurementAssignees, setProcurementAssignees] = useState([]);
+    const [procurementAssigneeId, setProcurementAssigneeId] = useState("");
+    const [procurementLoading, setProcurementLoading] = useState(false);
+    const [procurementLoadError, setProcurementLoadError] = useState(false);
 
     /* ============================== LEAD ============================== */
     const [source, setSource] = useState("");
@@ -175,7 +181,7 @@ export default function LeadCreate({
 
     /* ============================== LOAD SALESPERSONS ============================== */
     const loadSalespersons = useCallback(async (storeId) => {
-        if (!storeId) {
+        if (!storeId || user?.role === "PROCUREMENT") {
             setSalespersons([]);
             return;
         }
@@ -189,13 +195,36 @@ export default function LeadCreate({
         } finally {
             setSalespersonLoading(false);
         }
-    }, []);
+    }, [user?.role]);
 
     useEffect(() => {
         loadSalespersons(selectedStoreId);
         if (isEditMode) return;
         setSelectedSalesperson(null);
     }, [selectedStoreId, loadSalespersons, isEditMode]);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!selectedStoreId || isEditMode || user?.role === "PROCUREMENT") {
+            setProcurementAssignees([]);
+            setProcurementAssigneeId("");
+            setProcurementLoadError(false);
+            return;
+        }
+        setProcurementLoading(true);
+        setProcurementLoadError(false);
+        getProcurementAssignees(Number(selectedStoreId))
+            .then((users) => { if (!cancelled) setProcurementAssignees(users); })
+            .catch((error) => {
+                console.error("Unable to load procurement users:", error);
+                if (!cancelled) {
+                    setProcurementAssignees([]);
+                    setProcurementLoadError(true);
+                }
+            })
+            .finally(() => { if (!cancelled) setProcurementLoading(false); });
+        return () => { cancelled = true; };
+    }, [selectedStoreId, isEditMode, user?.role]);
 
     /* ============================== HYDRATE SALESPERSON (EDIT MODE) ============================== */
     useEffect(() => {
@@ -274,6 +303,7 @@ export default function LeadCreate({
         setCustomerLookupMessage("");
 
         setSelectedSalesperson(null);
+        setProcurementAssigneeId("");
         setSource("");
     };
 
@@ -550,6 +580,7 @@ export default function LeadCreate({
 
         const payload = {
             customerId: Number(selectedCustomer.id),
+            procurementUserId: procurementAssigneeId ? Number(procurementAssigneeId) : null,
             salespersonId: selectedSalesperson?.id
                 ? Number(selectedSalesperson.id)
                 : null,
@@ -609,15 +640,14 @@ export default function LeadCreate({
         }
 
         // Fallback (LeadCreate used outside the list page): previous behaviour
-        const base = isSuperAdmin ? "/owner/sales" : "/store/sales";
-        navigate(`${base}/leads/${createdLead.id}?view=readonly`);
+        navigate(`${leadBase}/leads/${createdLead.id}?view=readonly`);
     };
 
     /* ============================== BACK / CLOSE ============================== */
     const handleBack = () => {
         if (typeof onClose === "function") onClose();
         else
-            navigate(isSuperAdmin ? "/owner/sales/leads" : "/store/sales/leads");
+            navigate(`${leadBase}/leads`);
     };
 
     /* ============================== RENDER ============================== */
@@ -744,7 +774,7 @@ export default function LeadCreate({
                         </div>
 
                         {/* Assign To — dropdown */}
-                        <div className="lead-field">
+                        {!['SALESPERSON', 'PROCUREMENT'].includes(user?.role) && <div className="lead-field">
                             <label htmlFor="lead-salesperson" className="lead-label">
                                 Assign To
                             </label>
@@ -777,7 +807,7 @@ export default function LeadCreate({
                                     + Add new salesperson
                                 </option>
                             </select>
-                        </div>
+                        </div>}
 
                         {/* Location */}
                         <div className="lead-field">
@@ -810,6 +840,21 @@ export default function LeadCreate({
                                 className="lead-input"
                             />
                         </div>
+
+                        {/* Lead Source */}
+                        {!isEditMode && user?.role !== "PROCUREMENT" && <div className="lead-field">
+                            <label htmlFor="lead-procurement-assignee" className="lead-label">Assign Procurement</label>
+                            <select
+                                id="lead-procurement-assignee"
+                                value={procurementAssigneeId}
+                                onChange={(event) => setProcurementAssigneeId(event.target.value)}
+                                disabled={!selectedStoreId || procurementLoading}
+                                className="lead-input"
+                            >
+                                <option value="">{procurementLoading ? "Loading..." : procurementLoadError ? "Could not load procurement users" : procurementAssignees.length ? "Auto assign (least loaded)" : "No active procurement users"}</option>
+                                {procurementAssignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name || `Procurement ${assignee.id}`}</option>)}
+                            </select>
+                        </div>}
 
                         {/* Lead Source */}
                         <div className="lead-field">

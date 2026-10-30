@@ -46,10 +46,14 @@ function Sidebar() {
     const user = getStoredUser();
     const location = useLocation();
     const isOwner = user?.role === "SUPER_ADMIN";
+    const isSalesperson = user?.role === "SALESPERSON";
+    const isProcurement = user?.role === "PROCUREMENT";
+    const isLeadStaff = isSalesperson || isProcurement;
+    const homeBase = isSalesperson ? "/salesperson" : isProcurement ? "/procurement" : isOwner ? "/owner" : "/store";
 
     const inventoryBase = isOwner ? "/owner/inventory" : "/store/inventory";
     const purchasesBase = isOwner ? "/owner/purchases" : "/store/purchases";
-    const salesBase = isOwner ? "/owner/sales" : "/store/sales";
+    const salesBase = isOwner ? "/owner/sales" : isLeadStaff ? `${homeBase}/sales` : "/store/sales";
 
     const isInventoryRoute = location.pathname === inventoryBase;
     const isPurchasesRoute = location.pathname === purchasesBase;
@@ -151,6 +155,8 @@ function Sidebar() {
             SUPER_ADMIN: "Super Admin",
             STORE_OWNER: "Store Owner",
             CASHIER: "Cashier",
+            SALESPERSON: "Salesperson",
+            PROCUREMENT: "Procurement",
         }[user?.role] || "User";
 
     /* ---------- style helpers (aware of collapsed) ---------- */
@@ -356,6 +362,19 @@ function Sidebar() {
                     className="app-sidebar-nav"
                     style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
                 >
+                    {isLeadStaff ? (
+                        <>
+                            <Link to={`${homeBase}/dashboard`} style={linkStyle(`${homeBase}/dashboard`)}>
+                                <House size={17} /><NavLabel collapsed={collapsed}>Dashboard</NavLabel>
+                            </Link>
+                            {!collapsed && <div style={sectionLabelStyle}>{isSalesperson ? "Sales" : "Operations"}</div>}
+                            <Link to={`${homeBase}/sales/leads`} style={linkStyle(`${homeBase}/sales/leads`)}>
+                                {isSalesperson ? <ClipboardList size={17} /> : <PackageSearch size={17} />}
+                                <NavLabel collapsed={collapsed}>{isSalesperson ? "My Leads" : "Assigned Procurement"}</NavLabel>
+                            </Link>
+                        </>
+                    ) : (
+                    <>
                     {/* Dashboard */}
                     <Link
                         to={isOwner ? "/owner/dashboard" : "/store/dashboard"}
@@ -617,6 +636,8 @@ function Sidebar() {
                                 <NavLabel collapsed={collapsed}>Employees</NavLabel>
                             </Link>
                         </>
+                    )}
+                    </>
                     )}
                 </nav>
 

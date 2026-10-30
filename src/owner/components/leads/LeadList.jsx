@@ -1072,9 +1072,17 @@ function LeadList() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const currentRole = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role; } catch { return null; } })();
+    const isProcurementUser = currentRole === "PROCUREMENT";
+    const isLeadStaff = currentRole === "SALESPERSON" || isProcurementUser;
+    const canCreateLead = ["SUPER_ADMIN", "STORE_OWNER", "SALESPERSON", "PROCUREMENT"].includes(currentRole);
     const basePath = location.pathname.startsWith("/owner/")
         ? "/owner/sales"
-        : "/store/sales";
+        : location.pathname.startsWith("/salesperson/")
+            ? "/salesperson/sales"
+            : location.pathname.startsWith("/procurement/")
+                ? "/procurement/sales"
+                : "/store/sales";
 
     const [showCreateLeadDrawer, setShowCreateLeadDrawer] = useState(false);
     const [leads, setLeads] = useState([]);
@@ -1344,30 +1352,30 @@ function LeadList() {
             <header className="lead-header">
                 <h1 className="lead-title">Leads</h1>
                 <div className="lead-header-actions">
-                    <button
+                    {!isLeadStaff && <button
                         type="button"
                         className="lead-new-btn"
                         style={{ background: "#0f766e", borderColor: "#0f766e" }}
                         onClick={() => navigate(`${basePath}/leads/chats`)}
                     >
                         Chats
-                    </button>
-                    <button
+                    </button>}
+                    {!isLeadStaff && <button
                         type="button"
                         className="lead-new-btn"
                         style={{ background: "#16a34a", borderColor: "#16a34a" }}
                         onClick={() => navigate(`${basePath}/leads/whatsapp`)}
                     >
                         WhatsApp
-                    </button>
-                    <button
+                    </button>}
+                    {canCreateLead && <button
                         type="button"
                         className="lead-new-btn"
                         onClick={() => setShowCreateLeadDrawer(true)}
                     >
                         <Plus size={16} strokeWidth={2.4} />
                         New Lead
-                    </button>
+                    </button>}
                 </div>
             </header>
 

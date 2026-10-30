@@ -31,3 +31,14 @@ export const fetchWhatsappMedia = async (messageId) => {
     const response = await api.get(`${BASE}/messages/${messageId}/media`, { responseType: "blob" });
     return response.data;
 };
+
+// "Create Lead" inside a chat. The draft saves nothing; it only gives the form its starting values.
+export const getLeadDraft = async (conversationId) => {
+    const response = await api.get(`${BASE}/conversations/${conversationId}/lead-draft`);
+    return response.data;
+};
+
+export const createLeadFromChat = async (conversationId, payload) => {
+    const response = await api.post(`${BASE}/conversations/${conversationId}/lead`, payload);
+    return response.data;
+};

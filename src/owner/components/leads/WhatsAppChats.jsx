@@ -15,11 +15,13 @@ import {
 import {
     fetchWhatsappMedia,
     getConversations,
+    getLeadDraft,
     getMessages,
     markConversationRead,
     sendWhatsappText,
 } from "../../../services/whatsappChatService";
 import { getAllStores } from "../../../services/storeService";
+import WhatsAppCreateLead from "./WhatsAppCreateLead";
 import "./WhatsAppChats.css";
 
 const LIST_POLL_MS = 8000;
@@ -69,6 +71,14 @@ function PreviewIcon({ type }) {
     if (type === "DOCUMENT") return <FileText size={13} />;
     return null;
 }
+
+const LEAD_STATUS_LABEL = {
+    NEW: "New Lead",
+    PROCUREMENT: "Procurement",
+    FOLLOW_UP: "Follow-up",
+    WON: "Won",
+    LOST: "Lost",
+};
 
 const formatSize = (bytes) => {
     if (!bytes) return "";
@@ -163,13 +173,16 @@ function MediaView({ message }) {
 
 /* ---------------- one open chat ---------------- */
 
-function ChatView({ conversation, onBack, onActivity }) {
+function ChatView({ conversation, onBack, onActivity, onOpenLead }) {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
     const [error, setError] = useState("");
+    const [openLead, setOpenLead] = useState(null); // { id, number, status } or null
+    const [showCreate, setShowCreate] = useState(false);
+    const [notice, setNotice] = useState("");
 
     const scrollRef = useRef(null);
     const stickToBottom = useRef(true);
@@ -184,7 +197,7 @@ function ChatView({ conversation, onBack, onActivity }) {
             const seen = new Set(current.map((m) => m.id));
             const fresh = incoming.filter((m) => !seen.has(m.id));
             if (fresh.length === 0) return current;
-            return (mode === "prepend" ? [...fresh, ...current] : [...current, ...fresh]).sort((a, b) => a.id - b.id);
+            return mode === "prepend" ? [...fresh, ...current] : [...current, ...fresh];
         });
     }, []);
 
@@ -220,6 +233,24 @@ function ChatView({ conversation, onBack, onActivity }) {
             cancelled = true;
         };
     }, [convId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // is there already an open lead for this customer?
+    useEffect(() => {
+        let cancelled = false;
+        setOpenLead(null);
+        setNotice("");
+        getLeadDraft(convId)
+            .then((draft) => {
+                if (cancelled) return;
+                setOpenLead(draft.openLeadId
+                    ? { id: draft.openLeadId, number: draft.openLeadNumber, status: draft.openLeadStatus }
+                    : null);
+            })
+            .catch(() => { /* the button still opens the form, which shows any problem */ });
+        return () => {
+            cancelled = true;
+        };
+    }, [convId]);
 
     // while the chat is open: look for new messages every few seconds
     useEffect(() => {
@@ -321,7 +352,19 @@ function ChatView({ conversation, onBack, onActivity }) {
                         {conversation.customerName ? " · POS customer" : ""}
                     </span>
                 </div>
+                <div className="wc-head-action">
+                    {openLead ? (
+                        <button type="button" className="wc-lead-chip" onClick={() => onOpenLead(openLead.id)}>
+                            {openLead.number} · {LEAD_STATUS_LABEL[openLead.status] || openLead.status}
+                        </button>
+                    ) : (
+                        <button type="button" className="wc-create-btn" onClick={() => setShowCreate(true)}>
+                            Create lead
+                        </button>
+                    )}
+                </div>
             </header>
+            {notice && <div className="wc-notice" role="status">{notice}</div>}
 
             <div className="wc-messages" ref={scrollRef} onScroll={handleScroll}>
                 {loading && <div className="wc-center"><Loader2 className="wc-spin" size={20} /></div>}
@@ -374,6 +417,19 @@ function ChatView({ conversation, onBack, onActivity }) {
                     {sending ? <Loader2 className="wc-spin" size={18} /> : <Send size={18} />}
                 </button>
             </div>
+
+            {showCreate && (
+                <WhatsAppCreateLead
+                    conversationId={convId}
+                    onClose={() => setShowCreate(false)}
+                    onCreated={(lead) => {
+                        setShowCreate(false);
+                        setOpenLead({ id: lead.id, number: lead.leadNumber, status: lead.status });
+                        setNotice(`Lead ${lead.leadNumber} created. It is in the New Lead column.`);
+                        onActivity();
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -543,6 +599,7 @@ export default function WhatsAppChats() {
                             conversation={selected}
                             onBack={() => setSelected(null)}
                             onActivity={refreshList}
+                            onOpenLead={(leadId) => navigate(`${leadsPath}/${leadId}`)}
                         />
                     ) : (
                         <div className="wc-empty">

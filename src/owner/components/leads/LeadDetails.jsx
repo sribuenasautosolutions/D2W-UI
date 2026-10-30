@@ -156,6 +156,10 @@ export default function LeadDetails() {
   const [historyError, setHistoryError] = useState("");
   const leadsPath = location.pathname.startsWith("/owner/")
   ? "/owner/sales/leads"
+  : location.pathname.startsWith("/salesperson/")
+  ? "/salesperson/sales/leads"
+  : location.pathname.startsWith("/procurement/")
+  ? "/procurement/sales/leads"
   : "/store/sales/leads";
 
   const [lead, setLead] = useState(null);

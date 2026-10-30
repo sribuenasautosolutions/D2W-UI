@@ -1,6 +1,6 @@
 import { useState } from "react";
 import InvoiceHistory from "./InvoiceHistory";
-import { Eye, Download, Pencil, History } from "lucide-react";
+import { Eye, Download, Pencil, History, Trash2 } from "lucide-react";
 
 const formatMoney = (value) => {
     return `₹ ${Number(value || 0).toLocaleString("en-IN", {
@@ -39,6 +39,7 @@ export default function SalesInvoiceTable({
     onViewInvoice,
     onDownloadInvoice,
     onEditInvoice,
+    onDeleteInvoice,
 }) {
     const [historyOrderId, setHistoryOrderId] = useState(null);
     const showStoreColumn = isSuperAdmin && !selectedStoreId;
@@ -142,6 +143,7 @@ export default function SalesInvoiceTable({
                                     disabled={["CANCELLED", "RETURNED"].includes(sale.orderStatus)}
                                     onClick={() => onEditInvoice(sale.orderId)}><Pencil size={16} /></button>
                                 {sale.edited && <button type="button" className="sales-view-button" title="Edit history" aria-label="Edit history" onClick={() => setHistoryOrderId(sale.orderId)}><History size={16} /></button>}
+                                {isSuperAdmin && <button type="button" className="sales-view-button" title="Delete invoice" aria-label="Delete invoice" onClick={() => onDeleteInvoice(sale)}><Trash2 size={16} /></button>}
                             </td>
                         </tr>
                     ))}

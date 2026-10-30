@@ -9,3 +9,8 @@ export async function createSalesperson(salesperson) {
     const response = await api.post("/salespersons", salesperson);
     return response.data;
 }
+
+export async function getProcurementAssignees(storeId) {
+    const response = await api.get("/users/procurement-assignees", { params: { storeId } });
+    return Array.isArray(response.data) ? response.data : [];
+}

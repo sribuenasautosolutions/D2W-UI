@@ -374,6 +374,10 @@ function LoginPage() {
                 navigate("/store/dashboard");
             } else if (response.role === "CASHIER") {
                 navigate("/pos");
+            } else if (response.role === "SALESPERSON") {
+                navigate("/salesperson/dashboard");
+            } else if (response.role === "PROCUREMENT") {
+                navigate("/procurement/dashboard");
             }
         } catch (error) {
             const data = error.response?.data;
