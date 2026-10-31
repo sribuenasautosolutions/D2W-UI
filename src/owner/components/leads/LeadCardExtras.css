@@ -1,0 +1,8 @@
+/* Extra bits on the Kanban card (Step 4a). The original card styles are unchanged. */
+.d2w-lead-chat { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; margin-right: 6px; color: #64748b; font-size: 11px; }
+.d2w-lead-chat.has-unread { background: #16a34a; color: #fff; border-radius: 10px; padding: 1px 7px; font-weight: 700; }
+.d2w-src-wa { color: #16a34a; }
+.d2w-src-ig { color: #db2777; }
+.d2w-lead-parts { font-size: 12px; color: #475569; margin: 4px 0; }
+.d2w-lead-parts strong { color: #b45309; }
+.d2w-lead-followup-date.is-due { color: #dc2626; font-weight: 700; }

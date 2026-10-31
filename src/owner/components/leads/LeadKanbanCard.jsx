@@ -6,9 +6,20 @@ import {
     PhoneCall,
     Calendar,
     Tag,
+    MessageCircle,
+    Camera,
 } from "lucide-react";
 import { formatMrp, procurementTotal } from "./procurementUiUtils";
 import "./LeadKanbanCard.css";
+import "./LeadCardExtras.css";
+
+function SourceIcon({ source }) {
+    const key = String(source || "").toUpperCase();
+    if (key === "WHATSAPP") return <MessageCircle size={11} aria-hidden="true" className="d2w-src-wa" />;
+    if (key === "INSTAGRAM") return <Camera size={11} aria-hidden="true" className="d2w-src-ig" />;
+    if (key === "PHONE") return <Phone size={11} aria-hidden="true" />;
+    return <Tag size={11} aria-hidden="true" />;
+}
 
 export default function LeadKanbanCard({
     lead,
@@ -18,6 +29,8 @@ export default function LeadKanbanCard({
     onProcurement,
     onMoveToFollowUp,
     onFollowUp,
+    onOpenWorkspace,
+    chatLink,
 }) {
     const isNew = stage === "NEW";
     const procurement = stage === "PROCUREMENT";
@@ -36,6 +49,7 @@ export default function LeadKanbanCard({
         lead.customer?.mobileNumber ||
         lead.customer?.mobile ||
         "Phone not available";
+    const vinNumber = lead.vinNumber || lead.vin || "";
     const salesperson =
         lead.salespersonName ||
         lead.salesperson?.salespersonName ||
@@ -48,11 +62,15 @@ export default function LeadKanbanCard({
     );
     const itemsCount = items.length;
     const totalMrp = procurementTotal(items);
+    const pendingCount = items.filter((item) => !item.partNumber?.trim()).length;
+    const unread = chatLink?.unreadCount || 0;
 
     const nextFollowUpAt =
         lead.nextFollowUpAt ||
         (Array.isArray(lead.followUpActivities) &&
             lead.followUpActivities[0]?.nextFollowUpAt);
+    const followUpDue = nextFollowUpAt &&
+        new Date(nextFollowUpAt).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0);
 
     // Stage-specific content (all existing data) renders inside ONE
     // fixed-size details region so every card keeps the same height.
@@ -66,7 +84,8 @@ export default function LeadKanbanCard({
     // PROCUREMENT     → open procurement drawer
     // FOLLOW_UP       → open follow-up drawer
     const handleCardClick = () => {
-        if (procurement) onProcurement?.(lead);
+        if (onOpenWorkspace) onOpenWorkspace(lead);
+        else if (procurement) onProcurement?.(lead);
         else if (followUp) onFollowUp?.(lead);
         else onView?.(lead);
     };
@@ -115,6 +134,15 @@ export default function LeadKanbanCard({
                 <strong className="d2w-lead-number" title={number}>
                     {number}
                 </strong>
+                {chatLink && (
+                    <span
+                        className={`d2w-lead-chat${unread > 0 ? " has-unread" : ""}`}
+                        title={unread > 0 ? `${unread} unread WhatsApp message${unread === 1 ? "" : "s"}` : "WhatsApp chat"}
+                    >
+                        <MessageCircle size={12} aria-hidden="true" />
+                        {unread > 0 ? unread : ""}
+                    </span>
+                )}
                 <button
                     type="button"
                     className="d2w-lead-edit"
@@ -137,7 +165,7 @@ export default function LeadKanbanCard({
             <div className="d2w-lead-info-grid">
                 <div className="d2w-lead-info-field">
                     <span className="d2w-lead-info-label">
-                        <Tag size={11} aria-hidden="true" /> Lead Source
+                        <SourceIcon source={lead.source || lead.sourceName} /> Lead Source
                     </span>
                     <span className="d2w-lead-info-value" title={sourceLabel}>
                         {sourceLabel}
@@ -151,6 +179,12 @@ export default function LeadKanbanCard({
                         {mobile}
                     </span>
                 </div>
+                {vinNumber && (
+                    <div className="d2w-lead-info-field d2w-lead-info-field--vin">
+                        <span className="d2w-lead-info-label">VIN Number</span>
+                        <span className="d2w-lead-info-value" title={vinNumber}>{vinNumber}</span>
+                    </div>
+                )}
             </div>
 
             {/* 4 · Requirement (max 2 lines) */}
@@ -184,6 +218,7 @@ export default function LeadKanbanCard({
                         <span className="d2w-lead-details-label">
                             {itemsCount} Procurement Item
                             {itemsCount === 1 ? "" : "s"}
+                            {pendingCount > 0 ? ` · ${pendingCount} pending` : ""}
                         </span>
                         <strong className="d2w-lead-details-text">
                             Total MRP: {formatMrp(totalMrp)}
@@ -192,7 +227,7 @@ export default function LeadKanbanCard({
                 )}
 
                 {showFollowUp && (
-                    <span className="d2w-lead-details-row">
+                    <span className={`d2w-lead-details-row d2w-lead-followup-date${followUpDue ? " is-due" : ""}`}>
                         <Calendar size={12} aria-hidden="true" />
                         <span className="d2w-lead-details-text">
                             Next: {new Date(nextFollowUpAt).toLocaleDateString()}
@@ -200,6 +235,13 @@ export default function LeadKanbanCard({
                     </span>
                 )}
             </div>
+
+            {!procurement && !closed && itemsCount > 0 && (
+                <div className="d2w-lead-parts">
+                    {itemsCount} part{itemsCount === 1 ? "" : "s"}
+                    {pendingCount > 0 && <strong> · {pendingCount} pending</strong>}
+                </div>
+            )}
 
             {/* 6 · Salesperson + action */}
             <footer className="d2w-lead-footer">

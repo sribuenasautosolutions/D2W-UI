@@ -6,6 +6,8 @@ import {
   updateLeadStatus,
   deleteLeadProcurementItem,
   submitLeadCustomerChanges,
+  createLeadFollowUpActivity,
+  getLeadFollowUpActivities,
 } from "../../../services/leadService";
 
 import { formatMrp, procurementTotal } from "./procurementUiUtils";
@@ -15,6 +17,8 @@ import CustomerChangesTable from "./CustomerChangesTable";
 import { prepareCustomerChanges } from "./leadWorkflowUtils";
 import CustomerRequirementTable from "./CustomerRequirementTable";
 import ActivityLogStream from "./ActivityLogStream";
+import LostReasonPicker from "./LostReasonPicker";
+import { buildLostReason } from "./leadLostReasons";
 
 const STATUS_OPTIONS = ["FOLLOW_UP", "WON", "LOST"];
 
@@ -22,6 +26,12 @@ function todayDate() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function scheduleParts(value) {
+  if (!value) return { followUpDate: "", followUpTime: "" };
+  const [followUpDate = "", rawTime = ""] = String(value).split("T");
+  return { followUpDate, followUpTime: rawTime.slice(0, 5) };
 }
 
 function firstValue(...values) {
@@ -59,11 +69,13 @@ export default function LeadFollowUpDrawer({
 
   const [fullLead, setFullLead] = useState(null);
 
-  /* UI-only schedule state (mirrors the Procurement drawer; not sent to the API) */
-  const [schedule, setSchedule] = useState({ assignedTo: null, followUpDate: "", followUpTime: "" });
+  /* The next date/time is persisted with each follow-up activity. */
+  const [schedule, setSchedule] = useState({ followUpDate: "", followUpTime: "" });
 
   const [status, setStatus] = useState("FOLLOW_UP");
-  const [lostReason, setLostReason] = useState("");
+  const [lostChoice, setLostChoice] = useState("");
+  const [lostNote, setLostNote] = useState("");
+  const lostReason = buildLostReason(lostChoice, lostNote);
 
   const [addingRequirement, setAddingRequirement] = useState(false);
   const [editingRequirements, setEditingRequirements] = useState(false);
@@ -93,10 +105,23 @@ export default function LeadFollowUpDrawer({
       setCustomerEdits({});
       setEditingCustomer(false);
       try {
-        const data = await getLeadById(lead.id);
+        const [data, savedActivities] = await Promise.all([
+          getLeadById(lead.id), getLeadFollowUpActivities(lead.id),
+        ]);
         if (cancelled) return;
         setFullLead(data);
         setStatus(data?.status || "FOLLOW_UP");
+        const activityList = Array.isArray(savedActivities) ? savedActivities : [];
+        setActivities(activityList.map(activity => ({
+          id: activity.id, type: activity.activityType || "Note",
+          text: activity.customerResponseReason || "", at: activity.createdAt,
+          nextFollowUpAt: activity.nextFollowUpAt,
+          createdByName: activity.createdByName,
+        })));
+        const latestSchedule = activityList.find(activity => activity.nextFollowUpAt)?.nextFollowUpAt;
+        const restoredSchedule = scheduleParts(latestSchedule);
+        setSchedule(latestSchedule && new Date(latestSchedule) > new Date()
+          ? restoredSchedule : { followUpDate: "", followUpTime: "" });
       } catch (e) {
         if (!cancelled)
           setError(
@@ -131,6 +156,13 @@ export default function LeadFollowUpDrawer({
       fullLead?.customer?.mobile,
       lead?.customerPhone
     ) || "Phone not available";
+
+  const vinNumber = firstValue(
+    fullLead?.vinNumber,
+    fullLead?.vin,
+    lead?.vinNumber,
+    lead?.vin
+  );
 
   const salespersonName =
     firstValue(
@@ -173,11 +205,33 @@ export default function LeadFollowUpDrawer({
   const updateCustomerEdit = (field, value) =>
     setCustomerEdits((current) => ({ ...current, [field]: value }));
 
-  const addActivity = (type, text) =>
-    setActivities((current) => [
-      { id: `${Date.now()}-${Math.random()}`, type, text, at: new Date() },
-      ...current,
-    ]);
+  const addActivity = async (type, text) => {
+    if (Boolean(schedule.followUpDate) !== Boolean(schedule.followUpTime)) {
+      setError("Enter both the next follow-up date and time, or leave both blank.");
+      return false;
+    }
+    const nextFollowUpAt = schedule.followUpDate && schedule.followUpTime
+      ? `${schedule.followUpDate}T${schedule.followUpTime}:00` : null;
+    try {
+      setError("");
+      const saved = await createLeadFollowUpActivity(lead.id, {
+        customerResponseReason: text,
+        activityType: String(type).toUpperCase(),
+        nextFollowUpAt,
+      });
+      setActivities(current => [{
+        id: saved.id, type: saved.activityType || type,
+        text: saved.customerResponseReason || text, at: saved.createdAt,
+        nextFollowUpAt: saved.nextFollowUpAt,
+        createdByName: saved.createdByName,
+      }, ...current]);
+      onUpdated?.();
+      return true;
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.response?.data?.error || "Unable to save this follow-up activity.");
+      return false;
+    }
+  };
 
   const trail = useMemo(() => {
     const entries = [...activities];
@@ -188,14 +242,12 @@ export default function LeadFollowUpDrawer({
   }, [activities, fullLead?.createdAt, leadNumber]);
 
   const statusDirty = status !== fullLead?.status;
-
-  const assigneeOptions =
-    Array.isArray(assignees) && assignees.length
-      ? assignees
-      : salespersonName !== "Not assigned"
-      ? [salespersonName]
-      : [];
-  const currentAssignee = schedule.assignedTo ?? (assigneeOptions[0] || "");
+  const latestScheduledAt = activities.find(activity => activity.nextFollowUpAt)?.nextFollowUpAt;
+  const latestSchedule = scheduleParts(latestScheduledAt);
+  const scheduleDirty = Boolean(schedule.followUpDate || schedule.followUpTime) && (
+    schedule.followUpDate !== latestSchedule.followUpDate ||
+    schedule.followUpTime !== latestSchedule.followUpTime
+  );
 
   const summaryD2w = items.filter((item) => item.procurementSource === "LOCAL").length;
   const summaryVendor = items.filter((item) => item.procurementSource === "VENDOR").length;
@@ -271,12 +323,15 @@ export default function LeadFollowUpDrawer({
 
   /* ---------------- STATUS CHANGE ---------------- */
   const confirmStatus = async () => {
-    if (status === fullLead?.status) {
-      setError("Select a different status to update.");
+    if (!statusDirty && !scheduleDirty) {
       return;
     }
-    if (status === "LOST" && !lostReason.trim()) {
+    if (statusDirty && status === "LOST" && !lostReason.trim()) {
       setError("Lost reason is required.");
+      return;
+    }
+    if (scheduleDirty && (!schedule.followUpDate || !schedule.followUpTime)) {
+      setError("Enter both the next follow-up date and time.");
       return;
     }
     setBusy(true);
@@ -284,16 +339,33 @@ export default function LeadFollowUpDrawer({
     setSuccess("");
 
     try {
-      const updated =
-        status === "LOST"
+      if (scheduleDirty) {
+        const scheduled = await createLeadFollowUpActivity(lead.id, {
+          customerResponseReason: "Next follow-up scheduled",
+          activityType: "NOTE",
+          nextFollowUpAt: `${schedule.followUpDate}T${schedule.followUpTime}:00`,
+        });
+        setActivities(current => [{
+          id: scheduled.id, type: scheduled.activityType || "NOTE",
+          text: scheduled.customerResponseReason || "Next follow-up scheduled",
+          at: scheduled.createdAt, nextFollowUpAt: scheduled.nextFollowUpAt,
+          createdByName: scheduled.createdByName,
+        }, ...current]);
+      }
+      if (statusDirty) {
+        const updated = status === "LOST"
           ? await updateLeadStatus(lead.id, "LOST", lostReason.trim())
           : await updateLeadStatus(lead.id, status);
-      setFullLead((prev) => ({ ...prev, ...updated }));
-      onUpdated?.(updated);
-      setSuccess(`Lead moved to ${status}.`);
-      onToast?.(`Lead moved to ${status.replaceAll("_", " ")}`, "success");
-      addActivity("Status", `Status changed to ${statusLabel(status)}`);
-      if (status === "WON" || status === "LOST") onClose?.();
+        setFullLead((prev) => ({ ...prev, ...updated }));
+        onUpdated?.(updated);
+        setSuccess(`Lead moved to ${status}.`);
+        onToast?.(`Lead moved to ${status.replaceAll("_", " ")}`, "success");
+        if (status === "WON" || status === "LOST") onClose?.();
+      } else {
+        setSuccess("Next follow-up date and time saved.");
+        onToast?.("Next follow-up date and time saved.", "success");
+        onUpdated?.();
+      }
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -344,8 +416,10 @@ export default function LeadFollowUpDrawer({
                 onChange={(v) => updateCustomerEdit("name", v)} />
               <MetaField label="Mobile" value={shownCustomer.phone} editing={editingCustomer}
                 onChange={(v) => updateCustomerEdit("phone", v)} />
-              <MetaField label="Salesperson" value={shownCustomer.salesperson} editing={editingCustomer}
-                onChange={(v) => updateCustomerEdit("salesperson", v)} />
+              {vinNumber && <MetaField label="VIN Number" value={vinNumber} />}
+              <MetaField label="Salesperson" value={shownCustomer.salesperson} />
+              <label className="fu-meta-field"><span>Created by</span><input value={fullLead?.createdByName || "—"} readOnly /></label>
+              <label className="fu-meta-field"><span>Procurement person</span><input value={fullLead?.procurementUserName || "—"} readOnly /></label>
               <label className="fu-meta-field">
                 <span>Lead ID</span>
                 <input type="text" value={leadNumber} readOnly />
@@ -370,18 +444,13 @@ export default function LeadFollowUpDrawer({
 
             {status === "LOST" && (
               <section className="fu-lost">
-                <label className="fu-field">
-                  <span>Lost reason</span>
-                  <input
-                    className="fu-input"
-                    type="text"
-                    maxLength={500}
-                    value={lostReason}
-                    disabled={busy}
-                    onChange={(e) => setLostReason(e.target.value)}
-                    placeholder="Why will the customer not proceed?"
-                  />
-                </label>
+                <LostReasonPicker
+                  choice={lostChoice}
+                  note={lostNote}
+                  onChoiceChange={setLostChoice}
+                  onNoteChange={setLostNote}
+                  disabled={busy}
+                />
               </section>
             )}
 
@@ -544,18 +613,9 @@ export default function LeadFollowUpDrawer({
       </main>
         </div>
         <aside className="fu-side" aria-label="Activity and schedule">
-          <section className="fu-schedule" aria-label="Assignment and schedule">
-            <h3 className="fu-side-title">Assignment &amp; Schedule</h3>
-            <label className="fu-meta-field is-editing">
-              <span>Assigned to</span>
-              <select value={currentAssignee}
-                onChange={(e) => setSchedule((c) => ({ ...c, assignedTo: e.target.value }))} disabled={busy}>
-                <option value="">Unassigned</option>
-                {assigneeOptions.map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
-            </label>
+          <section className="fu-schedule" aria-label="Next follow-up schedule">
+            <h3 className="fu-side-title">Next Follow-up</h3>
+            <p className="als-hint">The date and time are saved with the next activity note.</p>
             <div className="fu-schedule-row">
               <label className="fu-meta-field is-editing">
                 <span>Follow-up date</span>
@@ -569,7 +629,7 @@ export default function LeadFollowUpDrawer({
               </label>
             </div>
           </section>
-          <ActivityLogStream entries={trail} onAdd={addActivity} />
+          <ActivityLogStream entries={trail} onAdd={addActivity} disabled={busy} />
         </aside>
       </div>
 
@@ -583,7 +643,7 @@ export default function LeadFollowUpDrawer({
         </button>
         <div className="fu-footer-primary">
           <button type="button" className="fu-btn fu-btn--outline" onClick={confirmStatus}
-            disabled={busy || !statusDirty || (status === "LOST" && !lostReason.trim())}>
+            disabled={busy || (!statusDirty && !scheduleDirty) || (statusDirty && status === "LOST" && !lostReason.trim())}>
             {busy ? "Saving..." : "Save Changes"}
           </button>
           <button type="button" className="fu-btn fu-btn--primary" onClick={handleDownloadEstimation}

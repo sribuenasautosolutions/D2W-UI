@@ -173,7 +173,8 @@ function MediaView({ message }) {
 
 /* ---------------- one open chat ---------------- */
 
-function ChatView({ conversation, onBack, onActivity, onOpenLead }) {
+// embedded = shown inside a lead (no header, no Create lead button)
+export function ChatView({ conversation, onBack, onActivity, onOpenLead, embedded = false }) {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
@@ -236,6 +237,7 @@ function ChatView({ conversation, onBack, onActivity, onOpenLead }) {
 
     // is there already an open lead for this customer?
     useEffect(() => {
+        if (embedded) return undefined;
         let cancelled = false;
         setOpenLead(null);
         setNotice("");
@@ -250,7 +252,7 @@ function ChatView({ conversation, onBack, onActivity, onOpenLead }) {
         return () => {
             cancelled = true;
         };
-    }, [convId]);
+    }, [convId, embedded]);
 
     // while the chat is open: look for new messages every few seconds
     useEffect(() => {
@@ -340,6 +342,7 @@ function ChatView({ conversation, onBack, onActivity, onOpenLead }) {
     let lastDay = "";
     return (
         <div className="wc-chat">
+            {!embedded && (
             <header className="wc-chat-head">
                 <button type="button" className="wc-icon-btn wc-only-mobile" onClick={onBack} aria-label="Back to chats">
                     <ArrowLeft size={20} />
@@ -364,7 +367,8 @@ function ChatView({ conversation, onBack, onActivity, onOpenLead }) {
                     )}
                 </div>
             </header>
-            {notice && <div className="wc-notice" role="status">{notice}</div>}
+            )}
+            {!embedded && notice && <div className="wc-notice" role="status">{notice}</div>}
 
             <div className="wc-messages" ref={scrollRef} onScroll={handleScroll}>
                 {loading && <div className="wc-center"><Loader2 className="wc-spin" size={20} /></div>}
@@ -418,7 +422,7 @@ function ChatView({ conversation, onBack, onActivity, onOpenLead }) {
                 </button>
             </div>
 
-            {showCreate && (
+            {!embedded && showCreate && (
                 <WhatsAppCreateLead
                     conversationId={convId}
                     onClose={() => setShowCreate(false)}

@@ -42,3 +42,16 @@ export const createLeadFromChat = async (conversationId, payload) => {
     const response = await api.post(`${BASE}/conversations/${conversationId}/lead`, payload);
     return response.data;
 };
+
+// Lead board: return linked WhatsApp conversations and unread counts in one request.
+export const getLeadChatLinks = async (leadIds) => {
+    if (!leadIds || leadIds.length === 0) return [];
+    const response = await api.get(`${BASE}/leads/links`, { params: { leadIds: leadIds.join(",") } });
+    return response.data;
+};
+
+// Lead workspace: null means the customer has no WhatsApp conversation.
+export const getConversationForLead = async (leadId) => {
+    const response = await api.get(`${BASE}/leads/${leadId}/conversation`);
+    return response.status === 204 || !response.data ? null : response.data;
+};

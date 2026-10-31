@@ -2106,6 +2106,7 @@
 .als-dot--status,
 .als-dot--system { border-color: var(--lp-blue); background: var(--lp-blue); }
 .als-body p { margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: #334155; word-break: break-word; white-space: pre-wrap; }
+.als-next-follow-up { display: block; margin-top: 4px; color: var(--lp-muted); font-size: 11px; }
 .als-meta { display: flex; align-items: center; gap: 8px; }
 .als-meta time { font-size: 11px; color: var(--lp-muted); }
 .als-badge {

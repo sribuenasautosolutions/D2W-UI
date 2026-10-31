@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, X } from "lucide-react";
 import { createLeadFromChat, getLeadDraft } from "../../../services/whatsappChatService";
-import { getSalespersons } from "../../../services/salespersonService";
+import { getProcurementAssignees, getSalespersons } from "../../../services/salespersonService";
 
 const errorText = (err, fallback) =>
     err?.response?.data?.message || err?.response?.data?.error || fallback;
@@ -15,6 +15,7 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
     const [draft, setDraft] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [assignmentError, setAssignmentError] = useState("");
     const [saving, setSaving] = useState(false);
 
     const [mobile, setMobile] = useState("");
@@ -22,6 +23,8 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
     const [requirement, setRequirement] = useState("");
     const [salespersonId, setSalespersonId] = useState("");
     const [salespersons, setSalespersons] = useState([]);
+    const [procurementAssignees, setProcurementAssignees] = useState([]);
+    const [procurementUserId, setProcurementUserId] = useState("");
 
     useEffect(() => {
         let active = true;
@@ -32,15 +35,20 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
                 setMobile(data.mobileNumber || "");
                 setName(data.customerName || "");
                 setRequirement(data.requirementDraft || "");
-                // Salesperson is optional. If the list cannot load, the form still works.
-                try {
-                    const list = await getSalespersons(Number(data.storeId));
-                    if (active && Array.isArray(list)) {
-                        setSalespersons(list.filter((s) => s.active !== false));
-                    }
-                } catch {
-                    /* optional field */
-                }
+                const [salesResult, procurementResult] = await Promise.allSettled([
+                    getSalespersons(Number(data.storeId)),
+                    getProcurementAssignees(Number(data.storeId)),
+                ]);
+                if (!active) return;
+                const failures = [];
+                if (salesResult.status === "fulfilled")
+                    setSalespersons(salesResult.value.filter((s) => s.active !== false));
+                else failures.push("salesperson");
+                if (procurementResult.status === "fulfilled")
+                    setProcurementAssignees(procurementResult.value);
+                else failures.push("procurement");
+                if (failures.length)
+                    setAssignmentError(`Could not load ${failures.join(" and ")} assignments. Refresh and try again.`);
             })
             .catch((err) => active && setError(errorText(err, "Could not open the form.")))
             .finally(() => active && setLoading(false));
@@ -66,6 +74,9 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
         if (!requirement.trim()) return setError("Customer requirement is required.");
         if (!mobileKnown && !/^\d{10}$/.test(mobile)) return setError("Enter a valid 10-digit mobile number.");
         if (!nameLocked && !name.trim()) return setError("Customer name is required.");
+        if (!salespersonId) return setError("Select the salesperson responsible for this lead.");
+        if (!procurementUserId) return setError("Select the procurement employee for this lead.");
+        if (assignmentError) return setError(assignmentError);
 
         setSaving(true);
         try {
@@ -73,7 +84,8 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
                 mobileNumber: mobileKnown ? null : mobile,
                 customerName: name.trim(),
                 customerRequirement: requirement.trim(),
-                salespersonId: salespersonId ? Number(salespersonId) : null,
+                salespersonId: Number(salespersonId),
+                procurementUserId: Number(procurementUserId),
             });
             onCreated(created);
         } catch (err) {
@@ -143,9 +155,9 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
                                 <input value="WhatsApp" readOnly disabled />
                             </label>
                             <label className="wc-field">
-                                <span>Salesperson (optional)</span>
-                                <select value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)} disabled={saving}>
-                                    <option value="">None</option>
+                                <span>Salesperson <em className="wc-tag">required</em></span>
+                                <select value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)} disabled={saving || !salespersons.length} required>
+                                    <option value="">{salespersons.length ? "Select salesperson" : "No active salespersons"}</option>
                                     {salespersons.map((s) => (
                                         <option key={s.id ?? s.salespersonId} value={s.id ?? s.salespersonId}>
                                             {s.salespersonName || s.name}
@@ -154,6 +166,16 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
                                 </select>
                             </label>
                         </div>
+
+                        <label className="wc-field">
+                            <span>Assign procurement <em className="wc-tag">required</em></span>
+                            <select value={procurementUserId} onChange={(e) => setProcurementUserId(e.target.value)} disabled={saving || !procurementAssignees.length} required>
+                                <option value="">{procurementAssignees.length ? "Select procurement employee" : "No active procurement employees"}</option>
+                                {procurementAssignees.map((user) => (
+                                    <option key={user.id} value={user.id}>{user.name || `Procurement ${user.id}`}</option>
+                                ))}
+                            </select>
+                        </label>
 
                         <label className="wc-field">
                             <span>Customer requirement (vehicle and parts)</span>
@@ -171,6 +193,7 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
                             </small>
                         </label>
 
+                        {assignmentError && <div className="wc-error" role="alert">{assignmentError}</div>}
                         {error && <div className="wc-error" role="alert">{error}</div>}
                     </div>
                 )}
@@ -181,7 +204,7 @@ export default function WhatsAppCreateLead({ conversationId, onClose, onCreated 
                         type="button"
                         className="wc-btn-primary"
                         onClick={handleCreate}
-                        disabled={loading || saving || hasOpenLead || !draft}
+                        disabled={loading || saving || hasOpenLead || !draft || Boolean(assignmentError) || !salespersonId || !procurementUserId}
                     >
                         {saving ? "Creating…" : "Create lead"}
                     </button>

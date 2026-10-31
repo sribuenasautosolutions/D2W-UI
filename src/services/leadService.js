@@ -280,7 +280,8 @@ export const createLeadFollowUpActivity = async (
     leadId,
     {
         customerResponseReason,
-        nextFollowUpAt
+        nextFollowUpAt,
+        activityType = "NOTE"
     }
 ) => {
 
@@ -288,12 +289,16 @@ export const createLeadFollowUpActivity = async (
         `/api/leads/${leadId}/follow-ups`,
         {
             customerResponseReason,
-            nextFollowUpAt
+            nextFollowUpAt,
+            activityType
         }
     );
 
     return response.data;
 };
+
+export const getLeadHistory = async leadId =>
+    (await api.get(`/api/leads/${leadId}/history`)).data;
 
 export const getLeadFollowUpActivities = async (
     leadId
