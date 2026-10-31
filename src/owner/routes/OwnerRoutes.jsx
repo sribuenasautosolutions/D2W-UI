@@ -30,7 +30,9 @@ const ProductApprovalPage = lazy(
 const SalesPage = lazy(() => import("../../sales/pages/SalesPage"));
 
 const NewSalePage = lazy(() => import("../../sales/pages/NewSalePage"));
-
+const SaleBulkUploadPage = lazy(
+  () => import("../../sales/pages/SaleBulkUploadPage")
+);
 const ProformaListPage = lazy(
   () => import("../../sales/pages/ProformaListPage")
 );
@@ -214,6 +216,7 @@ function OwnerRoutes() {
         element={<NewSalePage />}
 
       />
+     <Route path="/sales/import-items" element={<SaleBulkUploadPage />} />
 
       <Route path="/sales/proforma" element={<DashboardLayout><ProformaListPage /></DashboardLayout>} />
 
