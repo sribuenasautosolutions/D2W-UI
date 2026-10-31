@@ -233,7 +233,7 @@ export default function OpeningStockManualEntry({
         setPricePreview(null);
         setEnteredPriceFields([]);
         if (!compact) await refresh();
-        onCreated?.(result);
+        onCreated?.(result, { partNumber: form.partNumber.trim() });
       }
     } catch (err) {
       setError(requestError(err, "Submission failed. Check your connection and retry."));
