@@ -23,15 +23,25 @@ function formatStamp(value) {
     return date.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
+function formatFollowUp(value) {
+    if (!value) return "";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString("en-IN", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+    });
+}
+
 export default function ActivityLogStream({ entries = [], onAdd, disabled = false }) {
     const [type, setType] = useState("Note");
     const [text, setText] = useState("");
 
-    const submit = () => {
+    const submit = async () => {
         const clean = text.trim();
         if (!clean || disabled) return;
-        onAdd?.(type, clean);
-        setText("");
+        const saved = await onAdd?.(type, clean);
+        if (saved !== false) setText("");
     };
 
     return (
@@ -77,7 +87,7 @@ export default function ActivityLogStream({ entries = [], onAdd, disabled = fals
                         Add Note
                     </button>
                 </div>
-                <span className="als-hint">Kept in this session only. Ctrl + Enter to add.</span>
+                    <span className="als-hint">Saved to lead history. Ctrl + Enter to add.</span>
             </div>
 
             {entries.length === 0 ? (
@@ -92,9 +102,14 @@ export default function ActivityLogStream({ entries = [], onAdd, disabled = fals
                                 <div className="als-body">
                                     <div className="als-meta">
                                         <span className={`als-badge als-badge--${kind}`}>{entry.type}</span>
-                                        <time>{formatStamp(entry.at)}</time>
+                                        <time>{formatStamp(entry.at)}{entry.createdByName ? ` · ${entry.createdByName}` : ""}</time>
                                     </div>
                                     <p>{entry.text}</p>
+                                    {entry.nextFollowUpAt && (
+                                        <small className="als-next-follow-up">
+                                            Next follow-up: {formatFollowUp(entry.nextFollowUpAt)}
+                                        </small>
+                                    )}
                                 </div>
                             </li>
                         );

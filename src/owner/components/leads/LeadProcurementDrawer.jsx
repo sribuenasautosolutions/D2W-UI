@@ -23,6 +23,8 @@ import {
     updateLeadStatus,
     identifyCustomerRequirement,
     lookupProcurementProduct,
+    createLeadFollowUpActivity,
+    getLeadFollowUpActivities,
 } from "../../../services/leadService";
 
 import { procurementWork } from "./leadWorkflowUtils";
@@ -144,6 +146,7 @@ function MetaField({ label, value, editing, onChange, placeholder }) {
 
 function LeadProcurementDrawer({
     lead,
+    userRole,
     onClose,
     onUpdated,
     onToast,
@@ -180,7 +183,8 @@ function LeadProcurementDrawer({
     const [activeEntryTab, setActiveEntryTab] = useState("single");
     const lookupVersions = useRef({});
     const lookupTimers = useRef({});
-    const readOnly = Boolean(procurementLead && !["NEW", "PROCUREMENT"].includes(procurementLead.status));
+    const readOnly = userRole === "SALESPERSON"
+        || Boolean(procurementLead && !["NEW", "PROCUREMENT"].includes(procurementLead.status));
 
     /* ---- UI-only state: customer edit toggle, activity, pipeline ---- */
     const [editingCustomer, setEditingCustomer] = useState(false);
@@ -188,12 +192,6 @@ function LeadProcurementDrawer({
 
     const [activities, setActivities] = useState([]);
 
-    const [pipeline, setPipeline] = useState({
-        stage: null,
-        assignedTo: null,
-        followUpDate: "",
-        followUpTime: "",
-    });
 
     useEffect(() => {
         let cancelled = false;
@@ -212,6 +210,7 @@ function LeadProcurementDrawer({
             setLoading(true);
             setErrorMessage("");
             setSuccessMessage("");
+            setActivities([]);
             setLookupResults({});
             setLookupErrors({});
             setLookupLoading({});
@@ -230,6 +229,15 @@ function LeadProcurementDrawer({
                 if (cancelled) return;
 
                 setProcurementLead(response);
+                const savedActivities = await getLeadFollowUpActivities(lead.id);
+                if (!cancelled) setActivities((Array.isArray(savedActivities) ? savedActivities : []).map(activity => ({
+                    id: activity.id,
+                    type: activity.activityType || "Note",
+                    text: activity.customerResponseReason || "",
+                    at: activity.createdAt,
+                    nextFollowUpAt: activity.nextFollowUpAt,
+                    createdByName: activity.createdByName,
+                })));
 
                 const drafts = {};
                 const records = procurementWork(response);
@@ -316,6 +324,13 @@ function LeadProcurementDrawer({
             procurementLead?.customer?.mobile,
             lead?.customerPhone
         ) || "Phone not available";
+
+    const vinNumber = firstValue(
+        procurementLead?.vinNumber,
+        procurementLead?.vin,
+        lead?.vinNumber,
+        lead?.vin
+    );
 
     const salespersonName =
         firstValue(
@@ -554,6 +569,32 @@ function LeadProcurementDrawer({
         if (!clean) { setEntryLoading(false); return; }
         if (duplicatePart(clean)) {
             setErrorMessage(clean + " is already in Procurement.");
+            setEntryLoading(false);
+            return;
+        }
+
+        // A new customer requirement is represented by a pending change, not a
+        // LeadItem yet. Associate the entered part with the next unidentified
+        // requirement so it can be looked up and saved through its change row.
+        const unidentifiedRequirement = items.find(item =>
+            item.rawRequirement &&
+            !itemDrafts[item.id]?.partNumber?.trim() &&
+            item.customerChange?.processingState === "PENDING"
+        );
+        if (unidentifiedRequirement) {
+            updateDraft(unidentifiedRequirement.id, "partNumber", clean);
+            setEntryPartNumber("");
+            setErrorMessage("");
+            try {
+                await lookupItem(unidentifiedRequirement, clean);
+            } finally {
+                if (leadSession.current === session && entryVersion.current === version)
+                    setEntryLoading(false);
+            }
+            return;
+        }
+        if (pendingChanges.length > 0) {
+            setErrorMessage("Identify and save the pending customer requirements before adding another part.");
             setEntryLoading(false);
             return;
         }
@@ -827,21 +868,23 @@ const deleteItem = async (item) => {
     const updateCustomerEdit = (field, value) =>
         setCustomerEdits((current) => ({ ...current, [field]: value }));
 
-    const addActivity = (type, text) =>
-        setActivities((current) => [
-            { id: `${Date.now()}-${Math.random()}`, type, text, at: new Date() },
-            ...current,
-        ]);
-
-    const assigneeOptions = useMemo(() => {
-        const list = Array.isArray(assignees) && assignees.length
-            ? assignees
-            : salespersonName !== "Salesperson not assigned"
-            ? [salespersonName]
-            : [];
-        return list;
-    }, [assignees, salespersonName]);
-    const currentAssignee = pipeline.assignedTo ?? (assigneeOptions[0] || "");
+    const addActivity = async (type, text) => {
+        try {
+            const saved = await createLeadFollowUpActivity(procurementLead.id, {
+                customerResponseReason: text,
+                activityType: String(type).toUpperCase(),
+                nextFollowUpAt: null,
+            });
+            setActivities(current => [{
+                id: saved.id, type: saved.activityType || type, text: saved.customerResponseReason || text,
+                at: saved.createdAt, nextFollowUpAt: saved.nextFollowUpAt, createdByName: saved.createdByName,
+            }, ...current]);
+            return true;
+        } catch (error) {
+            onToast?.(error?.response?.data?.message || "Unable to save the procurement activity.", "error");
+            return false;
+        }
+    };
 
     const trail = useMemo(() => {
         const entries = [...activities];
@@ -1084,6 +1127,7 @@ const deleteItem = async (item) => {
                             onChange={(v) => updateCustomerEdit("name", v)} placeholder="Not available" />
                         <MetaField label="Mobile" value={shownCustomer.phone} editing={editingCustomer}
                             onChange={(v) => updateCustomerEdit("phone", v)} placeholder="Not available" />
+                        {vinNumber && <MetaField label="VIN Number" value={vinNumber} />}
                         <MetaField label="Salesperson" value={shownCustomer.salesperson} editing={editingCustomer}
                             onChange={(v) => updateCustomerEdit("salesperson", v)} placeholder="Not available" />
                         <label className="pd-meta-field">
@@ -1244,34 +1288,13 @@ const deleteItem = async (item) => {
             </main>
                 </div>
                 <aside className="pd-side" aria-label="Activity and schedule">
-                    <section className="pd-schedule" aria-label="Assignment and schedule">
-                        <h3 className="pd-side-title">Assignment &amp; Schedule</h3>
-                        <label className="pd-meta-field">
-                            <span>Assigned to</span>
-                            <select
-                                value={currentAssignee}
-                                onChange={(e) => setPipeline((c) => ({ ...c, assignedTo: e.target.value }))}
-                            >
-                                <option value="">Unassigned</option>
-                                {assigneeOptions.map((name) => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </select>
-                        </label>
-                        <div className="pd-schedule-row">
-                            <label className="pd-meta-field">
-                                <span>Follow-up date</span>
-                                <input type="date" min={todayDate()} value={pipeline.followUpDate}
-                                    onChange={(e) => setPipeline((c) => ({ ...c, followUpDate: e.target.value }))} />
-                            </label>
-                            <label className="pd-meta-field">
-                                <span>Follow-up time</span>
-                                <input type="time" value={pipeline.followUpTime}
-                                    onChange={(e) => setPipeline((c) => ({ ...c, followUpTime: e.target.value }))} />
-                            </label>
-                        </div>
+                    <section className="pd-schedule" aria-label="Lead assignment">
+                        <h3 className="pd-side-title">Lead Assignment</h3>
+                        <p><strong>Created by</strong><br />{procurementLead?.createdByName || "—"}</p>
+                        <p><strong>Procurement person</strong><br />{procurementLead?.procurementUserName || "—"}</p>
+                        <p><strong>Assigned salesperson</strong><br />{salespersonName}</p>
                     </section>
-                    <ActivityLogStream entries={trail} onAdd={addActivity} />
+                    <ActivityLogStream entries={trail} onAdd={addActivity} disabled={readOnly} />
                 </aside>
             </div>
 

@@ -1139,6 +1139,14 @@ export default function LeadDetails() {
           </div>
 
 
+          {(lead.vinNumber || lead.vin) && (
+            <div className="lead-summary-field">
+              <label>VIN Number</label>
+              <div className="lead-summary-value">{lead.vinNumber || lead.vin}</div>
+            </div>
+          )}
+
+
           {/* SALESPERSON */}
 
           <div className="lead-summary-field">

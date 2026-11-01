@@ -37,6 +37,8 @@ import LeadCreate from "./LeadCreate";
 import LeadKanbanCard from "./LeadKanbanCard";
 import LeadProcurementDrawer from "./LeadProcurementDrawer";
 import LeadFollowUpDrawer from "./LeadFollowupDrawer";
+import LeadWorkspaceDrawer from "./LeadWorkspaceDrawer";
+import { getLeadChatLinks } from "../../../services/whatsappChatService";
 
 /* ============================================================
    STAGE DEFINITIONS  (Proforma removed)
@@ -1076,6 +1078,7 @@ function LeadList() {
     const isProcurementUser = currentRole === "PROCUREMENT";
     const isLeadStaff = currentRole === "SALESPERSON" || isProcurementUser;
     const canCreateLead = ["SUPER_ADMIN", "STORE_OWNER", "SALESPERSON", "PROCUREMENT"].includes(currentRole);
+    const canViewLeadChats = currentRole === "SUPER_ADMIN" || currentRole === "STORE_OWNER";
     const basePath = location.pathname.startsWith("/owner/")
         ? "/owner/sales"
         : location.pathname.startsWith("/salesperson/")
@@ -1111,6 +1114,9 @@ function LeadList() {
     /* ---- drawer state ---- */
     const [procurementLead, setProcurementLead] = useState(null);
     const [followUpLead, setFollowUpLead] = useState(null);
+    const [workspaceLeadId, setWorkspaceLeadId] = useState(null);
+    const [chatLinks, setChatLinks] = useState({});
+    const [chatLinkTick, setChatLinkTick] = useState(0);
 
     /* ---- toasts ---- */
     const [toasts, setToasts] = useState([]);
@@ -1166,6 +1172,36 @@ function LeadList() {
         loadLeads();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, store, refreshTick]);
+
+    useEffect(() => {
+        if (!canViewLeadChats) {
+            setChatLinks({});
+            return undefined;
+        }
+        const ids = leads.map((lead) => lead.id);
+        if (ids.length === 0) {
+            setChatLinks({});
+            return undefined;
+        }
+        let stopped = false;
+        let timer;
+        const loadLinks = async () => {
+            if (!document.hidden) {
+                try {
+                    const rows = await getLeadChatLinks(ids);
+                    if (!stopped) setChatLinks(Object.fromEntries(rows.map((row) => [row.leadId, row])));
+                } catch {
+                    // The board remains usable if WhatsApp is unavailable to this role.
+                }
+            }
+            if (!stopped) timer = setTimeout(loadLinks, 10000);
+        };
+        loadLinks();
+        return () => {
+            stopped = true;
+            clearTimeout(timer);
+        };
+    }, [leads, chatLinkTick, canViewLeadChats]);
 
     /* ---- Esc closes the overview/edit drawer ---- */
     useEffect(() => {
@@ -1319,6 +1355,19 @@ function LeadList() {
 
     const handleOpenFollowUp = (lead) => {
         if (lead?.id) setFollowUpLead(lead);
+    };
+
+    const workspaceLead = workspaceLeadId == null
+        ? null
+        : leads.find((lead) => String(lead.id) === String(workspaceLeadId)) || null;
+
+    const handleOpenWorkspace = (lead) => {
+        if (lead?.id) setWorkspaceLeadId(lead.id);
+    };
+
+    const closeWorkspace = () => {
+        setWorkspaceLeadId(null);
+        loadLeads();
     };
 
     // Procurement → Follow-up: direct move, no drawer
@@ -1582,6 +1631,8 @@ function LeadList() {
                                                     onFollowUp={
                                                         handleOpenFollowUp
                                                     }
+                                                    onOpenWorkspace={handleOpenWorkspace}
+                                                    chatLink={chatLinks[lead.id]}
                                                 />
                                             ))
                                         )}
@@ -1659,6 +1710,7 @@ function LeadList() {
                     >
                         <LeadProcurementDrawer
                             lead={procurementLead}
+                            userRole={currentRole}
                             onUpdated={() => loadLeads()}
                             onClose={refreshAfterAction}
                             onToast={pushToast}
@@ -1682,6 +1734,27 @@ function LeadList() {
                             onUpdated={() => loadLeads()}
                             onClose={refreshAfterAction}
                             onToast={pushToast}
+                        />
+                    </aside>
+                </div>
+            )}
+
+            {/* LEAD WORKSPACE: chat, details, procurement, estimation, and history */}
+            {workspaceLead && (
+                <div className="lead-drawer-backdrop" onClick={closeWorkspace}>
+                    <aside className="lead-drawer procurement-drawer" onClick={(event) => event.stopPropagation()}>
+                        <LeadWorkspaceDrawer
+                            lead={workspaceLead}
+                            stage={getStage(workspaceLead)}
+                            userRole={currentRole}
+                            onClose={closeWorkspace}
+                            onUpdated={loadLeads}
+                            onToast={pushToast}
+                            onChatActivity={() => setChatLinkTick((n) => n + 1)}
+                            onEditLead={(lead) => {
+                                setWorkspaceLeadId(null);
+                                handleEditLead(lead);
+                            }}
                         />
                     </aside>
                 </div>
