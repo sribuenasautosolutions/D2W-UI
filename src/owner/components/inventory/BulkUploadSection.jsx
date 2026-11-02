@@ -8,8 +8,8 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-
 import api from "../../../services/api";
+import BulkUploadShell from "./BulkUploadShell";
 
 import "./BulkUploadSection.css";
 import "./BulkUploadPriceSettings.css";
@@ -407,160 +407,70 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
     <section className="bulk-page-shell">
       <div className="bulk-page-shell__body">
 
-        {/* ---- Title row ---- */}
-        <div className="bulk-page-shell__title-row">
-          {!hideTitle && (
-            <div>
-              <h2>Opening Stock</h2>
-              <p>Select one receiving store, then upload stock without vendor or invoice details.</p>
-            </div>
-          )}
-          <button type="button" className="bulk-page-shell__sample-btn" onClick={downloadTemplate}>
-            <Download size={15} />
-            Sample file
-          </button>
-        </div>
-
-        {/* ---- Store select (super admin) ---- */}
-        {isSuperAdmin && (
-          <label className="bulk-page-shell__store">
-            <span>Receiving store</span>
-            <select
-              value={selectedStoreId}
-              disabled={busy}
-              onChange={(event) => {
-                setSelectedStoreId(event.target.value);
-                clearFile();
-              }}
-            >
-              <option value="">Select store</option>
-              {stores.map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.storeName} ({store.storeCode})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {/* ---- Dropzone ---- */}
-        <label
-          className={`bulk-page-shell__dropzone${file ? " has-file" : ""}${busy ? " is-busy" : ""}`}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
+       <BulkUploadShell
+          title="Opening Stock"
+          subtitle="Select one receiving store, then upload stock without vendor or invoice details."
+          hideTitle={hideTitle}
+          onSample={downloadTemplate}
+          topSlot={
+            isSuperAdmin && (
+              <label className="bulk-page-shell__store">
+                <span>Receiving store</span>
+                <select
+                  value={selectedStoreId}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setSelectedStoreId(event.target.value);
+                    clearFile();
+                  }}
+                >
+                  <option value="">Select store</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.storeName} ({store.storeCode})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          }
+          file={file}
+          fileInputRef={fileInputRef}
+          busy={busy}
+          onFile={(chosen) => {
             if (workInProgress.current) return;
-            const dropped = e.dataTransfer.files?.[0];
-            if (dropped) {
-              setFile(dropped);
-              setPreview(null);
-              setImportSummary(null);
-              setLastRejectedRows([]);
-              setProgress(0);
-              setError("");
-            }
+            setFile(chosen);
+            setPreview(null);
+            setImportSummary(null);
+            setLastRejectedRows([]);
+            setProgress(0);
+            setError("");
           }}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            disabled={busy}
-            accept=".csv,.xls,.xlsx"
-            style={{ display: "none" }}
-            onChange={(event) => {
-              if (workInProgress.current) return;
-              setFile(event.target.files?.[0] || null);
-              setPreview(null);
-              setImportSummary(null);
-              setLastRejectedRows([]);
-              setProgress(0);
-              setError("");
-            }}
-          />
-
-          <div className="bulk-page-shell__dropzone-icon">
-            <UploadCloud size={22} />
-          </div>
-
-          {file ? (
+          progress={progress}
+          onRemoveFile={clearFile}
+          notices={
             <>
-              <div className="bulk-page-shell__dropzone-title">
-                <FileSpreadsheet size={16} />
-                {file.name}
-              </div>
-              <div className="bulk-page-shell__dropzone-sub">Click to choose a different file</div>
+              {error && <div className="bulk-alert bulk-alert--error">{error}</div>}
+
+              {importSummary && (
+                <div className="bulk-alert bulk-alert--success">
+                  Imported {importSummary.importedRows} row(s): {importSummary.createdRows} created and {importSummary.updatedRows} updated. Failed: {importSummary.failedRows}.
+                  {lastRejectedRows.length > 0 && (
+                    <button type="button" className="bulk-button bulk-button--secondary" onClick={downloadRejected}>
+                      <Download size={14} />
+                      Download rejected rows
+                    </button>
+                  )}
+                </div>
+              )}
             </>
-          ) : (
-            <>
-              <div className="bulk-page-shell__dropzone-title">Drop the file here</div>
-              <div className="bulk-page-shell__dropzone-sub">CSV, XLS or XLSX · maximum 10 MB</div>
-            </>
-          )}
+          }
+          onCancel={onClose || (() => {})}
+          onSubmit={previewFile}
+          submitDisabled={!file || !fixedStoreId || busy}
+          submitLabel={busy && !preview ? "Reading..." : "Preview file"}
+        />
 
-          <span className="bulk-page-shell__dropzone-browse">Browse file</span>
-        </label>
-
-        {/* ---- File row: progress + Remove file ---- */}
-        {(file || progress > 0 || busy) && (
-          <div className="bulk-file-row">
-            {(progress > 0 || busy) && (
-              <div
-                className="bulk-progress"
-                role="progressbar"
-                aria-valuenow={progress}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Upload progress ${progress}%`}
-              >
-                <span style={{ width: `${progress}%` }} />
-              </div>
-            )}
-            {file && (
-              <button
-                type="button"
-                className="bulk-page-shell__remove-file"
-                onClick={clearFile}
-                title="Remove file"
-              >
-                <X size={15} />
-                Remove file
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ---- Errors / summary ---- */}
-        {error && <div className="bulk-alert bulk-alert--error">{error}</div>}
-
-        {importSummary && (
-          <div className="bulk-alert bulk-alert--success">
-            Imported {importSummary.importedRows} row(s): {importSummary.createdRows} created and {importSummary.updatedRows} updated. Failed: {importSummary.failedRows}.
-            {lastRejectedRows.length > 0 && (
-              <button type="button" className="bulk-button bulk-button--secondary" onClick={downloadRejected}>
-                <Download size={14} />
-                Download rejected rows
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ---- Footer ---- */}
-        <div className="bulk-page-shell__footer">
-          <button type="button" className="bulk-page-shell__cancel" onClick={onClose || (() => {})}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="bulk-page-shell__primary"
-            disabled={!file || !fixedStoreId || busy}
-            onClick={previewFile}
-          >
-            <Upload size={15} />
-            {busy && !preview ? "Reading..." : "Preview file"}
-          </button>
-        </div>
-
-        {/* ---- Preview ---- */}
         {preview && (
           <>
             {/* Import summary */}
