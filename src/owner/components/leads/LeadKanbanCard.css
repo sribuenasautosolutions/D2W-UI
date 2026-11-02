@@ -7,7 +7,7 @@
 .d2w-lead-card {
     --lead-row-top: 24px;
     --lead-row-customer: 22px;
-    --lead-row-info: 38px;
+    --lead-row-info: auto;
     --lead-row-requirement: 56px; /* label + 2 lines */
     --lead-row-details: 42px;
     --lead-row-footer: 36px;
@@ -122,6 +122,8 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 12px;
     align-content: end;
+    min-height: var(--lead-row-info);
+    overflow: visible;
     padding-top: 8px;
     border-top: 1px solid #f1f5f9;
 }

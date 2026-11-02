@@ -39,9 +39,12 @@ const logoutAndRedirect = () => {
 api.interceptors.request.use((config) => {
     try {
         const user = JSON.parse(localStorage.getItem("user"));
+        // Keep requests authenticated even when the access token was persisted
+        // separately by the refresh flow or an older login session.
+        const token = user?.token || localStorage.getItem("token");
 
-        if (user?.token) {
-            config.headers.Authorization = `Bearer ${user.token}`;
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
     } catch (error) {
         console.error("Failed to read user session:", error);

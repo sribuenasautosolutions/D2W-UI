@@ -59,29 +59,27 @@ function ItemsTable({ items, showProcurement }) {
             <table className="lw-table">
                 <thead>
                     <tr>
-                        <th>Requirement</th>
-                        <th>Qty</th>
+                        <th>{showProcurement ? "Part name" : "Requirement"}</th>
                         <th>Part number</th>
-                        {showProcurement && <th>Part / brand</th>}
-                        {showProcurement && <th>Availability</th>}
+                        <th>Qty</th>
                         {showProcurement && <th>MRP</th>}
+                        {showProcurement && <th>Availability</th>}
                     </tr>
                 </thead>
                 <tbody>
                     {items.map((item) => (
                         <tr key={item.id}>
                             <td>
-                                {item.requirement || "-"}
+                                {showProcurement
+                                    ? ([item.productName, item.brandName].filter(Boolean).join(" · ") || item.requirement || "-")
+                                    : (item.requirement || "-")}
                                 {item.vehicleDescription ? <div className="lw-muted">{item.vehicleDescription}</div> : null}
                                 {item.vin ? <div className="lw-muted">VIN {item.vin}</div> : null}
                             </td>
-                            <td>{item.sellingQuantity ?? item.requestedQuantity ?? "-"}</td>
                             <td>{item.partNumber || <span className="lw-pending">Pending</span>}</td>
-                            {showProcurement && (
-                                <td>{[item.productName, item.brandName].filter(Boolean).join(" · ") || "-"}</td>
-                            )}
-                            {showProcurement && <td>{pretty(item.availabilityStatus)}</td>}
+                            <td>{item.sellingQuantity ?? item.requestedQuantity ?? "-"}</td>
                             {showProcurement && <td>{money(item.quotedMrp)}</td>}
+                            {showProcurement && <td>{pretty(item.availabilityStatus)}</td>}
                         </tr>
                     ))}
                 </tbody>
@@ -92,6 +90,7 @@ function ItemsTable({ items, showProcurement }) {
 
 /* ---------- Details tab ---------- */
 function DetailsTab({ lead, status, onEditLead }) {
+    const procurementComplete = status === "FOLLOW_UP" || status === "WON" || status === "LOST";
     const rows = [
         ["Customer", lead.customerName],
         ["Mobile", lead.customerPhone],
@@ -115,10 +114,14 @@ function DetailsTab({ lead, status, onEditLead }) {
                     </div>
                 ))}
             </dl>
-            <h3 className="lw-h3">Customer requirement</h3>
-            <p className="lw-requirement">{lead.customerRequirement || "No requirement specified"}</p>
-            <h3 className="lw-h3">Parts</h3>
-            <ItemsTable items={lead.items} showProcurement={false} />
+            {!procurementComplete && (
+                <>
+                    <h3 className="lw-h3">Customer requirement</h3>
+                    <p className="lw-requirement">{lead.customerRequirement || "No requirement specified"}</p>
+                </>
+            )}
+            <h3 className="lw-h3">{procurementComplete ? "Procurement items" : "Parts"}</h3>
+            <ItemsTable items={lead.items} showProcurement={procurementComplete} />
             {lead.status === "NEW" && (
                 <button type="button" className="lw-btn" onClick={() => onEditLead(lead)}>
                     Edit lead

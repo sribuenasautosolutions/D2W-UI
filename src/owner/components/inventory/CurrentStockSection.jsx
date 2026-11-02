@@ -107,8 +107,7 @@ function csvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
-// Fallback price validation used by OpeningStockManualEntry when the parent
-// doesn't provide its own. Matches the same rule set the backend expects.
+// Validate the manually entered prices before submitting opening stock.
 function defaultValidatePrices(row, errors) {
   (row.enteredPriceFields || []).forEach((field) => {
     if (!Number.isFinite(Number(row[field])) || Number(row[field]) <= 0)

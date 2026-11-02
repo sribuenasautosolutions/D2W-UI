@@ -39,7 +39,6 @@ import {
 } from "../../services/customerService";
 
 import "./NewSalePage.css";
-import { saleCalculationRows } from "../utils/saleCalculationRows";
 
 /* =========================================================
    HELPERS
