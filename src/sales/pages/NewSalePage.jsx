@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import OpeningStockManualEntry from "../../owner/components/inventory/OpeningStockManualEntry";
 import "../../owner/components/inventory/CurrentStockSection.css"; 
+import { saleCalculationRows } from "../utils/saleCalculationRows";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   convertProforma,
