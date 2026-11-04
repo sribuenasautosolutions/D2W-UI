@@ -3,6 +3,8 @@ import { approveLocalProduct } from "../../../services/localProductService";
 import { getAllBrands } from "../../../services/brandService";
 import { getAllCategories } from "../../../services/brandService";
 import { getAllProductMasters } from "../../../services/brandService";
+import apiclient from "../../../services/apiclient";
+import ProductSpecificationsForm from "../products/ProductSpecificationsForm";
 
 import "./styles/vehicle-management.css";
 import "./styles/product-approval.css";
@@ -30,6 +32,9 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
     const [masters, setMasters] = useState([]);
     const [filteredMasters, setFilteredMasters] = useState([]);
     const [showMasterSuggestions, setShowMasterSuggestions] = useState(false);
+    const [specificationAttributes, setSpecificationAttributes] = useState([]);
+    const [specificationValues, setSpecificationValues] = useState({});
+    const [specificationsLoading, setSpecificationsLoading] = useState(false);
 
     const [errors, setErrors] = useState({});
 
@@ -57,10 +62,31 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
         loadMasterData();
     }, []);
 
+    const selectedCategory = categories.find((category) =>
+        category.categoryName?.trim().toLowerCase() === formData.categoryName.trim().toLowerCase());
+    useEffect(() => {
+        let active = true;
+        if (!selectedCategory?.id) {
+            setSpecificationAttributes([]);
+            setSpecificationsLoading(false);
+            return () => { active = false; };
+        }
+        setSpecificationsLoading(true);
+        apiclient.get(`/product-attributes/category/${selectedCategory.id}`)
+            .then(({ data }) => active && setSpecificationAttributes(data || []))
+            .catch((error) => {
+                console.error("Failed to load approval category specifications", error);
+                if (active) setSpecificationAttributes([]);
+            })
+            .finally(() => active && setSpecificationsLoading(false));
+        return () => { active = false; };
+    }, [selectedCategory?.id]);
+
     /* Sync form with reviewData */
     useEffect(() => {
     if (!reviewData?.localProduct) {
         setFormData(emptyForm);
+        setSpecificationValues({});
         return;
     }
 
@@ -83,6 +109,7 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
         categoryName: product.category || "",
         masterName: product.master || "",
     });
+    setSpecificationValues({});
 }, [reviewData]);
 
     /* Click outside closes suggestions */
@@ -115,8 +142,10 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
             );
     }, []);
 
-    const handleChange = (e) =>
+    const handleChange = (e) => {
+        if (e.target.name === "categoryName" && e.target.value !== formData.categoryName) setSpecificationValues({});
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
     const handleBrandChange = (e) => {
         const value = e.target.value;
@@ -141,6 +170,7 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
 
     const handleCategoryChange = (e) => {
         const value = e.target.value;
+        if (value !== formData.categoryName) setSpecificationValues({});
         setFormData({ ...formData, categoryName: value });
         if (value.trim() === "") {
             setFilteredCategories([]);
@@ -156,6 +186,7 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
     };
 
     const selectCategory = (category) => {
+        if (formData.categoryName !== category.categoryName) setSpecificationValues({});
         setFormData({ ...formData, categoryName: category.categoryName });
         setShowCategorySuggestions(false);
     };
@@ -191,21 +222,26 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
             errors.brandName = "Brand is required";
         if (!formData.categoryName.trim())
             errors.categoryName = "Category is required";
-        if (!formData.masterName.trim())
+        if (!formData.masterName.trim()) errors.masterName = "Subcategory is required";
         if (!formData.hsnCode.trim()) {
-        errors.hsnCode = "HSN Code is required";
-    } else if (!/^\d{4,8}$/.test(formData.hsnCode.trim())) {
-        errors.hsnCode = "HSN Code must be 4 to 8 digits";
-    }
+            errors.hsnCode = "HSN Code is required";
+        } else if (!/^\d{4,8}$/.test(formData.hsnCode.trim())) {
+            errors.hsnCode = "HSN Code must be 4 to 8 digits";
+        }
+        const missingSpecification = specificationAttributes.find((attribute) => {
+            const value = specificationValues[attribute.id];
+            return attribute.required && (attribute.inputType === "BOOLEAN"
+                ? typeof value !== "boolean"
+                : value === undefined || value === null || String(value).trim() === "");
+        });
+        if (missingSpecification) errors[`specification-${missingSpecification.id}`] = `${missingSpecification.attributeName} is required`;
         setErrors(errors);
         return Object.keys(errors).length === 0;
     };
 
         const handleApprove = async () => {
     if (!validateForm()) {
-        const firstMessage =
-            Object.values(errors)[0] || "Please fix the highlighted fields.";
-        onToast?.(firstMessage, "error");
+        onToast?.("Please fix the highlighted fields.", "error");
         return;
     }
         if (!selectedApproval) {
@@ -213,7 +249,16 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
             return;
         }
 
-        // Match ProductCreateDTO — no description, oemNumber, or ean
+        const specifications = specificationAttributes
+            .filter((attribute) => attribute.inputType === "BOOLEAN"
+                || (specificationValues[attribute.id] !== undefined && specificationValues[attribute.id] !== null && String(specificationValues[attribute.id]).trim() !== ""))
+            .map((attribute) => ({
+                attributeId: attribute.id,
+                value: attribute.inputType === "BOOLEAN" ? Boolean(specificationValues[attribute.id])
+                    : attribute.inputType === "NUMBER" ? Number(specificationValues[attribute.id]) : String(specificationValues[attribute.id]),
+            }));
+
+        // Match ProductCreateDTO; include the mapped values for the selected category.
         const dto = {
             itemName: formData.itemName,
             partNumber: formData.partNumber,
@@ -221,6 +266,7 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
             brandName: formData.brandName,
             categoryName: formData.categoryName,
             masterName: formData.masterName,
+            specifications,
         };
 
         console.log("Approve DTO :", dto);
@@ -258,7 +304,7 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
                 <div className="vm-grid-2">
                     <div className="vm-field">
                         <label className="vm-label">
-                            Item Name <span className="vm-req">*</span>
+                            Part Name <span className="vm-req">*</span>
                         </label>
                         <input
                             name="itemName"
@@ -385,7 +431,7 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
 
                     <div className="vm-field">
                         <label className="vm-label">
-                            Master <span className="vm-req">*</span>
+                            Subcategory <span className="vm-req">*</span>
                         </label>
                         <div ref={masterRef} className="vm-suggest-wrap">
                             <input
@@ -443,8 +489,16 @@ function ProductSection({ reviewData, selectedApproval, onApproved,onToast}) {
                         {errors.hsnCode && (
                             <span className="vm-field-error">{errors.hsnCode}</span>
                         )}
-                    </div>
                                     </div>
+                                    </div>
+            </div>
+
+            <div className="vm-panel-section">
+                <ProductSpecificationsForm attributes={specificationAttributes} values={specificationValues}
+                    onChange={(attributeId, value) => setSpecificationValues((current) => ({ ...current, [attributeId]: value }))}
+                    disabled={specificationsLoading} loading={specificationsLoading} />
+                {Object.entries(errors).filter(([key]) => key.startsWith("specification-")).map(([key, message]) =>
+                    <span key={key} className="vm-field-error">{message}</span>)}
             </div>
 
             <div className="vm-panel-footer">

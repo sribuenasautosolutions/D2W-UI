@@ -1,20 +1,20 @@
-import ProductUnitFields, { ProductUnitLabel } from "../../../components/ProductUnitFields";
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import {
     Boxes,
-    Search,
     Download,
     UploadCloud,
     Loader2,
     X,
     Wrench,
+    Pencil,
 } from "lucide-react";
 import apiclient from "../../../services/apiclient";
 import FitmentDrawer from "./FitmentDrawer";
+import ProductSpecificationsForm from "./ProductSpecificationsForm";
 import "./ItemSection.css";
 
 const EMPTY_FORM = {
-    itemName: "", stockUnit: "PCS", packSize: null, contentsUnit: null,
+    itemName: "", stockUnit: "PCS",
     description: "",
     partNumber: "",
     oemNumber: "",
@@ -22,8 +22,11 @@ const EMPTY_FORM = {
     hsnCode: "",
     brandName: "",
     categoryName: "",
+    categoryId: "",
     masterName: "",
+    masterId: "",
 };
+const UNIT_LABELS = { PCS: "Piece", BOTTLE: "Bottle", CAN: "Can", BOX: "Box", SET: "Set", PAIR: "Pair", PACK: "Pack" };
 
 /**
  * ItemsSection
@@ -49,6 +52,10 @@ function ItemsSection({
     const [showMoreFields, setShowMoreFields] = useState(false);
 
     const [formData, setFormData] = useState(EMPTY_FORM);
+    const [editingItemId, setEditingItemId] = useState(null);
+    const [specificationAttributes, setSpecificationAttributes] = useState([]);
+    const [specificationValues, setSpecificationValues] = useState({});
+    const [specificationsLoading, setSpecificationsLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const [selectedFile, setSelectedFile] = useState(null);
@@ -83,6 +90,25 @@ function ItemsSection({
     useEffect(() => {
         loadData();
     }, []);
+
+    const selectedCategory = categories.find((category) => category.categoryName === formData.categoryName);
+    useEffect(() => {
+        let active = true;
+        if (!selectedCategory?.id) {
+            setSpecificationAttributes([]);
+            setSpecificationsLoading(false);
+            return () => { active = false; };
+        }
+        setSpecificationsLoading(true);
+        apiclient.get(`/product-attributes/category/${selectedCategory.id}`)
+            .then(({ data }) => active && setSpecificationAttributes(data || []))
+            .catch((error) => {
+                console.error("Failed to load category specifications", error);
+                if (active) setSpecificationAttributes([]);
+            })
+            .finally(() => active && setSpecificationsLoading(false));
+        return () => { active = false; };
+    }, [selectedCategory?.id]);
 
     /* ---------- Modal triggers from parent ---------- */
     useEffect(() => {
@@ -120,37 +146,61 @@ function ItemsSection({
         () => brands.map((b) => b.brandName).filter(Boolean),
         [brands]
     );
-    const categoryOptions = useMemo(
-        () => categories.map((c) => c.categoryName).filter(Boolean),
-        [categories]
-    );
     const masterOptions = useMemo(
         () => masters
-            .filter((m) => !formData.categoryName || m.categoryName === formData.categoryName)
-            .map((m) => m.masterName)
-            .filter(Boolean),
+            .filter((m) => m.active !== false && (!formData.categoryName || m.categoryName === formData.categoryName))
+            .filter((m) => m.masterName),
         [formData.categoryName, masters]
     );
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => {
-            if (name === "masterName") {
-                const selectedMaster = masters.find((m) => m.masterName === value);
-                return { ...prev, masterName: value, categoryName: selectedMaster?.categoryName || prev.categoryName };
-            }
-            if (name === "categoryName") {
-                const currentMaster = masters.find((m) => m.masterName === prev.masterName);
-                return { ...prev, categoryName: value, masterName: currentMaster?.categoryName === value ? prev.masterName : "" };
-            }
-            return { ...prev, [name]: value };
-        });
+        if (name === "masterId") {
+            const selectedMaster = masters.find((m) => String(m.id) === value);
+            const nextCategory = selectedMaster?.categoryName || formData.categoryName;
+            const nextCategoryId = selectedMaster?.categoryId || categories.find((category) => category.categoryName === nextCategory)?.id || "";
+            if (nextCategory !== formData.categoryName) setSpecificationValues({});
+            setFormData((current) => ({ ...current, masterId: value, masterName: selectedMaster?.masterName || "", categoryName: nextCategory, categoryId: String(nextCategoryId) }));
+            return;
+        }
+        if (name === "categoryId") {
+            const category = categories.find((item) => String(item.id) === value);
+            const nextCategoryName = category?.categoryName || "";
+            const currentMaster = masters.find((m) => String(m.id) === formData.masterId);
+            if (nextCategoryName !== formData.categoryName) setSpecificationValues({});
+            setFormData((current) => ({ ...current, categoryId: value, categoryName: nextCategoryName,
+                masterName: currentMaster?.categoryName === nextCategoryName ? current.masterName : "",
+                masterId: currentMaster?.categoryName === nextCategoryName ? current.masterId : "" }));
+            return;
+        }
+        setFormData((current) => ({ ...current, [name]: value }));
     };
 
     const resetAddModal = () => {
         setFormData(EMPTY_FORM);
+        setEditingItemId(null);
+        setSpecificationValues({});
         setShowAddModal(false);
         setShowMoreFields(false);
+    };
+
+    const editItem = async (item) => {
+        setSaving(true);
+        try {
+            const { data } = await apiclient.get(`/products/${item.id}`);
+            setEditingItemId(item.id);
+            setFormData({ ...EMPTY_FORM, ...data, categoryId: String(data.categoryId || ""), masterId: String(data.masterId || ""), itemName: data.itemName || "", description: data.description || "" });
+            const values = {};
+            (data.specifications || []).forEach((specification) => {
+                values[specification.attributeId] = specification.inputType === "BOOLEAN"
+                    ? specification.booleanValue
+                    : specification.inputType === "NUMBER" ? (specification.numberValue ?? "") : (specification.textValue ?? "");
+            });
+            setSpecificationValues(values);
+            setShowAddModal(true);
+        } catch (error) {
+            setToast({ type: "error", msg: error.response?.data?.message || "Could not load product details." });
+        } finally { setSaving(false); }
     };
 
     const saveItem = async () => {
@@ -159,36 +209,58 @@ function ItemsSection({
             !formData.partNumber.trim() ||
             !formData.brandName.trim() ||
             !formData.categoryName.trim() ||
-            !formData.masterName.trim()
+            !formData.masterName.trim() ||
+            !formData.hsnCode.trim()
         ) {
-            setToast({ type: "error", msg: "Item name, part number, brand, category and master are required." });
+            setToast({ type: "error", msg: "Part name, part number, brand, category, subcategory and HSN code are required." });
+            return;
+        }
+        const missingRequired = specificationAttributes.find((attribute) => {
+            const value = specificationValues[attribute.id];
+            return attribute.required && (attribute.inputType === "BOOLEAN"
+                ? typeof value !== "boolean"
+                : value === undefined || value === null || String(value).trim() === "");
+        });
+        if (missingRequired) {
+            setToast({ type: "error", msg: `${missingRequired.attributeName} is required for this category.` });
             return;
         }
         setSaving(true);
         try {
+            const specifications = specificationAttributes
+                .filter((attribute) => attribute.inputType === "BOOLEAN"
+                    || (specificationValues[attribute.id] !== undefined && specificationValues[attribute.id] !== null && String(specificationValues[attribute.id]).trim() !== ""))
+                .map((attribute) => ({
+                    attributeId: attribute.id,
+                    value: attribute.inputType === "BOOLEAN" ? Boolean(specificationValues[attribute.id])
+                        : attribute.inputType === "NUMBER" ? Number(specificationValues[attribute.id]) : String(specificationValues[attribute.id]),
+                }));
             const payload = {
                 itemName: formData.itemName.trim(),
                 stockUnit: formData.stockUnit,
-                packSize: formData.packSize,
-                contentsUnit: formData.contentsUnit,
                 description: formData.description.trim() || null,
                 partNumber: formData.partNumber.trim(),
                 oemNumber: formData.oemNumber.trim() || null,
                 ean: formData.ean.trim() || null,
-                hsnCode: formData.hsnCode.trim() || null,
+                hsnCode: formData.hsnCode.trim(),
                 brandName: formData.brandName.trim(),
                 categoryName: formData.categoryName.trim(),
                 masterName: formData.masterName.trim(),
+                masterId: formData.masterId ? Number(formData.masterId) : null,
+                specifications,
             };
-            const response = await apiclient.post("/products", payload);
-            setToast({ type: "success", msg: response.data });
+            const response = editingItemId
+                ? await apiclient.put(`/products/${editingItemId}`, payload)
+                : await apiclient.post("/products", payload);
+            setToast({ type: "success", msg: editingItemId ? "Product updated." : response.data });
             resetAddModal();
-            loadData();
+            await loadData();
         } catch (error) {
             console.error("Failed to save item", error);
-            setToast({ type: "error", msg: "Error saving item." });
+            setToast({ type: "error", msg: error.response?.data?.message || "Error saving item." });
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
 
     const downloadTemplate = async () => {
@@ -211,6 +283,7 @@ function ItemsSection({
     };
 
     const handleExportItems = async () => {
+    if (exporting) return;
     setExporting(true);
     try {
         const response = await apiclient.get("/products/export", {
@@ -281,31 +354,36 @@ function ItemsSection({
                     <>
                         <table className="items-table">
                             <colgroup>
+                                <col style={{ width: "13%" }} />
+                                <col style={{ width: "22%" }} />
+                                <col style={{ width: "10%" }} />
+                                <col style={{ width: "10%" }} />
+                                <col style={{ width: "13%" }} />
+                                <col style={{ width: "10%" }} />
+                                <col style={{ width: "8%" }} />
                                 <col style={{ width: "14%" }} />
-                                <col style={{ width: "26%" }} />
-                                <col style={{ width: "12%" }} />
-                                <col style={{ width: "16%" }} />
-                                <col style={{ width: "16%" }} />
-                                <col style={{ width: "16%" }} />
                             </colgroup>
                             <thead>
                                 <tr>
                                     <th className="items-th">Part Number</th>
                                     <th className="items-th">Part Name</th>
+                                    <th className="items-th">Unit</th>
                                     <th className="items-th">Brand</th>
                                     <th className="items-th">Category</th>
                                     <th className="items-th">Subcategory</th>
                                     <th className="items-th">Fitment</th>
+                                    <th className="items-th">Edit</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredItems.map((item) => (
+                                    <Fragment key={item.id}>
                                     <tr key={item.id} className="items-tr">
                                         <td className="items-td-strong">{item.partNumber || "—"}</td>
                                         <td className="items-td">
                                             {item.itemName}
-                                            <ProductUnitLabel product={item} />
                                         </td>
+                                        <td className="items-td">{UNIT_LABELS[item.stockUnit] || UNIT_LABELS.PCS}</td>
                                         <td className="items-td">{item.brandName || "—"}</td>
                                         <td className="items-td">{item.categoryName || "—"}</td>
                                         <td className="items-td">{item.masterName || "—"}</td>
@@ -324,7 +402,13 @@ function ItemsSection({
                                                 )}
                                             </button>
                                         </td>
+                                        <td className="items-td">
+                                            <button type="button" className="items-fitment-btn" onClick={() => editItem(item)} aria-label={`Edit ${item.itemName}`}>
+                                                <Pencil size={13} /> Edit
+                                            </button>
+                                        </td>
                                     </tr>
+                                    </Fragment>
                                 ))}
                             </tbody>
                         </table>
@@ -340,26 +424,28 @@ function ItemsSection({
                 <div className="items-overlay" onClick={resetAddModal}>
                     <div className="items-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="items-modal-header">
-                            <span className="items-modal-title">Add Item</span>
+                            <span className="items-modal-title">{editingItemId ? "Edit Item" : "Add Item"}</span>
                             <button className="items-modal-close" onClick={resetAddModal}>
                                 <X size={16} />
                             </button>
                         </div>
 
-                        <label className="items-label">Item Name</label>
+                        <label className="items-label">Part Name *</label>
                         <input
                             className="items-input"
                             autoFocus
                             placeholder="e.g. Brake Pad Set — Front"
+                            required
                             name="itemName"
                             value={formData.itemName}
                             onChange={handleInputChange}
                         />
 
-                        <label className="items-label" style={{ marginTop: 12 }}>Part Number</label>
+                        <label className="items-label" style={{ marginTop: 12 }}>Part Number *</label>
                         <input
                             className="items-input"
                             placeholder="PN-00123"
+                            required
                             name="partNumber"
                             value={formData.partNumber}
                             onChange={handleInputChange}
@@ -367,7 +453,7 @@ function ItemsSection({
 
                         <div className="items-field-row">
                             <div>
-                                <label className="items-label">Brand</label>
+                                <label className="items-label">Brand *</label>
                                 <input
                                     className="items-input"
                                     list="brand-options"
@@ -382,35 +468,40 @@ function ItemsSection({
                                 </datalist>
                             </div>
                             <div>
-                                <label className="items-label">Category</label>
-                                <input
-                                    className="items-input"
-                                    list="category-options"
-                                    name="categoryName"
-                                    value={formData.categoryName}
-                                    onChange={handleInputChange}
-                                    placeholder="Type or pick"
-                                    autoComplete="off"
-                                />
-                                <datalist id="category-options">
-                                    {categoryOptions.map((c) => <option key={c} value={c} />)}
-                                </datalist>
+                                <label className="items-label">Category *</label>
+                                <select className="items-input" name="categoryId" value={formData.categoryId} onChange={handleInputChange}>
+                                    <option value="">Select category</option>
+                                    {categories.filter((category) => category.active !== false).map((category) =>
+                                        <option key={category.id} value={category.id}>{category.categoryName}</option>)}
+                                </select>
                             </div>
                         </div>
 
-                        <label className="items-label" style={{ marginTop: 12 }}>Master</label>
-                        <input
-                            className="items-input"
-                            list="master-options"
-                            name="masterName"
-                            value={formData.masterName}
-                            onChange={handleInputChange}
-                            placeholder="Type or pick"
-                            autoComplete="off"
-                        />
-                        <datalist id="master-options">
-                            {masterOptions.map((m) => <option key={m} value={m} />)}
-                        </datalist>
+                        <label className="items-label" style={{ marginTop: 12 }}>Subcategory *</label>
+                        <select className="items-input" name="masterId" value={formData.masterId} onChange={handleInputChange}>
+                            <option value="">Select subcategory</option>
+                            {masterOptions.map((master) => <option key={master.id} value={master.id}>
+                                {master.masterName}{masterOptions.filter((candidate) => candidate.masterName === master.masterName).length > 1 ? ` · ${master.categoryName} · #${master.id}` : ""}
+                            </option>)}
+                        </select>
+
+                        <div className="items-field-row">
+                            <div>
+                                <label className="items-label" style={{ marginTop: 12 }}>HSN Code *</label>
+                                <input className="items-input" placeholder="Enter HSN code" name="hsnCode" value={formData.hsnCode} onChange={handleInputChange} required />
+                            </div>
+                            <div>
+                                <label className="items-label" style={{ marginTop: 12 }}>Unit *</label>
+                                <select className="items-input" name="stockUnit" value={formData.stockUnit || "PCS"} onChange={handleInputChange} required>
+                                    <option value="PCS">Piece</option><option value="BOTTLE">Bottle</option><option value="CAN">Can</option>
+                                    <option value="BOX">Box</option><option value="SET">Set</option><option value="PAIR">Pair</option><option value="PACK">Pack</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <ProductSpecificationsForm attributes={specificationAttributes} values={specificationValues}
+                            onChange={(attributeId, value) => setSpecificationValues((current) => ({ ...current, [attributeId]: value }))}
+                            disabled={saving} loading={specificationsLoading} />
 
                         <button
                             type="button"
@@ -442,22 +533,15 @@ function ItemsSection({
                                     </div>
                                 </div>
 
-                                <label className="items-label-sm" style={{ marginTop: 10 }}>HSN Code</label>
-                                <input className="items-input-sm" placeholder="Optional" name="hsnCode" value={formData.hsnCode} onChange={handleInputChange} />
                             </div>
                         )}
 
-                        <section className="product-units-section">
-                            <h3>Unit and pack size</h3>
-                            <p>Quantity counts the selected stock unit. Example: one can contains 3.5 L.</p>
-                            <ProductUnitFields value={formData} onChange={setFormData} disabled={saving} />
-                        </section>
 
                         <div className="items-modal-actions">
                             <button className="items-btn-ghost" onClick={resetAddModal}>Cancel</button>
                             <button className="items-btn-primary" onClick={saveItem} disabled={saving}>
                                 {saving ? <Loader2 size={15} className="pc-spin" /> : <Boxes size={15} />}
-                                {saving ? "Saving…" : "Save Item"}
+                                {saving ? "Saving…" : editingItemId ? "Save Changes" : "Save Item"}
                             </button>
                         </div>
                     </div>
@@ -476,9 +560,9 @@ function ItemsSection({
                         </div>
 
                         <p className="items-hint">
-                            Accepts .csv or .xlsx/.xls files with 9 columns: Brand, Category, Master, Product
+                            Accepts .csv or .xlsx/.xls files with 9 columns: Brand, Category, Subcategory, Product
                             Name, Description, Part Number, OEM Number, EAN, HSN Code. Only Brand, Category,
-                            Master, Product Name and Part Number are required — Brand/Category/Master are
+                            Subcategory, Product Name and Part Number are required — Brand/Category/Subcategory are
                             created automatically if they don't exist yet. Pricing isn't supported in bulk
                             upload.
                         </p>

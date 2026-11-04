@@ -171,23 +171,23 @@ function MastersSection() {
       <div style={S.headerRow}>
         <div>
           <div style={S.title}>
-            <Package size={20} style={{ color: "#2563EB" }} /> Product Masters
+            <Package size={20} style={{ color: "#2563EB" }} /> Subcategories
           </div>
-          <p style={S.subtitle}>Manage master data within each category.</p>
+          <p style={S.subtitle}>Manage subcategories within each category.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button style={S.secondaryBtn} onClick={() => setShowBulkModal(true)}>
             <UploadCloud size={15} /> Bulk Upload
           </button>
           <button style={S.primaryBtn} onClick={() => setShowAddModal(true)}>
-            <Plus size={15} /> Add Master
+            <Plus size={15} /> Add Subcategory
           </button>
         </div>
       </div>
 
       {/* Stat cards */}
       <div style={S.statsGrid}>
-        <StatCard label="Total Masters" value={masters.length} icon={<Package size={16} />} tint="#EEF2FF" iconColor="#4F46E5" />
+        <StatCard label="Total Subcategories" value={masters.length} icon={<Package size={16} />} tint="#EEF2FF" iconColor="#4F46E5" />
         <StatCard label="Active" value={activeCount} icon={<CheckCircle2 size={16} />} tint="#ECFDF5" iconColor="#059669" />
         <StatCard label="Latest Added" value={latestMaster} icon={<Package size={16} />} tint="#F5F3FF" iconColor="#7C3AED" small />
       </div>
@@ -198,7 +198,7 @@ function MastersSection() {
           <Search size={15} style={{ color: "#9CA3AF" }} />
           <input
             style={S.searchInput}
-            placeholder="Search masters or categories..."
+            placeholder="Search subcategories or categories..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -209,16 +209,16 @@ function MastersSection() {
       <div style={S.tableCard}>
         {loading ? (
           <div style={S.emptyState}>
-            <Loader2 size={18} className="pc-spin" /> Loading masters…
+            <Loader2 size={18} className="pc-spin" /> Loading subcategories…
           </div>
         ) : filteredMasters.length === 0 ? (
-          <div style={S.emptyState}>No masters found.</div>
+          <div style={S.emptyState}>No subcategories found.</div>
         ) : (
           <>
             <table style={S.table}>
               <thead>
                 <tr>
-                  <th style={S.th}>Master</th>
+                  <th style={S.th}>Subcategory</th>
                   <th style={S.th}>Category</th>
                   <th style={S.th}>Slug</th>
                   <th style={S.th}>Status</th>
@@ -240,18 +240,18 @@ function MastersSection() {
               </tbody>
             </table>
             <div style={S.tableFooter}>
-              {filteredMasters.length} of {masters.length} masters
+              {filteredMasters.length} of {masters.length} subcategories
             </div>
           </>
         )}
       </div>
 
-      {/* Add Master modal */}
+      {/* Add Subcategory modal */}
       {showAddModal && (
         <div style={S.overlay} onClick={resetAddModal}>
           <div style={S.modal} onClick={(e) => e.stopPropagation()}>
             <div style={S.modalHeader}>
-              <span style={S.modalTitle}>Add Master</span>
+              <span style={S.modalTitle}>Add Subcategory</span>
               <button style={S.iconBtn} onClick={resetAddModal}>
                 <X size={16} />
               </button>
@@ -271,7 +271,7 @@ function MastersSection() {
               ))}
             </select>
 
-            <label style={{ ...S.label, marginTop: 14 }}>Master Name *</label>
+            <label style={{ ...S.label, marginTop: 14 }}>Subcategory Name *</label>
             <input
               style={S.input}
               autoFocus
@@ -287,7 +287,7 @@ function MastersSection() {
               </button>
               <button style={S.primaryBtn} onClick={saveMaster} disabled={saving}>
                 {saving ? <Loader2 size={15} className="pc-spin" /> : <Package size={15} />}
-                {saving ? "Saving…" : "Save Master"}
+                {saving ? "Saving…" : "Save Subcategory"}
               </button>
             </div>
           </div>
@@ -299,14 +299,14 @@ function MastersSection() {
         <div style={S.overlay} onClick={() => setShowBulkModal(false)}>
           <div style={S.modal} onClick={(e) => e.stopPropagation()}>
             <div style={S.modalHeader}>
-              <span style={S.modalTitle}>Bulk Upload Masters</span>
+              <span style={S.modalTitle}>Bulk Upload Subcategories</span>
               <button style={S.iconBtn} onClick={() => setShowBulkModal(false)}>
                 <X size={16} />
               </button>
             </div>
 
             <p style={S.hint}>
-              Each row needs Master Name + Category Name. Unknown categories are created
+              Each row needs Subcategory Name + Category Name. Unknown categories are created
               automatically.
             </p>
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import {Search, Bell, ChevronDown, ChevronRight,Upload, Download, Plus,Boxes, Tag, LayoutGrid, Layers, GitCompareArrows, Wrench,
+import {Search, Bell, ChevronDown, ChevronRight,Upload, Download, Plus,Boxes, Tag, LayoutGrid, Layers, GitCompareArrows, Wrench, SlidersHorizontal,
 } from "lucide-react";
 
 import BrandsSection from "../../owner/components/products/BrandsSection";
@@ -8,6 +8,7 @@ import MastersSection from "../../owner/components/products/MastersSection";
 import ItemsSection from "../../owner/components/products/ItemsSection";
 import FitmentsSection from "../../owner/components/products/FitmentsSection";
 import CrossReferenceSection from "../../owner/components/products/CrossReferenceSection";
+import ProductAttributesSection from "../../owner/components/products/ProductAttributesSection";
 
 import "./ProductPage.css";
 
@@ -55,9 +56,10 @@ function ProductPage() {
         { id: "items",           label: "Items",            Icon: Boxes },
         { id: "brands",          label: "Brands",           Icon: Tag },
         { id: "categories",      label: "Categories",       Icon: LayoutGrid },
-        { id: "masters",         label: "Masters",          Icon: Layers },
+        { id: "masters",         label: "Subcategories",    Icon: Layers },
         { id: "crossReferences", label: "Cross References", Icon: GitCompareArrows },
         { id: "fitments",        label: "Fitments",         Icon: Wrench },
+        { id: "specifications", label: "Specifications",   Icon: SlidersHorizontal },
     ];
 
     const activeTabName = tabs.find((t) => t.id === activeTab)?.label;
@@ -183,6 +185,7 @@ function ProductPage() {
                 {activeTab === "masters" && <MastersSection />}
                 {activeTab === "crossReferences" && <CrossReferenceSection />}
                 {activeTab === "fitments" && <FitmentsSection />}
+                {activeTab === "specifications" && <ProductAttributesSection />}
             </div>
         </div>
     );
