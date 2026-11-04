@@ -1249,6 +1249,25 @@ const handleItemCreated = async (result, submitted) => {
   const [createdOrderAmount, setCreatedOrderAmount] = useState(null);
 
   const customerLookupRequest = useRef(0);
+  const customerBoxRef = useRef(null);
+
+useEffect(() => {
+  if (!customerDropdownOpen) return undefined;
+  const onMouseDown = (event) => {
+    if (!customerBoxRef.current?.contains(event.target)) {
+      setCustomerDropdownOpen(false);
+    }
+  };
+  const onKeyDown = (event) => {
+    if (event.key === "Escape") setCustomerDropdownOpen(false);
+  };
+  document.addEventListener("mousedown", onMouseDown);
+  document.addEventListener("keydown", onKeyDown);
+  return () => {
+    document.removeEventListener("mousedown", onMouseDown);
+    document.removeEventListener("keydown", onKeyDown);
+  };
+}, [customerDropdownOpen]);
 
   const loadCustomerOptions = async (query = "") => {
     if (!selectedStoreId) return;
@@ -2136,7 +2155,7 @@ const payload = {
 
         {/* ============ CUSTOMER BAR ============ */}
        <div className="ns-customer">
-  <div className="ns-combo">
+  <div className="ns-combo"  ref={customerBoxRef}>
     <Search size={14} className="ns-search-icon" />
     <input
       type="text"
@@ -2149,7 +2168,10 @@ const payload = {
       onFocus={() => {
         setCustomerDropdownOpen(true);
         loadCustomerOptions(customerSearch);
+        
       }}
+        onClick={() => setCustomerDropdownOpen(true)}
+
       onChange={(event) => {
         const value = event.target.value;
         setCustomerSearch(value);
