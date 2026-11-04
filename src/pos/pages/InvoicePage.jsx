@@ -1,12 +1,17 @@
 import { ProductUnitLabel } from "../../components/ProductUnitFields";
+import InvoiceThemeSwitch, { useInvoiceTheme, SaleDocumentSheet } from "../../components/InvoiceThemeSwitch";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Download, Printer } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import apiclient from "../../services/apiclient";
 import { printDisplayedInvoice } from "../utils/printInvoice";
 import { downloadDisplayedInvoicePdf } from "../utils/invoicePdf";
+import d2wLogo from "../../assets/deals2wheels-logo100.png";
 import "./InvoicePage.css";
 
+/* ------------------------------------------------------------------ */
+/* 1. Formatting helpers                                               */
+/* ------------------------------------------------------------------ */
 const money = (value) => Number(value || 0).toLocaleString("en-IN", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -50,6 +55,7 @@ const amountInWords = (value) => {
 };
 
 const text = (value) => value === null || value === undefined || value === "" ? "-" : value;
+const qtyText = (qty, unit) => (unit && unit !== "PCS" ? `${qty} ${unit}` : `${qty}`);
 
 const paymentSummary = (payments) => {
   const methods = [...new Set((payments || []).map((payment) => payment.paymentMethod).filter(Boolean))];
@@ -81,8 +87,28 @@ const itemTaxable = (item) => {
 // depending on the API response, so check all of them before falling back.
 const itemHsn = (item) => item.hsncode ?? item.hsnCode ?? item.hsn_code ?? item.hsn;
 
+// GST charged on one line = line total minus taxable value.
+const lineGst = (item) => Number(item.totalPrice || 0) - Number(itemTaxable(item) || 0);
+
+// Colour name for the status badge (styles live in InvoicePage.css: .doc-badge--*).
+const statusTone = (status) => {
+  const s = String(status || "").toUpperCase();
+  if (s.includes("CANCEL") || s.includes("VOID")) return "danger";
+  if (s.includes("PENDING") || s.includes("PARTIAL") || s.includes("UNPAID") || s.includes("DUE")) return "warn";
+  if (s.includes("PAID") || s.includes("COMPLETE")) return "ok";
+  return "neutral";
+};
+
+/* ------------------------------------------------------------------ */
+/* 2. Small shared components                                          */
+/* ------------------------------------------------------------------ */
 function InfoLine({ label, value }) {
   return <div className="invoice-info-line"><span>{label}</span><strong>{text(value)}</strong></div>;
+}
+
+function StatusLine({ label, value }) {
+  const display = value ? String(value).replaceAll("_", " ") : "-";
+  return <div className="invoice-info-line"><span>{label}</span><strong><span className={`doc-badge doc-badge--${statusTone(value)}`}>{display}</span></strong></div>;
 }
 
 function TotalLine({ label, value, subtract = false, strong = false }) {
@@ -91,18 +117,131 @@ function TotalLine({ label, value, subtract = false, strong = false }) {
   </div>;
 }
 
-// Column widths for the items table, kept as a single source of truth so the
-// <colgroup> always matches however many columns are actually rendered.
-// HSN is folded into the Item Description cell rather than given its own
-// column, since a dedicated column was too narrow and wrapped the code.
-const COLUMN_WIDTHS_WITH_DISCOUNT = [4, 30, 8, 5, 8, 8, 8, 9, 7, 13];
-const COLUMN_WIDTHS_NO_DISCOUNT = [4, 35, 8, 5, 9, 9, 10, 7, 13];
+/* ------------------------------------------------------------------ */
+/* 3. Data for the "Sale" layout (drawn by components/SaleDocumentSheet) */
+/* ------------------------------------------------------------------ */
+const buildInvoiceSaleDoc = ({ invoice, items, payments, collectedBy, totals, hasDiscount }) => {
+  const sum = (fn) => items.reduce((total, item) => total + Number(fn(item) || 0), 0);
+  const totalDiscount = Number(invoice.itemDiscountAmount || 0) + Number(invoice.billDiscountAmount || 0);
+  const isB2B = invoice.saleType === "B2B";
+  const billingAddress = invoice.billingAddress || invoice.customerAddress;
+  const registration = invoice.customerGstRegistrationType ? String(invoice.customerGstRegistrationType).replaceAll("_", " ") : "-";
+  // Bank fields are optional: rename them to match your API, or ignore them.
+  const bank = [
+    invoice.storeBankName && `Bank Name: ${invoice.storeBankName}`,
+    invoice.storeBankAccountNo && `Bank Account No.: ${invoice.storeBankAccountNo}`,
+    invoice.storeBankIfsc && `Bank IFSC code: ${invoice.storeBankIfsc}`,
+  ].filter(Boolean);
 
+  return {
+    title: "Tax Invoice",
+    notice: "",
+    logo: d2wLogo,
+    detailsTitle: "Invoice Details",
+    store: {
+      name: text(invoice.storeName),
+      lines: [
+        invoice.storeAddress,
+        [invoice.storePhone && `Phone: ${invoice.storePhone}`, invoice.storeEmail && `Email: ${invoice.storeEmail}`].filter(Boolean).join("  |  "),
+        `GSTIN: ${text(invoice.storeGstno)}`,
+        invoice.storeState && `State: ${invoice.storeState}`,
+      ].filter(Boolean),
+    },
+    billTo: {
+      name: text(invoice.customerName),
+      lines: [
+        billingAddress && String(billingAddress),
+        `Mobile: ${text(invoice.phone)}`,
+        ...(isB2B ? [
+          `GSTIN: ${text(invoice.customerGstin)}`,
+          `Registration: ${registration}`,
+          `State / Place of Supply: ${text(invoice.placeOfSupply || invoice.customerState)}`,
+        ] : []),
+        invoice.customerEmail && `Email: ${invoice.customerEmail}`,
+      ].filter(Boolean),
+    },
+    shipTo: { lines: invoice.shippingAddress ? [String(invoice.shippingAddress)] : [] },
+    details: [
+      { label: "Invoice No.", value: text(invoice.invoiceNumber) },
+      { label: "Invoice Date", value: date(invoice.orderDate) },
+      { label: "Order No.", value: `#${invoice.orderId}` },
+      { label: "Order Date", value: date(invoice.orderDate, true) },
+      invoice.dueDate && { label: "Due Date", value: date(invoice.dueDate) },
+      { label: "Payment", value: paymentSummary(payments) },
+      { label: "Status", value: invoice.orderStatus ? String(invoice.orderStatus).replaceAll("_", " ") : "-", tone: statusTone(invoice.orderStatus) },
+      { label: "Collected By", value: text(collectedBy) },
+    ].filter(Boolean),
+    showDiscount: hasDiscount,
+    items: items.map((item, index) => ({
+      key: `${item.batchId || "item"}-${index}`,
+      raw: item,
+      name: text(item.itemName || item.productName),
+      showUnit: Boolean(item.stockUnit && item.stockUnit !== "PCS"),
+      partNo: item.partNumber,
+      hsn: itemHsn(item),
+      brand: item.brandName,
+      qty: qtyText(text(item.quantity), item.stockUnit),
+      mrp: item.mrp ?? item.sellingPrice,
+      rate: item.sellingPrice,
+      discountAmount: Number(item.discountAmount || 0),
+      discountPct: Number(item.discountPercentage || 0),
+      taxable: itemTaxable(item),
+      gst: lineGst(item),
+      gstPct: Number(item.gstPercentage || 0),
+      amount: item.totalPrice,
+    })),
+    totals: { qty: totals.qty, discount: totals.discount, taxable: totals.taxable, gst: sum(lineGst), amount: totals.amount },
+    payments: payments.map((payment, index) => ({
+      key: payment.id || index,
+      label: `${date(payment.paymentDate)} - ${String(text(payment.paymentMethod)).replaceAll("_", " ")}`,
+      amount: payment.amount,
+      ref: payment.transactionNumber,
+    })),
+    description: invoice.notes || invoice.description || "",
+    words: amountInWords(invoice.totalAmount),
+    dueDate: invoice.dueDate ? date(invoice.dueDate) : "",
+    terms: [
+      "Returns and exchanges are subject to store approval.",
+      "Warranty is subject to the manufacturer or brand policy.",
+      "Disputes are subject to the store's local jurisdiction.",
+    ],
+    bank,
+    summary: [
+      { label: "Gross Amount", value: invoice.grossAmount },
+      Number(invoice.itemDiscountAmount) > 0 && { label: "Item Discount", value: invoice.itemDiscountAmount, subtract: true },
+      Number(invoice.billDiscountAmount) > 0 && { label: `Bill Discount (${Number(invoice.billDiscountPercentage || 0)}%)`, value: invoice.billDiscountAmount, subtract: true },
+      { label: "Taxable Amount", value: invoice.taxableAmount, strong: true },
+      Number(invoice.cgstAmount) > 0 && { label: "CGST", value: invoice.cgstAmount },
+      Number(invoice.sgstAmount) > 0 && { label: "SGST", value: invoice.sgstAmount },
+      Number(invoice.igstAmount) > 0 && { label: "IGST", value: invoice.igstAmount },
+      { label: "Round Off", value: invoice.roundOffAmount },
+      { label: "Grand Total", value: invoice.totalAmount, bar: true },
+      { label: "Paid Amount", value: invoice.paidAmount },
+      { label: "Balance Due", value: invoice.balanceAmount, strong: true },
+      Number(invoice.refundDue) > 0 && { label: "Refund Due", value: invoice.refundDue, strong: true },
+      totalDiscount > 0 && { label: "You Saved", value: totalDiscount },
+    ].filter(Boolean),
+    customerSignature: true,
+    footerNote: "This is a computer-generated invoice.",
+  };
+};
+
+/* ------------------------------------------------------------------ */
+/* 4. Table column widths (percent). Each array adds up to 100.        */
+/* ------------------------------------------------------------------ */
+// HSN is folded into the Item Description cell rather than given its own column.
+const COLUMN_WIDTHS_WITH_DISCOUNT = [5, 24, 10, 6, 9, 9, 12, 9, 7, 9];
+const COLUMN_WIDTHS_NO_DISCOUNT = [5, 30, 11, 6, 10, 10, 10, 8, 10];
+
+/* ------------------------------------------------------------------ */
+/* 5. The page                                                         */
+/* ------------------------------------------------------------------ */
 export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const { orderId: routeOrderId } = useParams();
   const orderId = orderIdOverride || routeOrderId;
   const navigate = useNavigate();
   const location = useLocation();
+  const { themeKey, setTheme } = useInvoiceTheme();
   const printedOrder = useRef(null);
   const invoiceSheet = useRef(null);
   const printInProgress = useRef(false);
@@ -186,6 +325,18 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const colWidths = hasDiscount ? COLUMN_WIDTHS_WITH_DISCOUNT : COLUMN_WIDTHS_NO_DISCOUNT;
   const columnCount = colWidths.length;
 
+  // Totals row under the items table.
+  const totals = useMemo(() => {
+    const units = new Set(items.map((item) => item.stockUnit || "PCS"));
+    const sum = (fn) => items.reduce((total, item) => total + Number(fn(item) || 0), 0);
+    return {
+      qty: units.size === 1 ? qtyText(sum((item) => item.quantity), [...units][0]) : "",
+      discount: sum((item) => item.discountAmount),
+      taxable: sum(itemTaxable),
+      amount: sum((item) => item.totalPrice),
+    };
+  }, [items]);
+
   const handleSavePdf = useCallback(async () => {
     if (pdfInProgress.current || !invoiceSheet.current) return;
     const id = orderId;
@@ -221,19 +372,27 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
     <nav className="invoice-toolbar">
       {!embedded && <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}><ArrowLeft size={16} />Back</button>}
       <div>
+        <InvoiceThemeSwitch themeKey={themeKey} onChange={setTheme} />
         <button className="invoice-button invoice-button--quiet" onClick={handlePrint}><Printer size={16} />Print</button>
         <button className="invoice-button invoice-button--quiet" disabled={pdfLoading} onClick={handleSavePdf}><Download size={16} />{pdfLoading ? "Saving PDF…" : "Save PDF"}</button>
       </div>
     </nav>
 
     {pdfError && <div className="invoice-pdf-error" role="alert">{pdfError}</div>}
-    <article className="invoice-sheet" id="invoice-export-sheet" ref={invoiceSheet}>
+
+    {themeKey === "sale" && <SaleDocumentSheet
+      className="invoice-sheet"
+      id="invoice-export-sheet"
+      sheetRef={invoiceSheet}
+      doc={buildInvoiceSaleDoc({ invoice, items, payments, collectedBy, totals, hasDiscount })}
+    />}
+
+    {themeKey !== "sale" && <article className="invoice-sheet" id="invoice-export-sheet" ref={invoiceSheet} data-template={themeKey}>
       <header className="invoice-header">
         <div className="invoice-brand">
-          <div className="invoice-logo">D2W</div>
+          <img className="invoice-brand-logo" src={d2wLogo} alt="Deals2Wheels" />
           <div className="invoice-store-copy">
             <h1>{text(invoice.storeName)}</h1>
-            <p className="invoice-store-code">Deals 2 Wheels</p>
             <p>{invoice.storePhone && `Phone: ${invoice.storePhone}`}{invoice.storePhone && invoice.storeEmail && "  |  "}{invoice.storeEmail && `Email: ${invoice.storeEmail}`}</p>
             <p className="invoice-gstin"><span>GSTIN:</span> {text(invoice.storeGstno)}</p>
           </div>
@@ -264,7 +423,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
           <h3>INVOICE DETAILS</h3>
           <InfoLine label="Order Date" value={date(invoice.orderDate, true)} />
           <InfoLine label="Payment" value={paymentSummary(payments)} />
-          <InfoLine label="Status" value={invoice.orderStatus?.replaceAll("_", " ")} />
+          <StatusLine label="Status" value={invoice.orderStatus} />
           <InfoLine label="Collected By" value={collectedBy} />
         </div>
       </section>
@@ -294,14 +453,16 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
               <td>
                 <strong>{text(item.itemName || item.productName)}</strong>
                 {item.stockUnit && item.stockUnit !== "PCS" && <ProductUnitLabel product={item} />}
-                <small className="invoice-partno">Part No: {text(item.partNumber)} &nbsp;|&nbsp; HSN: {text(itemHsn(item))}</small>
+                <small className="invoice-partno"><span>Part No: {text(item.partNumber)}</span><span>HSN: {text(itemHsn(item))}</span></small>
               </td>
               <td>{text(item.brandName)}</td>
-              <td className="invoice-num">{text(item.quantity)} {item.stockUnit || "PCS"}</td>
+              <td className="invoice-num">{qtyText(text(item.quantity), item.stockUnit)}</td>
               <td className="invoice-num">{money(item.mrp ?? item.sellingPrice)}</td>
               <td className="invoice-num">{money(item.sellingPrice)}</td>
               {hasDiscount && (
-                <td className="invoice-num">{Number(item.discountAmount || 0) > 0 ? `${money(item.discountAmount)} (${Number(item.discountPercentage || 0)}%)` : "-"}</td>
+                <td className="invoice-num">{Number(item.discountAmount || 0) > 0
+                  ? <><span>{money(item.discountAmount)}</span><small className="invoice-sub">({Number(item.discountPercentage || 0)}%)</small></>
+                  : "-"}</td>
               )}
               <td className="invoice-num">{money(itemTaxable(item))}</td>
               <td className="invoice-num">{Number(item.gstPercentage || 0)}%</td>
@@ -309,6 +470,15 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
             </tr>)}
             {!items.length && <tr><td colSpan={columnCount} className="invoice-empty">No invoice items found.</td></tr>}
           </tbody>
+          {items.length > 0 && <tfoot>
+            <tr>
+              <td></td><td>Total</td><td></td>
+              <td className="invoice-num">{totals.qty}</td><td></td><td></td>
+              {hasDiscount && <td className="invoice-num">{money(totals.discount)}</td>}
+              <td className="invoice-num">{money(totals.taxable)}</td><td></td>
+              <td className="invoice-num">{money(totals.amount)}</td>
+            </tr>
+          </tfoot>}
         </table>
         <div className="invoice-items-count">Total Items: {items.length}</div>
       </section>
@@ -323,9 +493,11 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
               {payment.transactionNumber && <small>{payment.transactionNumber}</small>}
             </div>)}
           </div>}
+          <div className="invoice-words"><h3>AMOUNT IN WORDS</h3><p>{amountInWords(invoice.totalAmount)}</p></div>
           <div className="invoice-terms"><h3>TERMS &amp; CONDITIONS</h3><ol><li>Returns and exchanges are subject to store approval.</li><li>Warranty is subject to the manufacturer or brand policy.</li><li>Disputes are subject to the store's local jurisdiction.</li></ol></div>
         </div>
         <div className="invoice-totals">
+          <h3>BILL SUMMARY</h3>
           <TotalLine label="Gross Amount" value={invoice.grossAmount} />
           {Number(invoice.itemDiscountAmount) > 0 && <TotalLine label="Item Discount" value={invoice.itemDiscountAmount} subtract />}
           {Number(invoice.billDiscountAmount) > 0 && <TotalLine label={`Bill Discount (${Number(invoice.billDiscountPercentage || 0)}%)`} value={invoice.billDiscountAmount} subtract />}
@@ -335,7 +507,6 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
           {Number(invoice.igstAmount) > 0 && <TotalLine label="IGST" value={invoice.igstAmount} />}
           <TotalLine label="Round Off" value={invoice.roundOffAmount} />
           <div className="invoice-grand-total"><span>GRAND TOTAL</span><strong>{"\u20B9"} {money(invoice.totalAmount)}</strong></div>
-          <div className="invoice-words"><h3>AMOUNT IN WORDS</h3><p>{amountInWords(invoice.totalAmount)}</p></div>
           <TotalLine label="Paid Amount" value={invoice.paidAmount} />
           <TotalLine label="Balance Due" value={invoice.balanceAmount} strong />
           {Number(invoice.refundDue) > 0 && <TotalLine label="Refund Due" value={invoice.refundDue} strong />}
@@ -347,6 +518,6 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
         <div><span>Authorized Signatory</span></div>
       </footer>
       <p className="invoice-generated">This is a computer-generated invoice.</p>
-    </article>
+    </article>}
   </main>;
 }

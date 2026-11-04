@@ -2,9 +2,11 @@ import invoiceCss from "../pages/InvoicePage.css?inline";
 import tokensCss from "../../styles/tokens.css?inline";
 import unitCss from "../../components/ProductUnitFields.css?inline";
 import { printCleanDocument } from "../../utils/cleanPrint";
+import themeCss from "../../components/InvoiceThemeSwitch.css?inline";
 
-export const invoiceExportCss = `${tokensCss}\n${unitCss}\n${invoiceCss}\nhtml,body{margin:0;height:auto;overflow:visible;background:white}.invoice-page{padding:0;background:white}.invoice-sheet{box-shadow:none;border:0}`;
 
+
+export const invoiceExportCss = `${tokensCss}\n${unitCss}\n${invoiceCss}\n${themeCss}\nhtml,body{margin:0;height:auto;overflow:visible;background:white}.invoice-page{padding:0;background:white}.invoice-sheet{box-shadow:none;border:0}`;
 // A dedicated document keeps dashboard print rules and scroll containers out.
 export function printDisplayedInvoice(node) {
   return new Promise((resolve, reject) => {
