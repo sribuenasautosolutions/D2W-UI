@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./styles/tokens.css";
 import "./styles/cleanPrint.css";
+import "./styles/tailwind.css";
 import { Toaster } from "react-hot-toast";     
 
 import App from "./App";
