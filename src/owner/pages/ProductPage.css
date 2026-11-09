@@ -1,28 +1,29 @@
 /* ==========================================================================
-   PRODUCT MANAGEMENT PAGE
+   PRODUCT MANAGEMENT PAGE : compact layout
+   Styling only. Class names match ProductPage.jsx exactly.
    ========================================================================== */
 .product-management-page {
-    --blue: #1e40af;
-    --blue-hover: #1d4ed8;
-    --blue-soft: #eff6ff;
+    --blue: #002d74;
+    --blue-hover: #0a3b8f;
+    --blue-soft: #ebf1fa;
 
-    --ink: #0f172a;
+    --ink: #172033;
     --text: #1f2937;
     --muted: #64748b;
     --soft: #94a3b8;
 
-    --border: #e5e7eb;
-    --border-strong: #d1d5db;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
     --surface: #ffffff;
     --surface-soft: #f8fafc;
+    --page-bg: #fff;
 
-    padding: 0 0 var(--sp-6);
-    margin: 0;
-    width: 100%;
-    background: #ffffff;
+    padding: 0 0 24px;
+    margin:  -24px -28px 0;
+    width:calc(100% + 56px);
+    background: var(--page-bg);
     color: var(--text);
 
-    
     font-size: 14px;
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
@@ -35,22 +36,22 @@
 }
 
 /* ==========================================================================
-   NAVBAR — breadcrumb · search · bell + profile
+   NAVBAR : breadcrumb left, search + bell + profile right (52px)
    ========================================================================== */
 .pm-navbar {
     position: sticky;
     top: 0;
     z-index: 30;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
-    gap: var(--sp-5);
+    justify-content: space-between;
+    gap: 16px;
 
-    height: 60px;
-    padding: 0 var(--sp-5);
+    height: 52px;
+    padding: 0 24px;
     margin: 0;
 
-    background: #ffffff;
+    background: var(--surface);
     border-bottom: 1px solid var(--border);
 }
 
@@ -58,13 +59,13 @@
 .pm-breadcrumb {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: 8px;
+    min-width: 0;
 
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 600;
     color: var(--ink);
     white-space: nowrap;
-    flex: 0 0 auto;
 }
 
 .pm-breadcrumb-icon {
@@ -79,32 +80,43 @@
 
 .pm-breadcrumb-active {
     color: var(--blue);
-    font-weight: 700;
+    font-weight: 600;
 }
 
-/* ---------- Search (centered) ---------- */
+/* ---------- Right side ---------- */
+.pm-navbar-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+/* ---------- Search ---------- */
 .pm-navbar-search {
-    justify-self: center;
     display: flex;
     align-items: center;
-    gap: var(--sp-3);
+    gap: 8px;
 
-    width: min(420px, 100%);
-    height: 40px;
-    padding: 0 var(--sp-4);
+    width: 320px;
+    max-width: 100%;
+    height: 36px;
+    padding: 0 12px;
 
-    background: #f1f5f9;
-    border: 1px solid transparent;
-    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
 
-    transition: background-color 0.15s ease, border-color 0.15s ease,
-        box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pm-navbar-search:hover {
+    border-color: var(--border-strong);
 }
 
 .pm-navbar-search:focus-within {
-    background: #ffffff;
     border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 45, 116, 0.12);
 }
 
 .pm-navbar-search svg {
@@ -128,41 +140,33 @@
     color: var(--soft);
 }
 
-/* ---------- Right side — bell + profile ---------- */
-.pm-navbar-right {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-3);
-    justify-self: end;
-    flex: 0 0 auto;
-}
-
+/* ---------- Bell ---------- */
 .pm-navbar-bell {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 34px;
 
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 50%;
+    border-radius: 8px;
     color: #475569;
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .pm-navbar-bell:hover {
-    background: #f1f5f9;
+    background: #eef2f6;
     color: var(--ink);
 }
 
 .pm-navbar-bell-dot {
     position: absolute;
-    top: 8px;
-    right: 9px;
+    top: 7px;
+    right: 8px;
     width: 7px;
     height: 7px;
     background: #ef4444;
@@ -170,6 +174,7 @@
     border-radius: 50%;
 }
 
+/* ---------- Profile ---------- */
 .pm-navbar-profile-wrap {
     position: relative;
 }
@@ -177,20 +182,20 @@
 .pm-navbar-profile {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: 8px;
 
-    height: 38px;
-    padding: 0 var(--sp-3) 0 var(--sp-1);
+    height: 36px;
+    padding: 0 8px 0 4px;
 
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 999px;
+    border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
 
 .pm-navbar-profile:hover {
-    background: #f1f5f9;
+    background: #eef2f6;
 }
 
 .pm-navbar-profile-initials {
@@ -198,14 +203,14 @@
     align-items: center;
     justify-content: center;
 
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
 
-    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    background: var(--blue);
     border-radius: 50%;
     color: #ffffff;
-    font-size: 11.5px;
-    font-weight: 800;
+    font-size: 11px;
+    font-weight: 700;
     letter-spacing: 0.02em;
 }
 
@@ -230,14 +235,14 @@
 
 .pm-navbar-dropdown {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 6px);
     right: 0;
     min-width: 180px;
-    padding: var(--sp-2);
-    background: #ffffff;
+    padding: 4px;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -246,21 +251,22 @@
 
 .pm-navbar-dropdown button {
     width: 100%;
-    padding: var(--sp-2) var(--sp-3);
+    height: 34px;
+    padding: 0 12px;
     background: transparent;
     border: 0;
     border-radius: 6px;
     color: var(--text);
     font-family: inherit;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     text-align: left;
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
 
 .pm-navbar-dropdown button:hover {
-    background: #f1f5f9;
+    background: #eef2f6;
 }
 
 .pm-navbar-dropdown button.is-danger {
@@ -272,214 +278,149 @@
 }
 
 /* ==========================================================================
-   TABS ROW — tabs left · Import right
+   TABS ROW : underline tabs left, actions right
    ========================================================================== */
 .pm-tabs-row {
     position: sticky;
-    top: 60px;              /* = navbar height */
+    top: 52px;               /* = navbar height */
     z-index: 29;
-    background: #ffffff;
+    background: var(--page-bg);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--sp-3);
-    flex-wrap: wrap;
-    padding: var(--sp-3) var(--sp-5);
+    gap: 12px;
+    flex-wrap: nowrap;
+    min-height: 44px;
+    padding: 0 24px;
     margin: 0;
-    border-bottom: 1px solid var(--border);
+    box-shadow: inset 0 -1px 0 var(--border);   /* row divider; active tab underline sits on it */
 }
+
 .pm-tabs-actions {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: 8px;
     flex: 0 0 auto;
+    padding: 5px 0;
 }
-
 
 .pm-tabs {
     display: flex;
-    align-items: center;
-    gap: var(--sp-1);
-    flex-wrap: wrap;
+    align-items: stretch;
+    align-self: stretch;
+    gap: 4px;
     flex: 1 1 auto;
     min-width: 0;
+    overflow-x: auto;               /* tabs scroll instead of pushing the actions down */
+    scrollbar-width: none;
+}
+
+.pm-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .pm-tab {
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: 6px;
 
-    height: 34px;
-    padding: 0 var(--sp-4);
+    padding: 0 12px;
 
     background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
     color: var(--muted);
 
     font-family: inherit;
     font-size: 13.5px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-weight: 500;
     white-space: nowrap;
 
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease,
-        border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .pm-tab:hover {
-    background: var(--blue-soft);
-    color: var(--blue);
+    color: var(--ink);
+    border-bottom-color: var(--border-strong);
 }
 
-.pm-tab-active {
-    background: var(--blue);
-    border-color: var(--blue);
-    color: #ffffff;
-    box-shadow: 0 4px 10px rgba(30, 64, 175, 0.25);
+.pm-tab:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: -2px;
 }
 
+.pm-tab-active,
 .pm-tab-active:hover {
-    background: var(--blue-hover);
-    border-color: var(--blue-hover);
-    color: #ffffff;
+    background: transparent;
+    border-bottom-color: var(--blue);
+    color: var(--blue);
+    font-weight: 600;
+    box-shadow: none;
 }
 
 .pm-tab-icon {
     flex-shrink: 0;
 }
 
-/* ---------- Import button ---------- */
+/* ---------- Import button (kept for compatibility) ---------- */
 .pm-import-button {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: 8px;
     flex: 0 0 auto;
 
-    height: 38px;
-    padding: 0 var(--sp-4);
+    height: 34px;
+    padding: 0 14px;
 
-    background: #ffffff;
+    background: var(--surface);
     color: var(--blue);
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--border);
     border-radius: 8px;
 
     font-family: inherit;
     font-size: 13px;
-    font-weight: 700;
-
+    font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-
-    transition: background-color 0.15s ease, border-color 0.15s ease,
-        box-shadow 0.15s ease, transform 0.08s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .pm-import-button:hover {
-    background: #f8fbff;
+    background: var(--surface-soft);
     border-color: var(--blue);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
-}
-
-.pm-import-button:active {
-    transform: translateY(1px);
 }
 
 /* ==========================================================================
-   SECTION CARD
+   SECTION
    ========================================================================== */
 .pm-section {
-    max-width: 1600px;
-    margin: var(--sp-5) auto var(--sp-6);
-    padding: 0;                      
-    background: transparent;         
-    border: none;                    
-    border-radius: 0;                
-    box-shadow: none;                
-    margin-left: var(--sp-5);
-    margin-right: var(--sp-5);
+    max-width: none;
+    margin: 16px 24px 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 /* ==========================================================================
-   RESPONSIVE
+   BUTTONS (Export / Bulk Upload / Add Item / Add Brand)
    ========================================================================== */
-@media (max-width: 900px) {
-    .pm-navbar {
-        grid-template-columns: 1fr auto;
-        grid-template-rows: auto auto;
-        height: auto;
-        padding: var(--sp-3) var(--sp-4);
-        gap: var(--sp-3);
-    }
-
-    .pm-breadcrumb {
-        grid-column: 1 / 2;
-        grid-row: 1 / 2;
-    }
-
-    .pm-navbar-right {
-        grid-column: 2 / 3;
-        grid-row: 1 / 2;
-    }
-
-    .pm-navbar-search {
-        grid-column: 1 / -1;
-        grid-row: 2 / 3;
-        width: 100%;
-        justify-self: stretch;
-    }
-
-    .pm-tabs-row {
-        flex-direction: column;
-        align-items: stretch;
-        padding: var(--sp-3) var(--sp-4);
-    }
-
-    .pm-tabs {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        scrollbar-width: none;
-        padding-bottom: var(--sp-1);
-    }
-
-    .pm-tabs::-webkit-scrollbar {
-        display: none;
-    }
-
-    .pm-tab {
-        flex: 0 0 auto;
-    }
-
-    .pm-import-button {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .pm-section {
-        margin: var(--sp-4) var(--sp-3) var(--sp-5);
-        padding: var(--sp-4) var(--sp-4) var(--sp-4);
-    }
-
-    .pm-navbar-profile-name {
-        display: none;
-    }
-}
-
 .pm-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--sp-2);
+    gap: 6px;
 
-    height: 38px;
-    padding: 0 var(--sp-4);
+    height: 34px;
+    padding: 0 14px;
 
     border-radius: 8px;
     font-family: inherit;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
 
@@ -487,11 +428,15 @@
         color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
 }
 
+.pm-btn:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
 .pm-btn-primary {
     background: var(--blue);
     color: #ffffff;
     border: 1px solid var(--blue);
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
 }
 
 .pm-btn-primary:hover {
@@ -499,21 +444,67 @@
     border-color: var(--blue-hover);
 }
 
-.pm-btn-primary:active {
-    transform: translateY(1px);
-}
-
 .pm-btn-secondary {
-    background: #ffffff;
+    background: var(--surface);
     color: var(--ink);
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--border);
 }
 
 .pm-btn-secondary:hover {
     background: var(--surface-soft);
-    border-color: var(--soft);
+    border-color: var(--border-strong);
 }
 
-.pm-btn-secondary:active {
+.pm-btn:active {
     transform: translateY(1px);
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+@media (max-width: 900px) {
+    .pm-navbar {
+        padding: 0 16px;
+    }
+
+    .pm-navbar-search {
+        width: 200px;
+    }
+
+    .pm-navbar-profile-name {
+        display: none;
+    }
+
+    .pm-tabs-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 0 16px;
+        box-shadow: none;
+    }
+
+    .pm-tabs {
+        min-height: 42px;
+        flex: 0 0 auto;
+        box-shadow: inset 0 -1px 0 var(--border);
+    }
+
+    .pm-tabs-actions {
+        padding: 8px 0;
+        flex-wrap: wrap;
+    }
+
+    .pm-section {
+        margin: 12px 16px 20px;
+    }
+}
+
+@media (max-width: 560px) {
+    .pm-breadcrumb > span:first-of-type {
+        display: none;
+    }
+
+    .pm-breadcrumb-sep {
+        display: none;
+    }
 }
