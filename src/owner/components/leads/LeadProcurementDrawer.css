@@ -2106,7 +2106,6 @@
 .als-dot--status,
 .als-dot--system { border-color: var(--lp-blue); background: var(--lp-blue); }
 .als-body p { margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: #334155; word-break: break-word; white-space: pre-wrap; }
-.als-next-follow-up { display: block; margin-top: 4px; color: var(--lp-muted); font-size: 11px; }
 .als-meta { display: flex; align-items: center; gap: 8px; }
 .als-meta time { font-size: 11px; color: var(--lp-muted); }
 .als-badge {
@@ -2488,46 +2487,99 @@
    column scrolling, sticky headers, tablet / mobile. Loaded last.
    ========================================================================== */
 
-/* ---- 1. Customer Info: one horizontal row, divided cells ---- */
-.pd-meta-row,
-.fu-meta-row {
+/* ---- 1. Customer Info (Procurement Drawer): clean fluid grid without vertical divider lines ---- */
+.pd-meta-row {
     display: grid;
-    grid-auto-flow: column;
-    grid-template-columns: none;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: 0;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px 16px;
     padding: 0;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    overflow: hidden;
+    background: transparent;
+    border: none;
 }
-.pd-meta-row > *,
-.fu-meta-row > * {
-    gap: 2px;
-    padding: 8px 12px;
-    background: #ffffff;
-    border-left: 1px solid #e2e8f0;
+.pd-meta-row > * {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0;
+    background: transparent;
+    border-left: none;
     min-width: 0;
 }
-.pd-meta-row > :first-child,
-.fu-meta-row > :first-child { border-left: 0; }
-.pd-meta-row .pd-meta-field > span,
-.fu-meta-row .fu-meta-field > span {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: lowercase;
+.pd-meta-row > :first-child { border-left: 0; }
+.pd-meta-row .pd-meta-field > span {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: #64748b;
 }
 .pd-meta-row .pd-meta-field input,
-.pd-meta-row .pd-meta-field select,
-.fu-meta-row .fu-meta-field input,
-.fu-meta-row .fu-meta-field select {
-    font-size: 13px;
-    font-weight: 700;
+.pd-meta-row .pd-meta-field select {
+    font-size: 13.5px;
+    font-weight: 600;
     color: #0f172a;
     text-overflow: ellipsis;
+}
+
+/* ---- Customer Info in Follow-up (Estimation Tab): balanced 4-column x 2-row grid with divided cells ---- */
+.fu-meta-row {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 1px !important;
+    padding: 0 !important;
+    background: #e2e8f0 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+
+.fu-meta-row > * {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    padding: 8px 10px !important;
+    background: #ffffff !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.fu-meta-row .fu-meta-field > span {
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: lowercase !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.fu-meta-row .fu-meta-field input,
+.fu-meta-row .fu-meta-field select {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    text-overflow: ellipsis !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    outline: none !important;
+}
+
+/* When 7 items (no VIN), make the status field span 2 columns so row 2 is completely filled */
+.fu-meta-row > .fu-meta-field--status-span {
+    grid-column: span 2 !important;
+}
+
+@media (max-width: 520px) {
+    .fu-meta-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .fu-meta-row > .fu-meta-field--status-span {
+        grid-column: 1 / -1 !important;
+    }
 }
 
 /* ---- 2. Workspace: columns scroll independently; footer never moves ---- */
@@ -3183,30 +3235,45 @@
    Applies identically to the Procurement (.pd-*) and Follow-Up (.fu-*) drawers.
    ========================================================================== */
 
-/* ---- 1. Solid white surface, neutral borders, nothing clipped ---- */
-.procurement-drawer,
-.lead-drawer-container,
+/* ---- 1. Soft canvas surface, modern elevated cards with shadow ---- */
 .pd-root, .fu-root,
-.pd-header, .fu-header,
 .pd-split, .fu-split, .drawer-body-grid,
-.pd-left, .fu-left, .pd-side, .fu-side,
-.pd-body, .fu-body, .pd-main, .fu-main,
-.pd-footer, .fu-footer,
-.lpt-root, .lpt-body {
+.pd-procurement-layout {
+    background: #f8fafc !important;
+}
+.pd-header, .fu-header,
+.pd-footer, .fu-footer {
     background: #ffffff !important;
 }
+.pd-left, .fu-left, .pd-side, .fu-side,
+.pd-body, .fu-body, .pd-main, .fu-main,
+.pd-col-info, .pd-col-procurement {
+    background: transparent !important;
+}
+
 .pd-card, .pd-info, .fu-info,
 .lpt-card, .crt, .als,
 .pd-schedule, .fu-schedule,
+.pd-assignment-card, .pd-table-card,
 .fu-panel, .fu-lost,
 .procurement-entry-panel,
 .pd-main > section:not(.pd-card) {
     background: #ffffff !important;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    box-shadow: none;
+    border: 1px solid rgba(15, 23, 42, 0.06) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 2px 8px -2px rgba(15, 23, 42, 0.04) !important;
     overflow: visible !important;       /* dropdowns / tooltips / inputs never cut off */
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
+
+.pd-card:hover, .pd-info:hover, .fu-info:hover,
+.lpt-card:hover, .crt:hover, .als:hover,
+.pd-schedule:hover, .fu-schedule:hover,
+.pd-assignment-card:hover, .pd-table-card:hover {
+    border-color: rgba(15, 23, 42, 0.1) !important;
+    box-shadow: 0 2px 6px 0 rgba(15, 23, 42, 0.06), 0 4px 14px -2px rgba(15, 23, 42, 0.05) !important;
+}
+
 .pd-header, .fu-header { border-bottom: 1px solid #e2e8f0; }
 .pd-footer, .fu-footer { border-top: 1px solid #e2e8f0; }
 
@@ -3232,8 +3299,8 @@
     max-height: none !important;
 }
 @media (min-width: 961px) {
-    .pd-table-wrap, .lpt-table-wrap { overflow: visible; }
-    .pd-table, .lpt-table--followup-lite { min-width: 0; width: 100%; table-layout: fixed; }
+    .pd-table-wrap, .lpt-table-wrap { overflow-x: auto; }
+    .pd-table, .lpt-table--followup-lite { width: 100%; min-width: 740px; table-layout: fixed; }
 }
 .pd-table thead th, .lpt-table thead th { padding: 6px 10px; line-height: 1.2; }
 .pd-td, .lpt-td, .lpt-table--followup-lite .lpt-td { padding: 2px 10px !important; height: 30px; min-height: 30px; line-height: 1.25; }
@@ -3451,14 +3518,17 @@
 
 /* ---- Table fits its card: no scrollbar, equal-width data columns ---- */
 .pd-table-wrap,
-.lpt-table-wrap,
-.pd-fieldset {
-    overflow-x: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+.lpt-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
-.pd-table-wrap::-webkit-scrollbar,
-.lpt-table-wrap::-webkit-scrollbar { display: none; }
+.pd-fieldset {
+    min-width: 100%;
+    width: max-content;
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
 
 .procurement-grid-table { width: 100% !important; min-width: 0 !important; table-layout: fixed; }
 /* every data column gets the same share of the width; only the action column is fixed */
@@ -3544,47 +3614,104 @@
 .lpt-total-chip strong,
 .pd-total-chip strong { color: #1e3a8a; font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; }
 
-/* ---- 2. Balanced column widths (override the equal-width rule) ---- */
-/* Procurement drawer: Part No | Part Name | MRP | Qty | Source | Availability | Est. Date | Action */
-.pd-table.procurement-grid-table col:nth-child(1) { width: 16% !important; }
-.pd-table.procurement-grid-table col:nth-child(2) { width: 22% !important; }
-.pd-table.procurement-grid-table col:nth-child(3) { width: 11% !important; }
-.pd-table.procurement-grid-table col:nth-child(4) { width: 9% !important; }
-.pd-table.procurement-grid-table col:nth-child(5) { width: 12% !important; }
-.pd-table.procurement-grid-table col:nth-child(6) { width: 13% !important; }
-.pd-table.procurement-grid-table col:nth-child(7) { width: 12% !important; }
-/* Follow-up: Part No | Part Name | MRP | Qty | Source | Vendor | Availability | ETA | Action */
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(1) { width: 13% !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(2) { width: 18% !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(3) { width: 10% !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(4) { width: 8% !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(5) { width: 9% !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(6) { width: 12% !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(7) { width: 13% !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(8) { width: 11% !important; }
-.procurement-grid-table col:last-child { width: 48px !important; }
-.procurement-grid-table th:last-child,
-.procurement-grid-table td:last-child { width: 48px; min-width: 48px; max-width: 48px; }
-/* numbers read clearly */
-.procurement-grid-table td { font-variant-numeric: tabular-nums; }
-.procurement-grid-table th { padding-left: 10px !important; padding-right: 10px !important; }
-.procurement-grid-table td { padding-left: 10px !important; padding-right: 10px !important; }
-.procurement-grid-table th:last-child,
-.procurement-grid-table td:last-child { padding-left: 2px !important; padding-right: 2px !important; }
+/* ---- 2. Balanced column widths (exact proportions) ---- */
+/* Procurement drawer (8 cols): Part No | Part Name | MRP | Qty | Source | Availability | Est. Date | Action */
+.pd-table.procurement-grid-table col:nth-child(1) { width: 16% !important; min-width: 100px !important; }
+.pd-table.procurement-grid-table col:nth-child(2) { width: 20% !important; min-width: 120px !important; }
+.pd-table.procurement-grid-table col:nth-child(3) { width: 9% !important; min-width: 60px !important; }
+.pd-table.procurement-grid-table col:nth-child(4) { width: 9% !important; min-width: 60px !important; }
+.pd-table.procurement-grid-table col:nth-child(5) { width: 12% !important; min-width: 85px !important; }
+.pd-table.procurement-grid-table col:nth-child(6) { width: 14% !important; min-width: 100px !important; }
+.pd-table.procurement-grid-table col:nth-child(7) { width: 15% !important; min-width: 105px !important; }
+.pd-table.procurement-grid-table col:nth-child(8),
+.pd-table.procurement-grid-table col:last-child { width: 50px !important; min-width: 50px !important; max-width: 50px !important; }
 
-/* ---- 3. One consistent grid: a single divider between every column, none stray ---- */
-.procurement-grid-table th,
-.procurement-grid-table td { border-left: 0; border-right: 0; }
-.procurement-grid-table th + th,
-.procurement-grid-table td + td,
-.pd-td + .pd-td,
-.lpt-td + .lpt-td { border-left: 1px solid #e2e8f0; }
-.procurement-grid-table thead th:last-child { border-left: 1px solid #e2e8f0; background: #ffffff; }
-.procurement-grid-table td:last-child { border-left: 1px solid #e2e8f0; text-align: center; }
-.procurement-grid-table td:last-child .delete-icon-btn { margin: 0 auto; }
-.procurement-grid-table,
+/* Follow-up drawer (9 cols): Part No | Part Name | MRP | Qty | Source | Vendor | Availability | ETA | Action */
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(1) { width: 14% !important; min-width: 95px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(2) { width: 19% !important; min-width: 115px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(3) { width: 9% !important; min-width: 60px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(4) { width: 9% !important; min-width: 60px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(5) { width: 10% !important; min-width: 70px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(6) { width: 12% !important; min-width: 85px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(7) { width: 13% !important; min-width: 95px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(8) { width: 13% !important; min-width: 85px !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(9),
+.lpt-table--followup-lite.procurement-grid-table col:last-child { width: 52px !important; min-width: 52px !important; max-width: 52px !important; }
+
+/* typography & table wrap */
+.procurement-grid-table td { font-variant-numeric: tabular-nums; }
+.procurement-grid-table th { padding: 9px 8px !important; }
+.procurement-grid-table td { padding: 8px 8px !important; }
+.procurement-grid-table th:last-child,
+.procurement-grid-table td:last-child { padding: 9px 2px !important; width: 52px !important; min-width: 52px !important; max-width: 52px !important; text-align: center !important; font-size: 10px !important; letter-spacing: 0.02em !important; }
+
+/* ---- 3. Complete, enclosed grid: explicit bottom and right borders for ALL rows ---- */
 .pd-table-wrap,
-.lpt-table-wrap { border-right: 0; }
+.lpt-table-wrap {
+    width: 100% !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    background: #ffffff !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+.pd-table-wrap::-webkit-scrollbar,
+.lpt-table-wrap::-webkit-scrollbar { display: none !important; }
+
+.procurement-grid-table {
+    width: 100% !important;
+    min-width: 700px !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    table-layout: fixed !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+}
+.procurement-grid-table thead th {
+    background: #f8fafc !important;
+    color: #475569 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-right: 1px solid #e2e8f0 !important;
+    border-top: none !important;
+    border-left: none !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+    line-height: 1.3 !important;
+}
+.procurement-grid-table thead th:last-child {
+    border-right: none !important;
+    text-align: center !important;
+}
+.procurement-grid-table tbody td {
+    border-bottom: 1px solid #e2e8f0 !important; /* CRITICAL: ensures end border exists for single or last entry */
+    border-right: 1px solid #e2e8f0 !important;
+    border-top: none !important;
+    border-left: none !important;
+    vertical-align: middle !important;
+    font-size: 13px !important;
+    height: 44px !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+}
+.procurement-grid-table tbody td:last-child {
+    border-right: none !important;
+    text-align: center !important;
+}
+.procurement-grid-table tbody tr:last-child td,
+.pd-table tbody tr:last-child td,
+.lpt-table tbody tr:last-child td {
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+.procurement-grid-table tbody tr:hover td {
+    background: #f8fafc !important;
+}
+.procurement-grid-table td:last-child .delete-icon-btn { margin: 0 auto; }
 .pd-fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
 
 /* ---- 4. Unassigned salesperson: muted helper text, not a real name ---- */
@@ -3618,3 +3745,849 @@
 .edit-requirement-table-container td::before {
     color: #000000 !important;
 }
+
+/* ==========================================================================
+   REDESIGNED PROCUREMENT & FOLLOW-UP 2-COLUMN LAYOUTS WITH ELEVATED CARDS
+   ========================================================================== */
+.pd-procurement-layout,
+.fu-followup-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) !important;
+    gap: 16px !important;
+    padding: 16px 20px !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    background: #f8fafc !important;
+    box-sizing: border-box !important;
+}
+.pd-procurement-layout::-webkit-scrollbar,
+.fu-followup-layout::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.pd-col-info {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding-bottom: 24px !important;
+    box-sizing: border-box !important;
+}
+.pd-col-info::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.pd-col-procurement {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding-bottom: 24px !important;
+    box-sizing: border-box !important;
+}
+.pd-col-procurement::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.pd-card-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.pd-card-header-row .pd-section-title {
+    margin-bottom: 0;
+}
+
+.pd-mid-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 12px;
+    align-items: stretch;
+}
+
+.pd-assignment-card {
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px;
+    border-radius: 12px !important;
+    border: 1px solid rgba(15, 23, 42, 0.06) !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 2px 8px -2px rgba(15, 23, 42, 0.04) !important;
+}
+
+.pd-assignment-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.pd-assign-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pd-assign-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.pd-assign-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.pd-req-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pd-req-wrapper .crt {
+    height: 100%;
+    margin: 0;
+}
+
+.pd-activity-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pd-activity-wrapper .als {
+    margin: 0;
+}
+
+.pd-col-procurement .pd-table-card {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.pd-col-procurement .pd-table-wrap {
+    flex: 1 1 auto;
+    overflow-x: auto;
+}
+
+/* ==========================================================================
+   FOLLOW-UP (ESTIMATION TAB) 2-COLUMN LAYOUT
+   Left: Customer Info, Customer Requirement, Procurement Items
+   Right: Next Follow-up, Activity & Notes
+   ========================================================================== */
+.fu-split {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.35fr) minmax(360px, 1fr) !important;
+    gap: 16px !important;
+    padding: 16px 20px !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    background: #f8fafc !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.fu-split::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.fu-left {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    min-width: 0 !important;
+}
+
+.fu-main {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    min-width: 0 !important;
+}
+
+.fu-side {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    min-width: 0 !important;
+}
+
+.fu-info {
+    padding: 14px 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.fu-card-header-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 2px !important;
+}
+
+.fu-meta-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 12px 18px !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.fu-meta-grid > * {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.fu-meta-grid .fu-meta-field > span {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #64748b !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+}
+
+.fu-meta-grid .fu-meta-field input {
+    width: 100% !important;
+    height: 28px !important;
+    border: none !important;
+    border-bottom: 1px solid transparent !important;
+    background: transparent !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    outline: none !important;
+    padding: 0 !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+}
+
+.fu-meta-grid .fu-meta-field.is-editing input {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    padding: 0 8px !important;
+    height: 32px !important;
+}
+
+.fu-meta-grid .fu-meta-field.is-unassigned input {
+    color: #94a3b8 !important;
+    font-style: italic !important;
+    font-weight: 400 !important;
+}
+
+.fu-meta-grid .fu-meta-field select {
+    width: 100% !important;
+    height: 30px !important;
+    padding: 0 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    cursor: pointer !important;
+    outline: none !important;
+}
+
+.fu-meta-grid .fu-meta-field select:focus {
+    border-color: #3b82f6 !important;
+}
+
+.fu-state-card {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 36px 20px !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(15, 23, 42, 0.06) !important;
+    box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05) !important;
+    color: #64748b !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+}
+
+@media (max-width: 900px) {
+    .fu-meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+.fu-schedule {
+    padding: 14px 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.fu-schedule-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+}
+
+.fu-status-selector {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.fu-status-label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #64748b !important;
+}
+
+.fu-status-select {
+    height: 28px !important;
+    padding: 0 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    cursor: pointer !important;
+}
+
+.fu-schedule-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+}
+
+/* Section titles unification */
+.pd-section-title,
+.fu-section-title,
+.pd-side-title,
+.fu-side-title,
+.als-title,
+.crt-label,
+.pd-assign-label,
+.lpt-title h3 {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    color: #475569 !important;
+    margin: 0 !important;
+}
+
+/* Inner card header bottom dividers */
+.pd-card-head,
+.lpt-head,
+.als-head,
+.crt-head {
+    border-bottom: 1px solid #f1f5f9 !important;
+    background: #ffffff !important;
+}
+
+@media (max-width: 1100px) {
+    .pd-procurement-layout,
+    .fu-split {
+        grid-template-columns: 1fr !important;
+    }
+    .pd-mid-grid {
+        grid-template-columns: 1fr;
+    }
+    .fu-schedule-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   TABLE GRID REFINEMENT & INDEPENDENT HIDDEN SCROLLING (FINAL OVERRIDES)
+   ========================================================================== */
+
+/* 1. DESKTOP ONLY: 2-column layout with independent column scrolling */
+@media (min-width: 1024px) {
+    .pd-procurement-layout,
+    .fu-followup-layout {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) !important;
+        gap: 16px !important;
+        padding: 16px 20px !important;
+        flex: 1 1 auto !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+        background: #f8fafc !important;
+        box-sizing: border-box !important;
+    }
+
+    .pd-procurement-layout::-webkit-scrollbar,
+    .fu-followup-layout::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+
+    .pd-col-info {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 14px !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        padding-bottom: 24px !important;
+        box-sizing: border-box !important;
+    }
+    .pd-col-info::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+
+    .pd-col-procurement {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 14px !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        padding-bottom: 24px !important;
+        box-sizing: border-box !important;
+    }
+    .pd-col-procurement::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+}
+
+/* 2. TABLET & MOBILE (< 1024px): Stack cleanly into 1 responsive column */
+@media (max-width: 1023px) {
+    .pd-procurement-layout,
+    .fu-followup-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 12px 14px 24px !important;
+        gap: 14px !important;
+        background: #f8fafc !important;
+        -webkit-overflow-scrolling: touch !important;
+        box-sizing: border-box !important;
+    }
+
+    .pd-col-info,
+    .pd-col-procurement {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 14px !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding-bottom: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .pd-mid-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    .pd-meta-row,
+    .fu-meta-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px 14px !important;
+    }
+
+    /* Add Parts Entry */
+    .pd-entry-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    .pd-entry-actions {
+        width: 100% !important;
+        display: flex !important;
+    }
+    .pd-entry-actions button {
+        flex: 1 1 50% !important;
+    }
+
+    /* Procurement Table wrap: horizontal scroll on narrow devices */
+    .pd-table-wrap,
+    .lpt-table-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .procurement-grid-table {
+        min-width: 680px !important;
+    }
+
+    .pd-table-head,
+    .lpt-head {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+    .pd-chips,
+    .lpt-chips {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+
+    /* Footer sticky at bottom */
+    .pd-footer,
+    .fu-footer {
+        padding: 10px 14px !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+    .pd-footer-primary,
+    .fu-footer-primary {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        gap: 8px !important;
+    }
+}
+
+/* 3. EXTRA SMALL PHONES (< 480px) */
+@media (max-width: 480px) {
+    .pd-procurement-layout,
+    .fu-followup-layout {
+        padding: 10px 10px 20px !important;
+        gap: 10px !important;
+    }
+
+    .pd-meta-row,
+    .fu-meta-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    .pd-meta-field > span {
+        font-size: 10px !important;
+    }
+    .pd-meta-field input {
+        font-size: 13px !important;
+    }
+
+    .pd-footer,
+    .fu-footer {
+        flex-direction: column-reverse !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    .pd-footer-primary,
+    .fu-footer-primary {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+    .pd-footer .pd-btn,
+    .fu-footer .fu-btn {
+        width: 100% !important;
+        text-align: center !important;
+        justify-content: center !important;
+    }
+}
+
+/* 2. Procurement & Follow-up table styling: clean enclosing borders & exact cells */
+.pd-table-wrap,
+.lpt-table-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: block !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 10px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: #cbd5e1 #f8fafc !important;
+    box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05) !important;
+}
+
+.pd-table-wrap::-webkit-scrollbar,
+.lpt-table-wrap::-webkit-scrollbar {
+    display: block !important;
+    height: 7px !important;
+    width: 7px !important;
+}
+.pd-table-wrap::-webkit-scrollbar-track,
+.lpt-table-wrap::-webkit-scrollbar-track {
+    background: #f8fafc !important;
+    border-bottom-left-radius: 9px !important;
+    border-bottom-right-radius: 9px !important;
+}
+.pd-table-wrap::-webkit-scrollbar-thumb,
+.lpt-table-wrap::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+    border-radius: 999px !important;
+}
+.pd-table-wrap::-webkit-scrollbar-thumb:hover,
+.lpt-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8 !important;
+}
+
+.pd-fieldset {
+    display: block !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    border: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+}
+
+.procurement-grid-table,
+.pd-table.procurement-grid-table,
+.lpt-table--followup-lite.procurement-grid-table {
+    width: 100% !important;
+    min-width: 740px !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    table-layout: fixed !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+}
+
+.lpt-table--followup-lite.procurement-grid-table {
+    min-width: 820px !important;
+}
+
+.procurement-grid-table thead th {
+    background: #f8fafc !important;
+    color: #475569 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    padding: 8px 8px !important;
+    border-top: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-right: 1px solid #e2e8f0 !important;
+    border-left: none !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+    line-height: 1.3 !important;
+}
+.procurement-grid-table thead th:last-child {
+    border-right: none !important;
+    text-align: center !important;
+}
+
+.procurement-grid-table thead tr th:first-child {
+    border-top-left-radius: 9px !important;
+}
+.procurement-grid-table thead tr th:last-child {
+    border-top-right-radius: 9px !important;
+}
+.procurement-grid-table tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 9px !important;
+}
+.procurement-grid-table tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 9px !important;
+}
+
+/* Every row in the table, including single entries, MUST have a bottom border and right dividers */
+.procurement-grid-table tbody td,
+.pd-table tbody td,
+.lpt-table tbody td {
+    padding: 4px 8px !important;
+    color: #0f172a !important;
+    font-size: 13px !important;
+    border-top: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-right: 1px solid #e2e8f0 !important;
+    border-left: none !important;
+    vertical-align: middle !important;
+    height: 40px !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+}
+.procurement-grid-table tbody td:last-child,
+.pd-table tbody td:last-child,
+.lpt-table tbody td:last-child {
+    border-right: none !important;
+    text-align: center !important;
+}
+
+.procurement-grid-table td.pd-td-part {
+    padding: 3px 8px !important;
+}
+
+.procurement-grid-table input[type="date"] {
+    width: 100% !important;
+    font-size: 12px !important;
+    padding: 0 !important;
+}
+
+.procurement-grid-table tbody tr:last-child td,
+.pd-table tbody tr:last-child td,
+.lpt-table tbody tr:last-child td {
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.procurement-grid-table tbody tr:hover td {
+    background: #f8fafc !important;
+}
+
+/* 3. Inline table inputs & selects: NO rectangle box, clean seamless text, blue underline on hover/focus */
+.procurement-grid-table input,
+.procurement-grid-table select,
+.procurement-grid-table .pd-input,
+.procurement-grid-table .pd-select,
+.procurement-grid-table .procurement-table-subselect {
+    display: block !important;
+    width: 100% !important;
+    height: 30px !important;
+    margin: 0 !important;
+    padding: 2px 4px !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #0f172a !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    transition: border-color 0.15s ease !important;
+}
+
+.procurement-grid-table input:hover,
+.procurement-grid-table select:hover,
+.procurement-grid-table .pd-input:hover,
+.procurement-grid-table .pd-select:hover,
+.procurement-grid-table .procurement-table-subselect:hover {
+    border: none !important;
+    border-bottom: 2px solid #93c5fd !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.procurement-grid-table input:focus,
+.procurement-grid-table select:focus,
+.procurement-grid-table .pd-input:focus,
+.procurement-grid-table .pd-select:focus,
+.procurement-grid-table .procurement-table-subselect:focus {
+    border: none !important;
+    border-bottom: 2px solid #2563eb !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.procurement-grid-table select,
+.procurement-grid-table .pd-select,
+.procurement-grid-table .procurement-table-subselect {
+    cursor: pointer !important;
+    padding-right: 14px !important;
+}
+
+.procurement-grid-table .pd-stock {
+    display: inline-block !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    margin-top: 3px !important;
+}
+.procurement-grid-table .pd-stock--new {
+    color: #2563eb !important;
+    font-weight: 600 !important;
+}
+.procurement-grid-table .pd-stock--idle {
+    color: #64748b !important;
+}
+.procurement-grid-table .pd-stock--ok {
+    color: #16a34a !important;
+    font-weight: 600 !important;
+}
+
+/* Delete button */
+.procurement-grid-table .delete-icon-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    border: 1px solid #fee2e2 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    color: #ef4444 !important;
+    cursor: pointer !important;
+    margin: 0 auto !important;
+    transition: all 0.15s ease !important;
+}
+.procurement-grid-table .delete-icon-btn:hover {
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+}
+
+/* 4. Tab theme color fallback */
+.lw-tab.is-active {
+    color: #2563eb !important;
+    border-bottom: 2px solid #2563eb !important;
+    font-weight: 600 !important;
+}
+

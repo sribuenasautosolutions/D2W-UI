@@ -5,11 +5,15 @@ import {
     AlertTriangle,
     CheckCircle2,
     ChevronRight,
+    Filter,
+    Globe,
     PackageCheck,
     Phone,
     Plus,
     Search,
+    Store,
     Trophy,
+    User,
     UserPlus,
     Users,
     X,
@@ -45,18 +49,18 @@ import { getLeadChatLinks } from "../../../services/whatsappChatService";
    ============================================================ */
 
 const STAGES = [
-    { key: "NEW",         label: "New Leads",          Icon: UserPlus     },
-    { key: "PROCUREMENT", label: "Procurement",        Icon: PackageCheck },
-    { key: "FOLLOW_UP",   label: "Customer Follow-up", Icon: Phone        },
-    { key: "WON",         label: "Won",                Icon: Trophy       },
-    { key: "LOST",        label: "Lost",               Icon: X            },
+    { key: "NEW",         label: "New Leads",          Icon: UserPlus,     dotColor: "#3B82F6", bg: "#EAF3FF", border: "#D8E8FC", activeBorder: "#2563EB" },
+    { key: "PROCUREMENT", label: "Procurement",        Icon: PackageCheck, dotColor: "#A855F7", bg: "#F4EEFF", border: "#E9DEFC", activeBorder: "#9333EA" },
+    { key: "FOLLOW_UP",   label: "Customer Follow-up", Icon: Phone,        dotColor: "#EAB308", bg: "#FEF7DC", border: "#F8ECC2", activeBorder: "#D97706" },
+    { key: "WON",         label: "Won",                Icon: Trophy,       dotColor: "#22C55E", bg: "#E8F8EE", border: "#D0F0DC", activeBorder: "#16A34A" },
+    { key: "LOST",        label: "Lost",               Icon: X,            dotColor: "#EF4444", bg: "#FDF2F2", border: "#FCE0E0", activeBorder: "#DC2626" },
 ];
 
 const KPI_DEFINITIONS = [
-    { key: "total",    label: "Total Leads",    Icon: Users  },
-    { key: "followUp", label: "Follow-ups Due", Icon: Phone  },
-    { key: "won",      label: "Won Leads",      Icon: Trophy },
-    { key: "lost",     label: "Lost Leads",     Icon: X      },
+    { key: "total",    label: "Total Leads",    Icon: Users,  stage: "ALL",        color: "#2563eb", bg: "#eff6ff" },
+    { key: "followUp", label: "Follow-ups Due", Icon: Phone,  stage: "FOLLOW_UP",  color: "#d97706", bg: "#fef3c7" },
+    { key: "won",      label: "Won Leads",      Icon: Trophy, stage: "WON",        color: "#16a34a", bg: "#dcfce7" },
+    { key: "lost",     label: "Lost Leads",     Icon: X,      stage: "LOST",       color: "#dc2626", bg: "#fee2e2" },
 ];
 
 const STATUS_MAP = {
@@ -134,16 +138,17 @@ function KpiCard({ definition, count, selected, onClick }) {
     return (
         <button
             type="button"
-            className={`lead-kpi-card${selected ? " is-selected" : ""}`}
+            className={`ref-kpi-card${selected ? " is-selected" : ""}`}
             onClick={onClick}
             aria-pressed={selected}
+            title={`Filter by ${definition.label}`}
         >
-            <span className="lead-kpi-icon" aria-hidden="true">
-                <Icon size={18} strokeWidth={2.2} />
+            <span className="ref-kpi-icon-wrap" aria-hidden="true">
+                <Icon size={16} strokeWidth={2.2} />
             </span>
-            <span className="lead-kpi-content">
-                <span className="lead-kpi-label">{definition.label}</span>
-                <strong className="lead-kpi-number">{count}</strong>
+            <span className="ref-kpi-info">
+                <span className="ref-kpi-label">{definition.label}</span>
+                <strong className="ref-kpi-value">{count}</strong>
             </span>
         </button>
     );
@@ -1115,6 +1120,7 @@ function LeadList() {
     const [procurementLead, setProcurementLead] = useState(null);
     const [followUpLead, setFollowUpLead] = useState(null);
     const [workspaceLeadId, setWorkspaceLeadId] = useState(null);
+    const [workspaceInitialTab, setWorkspaceInitialTab] = useState(null);
     const [chatLinks, setChatLinks] = useState({});
     const [chatLinkTick, setChatLinkTick] = useState(0);
 
@@ -1350,7 +1356,7 @@ function LeadList() {
         setDrawer({ lead, mode: "edit", nonce: Date.now() });
 
     const handleOpenProcurement = (lead) => {
-        if (lead?.id) setProcurementLead(lead);
+        if (lead?.id) handleOpenWorkspace(lead, "procurement");
     };
 
     const handleOpenFollowUp = (lead) => {
@@ -1361,12 +1367,16 @@ function LeadList() {
         ? null
         : leads.find((lead) => String(lead.id) === String(workspaceLeadId)) || null;
 
-    const handleOpenWorkspace = (lead) => {
-        if (lead?.id) setWorkspaceLeadId(lead.id);
+    const handleOpenWorkspace = (lead, initialTab = null) => {
+        if (lead?.id) {
+            setWorkspaceLeadId(lead.id);
+            setWorkspaceInitialTab(initialTab);
+        }
     };
 
     const closeWorkspace = () => {
         setWorkspaceLeadId(null);
+        setWorkspaceInitialTab(null);
         loadLeads();
     };
 
@@ -1398,134 +1408,154 @@ function LeadList() {
 
     return (
         <section className="lead-page">
-            <header className="lead-header">
-                <h1 className="lead-title">Leads</h1>
-                <div className="lead-header-actions">
-                    {!isLeadStaff && <button
-                        type="button"
-                        className="lead-new-btn"
-                        style={{ background: "#0f766e", borderColor: "#0f766e" }}
-                        onClick={() => navigate(`${basePath}/leads/chats`)}
-                    >
-                        Chats
-                    </button>}
-                    {!isLeadStaff && <button
-                        type="button"
-                        className="lead-new-btn"
-                        style={{ background: "#16a34a", borderColor: "#16a34a" }}
-                        onClick={() => navigate(`${basePath}/leads/whatsapp`)}
-                    >
-                        WhatsApp
-                    </button>}
-                    {canCreateLead && <button
-                        type="button"
-                        className="lead-new-btn"
-                        onClick={() => setShowCreateLeadDrawer(true)}
-                    >
-                        <Plus size={16} strokeWidth={2.4} />
-                        New Lead
-                    </button>}
+            {/* TOP HEADER: Left (Title + Subtitle), Middle (KPI Cards), Right (Chats, WhatsApp, New Lead) */}
+            <header className="ref-lead-header">
+                <div className="ref-lead-title-area">
+                    <h1 className="ref-lead-title">Leads</h1>
+                    <span className="ref-lead-subtitle">Your sales pipeline</span>
+                </div>
+
+                <div className="ref-lead-kpis" aria-label="Lead metrics">
+                    {KPI_DEFINITIONS.map((definition) => {
+                        return (
+                            <KpiCard
+                                key={definition.key}
+                                definition={definition}
+                                count={counts[definition.key] || 0}
+                                selected={
+                                    selectedStage === definition.stage
+                                }
+                                onClick={() =>
+                                    handleStageSelect(definition.stage)
+                                }
+                            />
+                        );
+                    })}
+                </div>
+
+                <div className="ref-lead-header-actions">
+                    {!isLeadStaff && (
+                        <button
+                            type="button"
+                            className="ref-header-btn ref-header-btn--chats"
+                            onClick={() => navigate(`${basePath}/leads/chats`)}
+                        >
+                            Chats
+                        </button>
+                    )}
+                    {!isLeadStaff && (
+                        <button
+                            type="button"
+                            className="ref-header-btn ref-header-btn--whatsapp"
+                            onClick={() => navigate(`${basePath}/leads/whatsapp`)}
+                        >
+                            WhatsApp
+                        </button>
+                    )}
+                    {canCreateLead && (
+                        <button
+                            type="button"
+                            className="ref-header-btn ref-header-btn--new"
+                            onClick={() => setShowCreateLeadDrawer(true)}
+                        >
+                            <Plus size={15} strokeWidth={2.4} />
+                            New Lead
+                        </button>
+                    )}
                 </div>
             </header>
 
-            {/* KPI CARDS */}
-            <section className="lead-kpi-grid" aria-label="Lead summary">
-                {KPI_DEFINITIONS.map((definition) => {
-                    const stageByKpi = {
-                        total: "ALL",
-                        followUp: "FOLLOW_UP",
-                        won: "WON",
-                        lost: "LOST",
-                    };
-                    return (
-                        <KpiCard
-                            key={definition.key}
-                            definition={definition}
-                            count={counts[definition.key] || 0}
-                            selected={
-                                selectedStage === stageByKpi[definition.key]
-                            }
-                            onClick={() =>
-                                handleStageSelect(stageByKpi[definition.key])
-                            }
+            {/* TOOLBAR: Stores, Status, By Source, By Salesperson, then Search Bar */}
+            <section className="ref-lead-toolbar">
+                <div className="ref-toolbar-controls">
+                    {/* 1. Stores Dropdown */}
+                    <div className="ref-select-pill">
+                        <Store size={14} className="ref-select-icon" />
+                        <select
+                            value={store}
+                            onChange={(e) => {
+                                setPage(0);
+                                setStore(e.target.value);
+                            }}
+                        >
+                            <option value="">All Stores</option>
+                            {storeOptions.map(([id, name]) => (
+                                <option key={id} value={id}>
+                                    {name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* 2. Status Dropdown */}
+                    <div className="ref-select-pill">
+                        <Filter size={14} className="ref-select-icon" />
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                        >
+                            <option value="">All Statuses</option>
+                            {STAGES.map((stage) => (
+                                <option key={stage.key} value={stage.key}>
+                                    {stage.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* 3. By Source Dropdown */}
+                    <div className="ref-select-pill">
+                        <Globe size={14} className="ref-select-icon" />
+                        <select
+                            value={source}
+                            onChange={(e) => setSource(e.target.value)}
+                        >
+                            <option value="">All Sources</option>
+                            {sourceOptions.map(([id, name]) => (
+                                <option key={id} value={id}>
+                                    {name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* 4. By Salesperson Dropdown */}
+                    <div className="ref-select-pill">
+                        <User size={14} className="ref-select-icon" />
+                        <select
+                            value={salesperson}
+                            onChange={(e) => setSalesperson(e.target.value)}
+                        >
+                            <option value="">All Salespersons</option>
+                            {salespersonOptions.map(([id, name]) => (
+                                <option key={id} value={id}>
+                                    {name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* 5. Search Bar */}
+                    <div className="ref-search-pill">
+                        <Search size={15} className="ref-search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Search leads..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                    );
-                })}
-            </section>
+                    </div>
 
-            {/* TOOLBAR */}
-            <section className="lead-toolbar">
-                <div className="lead-toolbar-search">
-                    <Search size={15} />
-                    <input
-                        type="text"
-                        placeholder="Search leads, customers, vehicles..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                    {isFiltered && (
+                        <button
+                            type="button"
+                            className="ref-reset-pill-btn"
+                            onClick={resetFilters}
+                        >
+                            Reset
+                        </button>
+                    )}
                 </div>
-
-                <select
-                    className="lead-toolbar-select"
-                    value={source}
-                    onChange={(e) => setSource(e.target.value)}
-                >
-                    <option value="">All Sources</option>
-                    {sourceOptions.map(([id, name]) => (
-                        <option key={id} value={id}>
-                            {name}
-                        </option>
-                    ))}
-                </select>
-
-                <select
-                    className="lead-toolbar-select"
-                    value={salesperson}
-                    onChange={(e) => setSalesperson(e.target.value)}
-                >
-                    <option value="">All Salespersons</option>
-                    {salespersonOptions.map(([id, name]) => (
-                        <option key={id} value={id}>
-                            {name}
-                        </option>
-                    ))}
-                </select>
-
-                <select
-                    className="lead-toolbar-select"
-                    value={store}
-                    onChange={(e) => { setPage(0); setStore(e.target.value); }}
-                >
-                    <option value="">All Stores</option>
-                    {storeOptions.map(([id, name]) => (
-                        <option key={id} value={id}>
-                            {name}
-                        </option>
-                    ))}
-                </select>
-
-                <select
-                    className="lead-toolbar-select"
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                >
-                    <option value="">All Statuses</option>
-                    {STAGES.map((stage) => (
-                        <option key={stage.key} value={stage.key}>
-                            {stage.label}
-                        </option>
-                    ))}
-                </select>
-
-                {isFiltered && (
-                    <button
-                        type="button"
-                        className="lead-toolbar-reset"
-                        onClick={resetFilters}
-                    >
-                        Reset
-                    </button>
-                )}
             </section>
 
             {/* FOLLOW-UP ALERT */}
@@ -1567,79 +1597,105 @@ function LeadList() {
             )}
 
             {/* KANBAN BOARD */}
-            <section className="lead-kanban">
+            <section className="ref-kanban-section">
                 {loading ? (
-                    <div className="lead-empty-state">
+                    <div className="ref-kanban-empty-wrap">
                         <strong>Loading leads...</strong>
                         <span>Fetching lead information from backend.</span>
                     </div>
                 ) : errorMessage ? (
-                    <div className="lead-empty-state">
+                    <div className="ref-kanban-empty-wrap">
                         <strong>Unable to load leads</strong>
                         <span>{errorMessage}</span>
                         <button
                             type="button"
-                            className="lead-toolbar-reset"
+                            className="ref-reset-pill-btn"
                             onClick={loadLeads}
                         >
                             Retry
                         </button>
                     </div>
                 ) : (
-                    <div className="lead-kanban-grid">
-                        {STAGES.map((stage) => {
-                            const stageLeads =
-                                groupedByStage[stage.key] || [];
-                            const Icon = stage.Icon;
-                            const isActive = selectedStage === stage.key;
-                            return (
-                                <div
-                                    key={stage.key}
-                                    className={`lead-kanban-col lead-kanban-col--${stage.key.toLowerCase()}${
-                                        isActive ? " is-active" : ""
-                                    }`}
-                                >
-                                    <div className="lead-kanban-col-head">
-                                        <span className="lead-kanban-col-title">
-                                            <Icon size={14} />
-                                            {stage.label}
-                                        </span>
-                                        <span className="lead-kanban-col-count">
-                                            {stageCounts[stage.key]}
-                                        </span>
-                                    </div>
-
-                                    <div className="lead-kanban-col-body">
-                                        {stageLeads.length === 0 ? (
-                                            <div className="lead-kanban-empty">
-                                                No leads
-                                            </div>
-                                        ) : (
-                                            stageLeads.map((lead) => (
-                                                <LeadKanbanCard
-                                                    key={lead.id}
-                                                    lead={lead}
-                                                    stage={getStage(lead)}
-                                                    onView={handleOpenOverview}
-                                                    onEdit={handleEditLead}
-                                                    onProcurement={
-                                                        handleOpenProcurement
-                                                    }
-                                                    onMoveToFollowUp={
-                                                        handleMoveToFollowUp
-                                                    }
-                                                    onFollowUp={
-                                                        handleOpenFollowUp
-                                                    }
-                                                    onOpenWorkspace={handleOpenWorkspace}
-                                                    chatLink={chatLinks[lead.id]}
+                    <div className="ref-kanban-scroll">
+                        <div className="ref-kanban-grid">
+                            {STAGES.map((stage) => {
+                                const stageLeads =
+                                    groupedByStage[stage.key] || [];
+                                const isActive = selectedStage === stage.key;
+                                return (
+                                    <div
+                                        key={stage.key}
+                                        className={`ref-kanban-col ref-kanban-col--${stage.key.toLowerCase()}${
+                                            isActive ? " is-active" : ""
+                                        }`}
+                                        style={{
+                                            backgroundColor: stage.bg,
+                                            borderColor: isActive ? stage.activeBorder : stage.border,
+                                            boxShadow: isActive ? `0 0 0 2px ${stage.activeBorder}` : undefined,
+                                        }}
+                                    >
+                                        <div className="ref-kanban-col-head">
+                                            <div className="ref-col-title-group">
+                                                <span
+                                                    className="ref-col-dot"
+                                                    style={{
+                                                        backgroundColor: stage.dotColor,
+                                                    }}
+                                                    aria-hidden="true"
                                                 />
-                                            ))
-                                        )}
+                                                <span className="ref-col-title">
+                                                    {stage.label}
+                                                </span>
+                                                <span className="ref-col-badge">
+                                                    {stageCounts[stage.key]}
+                                                </span>
+                                            </div>
+
+                                            {canCreateLead && (
+                                                <button
+                                                    type="button"
+                                                    className="ref-col-add-btn"
+                                                    title={`Add new lead to ${stage.label}`}
+                                                    aria-label={`Add new lead to ${stage.label}`}
+                                                    onClick={() => setShowCreateLeadDrawer(true)}
+                                                >
+                                                    <Plus size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="ref-kanban-col-body">
+                                            {stageLeads.length === 0 ? (
+                                                <div className="ref-kanban-empty">
+                                                    No leads
+                                                </div>
+                                            ) : (
+                                                stageLeads.map((lead) => (
+                                                    <LeadKanbanCard
+                                                        key={lead.id}
+                                                        lead={lead}
+                                                        stage={getStage(lead)}
+                                                        onView={handleOpenOverview}
+                                                        onEdit={handleEditLead}
+                                                        onProcurement={
+                                                            handleOpenProcurement
+                                                        }
+                                                        onMoveToFollowUp={
+                                                            handleMoveToFollowUp
+                                                        }
+                                                        onFollowUp={
+                                                            handleOpenFollowUp
+                                                        }
+                                                        onOpenWorkspace={handleOpenWorkspace}
+                                                        chatLink={chatLinks[lead.id]}
+                                                    />
+                                                ))
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </section>
@@ -1747,6 +1803,7 @@ function LeadList() {
                             lead={workspaceLead}
                             stage={getStage(workspaceLead)}
                             userRole={currentRole}
+                            initialTab={workspaceInitialTab}
                             onClose={closeWorkspace}
                             onUpdated={loadLeads}
                             onToast={pushToast}

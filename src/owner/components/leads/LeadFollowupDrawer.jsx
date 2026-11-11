@@ -61,18 +61,21 @@ export default function LeadFollowUpDrawer({
   onToast,
   onCustomerEdit,
   assignees,
+  isWorkspaceEmbedded = false,
+  externalEditingCustomer,
+  onToggleCustomerEdit,
+  onItemCountChange,
 }) {
-  const [loading, setLoading] = useState(true);
+  const [fullLead, setFullLead] = useState(() => lead || null);
+  const [loading, setLoading] = useState(() => !lead?.items?.length && !lead?.customerRequirement);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [fullLead, setFullLead] = useState(null);
-
   /* The next date/time is persisted with each follow-up activity. */
   const [schedule, setSchedule] = useState({ followUpDate: "", followUpTime: "" });
 
-  const [status, setStatus] = useState("FOLLOW_UP");
+  const [status, setStatus] = useState(() => lead?.status || "FOLLOW_UP");
   const [lostChoice, setLostChoice] = useState("");
   const [lostNote, setLostNote] = useState("");
   const lostReason = buildLostReason(lostChoice, lostNote);
@@ -87,9 +90,20 @@ export default function LeadFollowUpDrawer({
   const downloading = false;
 
   /* ---- UI-only state: customer edit toggle + activity log ---- */
-  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [localEditingCustomer, setLocalEditingCustomer] = useState(false);
+  const editingCustomer = externalEditingCustomer !== undefined ? externalEditingCustomer : localEditingCustomer;
   const [customerEdits, setCustomerEdits] = useState({});
   const [activities, setActivities] = useState([]);
+
+  // Sync prop updates immediately
+  useEffect(() => {
+    if (lead) {
+      setFullLead((prev) => (prev ? { ...prev, ...lead } : lead));
+      if (lead.items?.length || lead.customerRequirement) {
+        setLoading(false);
+      }
+    }
+  }, [lead]);
 
   /* ---------------- LOAD ---------------- */
   useEffect(() => {
@@ -99,11 +113,10 @@ export default function LeadFollowUpDrawer({
         setLoading(false);
         return;
       }
-      setLoading(true);
+      if (!lead?.items?.length && !fullLead?.items?.length) {
+        setLoading(true);
+      }
       setError("");
-      setActivities([]);
-      setCustomerEdits({});
-      setEditingCustomer(false);
       try {
         const [data, savedActivities] = await Promise.all([
           getLeadById(lead.id), getLeadFollowUpActivities(lead.id),
@@ -199,8 +212,16 @@ export default function LeadFollowUpDrawer({
         salespersonName: shownCustomer.salesperson,
       });
     }
-    setEditingCustomer((current) => !current);
+    if (onToggleCustomerEdit) {
+      onToggleCustomerEdit();
+    } else {
+      setLocalEditingCustomer((current) => !current);
+    }
   };
+
+  useEffect(() => {
+    onItemCountChange?.(items.length);
+  }, [items.length, onItemCountChange]);
 
   const updateCustomerEdit = (field, value) =>
     setCustomerEdits((current) => ({ ...current, [field]: value }));
@@ -381,50 +402,87 @@ export default function LeadFollowUpDrawer({
   return (
     <div className="fu-root lead-drawer-container">
       {/* ======================= HEADER ======================= */}
-      <header className="fu-header">
-        <div className="fu-header-top">
-          <div>
-            <div className="fu-eyebrow">CUSTOMER FOLLOW-UP</div>
-            <div className="fu-title-row">
-              <h2>{leadNumber}</h2>
-              <span className="fu-badge">{items.length}</span>
-              <button
-                type="button"
-                className={`fu-icon-btn fu-edit-toggle${editingCustomer ? " is-active" : ""}`}
-                onClick={toggleCustomerEdit}
-                aria-pressed={editingCustomer}
-                aria-label={editingCustomer ? "Finish editing customer info" : "Edit customer info"}
-                title={editingCustomer ? "Done editing" : "Edit customer info"}
-              >
-                {editingCustomer ? <Check size={15} /> : <Pencil size={14} />}
-              </button>
+      {!isWorkspaceEmbedded && (
+        <header className="fu-header">
+          <div className="fu-header-top">
+            <div>
+              <div className="fu-eyebrow">CUSTOMER FOLLOW-UP</div>
+              <div className="fu-title-row">
+                <h2>{leadNumber}</h2>
+                <span className="fu-badge">{items.length}</span>
+                <button
+                  type="button"
+                  className={`fu-icon-btn fu-edit-toggle${editingCustomer ? " is-active" : ""}`}
+                  onClick={toggleCustomerEdit}
+                  aria-pressed={editingCustomer}
+                  aria-label={editingCustomer ? "Finish editing customer info" : "Edit customer info"}
+                  title={editingCustomer ? "Done editing" : "Edit customer info"}
+                >
+                  {editingCustomer ? <Check size={15} /> : <Pencil size={14} />}
+                </button>
+              </div>
             </div>
+            <button type="button" className="fu-icon-btn" onClick={onClose} aria-label="Close follow-up drawer">
+              <X size={17} />
+            </button>
           </div>
-          <button type="button" className="fu-icon-btn" onClick={onClose} aria-label="Close follow-up drawer">
-            <X size={17} />
-          </button>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* ======================= BODY ======================= */}
-      <div className="fu-split drawer-body-grid">
-        <div className="fu-left">
-            <section className="fu-info" aria-label="Customer details">
+      <div className="pd-procurement-layout fu-followup-layout">
+        {/* ======================= LEFT COLUMN: Context & Info ======================= */}
+        <div className="pd-col-info">
+          {/* 1. Customer Info */}
+          <section className="fu-info pd-card" aria-label="Customer details">
+            <div className="pd-card-header-row">
               <h3 className="fu-section-title">Customer Info</h3>
-              <div className="fu-meta-row">
-              <MetaField label="Customer" value={shownCustomer.name} editing={editingCustomer}
-                onChange={(v) => updateCustomerEdit("name", v)} />
-              <MetaField label="Mobile" value={shownCustomer.phone} editing={editingCustomer}
-                onChange={(v) => updateCustomerEdit("phone", v)} />
+              {!isWorkspaceEmbedded && (
+                <button
+                  type="button"
+                  className={`fu-icon-btn fu-edit-toggle${editingCustomer ? " is-active" : ""}`}
+                  onClick={toggleCustomerEdit}
+                  aria-pressed={editingCustomer}
+                  aria-label={editingCustomer ? "Finish editing customer info" : "Edit customer info"}
+                  title={editingCustomer ? "Done editing" : "Edit customer info"}
+                >
+                  {editingCustomer ? <Check size={14} /> : <Pencil size={13} />}
+                </button>
+              )}
+            </div>
+            <div className="fu-meta-row">
+              <MetaField
+                label="Customer"
+                value={shownCustomer.name}
+                editing={editingCustomer}
+                onChange={(v) => updateCustomerEdit("name", v)}
+              />
+              <MetaField
+                label="Mobile"
+                value={shownCustomer.phone}
+                editing={editingCustomer}
+                onChange={(v) => updateCustomerEdit("phone", v)}
+              />
               {vinNumber && <MetaField label="VIN Number" value={vinNumber} />}
-              <MetaField label="Salesperson" value={shownCustomer.salesperson} />
-              <label className="fu-meta-field"><span>Created by</span><input value={fullLead?.createdByName || "—"} readOnly /></label>
-              <label className="fu-meta-field"><span>Procurement person</span><input value={fullLead?.procurementUserName || "—"} readOnly /></label>
+              <MetaField
+                label="Salesperson"
+                value={shownCustomer.salesperson}
+                editing={editingCustomer}
+                onChange={(v) => updateCustomerEdit("salesperson", v)}
+              />
+              <label className="fu-meta-field">
+                <span>Created by</span>
+                <input value={fullLead?.createdByName || "—"} readOnly />
+              </label>
+              <label className="fu-meta-field">
+                <span>Procurement person</span>
+                <input value={fullLead?.procurementUserName || "—"} readOnly />
+              </label>
               <label className="fu-meta-field">
                 <span>Lead ID</span>
                 <input type="text" value={leadNumber} readOnly />
               </label>
-              <label className="fu-meta-field is-editing">
+              <label className={`fu-meta-field is-editing${!vinNumber ? " fu-meta-field--status-span" : ""}`}>
                 <span>Status</span>
                 <select value={status} onChange={(e) => setStatus(e.target.value)} disabled={busy}>
                   {STATUS_OPTIONS.map((st) => (
@@ -433,188 +491,103 @@ export default function LeadFollowUpDrawer({
                 </select>
               </label>
             </div>
-            </section>
-      <main className="fu-body fu-main">
-        {loading ? (
-          <div className="fu-state">Loading lead...</div>
-        ) : (
-          <>
-            {error && <div className="fu-alert fu-alert--error">{error}</div>}
-            {success && <div className="fu-alert fu-alert--success">{success}</div>}
+          </section>
 
-            {status === "LOST" && (
-              <section className="fu-lost">
-                <LostReasonPicker
-                  choice={lostChoice}
-                  note={lostNote}
-                  onChoiceChange={setLostChoice}
-                  onNoteChange={setLostNote}
-                  disabled={busy}
-                />
-              </section>
-            )}
-
-            <CustomerRequirementTable
-              requirement={customerRequirement}
-              actions={
-                <>
-                  <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
-                    disabled={busy || !items.length} onClick={() => setEditingRequirements(true)}>
-                    Edit Requirements / Quantity
-                  </button>
-                  <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
-                    onClick={() => setAddingRequirement(true)} disabled={busy || addingRequirement}>
-                    <Plus size={14} /> Add Requirement
-                  </button>
-                </>
-              }
-            >
-              {editingRequirements && (
-                <div className="fu-panel edit-requirement-card-wrapper">
-                  <div className="edit-requirement-scroll edit-requirement-table-container">
-                    <CustomerChangesTable items={items} drafts={changeDrafts} disabled={busy}
-                      onChange={(id, draft) => setChangeDrafts(current => ({ ...current, [id]: draft }))} />
-                  </div>
-                  {!addingRequirement && (
-                    <div className="fu-panel-actions">
-                      <button type="button" className="fu-btn fu-btn--outline fu-btn--sm" disabled={busy}
-                        onClick={handleSendToProcurement}>Send to Procurement</button>
-                      <button type="button" className="fu-btn fu-btn--ghost fu-btn--sm requirement-cancel-btn" disabled={busy}
-                        onClick={() => { setEditingRequirements(false); setChangeDrafts({}); }}>Cancel</button>
-                    </div>
-                  )}
+          {/* 2. Side-by-side: LEAD Assignment & Customer Requirement */}
+          <div className="pd-mid-grid">
+            <section className="pd-card pd-assignment-card" aria-label="Lead assignment details">
+              <span className="pd-assign-label">LEAD ASSIGNMENT</span>
+              <div className="pd-assignment-content">
+                <div className="pd-assign-item">
+                  <span className="pd-assign-label">Created by</span>
+                  <span className="pd-assign-val">{fullLead?.createdByName || "—"}</span>
                 </div>
-              )}
-
-              {addingRequirement && (
-                <div className="fu-panel">
-                  <div className="fu-panel-fields">
-                    <label className="fu-field">
-                      <span>Customer requirement description</span>
-                      <textarea
-                        className="fu-textarea"
-                        rows={3}
-                        value={newRequirement}
-                        disabled={busy}
-                        onChange={(e) => setNewRequirement(e.target.value)}
-                        placeholder="What does the customer want to add or change?"
-                      />
-                    </label>
-                    <label className="fu-field fu-field--qty">
-                      <span>Quantity</span>
-                      <input className="fu-input" type="number" min="1" step="1" value={newQuantity}
-                        disabled={busy} onChange={(e) => setNewQuantity(e.target.value)} />
-                    </label>
-                  </div>
-                  <div className="fu-panel-actions">
-                    <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
-                      onClick={handleSendToProcurement} disabled={busy || !newRequirement.trim()}>
-                      {busy ? "Sending..." : "Send to Procurement"}
-                    </button>
-                    <button type="button" className="fu-btn fu-btn--ghost fu-btn--sm requirement-cancel-btn"
-                      onClick={() => { setAddingRequirement(false); setNewRequirement(""); setNewQuantity("1"); }}
-                      disabled={busy}>
-                      Cancel
-                    </button>
-                  </div>
+                <div className="pd-assign-item">
+                  <span className="pd-assign-label">Procurement person</span>
+                  <span className="pd-assign-val">{fullLead?.procurementUserName || "—"}</span>
                 </div>
-              )}
-            </CustomerRequirementTable>
-
-            {/* ---------- Procurement items ---------- */}
-            <section className="lpt-card">
-              <div className="lpt-head">
-                <div className="lpt-title">
-                  <h3>Procurement Items</h3>
-                  <span className="lpt-count">{items.length}</span>
-                </div>
-                <div className="lpt-chips" aria-label="Procurement summary">
-                  <span className="lpt-chip lpt-chip--total"><i />Total <strong>{items.length}</strong></span>
-                  <span className="lpt-chip lpt-chip--d2w"><i />D2W <strong>{summaryD2w}</strong></span>
-                  <span className="lpt-chip lpt-chip--vendor"><i />Vendor <strong>{summaryVendor}</strong></span>
-                  <span className="lpt-chip lpt-chip--na"><i />Not Available <strong>{summaryNotAvailable}</strong></span>
-                </div>
-                <div className="lpt-total-chip" aria-label="Total MRP">
-                  <span>Total MRP</span>
-                  <strong>{formatMrp(totalMrp)}</strong>
+                <div className="pd-assign-item">
+                  <span className="pd-assign-label">Assigned salesperson</span>
+                  <span className="pd-assign-val">{salespersonName}</span>
                 </div>
               </div>
-
-              {items.length === 0 ? (
-                <div className="lpt-state">No procurement items recorded for this lead.</div>
-              ) : (
-                <div className="lpt-table-wrap">
-                  <table className="lpt-table lpt-table--followup-lite procurement-grid-table">
-                    <colgroup>
-                        <col style={{ width: "14%" }} />
-                        <col style={{ width: "18%" }} />
-                        <col style={{ width: "9%" }} />
-                        <col style={{ width: "7%" }} />
-                        <col style={{ width: "9%" }} />
-                        <col style={{ width: "12%" }} />
-                        <col style={{ width: "14%" }} />
-                        <col style={{ width: "11%" }} />
-                        <col style={{ width: "56px" }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Part Number</th>
-                        <th>Part Name</th>
-                        <th>MRP</th>
-                        <th>Req. Qty</th>
-                        <th>Source</th>
-                        <th>Vendor</th>
-                        <th>Availability</th>
-                        <th>ETA</th>
-                        <th className="lpt-col-action">Delete</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item, index) => (
-                        <tr key={item.id || index}>
-                          <td className="lpt-td">{item.partNumber || "—"}</td>
-                          <td className="lpt-td">
-                            <strong>{item.productName || item.requirement || "—"}</strong>
-                          </td>
-                          <td className="lpt-td">{formatMrp(item.quotedMrp)}</td>
-                          <td className="lpt-td">{item.requestedQuantity || "—"}</td>
-                          <td className="lpt-td">
-                            {item.procurementSource === "LOCAL"
-                              ? "D2W"
-                              : item.procurementSource === "VENDOR"
-                              ? "Vendor"
-                              : (item.procurementSource || "—").replaceAll("_", " ")}
-                          </td>
-                          <td className="lpt-td">{item.selectedVendorName || "—"}</td>
-                          <td className="lpt-td">{(item.availabilityStatus || "—").replaceAll("_", " ")}</td>
-                          <td className="lpt-td">{item.estimatedAvailabilityDate || "—"}</td>
-                          <td className="lpt-td lpt-col-action">
-                            <button
-                              type="button"
-                              className="lpt-row-remove delete-icon-btn"
-                              onClick={() => handleDeleteItem(item)}
-                              disabled={busy}
-                              aria-label={`Delete item ${item.partNumber || index + 1}`}
-                              title="Delete item"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </section>
 
-          </>
-        )}
-      </main>
-        </div>
-        <aside className="fu-side" aria-label="Activity and schedule">
-          <section className="fu-schedule" aria-label="Next follow-up schedule">
-            <h3 className="fu-side-title">Next Follow-up</h3>
+            <div className="pd-req-wrapper">
+              <CustomerRequirementTable
+                requirement={customerRequirement}
+                actions={
+                  <>
+                    <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
+                      disabled={busy || !items.length} onClick={() => setEditingRequirements(true)}>
+                      Edit Requirements / Quantity
+                    </button>
+                    <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
+                      onClick={() => setAddingRequirement(true)} disabled={busy || addingRequirement}>
+                      <Plus size={14} /> Add Requirement
+                    </button>
+                  </>
+                }
+              >
+                {editingRequirements && (
+                  <div className="fu-panel edit-requirement-card-wrapper">
+                    <div className="edit-requirement-scroll edit-requirement-table-container">
+                      <CustomerChangesTable items={items} drafts={changeDrafts} disabled={busy}
+                        onChange={(id, draft) => setChangeDrafts(current => ({ ...current, [id]: draft }))} />
+                    </div>
+                    {!addingRequirement && (
+                      <div className="fu-panel-actions">
+                        <button type="button" className="fu-btn fu-btn--outline fu-btn--sm" disabled={busy}
+                          onClick={handleSendToProcurement}>Send to Procurement</button>
+                        <button type="button" className="fu-btn fu-btn--ghost fu-btn--sm requirement-cancel-btn" disabled={busy}
+                          onClick={() => { setEditingRequirements(false); setChangeDrafts({}); }}>Cancel</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {addingRequirement && (
+                  <div className="fu-panel">
+                    <div className="fu-panel-fields">
+                      <label className="fu-field">
+                        <span>Customer requirement description</span>
+                        <textarea
+                          className="fu-textarea"
+                          rows={3}
+                          value={newRequirement}
+                          disabled={busy}
+                          onChange={(e) => setNewRequirement(e.target.value)}
+                          placeholder="What does the customer want to add or change?"
+                        />
+                      </label>
+                      <label className="fu-field fu-field--qty">
+                        <span>Quantity</span>
+                        <input className="fu-input" type="number" min="1" step="1" value={newQuantity}
+                          disabled={busy} onChange={(e) => setNewQuantity(e.target.value)} />
+                      </label>
+                    </div>
+                    <div className="fu-panel-actions">
+                      <button type="button" className="fu-btn fu-btn--outline fu-btn--sm"
+                        onClick={handleSendToProcurement} disabled={busy || !newRequirement.trim()}>
+                        {busy ? "Sending..." : "Send to Procurement"}
+                      </button>
+                      <button type="button" className="fu-btn fu-btn--ghost fu-btn--sm requirement-cancel-btn"
+                        onClick={() => { setAddingRequirement(false); setNewRequirement(""); setNewQuantity("1"); }}
+                        disabled={busy}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </CustomerRequirementTable>
+            </div>
+          </div>
+
+          {/* 3. Next Follow-up */}
+          <section className="pd-card fu-schedule" aria-label="Next follow-up schedule">
+            <div className="fu-schedule-header">
+              <h3 className="fu-side-title">Next Follow-up</h3>
+            </div>
             <p className="als-hint">The date and time are saved with the next activity note.</p>
             <div className="fu-schedule-row">
               <label className="fu-meta-field is-editing">
@@ -629,8 +602,117 @@ export default function LeadFollowUpDrawer({
               </label>
             </div>
           </section>
-          <ActivityLogStream entries={trail} onAdd={addActivity} disabled={busy} />
-        </aside>
+
+          {/* 4. Activity & Notes */}
+          <div className="pd-activity-wrapper">
+            <ActivityLogStream entries={trail} onAdd={addActivity} disabled={busy} />
+          </div>
+        </div>
+
+        {/* ======================= RIGHT COLUMN: Full-Height Procurement Items ======================= */}
+        <div className="pd-col-procurement">
+          {error && <div className="pd-alert pd-alert--error">{error}</div>}
+          {success && <div className="pd-alert pd-alert--success">{success}</div>}
+
+          {status === "LOST" && (
+            <section className="fu-lost pd-card">
+              <LostReasonPicker
+                choice={lostChoice}
+                note={lostNote}
+                onChoiceChange={setLostChoice}
+                onNoteChange={setLostNote}
+                disabled={busy}
+              />
+            </section>
+          )}
+
+          {/* ---------- Procurement items table spanning full height ---------- */}
+          <section className="pd-card pd-table-card lpt-card">
+            <div className="lpt-head">
+              <div className="lpt-title">
+                <h3>Procurement Items</h3>
+                <span className="lpt-count">{items.length}</span>
+              </div>
+              <div className="lpt-chips" aria-label="Procurement summary">
+                <span className="lpt-chip lpt-chip--total"><i />Total <strong>{items.length}</strong></span>
+                <span className="lpt-chip lpt-chip--d2w"><i />D2W <strong>{summaryD2w}</strong></span>
+                <span className="lpt-chip lpt-chip--vendor"><i />Vendor <strong>{summaryVendor}</strong></span>
+                <span className="lpt-chip lpt-chip--na"><i />Not Available <strong>{summaryNotAvailable}</strong></span>
+              </div>
+              <div className="lpt-total-chip" aria-label="Total MRP">
+                <span>Total MRP</span>
+                <strong>{formatMrp(totalMrp)}</strong>
+              </div>
+            </div>
+
+            {items.length === 0 ? (
+              <div className="lpt-state">No procurement items recorded for this lead.</div>
+            ) : (
+              <div className="lpt-table-wrap pd-table-wrap">
+                <table className="lpt-table lpt-table--followup-lite procurement-grid-table">
+                  <colgroup>
+                    <col style={{ width: "14%" }} />
+                    <col style={{ width: "19%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "52px" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Part Number</th>
+                      <th>Part Name</th>
+                      <th>MRP</th>
+                      <th>Req. Qty</th>
+                      <th>Source</th>
+                      <th>Vendor</th>
+                      <th>Availability</th>
+                      <th>ETA</th>
+                      <th className="lpt-col-action pd-th-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, index) => (
+                      <tr key={item.id || index}>
+                        <td className="lpt-td">{item.partNumber || "—"}</td>
+                        <td className="lpt-td">
+                          <strong>{item.productName || item.requirement || "—"}</strong>
+                        </td>
+                        <td className="lpt-td">{formatMrp(item.quotedMrp)}</td>
+                        <td className="lpt-td">{item.requestedQuantity || "—"}</td>
+                        <td className="lpt-td">
+                          {item.procurementSource === "LOCAL"
+                            ? "D2W"
+                            : item.procurementSource === "VENDOR"
+                            ? "Vendor"
+                            : (item.procurementSource || "—").replaceAll("_", " ")}
+                        </td>
+                        <td className="lpt-td">{item.selectedVendorName || "—"}</td>
+                        <td className="lpt-td">{(item.availabilityStatus || "—").replaceAll("_", " ")}</td>
+                        <td className="lpt-td">{item.estimatedAvailabilityDate || "—"}</td>
+                        <td className="lpt-td lpt-col-action">
+                          <button
+                            type="button"
+                            className="lpt-row-remove delete-icon-btn"
+                            onClick={() => handleDeleteItem(item)}
+                            disabled={busy}
+                            aria-label={`Delete item ${item.partNumber || index + 1}`}
+                            title="Delete item"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       {previewOpen && <LeadEstimationPreview leadId={lead.id} itemIds={items.map(item => item.id)}

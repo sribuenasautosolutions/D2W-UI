@@ -1,324 +1,231 @@
-/* ============================================================
-   D2W Lead Kanban Card
-   Every card is built from the same six grid rows with fixed
-   heights, so card height never depends on content or stage.
-   ============================================================ */
+/* ==========================================================================
+   Refined Lead Kanban Card Styles
+   High-craft, increased border-radius (16px), subtle shadows & pastel tags
+   ========================================================================== */
 
-.d2w-lead-card {
-    --lead-row-top: 24px;
-    --lead-row-customer: 22px;
-    --lead-row-info: auto;
-    --lead-row-requirement: 56px; /* label + 2 lines */
-    --lead-row-details: 42px;
-    --lead-row-footer: 36px;
-
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows:
-        var(--lead-row-top)
-        var(--lead-row-customer)
-        var(--lead-row-info)
-        var(--lead-row-requirement)
-        var(--lead-row-details)
-        var(--lead-row-footer);
-    row-gap: 6px;
+.ref-lead-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     width: 100%;
     min-width: 0;
-    padding: 12px 14px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    padding: 14px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 16px;
     background: #ffffff;
     color: #111827;
     cursor: pointer;
     box-sizing: border-box;
-    transition: border-color 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    position: relative;
 }
 
-.d2w-lead-card *,
-.d2w-lead-card *::before,
-.d2w-lead-card *::after {
-    box-sizing: border-box;
+.ref-lead-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-color: #cbd5e1;
 }
 
-.d2w-lead-card:hover,
-.d2w-lead-card:focus-visible {
-    border-color: #94a3b8;
+.ref-lead-card:focus-visible {
     outline: none;
+    border-color: #94a3b8;
 }
 
-.d2w-lead-card:focus-visible {
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
-}
-
-/* Every grid row clips its own content instead of growing */
-.d2w-lead-card > * {
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-}
-
-/* ---------- 1 · Lead ID + edit ---------- */
-.d2w-lead-card-top {
+/* Header: Lead ID + Name stack + Actions */
+.ref-lead-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
+    width: 100%;
 }
 
-.d2w-lead-number {
+.ref-lead-name-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     min-width: 0;
-    overflow: hidden;
-    color: #64748b;
-    font-size: 11.5px;
+    flex: 1;
+}
+
+.ref-lead-id {
+    font-size: 10px;
+    font-weight: 600;
+    color: #6366f1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.ref-lead-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.d2w-lead-chat {
+    display: inline-flex;
+    align-items: center;
+    gap: 3.5px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: #15803d;
+    padding: 2.5px 7px;
+    border-radius: 9999px;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+    cursor: pointer;
+    outline: none;
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.d2w-lead-chat:hover {
+    background: #bbf7d0;
+    transform: translateY(-1px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.d2w-lead-chat.has-unread {
+    background: #16a34a;
+    color: #ffffff;
+    border-color: #15803d;
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
+}
+
+.d2w-lead-chat.has-unread:hover {
+    background: #15803d;
+}
+
+.ref-lead-name {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.d2w-lead-edit {
+.ref-lead-edit-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 24px;
     width: 24px;
     height: 24px;
     padding: 0;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e2e8f0;
     border-radius: 6px;
     background: #ffffff;
-    color: #475569;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease,
-        color 0.15s ease;
-}
-
-.d2w-lead-edit:hover {
-    border-color: #94a3b8;
-    background: #f8fafc;
-    color: #0f172a;
-}
-
-/* ---------- 2 · Customer name (primary) ---------- */
-.d2w-lead-customer {
-    display: flex;
-    align-items: center;
-}
-
-.d2w-lead-customer strong {
-    min-width: 0;
-    overflow: hidden;
-    color: #0f172a;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.3;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* ---------- 3 · Lead source + phone ---------- */
-.d2w-lead-info-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 12px;
-    align-content: end;
-    min-height: var(--lead-row-info);
-    overflow: visible;
-    padding-top: 8px;
-    border-top: 1px solid #f1f5f9;
-}
-
-.d2w-lead-info-field {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-
-.d2w-lead-info-field--vin {
-    grid-column: 1 / -1;
-}
-
-.d2w-lead-info-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    height: 12px;
-    overflow: hidden;
-    color: #94a3b8;
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    line-height: 12px;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.d2w-lead-info-label svg {
-    flex: 0 0 auto;
-    display: block;
-}
-
-.d2w-lead-info-value {
-    display: block;
-    overflow: hidden;
-    color: #334155;
-    font-size: 12px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 16px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* ---------- 4 · Requirement (always max 2 lines) ---------- */
-.d2w-lead-requirement {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-top: 8px;
-    border-top: 1px solid #f1f5f9;
-}
-
-.d2w-lead-requirement > span {
-    flex: 0 0 auto;
-    color: #94a3b8;
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    line-height: 12px;
-    text-transform: uppercase;
-}
-
-.d2w-lead-requirement p {
-    margin: 0;
-    display: -webkit-box;
-    overflow: hidden;
-    color: #334155;
-    font-size: 12px;
-    line-height: 17px;
-    overflow-wrap: anywhere;
-    white-space: pre-line;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
-
-/* ---------- 5 · Stage-specific details (fixed-size region) ---------- */
-.d2w-lead-details {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding: 0 10px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    background: #f8fafc;
-}
-
-/* Stages with nothing to show keep the space, but draw no box */
-.d2w-lead-details--empty {
-    border-color: transparent;
-    background: transparent;
-}
-
-.d2w-lead-details-label {
-    overflow: hidden;
     color: #64748b;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 15px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
 }
 
-.d2w-lead-details-text {
-    min-width: 0;
-    overflow: hidden;
+.ref-lead-card:hover .ref-lead-edit-btn {
+    opacity: 1;
+}
+
+.ref-lead-edit-btn:hover {
+    background: #f1f5f9;
     color: #0f172a;
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 16px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    border-color: #cbd5e1;
 }
 
-.d2w-lead-details-row {
+/* Subtitle: Added by Creator */
+.ref-lead-creator {
     display: flex;
     align-items: center;
     gap: 6px;
-    min-width: 0;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ref-lead-creator-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+
+/* Item MRP strip if applicable */
+.ref-lead-mrp-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 11.5px;
     color: #475569;
 }
 
-.d2w-lead-details-row svg {
-    flex: 0 0 auto;
-}
-
-/* ---------- 6 · Salesperson + action ---------- */
-.d2w-lead-footer {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #f1f5f9;
-}
-
-.d2w-lead-salesperson {
-    display: inline-flex;
-    align-items: center;
-    flex: 1 1 0;
-    gap: 5px;
-    min-width: 0;
-    height: 28px;
-    color: #64748b;
-    font-size: 11.5px;
+.ref-lead-mrp-strip strong {
+    color: #0f172a;
     font-weight: 600;
 }
 
-.d2w-lead-salesperson svg {
-    flex: 0 0 auto;
+/* Footer: Source Tag + Initials Avatar */
+.ref-lead-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 4px;
 }
 
-.d2w-lead-salesperson span {
-    min-width: 0;
+.ref-lead-source-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    max-width: 130px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.d2w-lead-action {
+.ref-lead-avatar {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 1 auto;
-    gap: 5px;
-    min-width: 0;
-    max-width: 62%;
-    height: 28px;
-    padding: 0 10px;
-    border: 1px solid #bfdbfe;
-    border-radius: 6px;
-    background: #eff6ff;
-    color: #1d4ed8;
+    width: 26px;
+    height: 26px;
+    border-radius: 9999px;
+    background: #f3e8ff;
+    color: #7c3aed;
     font-size: 11px;
     font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
 }
 
-.d2w-lead-action svg {
-    flex: 0 0 auto;
-}
-
-.d2w-lead-action span {
-    min-width: 0;
+.ref-lead-lost-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #b91c1c;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.d2w-lead-action:hover {
-    border-color: #93c5fd;
-    background: #dbeafe;
 }
