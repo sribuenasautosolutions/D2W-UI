@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CirclePlus, Download, Filter,
-  MoreHorizontal, PackageCheck, ReceiptText, Search, Trash2, Upload, X,
+  MoreHorizontal, PackageCheck, ReceiptText, RotateCcw, Search, Trash2, Upload, X,
 } from "lucide-react";
 import api from "../../../services/api";
 import VendorBillBulkUploader from "./VendorBillBulkUploader";
@@ -215,6 +215,209 @@ function withTrailingEmptyRow(rows, defaults = {}) {
 }
 
 /* =========================================================
+   Excel-Style Resizable Columns Hook
+   ========================================================= */
+const ITEM_TABLE_COLUMNS = [
+  { id: "slNo", label: "Sl. No.", defaultWidth: 60, minWidth: 40, maxWidth: 120 },
+  { id: "partNumber", label: "Part No.", defaultWidth: 110, minWidth: 80, maxWidth: 350 },
+  { id: "itemName", label: "Item Name", defaultWidth: 150, minWidth: 100, maxWidth: 500 },
+  { id: "brandName", label: "Brand", defaultWidth: 90, minWidth: 60, maxWidth: 250 },
+  { id: "hsnCode", label: "HSN", defaultWidth: 70, minWidth: 50, maxWidth: 160 },
+  { id: "quantity", label: "Qty", defaultWidth: 60, minWidth: 45, maxWidth: 150 },
+  { id: "purchasePrice", label: "Purchase Price", defaultWidth: 130, minWidth: 105, maxWidth: 300 },
+  { id: "mrp", label: "MRP", defaultWidth: 85, minWidth: 60, maxWidth: 200 },
+  { id: "sellingPrice", label: "Selling", defaultWidth: 85, minWidth: 60, maxWidth: 200 },
+  { id: "discountPercent", label: "Disc %", defaultWidth: 60, minWidth: 45, maxWidth: 150 },
+  { id: "gstPercent", label: "GST %", defaultWidth: 60, minWidth: 45, maxWidth: 150 },
+  { id: "rackLocation", label: "Rack", defaultWidth: 70, minWidth: 50, maxWidth: 180 },
+  { id: "amount", label: "Amount", defaultWidth: 100, minWidth: 70, maxWidth: 250 },
+  { id: "action", label: "", defaultWidth: 36, minWidth: 36, maxWidth: 60, resizable: false },
+];
+
+const TOTAL_DEFAULT_WIDTH = ITEM_TABLE_COLUMNS.reduce((sum, col) => sum + col.defaultWidth, 0);
+
+function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
+  const getUserId = () => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user"));
+      return u?.id || "guest";
+    } catch {
+      return "guest";
+    }
+  };
+
+  const storageKey = `d2w_col_widths_${tableKey}_${getUserId()}`;
+
+  const defaultWidths = useMemo(() => {
+    const map = {};
+    columnsConfig.forEach((col) => {
+      map[col.id] = col.defaultWidth;
+    });
+    return map;
+  }, [columnsConfig]);
+
+  const [hasCustomWidths, setHasCustomWidths] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return columnsConfig.some(
+          (col) => typeof parsed[col.id] === "number" && parsed[col.id] !== col.defaultWidth
+        );
+      }
+    } catch {}
+    return false;
+  });
+
+  const [columnWidths, setColumnWidths] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const merged = { ...defaultWidths };
+        columnsConfig.forEach((col) => {
+          if (typeof parsed[col.id] === "number" && !isNaN(parsed[col.id])) {
+            merged[col.id] = Math.max(
+              col.minWidth || 30,
+              Math.min(col.maxWidth || 800, parsed[col.id])
+            );
+          }
+        });
+        return merged;
+      }
+    } catch {
+      /* ignore */
+    }
+    return defaultWidths;
+  });
+
+  const resizingRef = useRef(null);
+
+  const startResize = useCallback(
+    (colId, e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const col = columnsConfig.find((c) => c.id === colId);
+      if (!col || col.resizable === false) return;
+
+      // If not yet customized, capture real rendered widths from DOM so dragging never snaps
+      let currentWidths = { ...columnWidths };
+      if (!hasCustomWidths && tableRef?.current) {
+        const ths = tableRef.current.querySelectorAll("thead th");
+        if (ths.length === columnsConfig.length) {
+          columnsConfig.forEach((c, idx) => {
+            const rendered = Math.round(ths[idx].getBoundingClientRect().width);
+            if (rendered > 0) {
+              currentWidths[c.id] = rendered;
+            }
+          });
+          setColumnWidths(currentWidths);
+        }
+        setHasCustomWidths(true);
+      }
+
+      const startX = e.clientX;
+      const startWidth = currentWidths[colId] || col.defaultWidth;
+
+      resizingRef.current = {
+        colId,
+        startX,
+        startWidth,
+        minWidth: col.minWidth || 40,
+        maxWidth: col.maxWidth || 800,
+        initialWidths: currentWidths,
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const handleMouseMove = (moveEvent) => {
+        if (!resizingRef.current) return;
+        const { colId: activeColId, startX: origX, startWidth: origW, minWidth, maxWidth, initialWidths } =
+          resizingRef.current;
+        const delta = moveEvent.clientX - origX;
+        const newWidth = Math.max(minWidth, Math.min(maxWidth, Math.round(origW + delta)));
+        setColumnWidths((prev) => ({
+          ...(initialWidths || prev),
+          [activeColId]: newWidth,
+        }));
+      };
+
+      const handleMouseUp = () => {
+        if (resizingRef.current) {
+          setHasCustomWidths(true);
+          setColumnWidths((latest) => {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(latest));
+            } catch {}
+            return latest;
+          });
+        }
+        resizingRef.current = null;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [columnWidths, columnsConfig, hasCustomWidths, storageKey, tableRef]
+  );
+
+  const resetColumn = useCallback(
+    (colId) => {
+      const col = columnsConfig.find((c) => c.id === colId);
+      if (!col) return;
+      setColumnWidths((prev) => {
+        const updated = {
+          ...prev,
+          [colId]: col.defaultWidth,
+        };
+        const allMatchDefaults = columnsConfig.every(
+          (c) => !updated[c.id] || updated[c.id] === c.defaultWidth
+        );
+        if (allMatchDefaults) {
+          setHasCustomWidths(false);
+          try {
+            localStorage.removeItem(storageKey);
+          } catch {}
+        } else {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
+    },
+    [columnsConfig, storageKey]
+  );
+
+  const resetAllColumns = useCallback(() => {
+    setColumnWidths(defaultWidths);
+    setHasCustomWidths(false);
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+  }, [defaultWidths, storageKey]);
+
+  const totalTableWidth = useMemo(() => {
+    return Object.values(columnWidths).reduce((sum, w) => sum + (Number(w) || 0), 0);
+  }, [columnWidths]);
+
+  return {
+    columnWidths,
+    hasCustomWidths,
+    startResize,
+    resetColumn,
+    resetAllColumns,
+    totalTableWidth,
+  };
+}
+
+/* =========================================================
    Main component
    ========================================================= */
 function ManualStockReceipt() {
@@ -230,6 +433,21 @@ function ManualStockReceipt() {
   const [gstMode, setGstMode] = useState("CGST_SGST");
   const [gstPercentage, setGstPercentage] = useState("18");
   const [columnPriceMode, setColumnPriceMode] = useState("GST_INCLUSIVE");
+
+  const itemsTableRef = useRef(null);
+
+  const {
+    columnWidths: itemColWidths,
+    hasCustomWidths: hasItemCustomWidths,
+    startResize: startItemColResize,
+    resetColumn: resetItemCol,
+    resetAllColumns: resetAllItemCols,
+    totalTableWidth: itemsTableTotalWidth,
+  } = useResizableColumns({
+    tableKey: "vendor_purchases_items",
+    columnsConfig: ITEM_TABLE_COLUMNS,
+    tableRef: itemsTableRef,
+  });
 
   const [vendors, setVendors] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -1378,6 +1596,16 @@ function ManualStockReceipt() {
                   </div>
 
                   <div className="vp-items-heading-right">
+                    <button
+                      type="button"
+                      className="vp-reset-cols-btn"
+                      onClick={resetAllItemCols}
+                      title="Reset all column widths to default (Double-click any column header border to reset that column)"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Reset Columns</span>
+                    </button>
+
                     <label className="vp-items-tax-inline">
                       <span>Tax split</span>
                       <select
@@ -1408,32 +1636,87 @@ function ManualStockReceipt() {
                 </div>
 
                 <div className="vp-table-wrap">
-                  <table className="vp-items-table">
+                  <table
+                    ref={itemsTableRef}
+                    className="vp-items-table"
+                    style={{
+                      width: hasItemCustomWidths ? `${itemsTableTotalWidth}px` : "100%",
+                      minWidth: hasItemCustomWidths ? `${itemsTableTotalWidth}px` : "100%",
+                      tableLayout: "fixed",
+                    }}
+                  >
                     <colgroup>
-                      <col style={{ width: 60 }} />
-                      <col style={{ width: 110 }} />
-                      <col style={{ width: 150 }} />
-                      <col style={{ width: 90 }} />
-                      <col style={{ width: 70 }} />
-                      <col style={{ width: 60 }} />
-                      <col style={{ width: 130 }} />
-                      <col style={{ width: 85 }} />
-                      <col style={{ width: 85 }} />
-                      <col style={{ width: 60 }} />
-                      <col style={{ width: 60 }} />
-                      <col style={{ width: 70 }} />
-                      <col style={{ width: 100 }} />
-                      <col style={{ width: 36 }} />
+                      {ITEM_TABLE_COLUMNS.map((col) => (
+                        <col
+                          key={col.id}
+                          style={{
+                            width: hasItemCustomWidths
+                              ? `${itemColWidths[col.id]}px`
+                              : `${((col.defaultWidth / TOTAL_DEFAULT_WIDTH) * 100).toFixed(3)}%`,
+                          }}
+                        />
+                      ))}
                     </colgroup>
                     <thead>
                       <tr>
-                        <th>Sl. No.</th>
-                        <th>Part No.</th>
-                        <th>Item Name</th>
-                        <th>Brand</th>
-                        <th>HSN</th>
-                        <th>Qty</th>
-                        <th className="vp-th-pp">
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.slNo}px` : undefined }}>
+                          <span>Sl. No.</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("slNo", e)}
+                            onDoubleClick={() => resetItemCol("slNo")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.partNumber}px` : undefined }}>
+                          <span>Part No.</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("partNumber", e)}
+                            onDoubleClick={() => resetItemCol("partNumber")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.itemName}px` : undefined }}>
+                          <span>Item Name</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("itemName", e)}
+                            onDoubleClick={() => resetItemCol("itemName")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.brandName}px` : undefined }}>
+                          <span>Brand</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("brandName", e)}
+                            onDoubleClick={() => resetItemCol("brandName")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.hsnCode}px` : undefined }}>
+                          <span>HSN</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("hsnCode", e)}
+                            onDoubleClick={() => resetItemCol("hsnCode")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.quantity}px` : undefined }}>
+                          <span>Qty</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("quantity", e)}
+                            onDoubleClick={() => resetItemCol("quantity")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th
+                          className="vp-th-pp"
+                          style={{ width: hasItemCustomWidths ? `${itemColWidths.purchasePrice}px` : undefined }}
+                        >
                           <div className="vp-th-pp-inner">
                             <span className="vp-th-pp-label">Purchase Price</span>
                             <select
@@ -1448,14 +1731,73 @@ function ManualStockReceipt() {
                               <option value="GST_EXCLUSIVE">Without Tax</option>
                             </select>
                           </div>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("purchasePrice", e)}
+                            onDoubleClick={() => resetItemCol("purchasePrice")}
+                            title="Drag to resize, double-click to reset"
+                          />
                         </th>
-                        <th>MRP</th>
-                        <th>Selling</th>
-                        <th>Disc %</th>
-                        <th>GST %</th>
-                        <th>Rack</th>
-                        <th style={{ textAlign: "right" }}>Amount</th>
-                        <th></th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.mrp}px` : undefined }}>
+                          <span>MRP</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("mrp", e)}
+                            onDoubleClick={() => resetItemCol("mrp")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.sellingPrice}px` : undefined }}>
+                          <span>Selling</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("sellingPrice", e)}
+                            onDoubleClick={() => resetItemCol("sellingPrice")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.discountPercent}px` : undefined }}>
+                          <span>Disc %</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("discountPercent", e)}
+                            onDoubleClick={() => resetItemCol("discountPercent")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.gstPercent}px` : undefined }}>
+                          <span>GST %</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("gstPercent", e)}
+                            onDoubleClick={() => resetItemCol("gstPercent")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.rackLocation}px` : undefined }}>
+                          <span>Rack</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("rackLocation", e)}
+                            onDoubleClick={() => resetItemCol("rackLocation")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th
+                          style={{
+                            width: hasItemCustomWidths ? `${itemColWidths.amount}px` : undefined,
+                            textAlign: "center",
+                          }}
+                        >
+                          <span>Amount</span>
+                          <div
+                            className="vp-col-resizer"
+                            onMouseDown={(e) => startItemColResize("amount", e)}
+                            onDoubleClick={() => resetItemCol("amount")}
+                            title="Drag to resize, double-click to reset"
+                          />
+                        </th>
+                        <th style={{ width: hasItemCustomWidths ? `${itemColWidths.action}px` : undefined }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1896,10 +2238,12 @@ function CellInput({ value, onChange, placeholder, type = "text", step }) {
 }
 
 function SuggestionInput({ row, field, placeholder, suggestions, onChange, onSelect, inputRef }) {
+  const hasValue = Boolean(row[field] && String(row[field]).trim());
+
   return (
     <div className="vp-suggest-wrap">
       <div className="vp-suggest-shell">
-        <Search size={13} color="#64748B" />
+        {!hasValue && <Search size={13} color="#64748B" />}
         <input
           ref={inputRef}
           className="vp-suggest-input"

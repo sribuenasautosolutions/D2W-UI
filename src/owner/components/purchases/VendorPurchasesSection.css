@@ -308,9 +308,15 @@
 /* ================================================================
    TABLE — full grid (rows + columns)
    ================================================================ */
+.vp-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
 .vp-items-table {
   width: 100%;
-  min-width: 1120px;
+  min-width: 100%;
   table-layout: fixed;
   border-collapse: collapse !important;
   border: 1px solid #cbd5e1 !important;
@@ -319,17 +325,70 @@
 
 /* ---------- HEADER — full grid ---------- */
 .vp-items-table thead th {
+  position: relative !important;
+  overflow: visible !important;
+  user-select: none;
   padding: 8px 10px !important;
   background: #f1f5f9 !important;
   color: #0f172a !important;
   border: 1px solid #cbd5e1 !important;
-  text-align: left !important;
+  text-align: center !important;
   font-size: 10.5px !important;
   font-weight: 800 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
   white-space: nowrap !important;
-  vertical-align: top !important;
+  vertical-align: middle !important;
+}
+
+/* Draggable column resize handle (Excel-style) */
+.vp-col-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 10;
+}
+
+.vp-col-resizer::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.vp-col-resizer:hover::after,
+.vp-col-resizer.is-resizing::after {
+  background: #2563eb;
+}
+
+.vp-reset-cols-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vp-reset-cols-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 /* ---------- BODY — full grid ---------- */
@@ -347,11 +406,15 @@
 /* ---------- PURCHASE PRICE HEADER ---------- */
 .vp-items-table thead th.vp-th-pp {
   padding: 8px 10px !important;
-  vertical-align: top !important;
+  vertical-align: middle !important;
+  text-align: center !important;
 }
 
 .vp-th-pp-inner {
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .vp-th-pp-label {
@@ -364,11 +427,15 @@
   letter-spacing: 0.05em !important;
   white-space: nowrap !important;
   line-height: 1.2 !important;
+  text-align: center !important;
 }
 
 .vp-th-pp-mode {
   display: block !important;
   width: 100% !important;
+  max-width: 120px !important;
+  margin: 0 auto !important;
+  text-align: center !important;
   height: 22px !important;
   padding: 0 18px 0 8px !important;
   border: 1px solid #cbd5e1 !important;
@@ -423,7 +490,7 @@
 }
 .vp-cell-input:hover,
 .vp-cell-input:focus {
-  background: #f1f5f9;
+  background: transparent;
   outline: none;
 }
 .vp-cell-input.is-numeric {
@@ -455,7 +522,7 @@
 }
 .vp-suggest-shell:hover,
 .vp-suggest-shell:focus-within {
-  background: #f1f5f9;
+  background: transparent;
   outline: none;
 }
 .vp-suggest-input {

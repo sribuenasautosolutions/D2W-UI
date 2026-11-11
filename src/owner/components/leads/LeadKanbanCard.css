@@ -6,10 +6,10 @@
 .ref-lead-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
     min-width: 0;
-    padding: 14px 16px;
+    padding: 12px 14px;
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 16px;
     background: #ffffff;
@@ -44,7 +44,7 @@
 .ref-lead-name-wrap {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0;
     min-width: 0;
     flex: 1;
 }
@@ -56,6 +56,7 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     line-height: 1;
+    margin-bottom: 4px;
 }
 
 .ref-lead-header-actions {
@@ -100,15 +101,34 @@
 }
 
 .ref-lead-name {
-    margin: 0;
-    font-size: 15px;
+    margin: 0 0 3px 0;
+    font-size: 13.5px;
     font-weight: 700;
     color: #0f172a;
-    line-height: 1.25;
+    line-height: 1.3;
     letter-spacing: -0.01em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.ref-lead-phone {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #475569;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ref-lead-phone-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
 }
 
 .ref-lead-edit-btn {

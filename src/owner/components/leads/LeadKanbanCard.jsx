@@ -5,6 +5,7 @@ import {
     Calendar,
     AlertCircle,
     MessageCircle,
+    Phone,
 } from "lucide-react";
 import { formatMrp, procurementTotal } from "./procurementUiUtils";
 import "./LeadKanbanCard.css";
@@ -40,6 +41,13 @@ export default function LeadKanbanCard({
         lead.customer?.name ||
         lead.leadNumber ||
         "Unnamed Lead";
+
+    const phone =
+        lead.customerPhone ||
+        lead.customer?.mobileNumber ||
+        lead.customer?.mobile ||
+        lead.customerMobile ||
+        "";
 
     const creatorName =
         lead.createdByName ||
@@ -113,6 +121,12 @@ export default function LeadKanbanCard({
                     <h3 className="ref-lead-name" title={name}>
                         {name}
                     </h3>
+                    {phone && (
+                        <span className="ref-lead-phone" title={phone}>
+                            <Phone size={10} className="ref-lead-phone-icon" aria-hidden="true" />
+                            {phone}
+                        </span>
+                    )}
                 </div>
                 <div className="ref-lead-header-actions">
                     {(chatLink || String(lead?.source || "").toUpperCase() === "WHATSAPP") && (
