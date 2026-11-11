@@ -523,10 +523,6 @@ export default function LeadCreate({
             return;
         }
 
-        if (!isEditMode && ["SUPER_ADMIN", "STORE_OWNER"].includes(user?.role) && !selectedSalesperson?.id) {
-            alert("Select the salesperson responsible for this lead.");
-            return;
-        }
         if (isEditMode) {
             if (!lead?.id) {
                 alert("Lead ID is missing.");
@@ -541,7 +537,7 @@ export default function LeadCreate({
                 source: source.trim() || null,
                 customerRequirement: customerRequirement.trim() || null,
                 location: location.trim() || null,
-                vinNumber: vinNumber.trim(),
+                vinNumber: vinNumber.trim() || null,
                 notes: notes.trim() || null,
             };
 
@@ -855,7 +851,7 @@ export default function LeadCreate({
                                 disabled={!selectedStoreId || procurementLoading}
                                 className="lead-input"
                             >
-                                <option value="">{procurementLoading ? "Loading..." : procurementLoadError ? "Could not load procurement users" : procurementAssignees.length ? "Auto-assign available procurement employee" : "No active procurement users — leave unassigned"}</option>
+                                <option value="">{procurementLoading ? "Loading..." : procurementLoadError ? "Could not load procurement users" : procurementAssignees.length ? "Auto assign (least loaded)" : "No active procurement users"}</option>
                                 {procurementAssignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name || `Procurement ${assignee.id}`}</option>)}
                             </select>
                         </div>}

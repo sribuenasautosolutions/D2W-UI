@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Check, Loader2, Pencil, X } from "lucide-react";
 import {
     downloadLeadEstimation,
     getLeadById,
@@ -258,10 +258,15 @@ function HistoryTab({ lead }) {
 }
 
 /* ---------- the drawer ---------- */
-export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, onUpdated, onToast, onEditLead, onChatActivity }) {
+export default function LeadWorkspaceDrawer({ lead, stage, userRole, initialTab = null, onClose, onUpdated, onToast, onEditLead, onChatActivity }) {
     const [full, setFull] = useState(null);
     const [conversation, setConversation] = useState(undefined); // undefined = loading, null = no chat
-    const [tab, setTab] = useState(null);
+    const [tab, setTab] = useState(() => {
+        if (initialTab) return initialTab;
+        if (stage === "PROCUREMENT") return "procurement";
+        if (stage === "FOLLOW_UP") return "estimation";
+        return "details";
+    });
     const [loadError, setLoadError] = useState("");
 
     const [lostOpen, setLostOpen] = useState(false);
@@ -269,6 +274,10 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
     const [lostNote, setLostNote] = useState("");
     const [busy, setBusy] = useState(false);
     const [lostError, setLostError] = useState("");
+
+    // Shared state with embedded procurement and follow-up drawer
+    const [workspaceItemsCount, setWorkspaceItemsCount] = useState(lead.items?.length || 0);
+    const [isEditingCustomer, setIsEditingCustomer] = useState(false);
     const showChat = canUseWhatsApp();
 
     const leadId = lead.id;
@@ -281,10 +290,21 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
     });
     const handleChatActivity = useCallback(() => chatActivityRef.current?.(), []);
 
+    // If an initial tab was requested (e.g. user clicked the WhatsApp icon to open Chat)
+    useEffect(() => {
+        if (initialTab) {
+            setTab(initialTab);
+        }
+    }, [initialTab]);
+
     // load the full lead and the chat (a lead can have no chat)
     const loadFull = useCallback(async () => {
         try {
-            setFull(await getLeadById(leadId));
+            const res = await getLeadById(leadId);
+            setFull(res);
+            if (res?.items?.length) {
+                setWorkspaceItemsCount(res.items.length);
+            }
         } catch (err) {
             setLoadError(errorText(err, "Could not load this lead."));
         }
@@ -304,15 +324,6 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
             cancelled = true;
         };
     }, [leadId, loadFull, showChat]);
-
-    // first tab: the chat if there is one, otherwise the tab of the current stage
-    useEffect(() => {
-        if (tab !== null || conversation === undefined) return;
-        if (conversation) setTab("chat");
-        else if (stage === "PROCUREMENT") setTab("procurement");
-        else if (stage === "FOLLOW_UP") setTab("estimation");
-        else setTab("details");
-    }, [conversation, stage, tab]);
 
     // when a stage changes (for example procurement is finished), refresh the details
     useEffect(() => {
@@ -339,17 +350,43 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
 
     const data = full || lead;
     const name = data.customerName || lead.customerName || "Customer";
+    const isProcurementTab = tab === "procurement";
+    const isEstimationTab = tab === "estimation";
+    const showHeaderBadgeAndEdit = isProcurementTab || isEstimationTab;
+    const canEditCustomer = isProcurementTab
+        ? (stage === "NEW" || stage === "PROCUREMENT")
+        : (stage === "FOLLOW_UP");
 
     return (
         <div className="lw-root">
             <header className="lw-header">
                 <div className="lw-header-main">
-                    <div className="lw-eyebrow">LEAD</div>
-                    <h2>{lead.leadNumber || `LEAD-${lead.id}`}</h2>
-                    <div className="lw-sub">
-                        <span>{name}</span>
-                        <span className={`lw-stage lw-stage--${String(stage).toLowerCase()}`}>{STAGE_LABEL[stage] || stage}</span>
+                    <div className="lw-header-title-row">
+                        <div className="lw-title-lead-id">
+                            <span className="lw-eyebrow">LEAD</span>
+                            <h2>{lead.leadNumber || `LEAD-${lead.id}`}</h2>
+                        </div>
+                        {showHeaderBadgeAndEdit && (
+                            <span className="lw-items-badge">{workspaceItemsCount} Items</span>
+                        )}
+                        {showHeaderBadgeAndEdit && canEditCustomer && (
+                            <button
+                                type="button"
+                                className={`lw-edit-btn${isEditingCustomer ? " is-active" : ""}`}
+                                onClick={() => setIsEditingCustomer((prev) => !prev)}
+                                aria-label={isEditingCustomer ? "Finish editing customer info" : "Edit customer info"}
+                                title={isEditingCustomer ? "Done editing" : "Edit customer info"}
+                            >
+                                {isEditingCustomer ? <Check size={14} /> : <Pencil size={13} />}
+                            </button>
+                        )}
                     </div>
+                    {!showHeaderBadgeAndEdit && (
+                        <div className="lw-sub">
+                            <span>{name}</span>
+                            <span className={`lw-stage lw-stage--${String(stage).toLowerCase()}`}>{STAGE_LABEL[stage] || stage}</span>
+                        </div>
+                    )}
                 </div>
                 <div className="lw-header-actions">
                     {!closed && (
@@ -400,7 +437,17 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
                 {tab === "procurement" && (
                     stage === "NEW" || stage === "PROCUREMENT" ? (
                         <div className="lw-embed">
-                            <LeadProcurementDrawer lead={lead} userRole={userRole} onUpdated={onUpdated} onClose={onClose} onToast={onToast} />
+                            <LeadProcurementDrawer
+                                lead={data}
+                                userRole={userRole}
+                                onUpdated={onUpdated}
+                                onClose={onClose}
+                                onToast={onToast}
+                                isWorkspaceEmbedded={true}
+                                externalEditingCustomer={isEditingCustomer}
+                                onToggleCustomerEdit={() => setIsEditingCustomer((v) => !v)}
+                                onItemCountChange={setWorkspaceItemsCount}
+                            />
                         </div>
                     ) : (
                         <div className="lw-pad">
@@ -413,7 +460,16 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
                 {tab === "estimation" && (
                     stage === "FOLLOW_UP" ? (
                         <div className="lw-embed">
-                            <LeadFollowUpDrawer lead={lead} onUpdated={onUpdated} onClose={onClose} onToast={onToast} />
+                            <LeadFollowUpDrawer
+                                lead={data}
+                                onUpdated={onUpdated}
+                                onClose={onClose}
+                                onToast={onToast}
+                                isWorkspaceEmbedded={true}
+                                externalEditingCustomer={isEditingCustomer}
+                                onToggleCustomerEdit={() => setIsEditingCustomer((v) => !v)}
+                                onItemCountChange={setWorkspaceItemsCount}
+                            />
                         </div>
                     ) : closed ? (
                         <EstimationHistory leadId={leadId} />

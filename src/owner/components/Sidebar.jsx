@@ -302,6 +302,7 @@ function Sidebar() {
     return (
         <>
             <aside
+                className={collapsed ? "dashboard-sidebar-wrap dashboard-sidebar-wrap--collapsed" : "dashboard-sidebar-wrap"}
                 style={{
                     width: `${sidebarWidth}px`,
                     backgroundColor: "#0A1128", // Solid clean dark slate navy

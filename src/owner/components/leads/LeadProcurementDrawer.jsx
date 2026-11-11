@@ -152,6 +152,10 @@ function LeadProcurementDrawer({
     onToast,
     onCustomerEdit,
     assignees,
+    isWorkspaceEmbedded = false,
+    externalEditingCustomer,
+    onToggleCustomerEdit,
+    onItemCountChange,
 }) {
     const [loading, setLoading] = useState(true);
     const [savingItemId, setSavingItemId] = useState(null);
@@ -187,7 +191,8 @@ function LeadProcurementDrawer({
         || Boolean(procurementLead && !["NEW", "PROCUREMENT"].includes(procurementLead.status));
 
     /* ---- UI-only state: customer edit toggle, activity, pipeline ---- */
-    const [editingCustomer, setEditingCustomer] = useState(false);
+    const [localEditingCustomer, setLocalEditingCustomer] = useState(false);
+    const editingCustomer = externalEditingCustomer !== undefined ? externalEditingCustomer : localEditingCustomer;
     const [customerEdits, setCustomerEdits] = useState({});
 
     const [activities, setActivities] = useState([]);
@@ -328,9 +333,18 @@ function LeadProcurementDrawer({
     const vinNumber = firstValue(
         procurementLead?.vinNumber,
         procurementLead?.vin,
+        procurementLead?.vehicleVin,
+        procurementLead?.vehicle?.vin,
+        procurementLead?.vehicle?.vinNumber,
+        procurementLead?.items?.find((it) => it.vin || it.vinNumber)?.vin,
+        procurementLead?.items?.find((it) => it.vin || it.vinNumber)?.vinNumber,
         lead?.vinNumber,
-        lead?.vin
-    );
+        lead?.vin,
+        lead?.vehicleVin,
+        lead?.vehicle?.vin,
+        lead?.items?.find((it) => it.vin || it.vinNumber)?.vin,
+        lead?.items?.find((it) => it.vin || it.vinNumber)?.vinNumber
+    ) || "";
 
     const salespersonName =
         firstValue(
@@ -846,10 +860,15 @@ const deleteItem = async (item) => {
     }
 };
 
+    useEffect(() => {
+        onItemCountChange?.(items.length);
+    }, [items.length, onItemCountChange]);
+
     /* ---- UI-only handlers ---- */
     const shownCustomer = {
         name: customerEdits.name ?? customerName,
         phone: customerEdits.phone ?? customerPhone,
+        vinNumber: customerEdits.vinNumber ?? vinNumber,
         salesperson: customerEdits.salesperson ?? salespersonName,
     };
 
@@ -859,10 +878,15 @@ const deleteItem = async (item) => {
             onCustomerEdit?.({
                 customerName: shownCustomer.name,
                 customerPhone: shownCustomer.phone,
+                vinNumber: shownCustomer.vinNumber,
                 salespersonName: shownCustomer.salesperson,
             });
         }
-        setEditingCustomer((current) => !current);
+        if (onToggleCustomerEdit) {
+            onToggleCustomerEdit();
+        } else {
+            setLocalEditingCustomer((current) => !current);
+        }
     };
 
     const updateCustomerEdit = (field, value) =>
@@ -1095,207 +1119,245 @@ const deleteItem = async (item) => {
 
     return (
         <div className="pd-root lead-drawer-container">
-            <header className="pd-header">
-    <div className="pd-header-top">
-        <div className="pd-header-title">
-            <span className="pd-tag">PROCUREMENT</span>
-            <h2>{leadNumber}</h2>
-            <span className="pd-badge">{items.length} Items</span>
-            <button
-                type="button"
-                className={`pd-icon-btn pd-edit-toggle${editingCustomer ? " is-active" : ""}`}
-                onClick={toggleCustomerEdit}
-                aria-pressed={editingCustomer}
-                aria-label={editingCustomer ? "Finish editing customer info" : "Edit customer info"}
-                title={editingCustomer ? "Done editing" : "Edit customer info"}
-            >
-                {editingCustomer ? <Check size={15} /> : <Pencil size={14} />}
-            </button>
-        </div>
-        <button type="button" className="pd-icon-btn pd-close" onClick={onClose} aria-label="Close procurement">
-            <X size={17} />
-        </button>
-    </div>
-</header>
-
-            <div className="pd-split drawer-body-grid">
-                <div className="pd-left">
-                    <section className="pd-card pd-info" aria-label="Customer details">
-                        <h3 className="pd-section-title">Customer Info</h3>
-                        <div className="pd-meta-row">
-                        <MetaField label="Customer" value={shownCustomer.name} editing={editingCustomer}
-                            onChange={(v) => updateCustomerEdit("name", v)} placeholder="Not available" />
-                        <MetaField label="Mobile" value={shownCustomer.phone} editing={editingCustomer}
-                            onChange={(v) => updateCustomerEdit("phone", v)} placeholder="Not available" />
-                        {vinNumber && <MetaField label="VIN Number" value={vinNumber} />}
-                        <MetaField label="Salesperson" value={shownCustomer.salesperson} editing={editingCustomer}
-                            onChange={(v) => updateCustomerEdit("salesperson", v)} placeholder="Not available" />
-                        <label className="pd-meta-field">
-                            <span>Lead ID</span>
-                            <input type="text" value={leadNumber} readOnly />
-                        </label>
+            {!isWorkspaceEmbedded && (
+                <header className="pd-header">
+                    <div className="pd-header-top">
+                        <div className="pd-header-title">
+                            <span className="pd-tag">PROCUREMENT</span>
+                            <h2>{leadNumber}</h2>
+                            <span className="pd-badge">{items.length} Items</span>
+                            <button
+                                type="button"
+                                className={`pd-icon-btn pd-edit-toggle${editingCustomer ? " is-active" : ""}`}
+                                onClick={toggleCustomerEdit}
+                                aria-pressed={editingCustomer}
+                                aria-label={editingCustomer ? "Finish editing customer info" : "Edit customer info"}
+                                title={editingCustomer ? "Done editing" : "Edit customer info"}
+                            >
+                                {editingCustomer ? <Check size={15} /> : <Pencil size={14} />}
+                            </button>
+                        </div>
+                        <button type="button" className="pd-icon-btn pd-close" onClick={onClose} aria-label="Close procurement">
+                            <X size={17} />
+                        </button>
                     </div>
+                </header>
+            )}
+
+            <div className="pd-procurement-layout">
+                {/* ======================= LEFT COLUMN: Context & Info ======================= */}
+                <div className="pd-col-info">
+                    {/* 1. Customer Info (takes half width) */}
+                    <section className="pd-card pd-info" aria-label="Customer details">
+                        <div className="pd-card-header-row">
+                            <h3 className="pd-section-title">Customer Info</h3>
+                            {!isWorkspaceEmbedded && (
+                                <button
+                                    type="button"
+                                    className={`pd-icon-btn pd-edit-toggle${editingCustomer ? " is-active" : ""}`}
+                                    onClick={toggleCustomerEdit}
+                                    title={editingCustomer ? "Done editing" : "Edit customer info"}
+                                >
+                                    {editingCustomer ? <Check size={14} /> : <Pencil size={13} />}
+                                </button>
+                            )}
+                        </div>
+                        <div className="pd-meta-row">
+                            <MetaField label="Customer" value={shownCustomer.name} editing={editingCustomer}
+                                onChange={(v) => updateCustomerEdit("name", v)} placeholder="Not available" />
+                            <MetaField label="Mobile" value={shownCustomer.phone} editing={editingCustomer}
+                                onChange={(v) => updateCustomerEdit("phone", v)} placeholder="Not available" />
+                            <MetaField label="VIN Number" value={shownCustomer.vinNumber || "—"} />
+                            <MetaField label="Salesperson" value={shownCustomer.salesperson} editing={editingCustomer}
+                                onChange={(v) => updateCustomerEdit("salesperson", v)} placeholder="Not available" />
+                            <label className="pd-meta-field">
+                                <span>Lead ID</span>
+                                <input type="text" value={leadNumber} readOnly />
+                            </label>
+                        </div>
                     </section>
-            {/* ======================= BODY ======================= */}
-            <main className="pd-body pd-main">
-                {errorMessage && <div className="pd-alert pd-alert--error">{errorMessage}</div>}
-                {successMessage && <div className="pd-alert pd-alert--success">{successMessage}</div>}
 
-                <CustomerRequirementTable
-                    requirement={customerRequirement}
-                    changes={pendingChanges.map((change) => {
-                        const item = (procurementLead?.items || []).find((row) => row.id === change.itemId);
-                        return {
-                            id: change.id,
-                            title: change.requestedRequirement || item?.requirement || item?.productName || item?.partNumber,
-                            quantity: change.requestedQuantity,
-                            reason: change.reason,
-                        };
-                    })}
-                />
-
-                <SectionCard title="Add Parts" defaultOpen>
-                    <div className="pd-entry-row">
-                        {activeEntryTab === "single" && (
-                            <div className="pd-search">
-                                <input
-                                    aria-label="Part number search"
-                                    value={entryPartNumber}
-                                    onChange={(e) => changeEntry(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            setEntryLoading(true);
-                                            lookupEntry(entryPartNumber, ++entryVersion.current);
-                                        }
-                                    }}
-                                    disabled={entryDisabled}
-                                    placeholder="Enter part number and press Enter"
-                                />
-                                {entryLoading && <Loader2 size={14} className="spin" />}
+                    {/* 2. Side-by-side: LEAD Assignment & Customer Requirement */}
+                    <div className="pd-mid-grid">
+                        <section className="pd-card pd-assignment-card" aria-label="Lead assignment">
+                            <h3 className="pd-section-title">Lead Assignment</h3>
+                            <div className="pd-assignment-content">
+                                <div className="pd-assign-item">
+                                    <span className="pd-assign-label">Created by</span>
+                                    <span className="pd-assign-val">{procurementLead?.createdByName || "—"}</span>
+                                </div>
+                                <div className="pd-assign-item">
+                                    <span className="pd-assign-label">Procurement person</span>
+                                    <span className="pd-assign-val">{procurementLead?.procurementUserName || "—"}</span>
+                                </div>
+                                <div className="pd-assign-item">
+                                    <span className="pd-assign-label">Assigned salesperson</span>
+                                    <span className="pd-assign-val">{salespersonName}</span>
+                                </div>
                             </div>
-                        )}
+                        </section>
 
-                        <div className="pd-segmented">
-                            <button
-                                type="button"
-                                className={activeEntryTab === "single" ? "is-active" : ""}
-                                onClick={() => setActiveEntryTab("single")}
-                            >
-                                Single Part Entry
-                            </button>
-                            <button
-                                type="button"
-                                className={activeEntryTab === "bulk" ? "is-active" : ""}
-                                onClick={() => setActiveEntryTab("bulk")}
-                            >
-                                Paste Multiple Parts
-                            </button>
+                        <div className="pd-req-wrapper">
+                            <CustomerRequirementTable
+                                requirement={customerRequirement}
+                                changes={pendingChanges.map((change) => {
+                                    const item = (procurementLead?.items || []).find((row) => row.id === change.itemId);
+                                    return {
+                                        id: change.id,
+                                        title: change.requestedRequirement || item?.requirement || item?.productName || item?.partNumber,
+                                        quantity: change.requestedQuantity,
+                                        reason: change.reason,
+                                    };
+                                })}
+                            />
                         </div>
                     </div>
 
-                    {activeEntryTab === "bulk" && (
-                        <div className="pd-bulk">
-                            <textarea
-                                rows={4}
-                                aria-label="Bulk part numbers"
-                                value={bulkPartsText}
-                                onChange={(e) => setBulkPartsText(e.target.value)}
-                                disabled={entryDisabled}
-                                placeholder="One part number per line"
-                            />
-                            <div className="pd-bulk-footer">
-                                <span>Up to 100 part numbers. Duplicates are skipped.</span>
+                    {/* 3. Activity & Notes */}
+                    <div className="pd-activity-wrapper">
+                        <ActivityLogStream entries={trail} onAdd={addActivity} disabled={readOnly} />
+                    </div>
+                </div>
+
+                {/* ======================= RIGHT COLUMN: Procurement Work Area ======================= */}
+                <div className="pd-col-procurement">
+                    {errorMessage && <div className="pd-alert pd-alert--error">{errorMessage}</div>}
+                    {successMessage && <div className="pd-alert pd-alert--success">{successMessage}</div>}
+
+                    {/* Add Parts */}
+                    <SectionCard title="Add Parts" defaultOpen>
+                        <div className="pd-entry-row">
+                            {activeEntryTab === "single" && (
+                                <div className="pd-search">
+                                    <input
+                                        aria-label="Part number search"
+                                        value={entryPartNumber}
+                                        onChange={(e) => changeEntry(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                setEntryLoading(true);
+                                                lookupEntry(entryPartNumber, ++entryVersion.current);
+                                            }
+                                        }}
+                                        disabled={entryDisabled}
+                                        placeholder="Enter part number and press Enter"
+                                    />
+                                    {entryLoading && <Loader2 size={14} className="spin" />}
+                                </div>
+                            )}
+
+                            <div className="pd-segmented">
                                 <button
                                     type="button"
-                                    className="pd-btn pd-btn--primary pd-btn--sm"
-                                    onClick={handleBulkLookup}
-                                    disabled={entryDisabled || entryLoading}
+                                    className={activeEntryTab === "single" ? "is-active" : ""}
+                                    onClick={() => setActiveEntryTab("single")}
                                 >
-                                    {bulkLoading ? "Checking..." : "Check Parts"}
+                                    Single Part Entry
+                                </button>
+                                <button
+                                    type="button"
+                                    className={activeEntryTab === "bulk" ? "is-active" : ""}
+                                    onClick={() => setActiveEntryTab("bulk")}
+                                >
+                                    Paste Multiple Parts
                                 </button>
                             </div>
                         </div>
-                    )}
-                </SectionCard>
 
-                <section className="pd-card">
-                    <div className="pd-table-head">
-                        <div className="pd-table-title">
-                            <h3>Procurement Items</h3>
-                            <span className="pd-badge">{items.length}</span>
+                        {activeEntryTab === "bulk" && (
+                            <div className="pd-bulk">
+                                <textarea
+                                    rows={4}
+                                    aria-label="Bulk part numbers"
+                                    value={bulkPartsText}
+                                    onChange={(e) => setBulkPartsText(e.target.value)}
+                                    disabled={entryDisabled}
+                                    placeholder="One part number per line"
+                                />
+                                <div className="pd-bulk-footer">
+                                    <span>Up to 100 part numbers. Duplicates are skipped.</span>
+                                    <button
+                                        type="button"
+                                        className="pd-btn pd-btn--primary pd-btn--sm"
+                                        onClick={handleBulkLookup}
+                                        disabled={entryDisabled || entryLoading}
+                                    >
+                                        {bulkLoading ? "Checking..." : "Check Parts"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </SectionCard>
+
+                    {/* Procurement Items Table */}
+                    <section className="pd-card pd-table-card">
+                        <div className="pd-table-head">
+                            <div className="pd-table-title">
+                                <h3>Procurement Items</h3>
+                                <span className="pd-badge">{items.length}</span>
+                            </div>
+
+                            <div className="pd-chips" aria-label="Procurement summary">
+                                <span className="pd-chip pd-chip--total">
+                                    <i />Total <strong>{items.length}</strong>
+                                </span>
+                                <span className="pd-chip pd-chip--d2w">
+                                    <i />D2W <strong>{totalInternal}</strong>
+                                </span>
+                                <span className="pd-chip pd-chip--vendor">
+                                    <i />Vendor <strong>{totalVendor}</strong>
+                                </span>
+                                <span className="pd-chip pd-chip--na">
+                                    <i />Not Available <strong>{totalNotAvailable}</strong>
+                                </span>
+                            </div>
+                            <div className="lpt-total-chip pd-total-chip" aria-label="Total MRP">
+                                <span>Total MRP</span>
+                                <strong>{formatMrp(totalMrp)}</strong>
+                            </div>
                         </div>
 
-                        <div className="pd-chips" aria-label="Procurement summary">
-                            <span className="pd-chip pd-chip--total">
-                                <i />Total <strong>{items.length}</strong>
-                            </span>
-                            <span className="pd-chip pd-chip--d2w">
-                                <i />D2W <strong>{totalInternal}</strong>
-                            </span>
-                            <span className="pd-chip pd-chip--vendor">
-                                <i />Vendor <strong>{totalVendor}</strong>
-                            </span>
-                            <span className="pd-chip pd-chip--na">
-                                <i />Not Available <strong>{totalNotAvailable}</strong>
-                            </span>
-                        </div>
-                        <div className="lpt-total-chip pd-total-chip" aria-label="Total MRP">
-                            <span>Total MRP</span>
-                            <strong>{formatMrp(totalMrp)}</strong>
-                        </div>
-                    </div>
-
-                    {loading ? (
-                        <div className="pd-state">Loading procurement items...</div>
-                    ) : items.length === 0 ? (
-                        <div className="pd-state">Enter a part number below to start Procurement.</div>
-                    ) : (
-                        <div className="pd-table-wrap">
-                            <fieldset
-                                disabled={loading || bulkLoading || readOnly || savingItemId !== null || completing}
-                                className="pd-fieldset"
-                            >
-                                <table className="pd-table procurement-grid-table">
-                                    <colgroup>
-                                        <col style={{ width: "16%" }} />
-                                        <col style={{ width: "22%" }} />
-                                        <col style={{ width: "11%" }} />
-                                        <col style={{ width: "9%" }} />
-                                        <col style={{ width: "12%" }} />
-                                        <col style={{ width: "14%" }} />
-                                        <col style={{ width: "12%" }} />
-                                        <col style={{ width: "56px" }} />
-                                    </colgroup>
-                                    <thead>
-                                        <tr>
-                                            <th>Part Number</th>
-                                            <th>Part Name</th>
-                                            <th>MRP</th>
-                                            <th>Req. Qty</th>
-                                            <th>Source</th>
-                                            <th>Availability</th>
-                                            <th>Est. Date</th>
-                                            <th aria-label="Actions" />
-                                        </tr>
-                                    </thead>
-                                    <tbody>{items.map(renderEditableRow)}</tbody>
-                                </table>
-                            </fieldset>
-                        </div>
-                    )}
-                </section>
-            </main>
-                </div>
-                <aside className="pd-side" aria-label="Activity and schedule">
-                    <section className="pd-schedule" aria-label="Lead assignment">
-                        <h3 className="pd-side-title">Lead Assignment</h3>
-                        <p><strong>Created by</strong><br />{procurementLead?.createdByName || "—"}</p>
-                        <p><strong>Procurement person</strong><br />{procurementLead?.procurementUserName || "—"}</p>
-                        <p><strong>Assigned salesperson</strong><br />{salespersonName}</p>
+                        {loading ? (
+                            <div className="pd-state">Loading procurement items...</div>
+                        ) : items.length === 0 ? (
+                            <div className="pd-state">Enter a part number above to start Procurement.</div>
+                        ) : (
+                            <div className="pd-table-wrap">
+                                <fieldset
+                                    disabled={loading || bulkLoading || readOnly || savingItemId !== null || completing}
+                                    className="pd-fieldset"
+                                >
+                                    <table className="pd-table procurement-grid-table">
+                                        <colgroup>
+                                            <col style={{ width: "16%" }} />
+                                            <col style={{ width: "20%" }} />
+                                            <col style={{ width: "9%" }} />
+                                            <col style={{ width: "9%" }} />
+                                            <col style={{ width: "12%" }} />
+                                            <col style={{ width: "14%" }} />
+                                            <col style={{ width: "15%" }} />
+                                            <col style={{ width: "50px" }} />
+                                        </colgroup>
+                                        <thead>
+                                            <tr>
+                                                <th>Part Number</th>
+                                                <th>Part Name</th>
+                                                <th>MRP</th>
+                                                <th>Req. Qty</th>
+                                                <th>Source</th>
+                                                <th>Availability</th>
+                                                <th>Est. Date</th>
+                                                <th className="pd-th-action">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>{items.map(renderEditableRow)}</tbody>
+                                    </table>
+                                </fieldset>
+                            </div>
+                        )}
                     </section>
-                    <ActivityLogStream entries={trail} onAdd={addActivity} disabled={readOnly} />
-                </aside>
+                </div>
             </div>
 
             {/* ======================= FOOTER ======================= */}
