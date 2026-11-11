@@ -651,27 +651,27 @@ export default function LeadFollowUpDrawer({
               <div className="lpt-table-wrap pd-table-wrap">
                 <table className="lpt-table lpt-table--followup-lite procurement-grid-table">
                   <colgroup>
-                    <col style={{ width: "14%" }} />
-                    <col style={{ width: "19%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "12%" }} />
-                    <col style={{ width: "13%" }} />
-                    <col style={{ width: "13%" }} />
-                    <col style={{ width: "52px" }} />
+                    <col style={{ width: "130px" }} />
+                    <col style={{ width: "170px" }} />
+                    <col style={{ width: "105px" }} />
+                    <col style={{ width: "85px" }} />
+                    <col style={{ width: "95px" }} />
+                    <col style={{ width: "125px" }} />
+                    <col style={{ width: "135px" }} />
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "50px" }} />
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>Part Number</th>
-                      <th>Part Name</th>
-                      <th>MRP</th>
-                      <th>Req. Qty</th>
-                      <th>Source</th>
-                      <th>Vendor</th>
-                      <th>Availability</th>
-                      <th>ETA</th>
-                      <th className="lpt-col-action pd-th-action">Action</th>
+                      <th style={{ width: "130px" }}>Part Number</th>
+                      <th style={{ width: "170px" }}>Part Name</th>
+                      <th style={{ width: "105px" }}>MRP</th>
+                      <th style={{ width: "85px" }}>Req. Qty</th>
+                      <th style={{ width: "95px" }}>Source</th>
+                      <th style={{ width: "125px" }}>Vendor</th>
+                      <th style={{ width: "135px" }}>Availability</th>
+                      <th style={{ width: "120px" }}>ETA</th>
+                      <th className="lpt-col-action pd-th-action" style={{ width: "50px" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -39,6 +39,10 @@ const NewSalePage = lazy(
   () => import("../../sales/pages/NewSalePage")
 );
 
+const SaleBulkUploadPage = lazy(
+  () => import("../../sales/pages/SaleBulkUploadPage")
+);
+
 const ProformaListPage = lazy(
   () => import("../../sales/pages/ProformaListPage")
 );
@@ -177,6 +181,7 @@ function StoreRoutes() {
           path="/sales/new"
           element={<NewSalePage />}
         />
+        <Route path="/sales/import-items" element={<SaleBulkUploadPage />} />
 
         <Route
           path="/sales/proforma"
