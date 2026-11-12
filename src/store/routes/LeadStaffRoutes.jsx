@@ -14,7 +14,16 @@ export default function LeadStaffRoutes({ role }) {
       <Routes>
         <Route path="/" element={<Navigate to={`${base}/sales/leads`} replace />} />
         <Route path="/dashboard" element={<Navigate to={`${base}/sales/leads`} replace />} />
-        <Route path="/sales/leads" element={<DashboardLayout><LeadList /></DashboardLayout>} />
+        <Route
+          path="/sales/leads"
+          element={
+            <DashboardLayout>
+              <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
+                <LeadList />
+              </Suspense>
+            </DashboardLayout>
+          }
+        />
         <Route path="/sales/leads/:id" element={<DashboardLayout><LeadDetails /></DashboardLayout>} />
         {["SALESPERSON", "PROCUREMENT"].includes(role) && (
           <Route path="/sales/leads/new" element={
