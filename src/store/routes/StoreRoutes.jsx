@@ -158,7 +158,9 @@ function StoreRoutes() {
           path="/sales/leads"
           element={
             <DashboardLayout>
-              <LeadList />
+              <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
+                <LeadList />
+              </Suspense>
             </DashboardLayout>
           }
         />
