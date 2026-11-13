@@ -4589,3 +4589,15 @@
     font-weight: 600 !important;
 }
 
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(1) { width: var(--fu-col-pn, 17%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(2) { width: var(--fu-col-name, 16%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(3) { width: var(--fu-col-mrp, 12%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(4) { width: var(--fu-col-qty, 8%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(5) { width: var(--fu-col-src, 10%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(6) { width: var(--fu-col-vendor, 11%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(7) { width: var(--fu-col-avail, 13%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(8) { width: var(--fu-col-eta, 13%) !important; }
+.lpt-table--followup-lite.procurement-grid-table.is-col-resized { min-width: var(--fu-table-min, 860px) !important; }
+.lpt-table--followup-lite.procurement-grid-table th.fu-th-resizable { position: relative; }
+.fu-col-resizer { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; z-index: 2; }
+.fu-col-resizer:hover, .fu-col-resizer:active { background: rgba(37, 99, 235, 0.35); }
