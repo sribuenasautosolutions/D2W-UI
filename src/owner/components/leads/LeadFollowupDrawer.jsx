@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Trash2, Download, Plus, Pencil, Check } from "lucide-react";
 
 import {
@@ -54,6 +54,19 @@ function MetaField({ label, value, editing, onChange }) {
   );
 }
 
+const FU_BASE_MIN_WIDTH = 860;
+const FU_RESIZE_MAX = 480;
+const FU_COLUMNS = [
+  { key: "pn",     label: "Part Number",  min: 96, nominal: 146 },
+  { key: "name",   label: "Part Name",    min: 90, nominal: 138 },
+  { key: "mrp",    label: "MRP",          min: 92, nominal: 103 },
+  { key: "qty",    label: "Req. Qty",     min: 56, nominal: 69 },
+  { key: "src",    label: "Source",       min: 64, nominal: 86 },
+  { key: "vendor", label: "Vendor",       min: 70, nominal: 95 },
+  { key: "avail",  label: "Availability", min: 90, nominal: 112 },
+  { key: "eta",    label: "ETA",          min: 90, nominal: 112 },
+];
+
 export default function LeadFollowUpDrawer({
   lead,
   onClose,
@@ -69,6 +82,52 @@ export default function LeadFollowUpDrawer({
   const [fullLead, setFullLead] = useState(() => lead || null);
   const [loading, setLoading] = useState(() => !lead?.items?.length && !lead?.customerRequirement);
   const [busy, setBusy] = useState(false);
+  const [colPx, setColPx] = useState({});
+
+const startColResize = useCallback((col, event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startW = event.currentTarget.parentElement.getBoundingClientRect().width;
+  const onMove = (e) => {
+    const next = Math.min(FU_RESIZE_MAX, Math.max(col.min, Math.round(startW + e.clientX - startX)));
+    setColPx((prev) => (prev[col.key] === next ? prev : { ...prev, [col.key]: next }));
+  };
+  const onUp = () => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}, []);
+
+const resetColWidth = useCallback((key) => {
+  setColPx((prev) => {
+    if (!(key in prev)) return prev;
+    const rest = { ...prev };
+    delete rest[key];
+    return rest;
+  });
+}, []);
+
+const colResized = Object.keys(colPx).length > 0;
+const colTableStyle = colResized
+  ? FU_COLUMNS.reduce(
+      (style, col) => {
+        const px = colPx[col.key];
+        if (px != null) {
+          style[`--fu-col-${col.key}`] = `${px}px`;
+          style.__extra += Math.max(0, px - col.nominal);
+        }
+        return style;
+      },
+      { __extra: 0 },
+    )
+  : undefined;
+if (colTableStyle) {
+  colTableStyle["--fu-table-min"] = `${FU_BASE_MIN_WIDTH + colTableStyle.__extra}px`;
+  delete colTableStyle.__extra;
+}
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -649,7 +708,7 @@ export default function LeadFollowUpDrawer({
               <div className="lpt-state">No procurement items recorded for this lead.</div>
             ) : (
               <div className="lpt-table-wrap pd-table-wrap">
-                <table className="lpt-table lpt-table--followup-lite procurement-grid-table">
+               <table className={`lpt-table lpt-table--followup-lite procurement-grid-table${colResized ? " is-col-resized" : ""}`} style={colTableStyle}>
                   <colgroup>
                     <col style={{ width: "130px" }} />
                     <col style={{ width: "170px" }} />
@@ -661,19 +720,25 @@ export default function LeadFollowUpDrawer({
                     <col style={{ width: "120px" }} />
                     <col style={{ width: "50px" }} />
                   </colgroup>
-                  <thead>
+                                    <thead>
                     <tr>
-                      <th style={{ width: "130px" }}>Part Number</th>
-                      <th style={{ width: "170px" }}>Part Name</th>
-                      <th style={{ width: "105px" }}>MRP</th>
-                      <th style={{ width: "85px" }}>Req. Qty</th>
-                      <th style={{ width: "95px" }}>Source</th>
-                      <th style={{ width: "125px" }}>Vendor</th>
-                      <th style={{ width: "135px" }}>Availability</th>
-                      <th style={{ width: "120px" }}>ETA</th>
+                      {FU_COLUMNS.map((col) => (
+                        <th key={col.key} className="fu-th-resizable">
+                          {col.label}
+                          <span
+                            className="fu-col-resizer"
+                            role="separator"
+                            aria-orientation="vertical"
+                            aria-label={`Resize ${col.label} column (double-click to reset)`}
+                            onPointerDown={(e) => startColResize(col, e)}
+                            onDoubleClick={() => resetColWidth(col.key)}
+                          />
+                        </th>
+                      ))}
                       <th className="lpt-col-action pd-th-action" style={{ width: "50px" }}>Action</th>
                     </tr>
                   </thead>
+                  <tbody></tbody>
                   <tbody>
                     {items.map((item, index) => (
                       <tr key={item.id || index}>

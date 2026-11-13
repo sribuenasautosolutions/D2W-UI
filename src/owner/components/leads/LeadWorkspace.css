@@ -40,6 +40,17 @@
     gap: 12px;
 }
 
+/* Scrolling for every workspace tab.
+   Cards have overflow:hidden, so inside a flex column they would shrink and clip their own
+   content instead of letting the container scroll. Keep natural height so the scroll
+   container (.lw-pad, or the column in the embedded Procurement / Estimation tabs) scrolls.
+   - Details, History, Past Estimations, "Procurement finished": scroll via .lw-pad
+   - Procurement / Estimation (embedded drawers): left and right columns scroll independently
+   - Chat keeps its own message-list scrolling */
+.lw-pad > * { flex-shrink: 0; }
+.lw-embed .pd-col-info > *,
+.lw-embed .pd-col-procurement > * { flex-shrink: 0; }
+
 .lw-details-top-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
