@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, FilterX, History, Search } from "lucide-react";
-import api from "../../../services/api";
+import { getActiveStoresCached } from "../../../services/storeService";
 import { getInventoryTransactionsPage } from "../../../services/inventoryTransactionService";
 
 const transactionTypes = ["STOCK_IN", "STOCK_OUT", "SALE", "RETURN", "ADJUSTMENT", "DAMAGED"];
@@ -34,7 +34,7 @@ export default function InventoryTransactionsSection() {
 
   useEffect(() => {
     if (!isSuperAdmin) return;
-    api.get("/stores", { params: { page: 0, size: 100, active: true } }).then((response) => {
+    getActiveStoresCached().then((response) => {
       const active = Array.isArray(response.data?.content) ? response.data.content : [];
       setStores(active);
     }).catch(() => setError("Unable to load stores"));

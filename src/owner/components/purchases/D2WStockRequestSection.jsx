@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CirclePlus, Clock3, PackagePlus, Search, Send, Trash2, Warehouse } from "lucide-react";
-import api from "../../../services/api";
+import { getActiveStoresCached } from "../../../services/storeService";
 import {
   createD2WStockRequest,
   getD2WStockRequests,
@@ -64,7 +64,7 @@ export default function D2WStockRequestSection() {
 
   useEffect(() => {
     if (!isSuperAdmin) return;
-    api.get("/stores", { params: { page: 0, size: 100, active: true } })
+    getActiveStoresCached()
       .then((response) => {
         const content = Array.isArray(response.data?.content) ? response.data.content : [];
         setStores(content.filter((store) => store.storeType !== "WAREHOUSE"));

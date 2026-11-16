@@ -1,6 +1,4 @@
-
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import POSLayout from "../layouts/POSLayout";
 import POSVehicleSelector from "../components/vehicle/POSVehicleSelector";
 import ProductCard from "../../pos/components/product/ProductCard";
@@ -83,22 +81,37 @@ function POSPage() {
         }
     };
 
-    const handleSearchChange = async (text) => {
-        setCurrentPage(1);
-        setSearchText(text);
-        if (text.trim() === "") {
-            setSearchResults([]);
-            if (selectedVariant) await loadProducts();
-            else await loadStoreInventory(1);
-            return;
-        }
+const searchTimer = useRef(null);
+const searchController = useRef(null);
+useEffect(() => () => {
+    clearTimeout(searchTimer.current);
+    searchController.current?.abort();
+}, []);
+
+const handleSearchChange = (text) => {
+    setCurrentPage(1);
+    setSearchText(text);
+    clearTimeout(searchTimer.current);
+    searchController.current?.abort();
+
+    if (text.trim() === "") {
+        setSearchResults([]);
+        if (selectedVariant) loadProducts();
+        else loadStoreInventory(1);
+        return;
+    }
+
+    searchTimer.current = setTimeout(async () => {
+        const controller = new AbortController();
+        searchController.current = controller;
         try {
-            const data = await searchProducts(text, selectedStoreId);
-            setSearchResults(data);
+            const data = await searchProducts(text, selectedStoreId, controller.signal);
+            if (!controller.signal.aborted) setSearchResults(data);
         } catch (error) {
-            console.error(error);
+            if (error?.code !== "ERR_CANCELED" && error?.name !== "CanceledError") console.error(error);
         }
-    };
+    }, 300);
+};
 
     const handleHomeClick = async () => {
         setSelectedVariant("");
