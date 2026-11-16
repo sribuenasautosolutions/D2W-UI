@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../../services/api";
+import { getActiveStoresCached } from "../../../services/storeService";
 import BulkUploadShell from "./BulkUploadShell";
 
 import "./BulkUploadSection.css";
@@ -162,8 +163,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
 
   useEffect(() => {
     if (!isSuperAdmin) return;
-    api
-      .get("/stores", { params: { page: 0, size: 100, active: true } })
+    getActiveStoresCached()
       .then(({ data }) => setStores(Array.isArray(data?.content) ? data.content : []))
       .catch(() => setError("Unable to load stores."));
   }, [isSuperAdmin]);

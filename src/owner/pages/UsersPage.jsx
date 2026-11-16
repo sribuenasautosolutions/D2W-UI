@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronLeft, ChevronRight, CirclePlus, Eye, EyeOff, KeyRound, Mail, Pencil, Phone, Search, ShieldCheck, UserRound, X } from "lucide-react";
 import api from "../../services/api";
+import { getActiveStoresCached } from "../../services/storeService";
 
 const emptyForm = {
     name: "",
@@ -94,7 +95,7 @@ function UsersPage() {
 
                 if (isSuperAdmin) {
                     requests.push(
-                        api.get("/stores", { params: { page: 0, size: 100, active: true } }).then((response) => {
+                    getActiveStoresCached().then((response) => {
                             setStores(Array.isArray(response.data?.content) ? response.data.content : []);
                         })
                     );

@@ -4,6 +4,7 @@ import {
   MoreHorizontal, PackageCheck, ReceiptText, RotateCcw, Search, Trash2, Upload, X,
 } from "lucide-react";
 import api from "../../../services/api";
+import { getActiveStoresCached } from "../../../services/storeService";
 import VendorBillBulkUploader from "./VendorBillBulkUploader";
 import VendorPurchaseInvoiceView from "./VendorPurchaseInvoiceView";
 import "./VendorPurchasesSection.css";
@@ -540,7 +541,7 @@ function ManualStockReceipt() {
 
   const loadStores = async () => {
     if (!isSuperAdmin || stores.length) return;
-    const res = await api.get("/stores", { params: { page: 0, size: 100, active: true } });
+    const res = await getActiveStoresCached()
     setStores(Array.isArray(res.data?.content) ? res.data.content : []);
   };
 
