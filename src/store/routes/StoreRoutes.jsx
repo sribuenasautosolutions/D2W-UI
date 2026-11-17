@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import DashboardLayout from "../../owner/layouts/DashboardLayout";
+import ProtectedRoute from "../../auth/ProtectedRoute";
 
 const LeadDetails = lazy(
   () => import("../../owner/components/leads/LeadDetails")
@@ -25,6 +26,10 @@ const PurchasesPage = lazy(
 
 const UsersPage = lazy(
   () => import("../../owner/pages/UsersPage")
+);
+
+const RoleManagementPage = lazy(
+  () => import("../../owner/pages/RoleManagementPage")
 );
 
 const InvoicePage = lazy(
@@ -91,196 +96,287 @@ function StoreRoutes() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <Routes>
-
         <Route
           path="/sales/proforma/:id/lead"
           element={
-            <DashboardLayout>
-              <LeadOfferPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.VIEW", "LEADS.VIEW"]}>
+              <DashboardLayout>
+                <LeadOfferPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/sales/leads/:id"
           element={
-            <DashboardLayout>
-              <LeadDetails />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW"]}>
+              <DashboardLayout>
+                <LeadDetails />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/dashboard"
           element={
-            <DashboardLayout>
-              <DashboardHome />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["DASHBOARD.VIEW"]}>
+              <DashboardLayout>
+                <DashboardHome />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/inventory"
           element={
-            <DashboardLayout>
-              <InventoryPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["INVENTORY.VIEW"]}>
+              <DashboardLayout>
+                <InventoryPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/inventory/products/:inventoryId/manage"
-          element={<ProductManagePage />}
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["INVENTORY.VIEW"]}>
+              <ProductManagePage />
+            </ProtectedRoute>
+          }
         />
+
         <Route
           path="/purchases"
           element={
-            <DashboardLayout>
-              <PurchasesPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["PURCHASE_ORDERS.VIEW", "VENDORS.VIEW"]}>
+              <DashboardLayout>
+                <PurchasesPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/sales"
           element={
-            <DashboardLayout>
-              <SalesPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.VIEW"]}>
+              <DashboardLayout>
+                <SalesPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/sales/leads"
           element={
-            <DashboardLayout>
-              <LeadList />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW"]}>
+              <DashboardLayout>
+                <LeadList />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
-        <Route path="/sales/leads/chats" element={<DashboardLayout><WhatsAppChats /></DashboardLayout>} />
+        <Route
+          path="/sales/leads/chats"
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
+              <DashboardLayout>
+                <WhatsAppChats />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/sales/leads/whatsapp" element={<DashboardLayout><WhatsAppConnect /></DashboardLayout>} />
+        <Route
+          path="/sales/leads/whatsapp"
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
+              <DashboardLayout>
+                <WhatsAppConnect />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
 
-<Route
+        <Route
           path="/sales/leads/new"
           element={
-            <DashboardLayout>
-              <LeadCreate />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.CREATE"]}>
+              <DashboardLayout>
+                <LeadCreate />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
-        <Route path="/sales/edit/:orderId" element={<NewSalePage />} />
+        <Route
+          path="/sales/edit/:orderId"
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.CREATE", "SALES.VIEW"]}>
+              <NewSalePage />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/sales/new"
-          element={<NewSalePage />}
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.CREATE"]}>
+              <NewSalePage />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/sales/proforma"
           element={
-            <DashboardLayout>
-              <ProformaListPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.VIEW"]}>
+              <DashboardLayout>
+                <ProformaListPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/sales/proforma/new"
           element={
-            <NewSalePage documentMode="PROFORMA" />
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.CREATE"]}>
+              <NewSalePage documentMode="PROFORMA" />
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/sales/proforma/:id/edit"
           element={
-            <NewSalePage documentMode="PROFORMA" />
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.CREATE"]}>
+              <NewSalePage documentMode="PROFORMA" />
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/sales/proforma/:id"
-          element={<ProformaViewPage />}
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.VIEW"]}>
+              <ProformaViewPage />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/sales/invoice/:orderId"
-          element={<InvoicePage />}
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.VIEW"]}>
+              <InvoicePage />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/sales/payment/:orderId"
-          element={<PaymentPage />}
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.PAYMENT", "SALES.VIEW"]}>
+              <PaymentPage />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/users"
           element={
-            <DashboardLayout>
-              <UsersPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["EMPLOYEES.VIEW"]}>
+              <DashboardLayout>
+                <UsersPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         {/* Reports */}
-
         <Route
           path="/reports"
           element={
-            <DashboardLayout>
-              <StoreWiseReportPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW"]}>
+              <DashboardLayout>
+                <StoreWiseReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/reports/inventory"
           element={
-            <DashboardLayout>
-              <InventoryReportPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
+              <DashboardLayout>
+                <InventoryReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/reports/sales"
           element={
-            <DashboardLayout>
-              <SalesReportPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "SALES.VIEW"]}>
+              <DashboardLayout>
+                <SalesReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/reports/low-stock"
           element={
-            <DashboardLayout>
-              <LowStockReportPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
+              <DashboardLayout>
+                <LowStockReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/reports/customers"
           element={
-            <DashboardLayout>
-              <CustomerReportPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
+              <DashboardLayout>
+                <CustomerReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/roles"
+          element={
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["ROLES.VIEW", "PERMISSIONS.VIEW"]}>
+              <DashboardLayout>
+                <RoleManagementPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/reports/customers/:id"
           element={
-            <DashboardLayout>
-              <CustomerDetailsPage />
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
+              <DashboardLayout>
+                <CustomerDetailsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
-
       </Routes>
     </Suspense>
   );

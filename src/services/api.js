@@ -27,12 +27,13 @@ const processQueue = (error, token = null) => {
 const logoutAndRedirect = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("activeStoreId");
 
-    if (
-        typeof window !== "undefined" &&
-        window.location.pathname !== "/login"
-    ) {
-        window.location.href = "/login";
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:logout"));
+        if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+        }
     }
 };
 

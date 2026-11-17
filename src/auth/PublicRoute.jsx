@@ -1,8 +1,9 @@
 import { Navigate } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 
 function PublicRoute({ children }) {
 
-    const user = JSON.parse(localStorage.getItem("user"));
+    const { user } = useAuth();
 
     if (user) {
 
@@ -17,6 +18,12 @@ function PublicRoute({ children }) {
         if (user.role === "CASHIER") {
             return <Navigate to="/pos" replace />;
         }
+
+        if (user.role === "SALESPERSON" || user.role === "PROCUREMENT") {
+            return <Navigate to="/store/dashboard" replace />;
+        }
+
+        return <Navigate to="/store/dashboard" replace />;
     }
 
     return children;

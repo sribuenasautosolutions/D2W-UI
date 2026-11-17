@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../../auth/AuthContext";
 import {
     AlertCircle,
     AlertTriangle,
@@ -1079,11 +1080,12 @@ function LeadList() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const currentRole = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role; } catch { return null; } })();
+    const { user: authUser, hasPermission } = useAuth();
+    const currentRole = authUser?.role || (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role; } catch { return null; } })();
     const isProcurementUser = currentRole === "PROCUREMENT";
     const isLeadStaff = currentRole === "SALESPERSON" || isProcurementUser;
-    const canCreateLead = ["SUPER_ADMIN", "STORE_OWNER", "SALESPERSON", "PROCUREMENT"].includes(currentRole);
-    const canViewLeadChats = currentRole === "SUPER_ADMIN" || currentRole === "STORE_OWNER";
+    const canCreateLead = ["SUPER_ADMIN", "STORE_OWNER", "SALESPERSON", "PROCUREMENT"].includes(currentRole) || hasPermission?.("LEADS.CREATE");
+    const canViewLeadChats = currentRole === "SUPER_ADMIN" || currentRole === "STORE_OWNER" || hasPermission?.("LEADS.VIEW") || hasPermission?.("WHATSAPP.VIEW");
     const basePath = location.pathname.startsWith("/owner/")
         ? "/owner/sales"
         : location.pathname.startsWith("/salesperson/")
