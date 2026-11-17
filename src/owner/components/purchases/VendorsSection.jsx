@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CirclePlus, Download, Filter, MoreHorizontal, Power, Search, Store, UserRoundCheck, X } from "lucide-react";
 import api from "../../../services/api";
+import { useAuth } from "../../../auth/AuthContext";
 
 import VendorStockModal from "./VendorStockModal";
 import "./vendorssection.css";
@@ -31,8 +32,11 @@ function csvValue(value) {
 }
 
 export default function VendorsSection() {
-    const user = getUser();
+    const { user: authUser, hasPermission } = useAuth();
+    const user = authUser || getUser();
     const isSuperAdmin = user.role === "SUPER_ADMIN";
+    const isStoreOwner = user.role === "STORE_OWNER";
+    const canManageVendors = isSuperAdmin || isStoreOwner || hasPermission?.("VENDORS.MANAGE");
     const [stores, setStores] = useState([]);
     const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
     const [vendors, setVendors] = useState([]);
@@ -244,7 +248,9 @@ export default function VendorsSection() {
                         )}
                     </div>
 
-                    <button type="button" className="vs-btn-primary" onClick={openAddVendor}><CirclePlus size={16} /> Add Vendor</button>
+                    {canManageVendors && (
+                        <button type="button" className="vs-btn-primary" onClick={openAddVendor}><CirclePlus size={16} /> Add Vendor</button>
+                    )}
                 </div>
             </div>
 
@@ -273,14 +279,18 @@ export default function VendorsSection() {
                                     </span>
                                 </td>
                                 <td className="vs-col-action">
-                                    <button
-                                        type="button"
-                                        className={`vs-row-action ${vendor.isActive ? "vs-row-action--deactivate" : "vs-row-action--activate"}`}
-                                        title={vendor.isActive ? "Inactivate vendor" : "Activate vendor"}
-                                        onClick={(event) => { event.stopPropagation(); changeStatus(vendor); }}
-                                    >
-                                        <Power size={14} /> {vendor.isActive ? "Deactivate" : "Activate"}
-                                    </button>
+                                    {canManageVendors ? (
+                                        <button
+                                            type="button"
+                                            className={`vs-row-action ${vendor.isActive ? "vs-row-action--deactivate" : "vs-row-action--activate"}`}
+                                            title={vendor.isActive ? "Inactivate vendor" : "Activate vendor"}
+                                            onClick={(event) => { event.stopPropagation(); changeStatus(vendor); }}
+                                        >
+                                            <Power size={14} /> {vendor.isActive ? "Deactivate" : "Activate"}
+                                        </button>
+                                    ) : (
+                                        <span>—</span>
+                                    )}
                                 </td>
                             </tr>
                         ))}

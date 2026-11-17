@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Car, ChevronDown, MapPin, ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../../auth/AuthContext";
 import d2wLogo from "./d2w-logo.png";
 import "./POSLayout.css";
 
@@ -17,6 +18,11 @@ function POSLayout({
     onStoreChange
 }) {
     const user = JSON.parse(localStorage.getItem("user"));
+    const { user: authUser, hasPermission } = useAuth();
+    const isSuperAdmin = authUser?.role === "SUPER_ADMIN";
+    const isStoreOwner = authUser?.role === "STORE_OWNER";
+    const isCashier = authUser?.role === "CASHIER";
+    const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
 
     const {
         cartItems,
@@ -75,18 +81,23 @@ function POSLayout({
         .join("");
 
     const handleLogout = () => {
-        localStorage.clear();
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("activeStoreId");
+        window.dispatchEvent(new CustomEvent("auth:logout"));
         window.location.href = "/login";
     };
 
     const goToAdmin = () => {
         setProfileOpen(false);
 
-        navigate(
-            user?.role === "SUPER_ADMIN"
-                ? "/owner/dashboard"
-                : "/store/dashboard"
-        );
+        if (user?.role === "SUPER_ADMIN") {
+            navigate("/owner/dashboard");
+        } else if (hasPermission?.("DASHBOARD.VIEW") || user?.role === "STORE_OWNER") {
+            navigate("/store/dashboard");
+        } else {
+            navigate("/store/sales");
+        }
     };
 
     const selectedStoreName =
@@ -108,6 +119,10 @@ function POSLayout({
     );
 
     const handleCheckout = () => {
+        if (!canCreateSale) {
+            alert("You do not have permission to create sales.");
+            return;
+        }
         const draftId = localStorage.getItem("pos_active_draft_id");
 
         navigate(
@@ -254,6 +269,18 @@ function POSLayout({
                         )
                     )}
 
+                    {/* INVOICES & SALES LINK */}
+                    {(isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.VIEW")) && (
+                        <button
+                            type="button"
+                            className="pos-search-btn"
+                            style={{ background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", marginRight: "4px" }}
+                            onClick={() => navigate(isSuperAdmin ? "/owner/sales" : "/store/sales")}
+                        >
+                            Invoices & Sales
+                        </button>
+                    )}
+
                     {/* HELD BILLS */}
                     <button
                         type="button"
@@ -320,15 +347,13 @@ function POSLayout({
 
                                 </div>
 
-                                {user?.role !== "CASHIER" && (
-                                    <button
-                                        type="button"
-                                        className="profile-menu-item"
-                                        onClick={goToAdmin}
-                                    >
-                                        Back to Admin
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    className="profile-menu-item"
+                                    onClick={goToAdmin}
+                                >
+                                    {user?.role === "CASHIER" ? "Sales & Invoices" : "Back to Admin"}
+                                </button>
 
                                 <div className="profile-menu-divider" />
 
@@ -522,6 +547,9 @@ function POSLayout({
                             type="button"
                             className="invoice-btn"
                             onClick={handleCheckout}
+                            disabled={cartItems.length === 0 || !canCreateSale}
+                            style={{ opacity: (cartItems.length === 0 || !canCreateSale) ? 0.6 : 1, cursor: (cartItems.length === 0 || !canCreateSale) ? "not-allowed" : "pointer" }}
+                            title={!canCreateSale ? "You do not have permission to create sales" : undefined}
                         >
                             Proceed to Checkout
                         </button>

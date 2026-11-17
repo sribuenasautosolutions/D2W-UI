@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import BatchReportSection from "../components/inventory/BatchReportPage";
 import BulkUploadSection from "../components/inventory/BulkUploadSection";
 import CurrentStockSection from "../components/inventory/CurrentStockSection";
@@ -40,9 +41,23 @@ const INVENTORY_VIEWS = {
 };
 
 function InventoryPage() {
+    const { user, hasPermission } = useAuth();
+    const isOwner = user?.role === "SUPER_ADMIN";
+    const isStoreOwner = user?.role === "STORE_OWNER";
+    const canAdjust = isOwner || isStoreOwner || hasPermission?.("INVENTORY.ADJUST");
+    const canPrintBarcodes = isOwner || isStoreOwner || hasPermission?.("BARCODES.PRINT");
+
     const [searchParams] = useSearchParams();
     const requestedView = searchParams.get("view") || "stock";
-    const activeView = INVENTORY_VIEWS[requestedView] || INVENTORY_VIEWS.stock;
+
+    let resolvedKey = requestedView;
+    if ((requestedView === "adjustment" || requestedView === "bulkstock") && !canAdjust) {
+        resolvedKey = "stock";
+    } else if (requestedView === "barcode" && !canPrintBarcodes) {
+        resolvedKey = "stock";
+    }
+
+    const activeView = INVENTORY_VIEWS[resolvedKey] || INVENTORY_VIEWS.stock;
     const ActiveComponent = activeView.Component;
 
     return (

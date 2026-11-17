@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Ban, FileText, MoreHorizontal, Pencil, Plus, Search } from "lucide-react";
 import { cancelProforma, getProforma, getProformas, toProformaSaleSource } from "../../services/proformaService";
+import { useAuth } from "../../auth/AuthContext";
 import "./ProformaPage.css";
 
 const displayDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-GB") : "—";
@@ -12,7 +13,12 @@ export default function ProformaListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const base = location.pathname.startsWith("/owner/") ? "/owner/sales" : "/store/sales";
-  const user = useMemo(() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } }, []);
+  const { user: authUser, hasPermission } = useAuth();
+  const fallbackUser = useMemo(() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } }, []);
+  const user = authUser || fallbackUser;
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isStoreOwner = user?.role === "STORE_OWNER";
+  const canCreateProforma = isSuperAdmin || isStoreOwner || hasPermission?.("PROFORMA.CREATE");
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -47,7 +53,7 @@ export default function ProformaListPage() {
   const openValue = openRecords.reduce((sum, record) => sum + Number(record.netPayable || 0), 0);
 
   return <section className="proforma-page" onClick={() => setOpenMenuId(null)}>
-    <header><div><h1>Proforma Invoices</h1></div><button className="proforma-new-button" onClick={() => navigate(`${base}/proforma/new`)}><Plus size={17}/>New Proforma</button></header>
+    <header><div><h1>Proforma Invoices</h1></div>{canCreateProforma && (<button className="proforma-new-button" onClick={() => navigate(`${base}/proforma/new`)}><Plus size={17}/>New Proforma</button>)}</header>
     <div className="proforma-kpis"><div><span>Total Quotations</span><strong>{records.length}</strong><small>{money(totalValue)}</small></div><div><span>Open Balance</span><strong>{openRecords.length}</strong><small>{money(openValue)}</small></div><div><span>Converted</span><strong>{records.filter((record) => record.status === "CONVERTED").length}</strong><small>Completed sales</small></div></div>
     <div className="proforma-filters"><label><Search size={16}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search number, party or store"/></label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option><option value="SAVED">Open</option><option value="CONVERTED">Converted</option><option value="CANCELLED">Cancelled</option></select></div>
     <div className="proforma-card">

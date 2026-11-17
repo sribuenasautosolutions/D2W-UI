@@ -340,10 +340,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { loginUser } from "../services/authService";
+import { useAuth } from "../auth/AuthContext";
 import "./LoginPage.css";
 
 function LoginPage() {
     const navigate = useNavigate();
+    const { loginSession } = useAuth();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -363,11 +365,7 @@ function LoginPage() {
                 password
             });
 
-            localStorage.setItem(
-                "user",
-                JSON.stringify(response)
-            );
-            if (response.token) localStorage.setItem("token", response.token);
+            loginSession(response);
 
             if (response.role === "SUPER_ADMIN") {
                 navigate("/owner/dashboard");

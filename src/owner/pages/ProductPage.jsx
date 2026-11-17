@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {Search, Bell, ChevronDown, ChevronRight,Upload, Download, Plus,Boxes, Tag, LayoutGrid, Layers, GitCompareArrows, Wrench, SlidersHorizontal,
 } from "lucide-react";
+import { useAuth } from "../../auth/AuthContext";
 
 import BrandsSection from "../../owner/components/products/BrandsSection";
 import CategoriesSection from "../../owner/components/products/CategoriesSection";
@@ -12,13 +13,7 @@ import ProductAttributesSection from "../../owner/components/products/ProductAtt
 
 import "./ProductPage.css";
 
-const readUser = () => {
-    try {
-        return JSON.parse(localStorage.getItem("user"));
-    } catch {
-        return null;
-    }
-};
+
 
 function ProductPage() {
     const [activeTab, setActiveTab] = useState("items");
@@ -42,7 +37,10 @@ function ProductPage() {
         setSearchQuery("");
     };
 
-    const user = readUser();
+    const { user, hasPermission } = useAuth();
+    const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    const canCreate = isSuperAdmin || hasPermission?.("CATALOGUE.CREATE");
+
     const displayName = user?.name || "Super Admin";
     const initials =
         displayName
@@ -143,23 +141,31 @@ function ProductPage() {
                         <button className="pm-btn pm-btn-secondary" onClick={() => bumpItems("export")}>
                             <Download size={15} /> <span>Export</span>
                         </button>
-                        <button className="pm-btn pm-btn-secondary" onClick={() => bumpItems("bulk")}>
-                            <Upload size={15} /> <span>Bulk Upload</span>
-                        </button>
-                        <button className="pm-btn pm-btn-primary" onClick={() => bumpItems("add")}>
-                            <Plus size={15} /> <span>Add Item</span>
-                        </button>
+                        {canCreate && (
+                            <>
+                                <button className="pm-btn pm-btn-secondary" onClick={() => bumpItems("bulk")}>
+                                    <Upload size={15} /> <span>Bulk Upload</span>
+                                </button>
+                                <button className="pm-btn pm-btn-primary" onClick={() => bumpItems("add")}>
+                                    <Plus size={15} /> <span>Add Item</span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
 
                 {activeTab === "brands" && (
                     <div className="pm-tabs-actions">
-                        <button className="pm-btn pm-btn-secondary" onClick={() => bumpBrands("bulk")}>
-                            <Upload size={15} /> <span>Bulk Upload</span>
-                        </button>
-                        <button className="pm-btn pm-btn-primary" onClick={() => bumpBrands("add")}>
-                            <Plus size={15} /> <span>Add Brand</span>
-                        </button>
+                        {canCreate && (
+                            <>
+                                <button className="pm-btn pm-btn-secondary" onClick={() => bumpBrands("bulk")}>
+                                    <Upload size={15} /> <span>Bulk Upload</span>
+                                </button>
+                                <button className="pm-btn pm-btn-primary" onClick={() => bumpBrands("add")}>
+                                    <Plus size={15} /> <span>Add Brand</span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
