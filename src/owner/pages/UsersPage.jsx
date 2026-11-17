@@ -16,7 +16,7 @@ import {
     X,
 } from "lucide-react";
 import api from "../../services/api";
-import { useAuth } from "../../auth/AuthContext";
+import { getActiveStoresCached } from "../../services/storeService";
 
 const emptyForm = {
     name: "",
@@ -149,14 +149,21 @@ function UsersPage() {
         return data;
     };
 
-    const loadStores = async () => {
-        const response = await api.get("/stores", {
-            params: {
-                page: 0,
-                size: 20,
-                active: true,
-            },
-        });
+    useEffect(() => {
+        const loadPage = async () => {
+            setLoading(true);
+            setError("");
+
+            try {
+                const requests = [loadUsers()];
+
+                if (isSuperAdmin) {
+                    requests.push(
+                    getActiveStoresCached().then((response) => {
+                            setStores(Array.isArray(response.data?.content) ? response.data.content : []);
+                        })
+                    );
+                }
 
         const data = Array.isArray(response.data?.content)
             ? response.data.content

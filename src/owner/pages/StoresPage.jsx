@@ -11,6 +11,7 @@ import {
     X
 } from "lucide-react";
 import api from "../../services/api";
+import { clearStoresCache } from "../../services/storeService";
 
 
 const COLORS = {
@@ -113,7 +114,7 @@ function StoresPage() {
      */
 
     const loadStores = async () => {
-
+        clearStoresCache(); 
         const active =
             statusFilter === "ALL"
                 ? undefined

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Check, Loader2, Pencil, X } from "lucide-react";
 import {
     downloadLeadEstimation,
     getLeadById,
@@ -53,15 +53,30 @@ const pretty = (v) => (v ? String(v).replaceAll("_", " ") : "-");
 
 /* ---------- parts table (read only) ---------- */
 function ItemsTable({ items, showProcurement }) {
-    if (!items || items.length === 0) return <p className="lw-muted">No parts on this lead yet.</p>;
+    if (!items || items.length === 0) return <p className="lw-empty-table">No parts on this lead yet.</p>;
     return (
         <div className="lw-table-wrap">
             <table className="lw-table">
+                {showProcurement ? (
+                    <colgroup>
+                        <col style={{ width: "35%" }} />
+                        <col style={{ width: "25%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "15%" }} />
+                        <col style={{ width: "15%" }} />
+                    </colgroup>
+                ) : (
+                    <colgroup>
+                        <col style={{ width: "50%" }} />
+                        <col style={{ width: "35%" }} />
+                        <col style={{ width: "15%" }} />
+                    </colgroup>
+                )}
                 <thead>
                     <tr>
                         <th>{showProcurement ? "Part name" : "Requirement"}</th>
                         <th>Part number</th>
-                        <th>Qty</th>
+                        <th className="lw-th-qty">Qty</th>
                         {showProcurement && <th>MRP</th>}
                         {showProcurement && <th>Availability</th>}
                     </tr>
@@ -69,17 +84,25 @@ function ItemsTable({ items, showProcurement }) {
                 <tbody>
                     {items.map((item) => (
                         <tr key={item.id}>
-                            <td>
-                                {showProcurement
-                                    ? ([item.productName, item.brandName].filter(Boolean).join(" · ") || item.requirement || "-")
-                                    : (item.requirement || "-")}
-                                {item.vehicleDescription ? <div className="lw-muted">{item.vehicleDescription}</div> : null}
-                                {item.vin ? <div className="lw-muted">VIN {item.vin}</div> : null}
+                            <td className="lw-td-part">
+                                <div className="lw-part-name">
+                                    {showProcurement
+                                        ? ([item.productName, item.brandName].filter(Boolean).join(" · ") || item.requirement || "—")
+                                        : (item.requirement || "—")}
+                                </div>
+                                {item.vehicleDescription ? <div className="lw-sub-text">{item.vehicleDescription}</div> : null}
+                                {item.vin ? <div className="lw-sub-text">VIN: {item.vin}</div> : null}
                             </td>
                             <td>{item.partNumber || <span className="lw-pending">Pending</span>}</td>
-                            <td>{item.sellingQuantity ?? item.requestedQuantity ?? "-"}</td>
+                            <td className="lw-td-qty">{item.sellingQuantity ?? item.requestedQuantity ?? "—"}</td>
                             {showProcurement && <td>{money(item.quotedMrp)}</td>}
-                            {showProcurement && <td>{pretty(item.availabilityStatus)}</td>}
+                            {showProcurement && (
+                                <td>
+                                    <span className={`lw-status-pill lw-status--${String(item.availabilityStatus || "").toLowerCase()}`}>
+                                        {pretty(item.availabilityStatus)}
+                                    </span>
+                                </td>
+                            )}
                         </tr>
                     ))}
                 </tbody>
@@ -105,27 +128,54 @@ function DetailsTab({ lead, status, onEditLead }) {
     if (lead.closedAt) rows.push(["Closed", dateTime(lead.closedAt)]);
 
     return (
-        <div className="lw-pad">
-            <dl className="lw-dl">
-                {rows.map(([k, v]) => (
-                    <div key={k}>
-                        <dt>{k}</dt>
-                        <dd>{v || "-"}</dd>
+        <div className="lw-pad lw-details-container">
+            {/* Top row: Customer Info (Left) & Customer Requirement (Right) */}
+            <div className="lw-details-top-grid">
+                {/* 1. Customer Info Card */}
+                <section className="lw-card lw-details-card" aria-label="Customer Info">
+                    <div className="lw-card-head">
+                        <h3 className="lw-card-title">Customer Info</h3>
                     </div>
-                ))}
-            </dl>
-            {!procurementComplete && (
-                <>
-                    <h3 className="lw-h3">Customer requirement</h3>
-                    <p className="lw-requirement">{lead.customerRequirement || "No requirement specified"}</p>
-                </>
-            )}
-            <h3 className="lw-h3">{procurementComplete ? "Procurement items" : "Parts"}</h3>
-            <ItemsTable items={lead.items} showProcurement={procurementComplete} />
-            {lead.status === "NEW" && (
-                <button type="button" className="lw-btn" onClick={() => onEditLead(lead)}>
-                    Edit lead
-                </button>
+                    <div className="lw-meta-grid">
+                        {rows.map(([k, v]) => (
+                            <div key={k} className="lw-meta-field">
+                                <span className="lw-meta-label">{k}</span>
+                                <span className="lw-meta-val">{v || "—"}</span>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {/* 2. Customer Requirement Card */}
+                <section className="lw-card lw-requirement-card" aria-label="Customer requirement">
+                    <div className="lw-card-head">
+                        <h3 className="lw-card-title">Customer Requirement</h3>
+                    </div>
+                    <div className="lw-requirement-body">
+                        <p className="lw-requirement-text">{lead.customerRequirement || "No requirement specified"}</p>
+                    </div>
+                </section>
+            </div>
+
+            {/* Below: Parts / Procurement Items Card */}
+            <section className="lw-card lw-table-card" aria-label={procurementComplete ? "Procurement items" : "Parts"}>
+                <div className="lw-card-head">
+                    <div className="lw-card-title-group">
+                        <h3 className="lw-card-title">{procurementComplete ? "Procurement items" : "Parts"}</h3>
+                        <span className="lw-badge">{lead.items?.length || 0}</span>
+                    </div>
+                </div>
+                <div className="lw-card-body">
+                    <ItemsTable items={lead.items} showProcurement={procurementComplete} />
+                </div>
+            </section>
+
+            {lead.status === "NEW" && onEditLead && (
+                <div className="lw-details-actions">
+                    <button type="button" className="lw-btn lw-btn--primary" onClick={() => onEditLead(lead)}>
+                        Edit lead
+                    </button>
+                </div>
             )}
         </div>
     );
@@ -164,21 +214,31 @@ function EstimationHistory({ leadId }) {
 
     if (error) return <div className="lw-error">{error}</div>;
     if (!rows) return <div className="lw-center"><Loader2 className="lw-spin" size={20} /></div>;
-    if (rows.length === 0) return <p className="lw-muted lw-pad">No estimation was created for this lead.</p>;
+    if (rows.length === 0) return <p className="lw-empty-table lw-pad">No estimation was created for this lead.</p>;
     return (
-        <ul className="lw-list">
-            {rows.map((row) => (
-                <li key={row.id}>
-                    <div>
-                        <strong>Estimation #{row.id}</strong>
-                        <div className="lw-muted">{dateOnly(row.estimationDate)} · Total {money(row.totalMrp)}</div>
+        <div className="lw-pad">
+            <div className="lw-card">
+                <div className="lw-card-head">
+                    <div className="lw-card-title-group">
+                        <h3 className="lw-card-title">Past Estimations</h3>
+                        <span className="lw-badge">{rows.length}</span>
                     </div>
-                    <button type="button" className="lw-btn lw-btn--small" disabled={busyId === row.id} onClick={() => open(row)}>
-                        {busyId === row.id ? "Opening..." : "Open PDF"}
-                    </button>
-                </li>
-            ))}
-        </ul>
+                </div>
+                <ul className="lw-list">
+                    {rows.map((row) => (
+                        <li key={row.id}>
+                            <div>
+                                <strong>Estimation #{row.id}</strong>
+                                <div className="lw-muted">{dateOnly(row.estimationDate)} · Total {money(row.totalMrp)}</div>
+                            </div>
+                            <button type="button" className="lw-btn lw-btn--small" disabled={busyId === row.id} onClick={() => open(row)}>
+                                {busyId === row.id ? "Opening..." : "Open PDF"}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
     );
 }
 
@@ -238,19 +298,29 @@ function HistoryTab({ lead }) {
     events.sort((a, b) => new Date(a.at) - new Date(b.at));
 
     return (
-        <div className="lw-pad">
+        <div className="lw-pad lw-history-container">
             {error && <div className="lw-error">{error}</div>}
             {!activities && !error && <div className="lw-center"><Loader2 className="lw-spin" size={20} /></div>}
             {activities && (
-                <ol className="lw-timeline">
-                    {events.map((e, i) => (
-                        <li key={i}>
-                            <strong>{e.title}</strong>
-                            <span className="lw-muted"> · {dateTime(e.at)}</span>
-                            {e.text && <p>{e.text}</p>}
-                        </li>
-                    ))}
-                </ol>
+                <div className="lw-card lw-history-card">
+                    <div className="lw-card-head">
+                        <div className="lw-card-title-group">
+                            <h3 className="lw-card-title">Lead History &amp; Activities</h3>
+                            <span className="lw-badge">{events.length}</span>
+                        </div>
+                    </div>
+                    <div className="lw-history-body">
+                        <ol className="lw-timeline">
+                            {events.map((e, i) => (
+                                <li key={i}>
+                                    <strong>{e.title}</strong>
+                                    <span className="lw-muted"> · {dateTime(e.at)}</span>
+                                    {e.text && <p>{e.text}</p>}
+                                </li>
+                            ))}
+                        </ol>
+                    </div>
+                </div>
             )}
             <p className="lw-note">Lead assignments, stage changes, procurement, follow-ups, customer changes and outcomes are recorded here.</p>
         </div>
@@ -258,10 +328,15 @@ function HistoryTab({ lead }) {
 }
 
 /* ---------- the drawer ---------- */
-export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, onUpdated, onToast, onEditLead, onChatActivity }) {
+export default function LeadWorkspaceDrawer({ lead, stage, userRole, initialTab = null, onClose, onUpdated, onToast, onEditLead, onChatActivity }) {
     const [full, setFull] = useState(null);
     const [conversation, setConversation] = useState(undefined); // undefined = loading, null = no chat
-    const [tab, setTab] = useState(null);
+    const [tab, setTab] = useState(() => {
+        if (initialTab) return initialTab;
+        if (stage === "PROCUREMENT") return "procurement";
+        if (stage === "FOLLOW_UP") return "estimation";
+        return "details";
+    });
     const [loadError, setLoadError] = useState("");
 
     const [lostOpen, setLostOpen] = useState(false);
@@ -269,6 +344,10 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
     const [lostNote, setLostNote] = useState("");
     const [busy, setBusy] = useState(false);
     const [lostError, setLostError] = useState("");
+
+    // Shared state with embedded procurement and follow-up drawer
+    const [workspaceItemsCount, setWorkspaceItemsCount] = useState(lead.items?.length || 0);
+    const [isEditingCustomer, setIsEditingCustomer] = useState(false);
     const showChat = canUseWhatsApp();
 
     const leadId = lead.id;
@@ -281,10 +360,21 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
     });
     const handleChatActivity = useCallback(() => chatActivityRef.current?.(), []);
 
+    // If an initial tab was requested (e.g. user clicked the WhatsApp icon to open Chat)
+    useEffect(() => {
+        if (initialTab) {
+            setTab(initialTab);
+        }
+    }, [initialTab]);
+
     // load the full lead and the chat (a lead can have no chat)
     const loadFull = useCallback(async () => {
         try {
-            setFull(await getLeadById(leadId));
+            const res = await getLeadById(leadId);
+            setFull(res);
+            if (res?.items?.length) {
+                setWorkspaceItemsCount(res.items.length);
+            }
         } catch (err) {
             setLoadError(errorText(err, "Could not load this lead."));
         }
@@ -304,15 +394,6 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
             cancelled = true;
         };
     }, [leadId, loadFull, showChat]);
-
-    // first tab: the chat if there is one, otherwise the tab of the current stage
-    useEffect(() => {
-        if (tab !== null || conversation === undefined) return;
-        if (conversation) setTab("chat");
-        else if (stage === "PROCUREMENT") setTab("procurement");
-        else if (stage === "FOLLOW_UP") setTab("estimation");
-        else setTab("details");
-    }, [conversation, stage, tab]);
 
     // when a stage changes (for example procurement is finished), refresh the details
     useEffect(() => {
@@ -339,17 +420,43 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
 
     const data = full || lead;
     const name = data.customerName || lead.customerName || "Customer";
+    const isProcurementTab = tab === "procurement";
+    const isEstimationTab = tab === "estimation";
+    const showHeaderBadgeAndEdit = isProcurementTab || isEstimationTab;
+    const canEditCustomer = isProcurementTab
+        ? (stage === "NEW" || stage === "PROCUREMENT")
+        : (stage === "FOLLOW_UP");
 
     return (
         <div className="lw-root">
             <header className="lw-header">
                 <div className="lw-header-main">
-                    <div className="lw-eyebrow">LEAD</div>
-                    <h2>{lead.leadNumber || `LEAD-${lead.id}`}</h2>
-                    <div className="lw-sub">
-                        <span>{name}</span>
-                        <span className={`lw-stage lw-stage--${String(stage).toLowerCase()}`}>{STAGE_LABEL[stage] || stage}</span>
+                    <div className="lw-header-title-row">
+                        <div className="lw-title-lead-id">
+                            <span className="lw-eyebrow">LEAD</span>
+                            <h2>{lead.leadNumber || `LEAD-${lead.id}`}</h2>
+                        </div>
+                        {showHeaderBadgeAndEdit && (
+                            <span className="lw-items-badge">{workspaceItemsCount} Items</span>
+                        )}
+                        {showHeaderBadgeAndEdit && canEditCustomer && (
+                            <button
+                                type="button"
+                                className={`lw-edit-btn${isEditingCustomer ? " is-active" : ""}`}
+                                onClick={() => setIsEditingCustomer((prev) => !prev)}
+                                aria-label={isEditingCustomer ? "Finish editing customer info" : "Edit customer info"}
+                                title={isEditingCustomer ? "Done editing" : "Edit customer info"}
+                            >
+                                {isEditingCustomer ? <Check size={14} /> : <Pencil size={13} />}
+                            </button>
+                        )}
                     </div>
+                    {!showHeaderBadgeAndEdit && (
+                        <div className="lw-sub">
+                            <span>{name}</span>
+                            <span className={`lw-stage lw-stage--${String(stage).toLowerCase()}`}>{STAGE_LABEL[stage] || stage}</span>
+                        </div>
+                    )}
                 </div>
                 <div className="lw-header-actions">
                     {!closed && (
@@ -400,7 +507,17 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
                 {tab === "procurement" && (
                     stage === "NEW" || stage === "PROCUREMENT" ? (
                         <div className="lw-embed">
-                            <LeadProcurementDrawer lead={lead} userRole={userRole} onUpdated={onUpdated} onClose={onClose} onToast={onToast} />
+                            <LeadProcurementDrawer
+                                lead={data}
+                                userRole={userRole}
+                                onUpdated={onUpdated}
+                                onClose={onClose}
+                                onToast={onToast}
+                                isWorkspaceEmbedded={true}
+                                externalEditingCustomer={isEditingCustomer}
+                                onToggleCustomerEdit={() => setIsEditingCustomer((v) => !v)}
+                                onItemCountChange={setWorkspaceItemsCount}
+                            />
                         </div>
                     ) : (
                         <div className="lw-pad">
@@ -413,7 +530,16 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, onClose, on
                 {tab === "estimation" && (
                     stage === "FOLLOW_UP" ? (
                         <div className="lw-embed">
-                            <LeadFollowUpDrawer lead={lead} onUpdated={onUpdated} onClose={onClose} onToast={onToast} />
+                            <LeadFollowUpDrawer
+                                lead={data}
+                                onUpdated={onUpdated}
+                                onClose={onClose}
+                                onToast={onToast}
+                                isWorkspaceEmbedded={true}
+                                externalEditingCustomer={isEditingCustomer}
+                                onToggleCustomerEdit={() => setIsEditingCustomer((v) => !v)}
+                                onItemCountChange={setWorkspaceItemsCount}
+                            />
                         </div>
                     ) : closed ? (
                         <EstimationHistory leadId={leadId} />

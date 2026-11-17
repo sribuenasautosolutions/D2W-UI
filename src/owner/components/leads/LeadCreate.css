@@ -1,306 +1,373 @@
 /* ==========================================================================
-   LeadCreate — page-level / side-drawer card (no dimmed backdrop)
-   Built to live inside ANY container: it fills the width it is given,
-   never overflows it, and never depends on the viewport width.
+   LeadCreate.css
+   ALL layout rules are scoped under .lead-drawer .lead-page so they
+   NEVER affect the main LeadList kanban page which also uses .lead-page.
+   Blue palette | Pill buttons | Hidden scrollbar | Sticky footer
+   CSS ONLY — no functionality changes
    ========================================================================== */
 
-.lead-page {
-  --lead-blue: #2563eb;
-  --lead-blue-hover: #1d4ed8;
-  --lead-blue-ring: rgba(37, 99, 235, 0.14);
+/* ══════════════════════════════════════════════
+   CSS VARIABLES — set on the drawer's .lead-page
+   only, so they don't leak to the kanban .lead-page
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-page {
+  --lead-blue:             #2563eb;
+  --lead-blue-hover:       #1d4ed8;
+  --lead-blue-light:       #eff6ff;
+  --lead-blue-ring:        rgba(37, 99, 235, 0.15);
 
-  --lead-slate-900: #0f172a;
-  --lead-slate-700: #334155;
-  --lead-slate-500: #64748b;
-  --lead-slate-400: #94a3b8;
-  --lead-border: #e2e8f0;
-  --lead-divider: #f1f5f9;
-  --lead-danger: #dc2626;
+  --lead-text-primary:     #111827;
+  --lead-text-secondary:   #374151;
+  --lead-text-muted:       #6b7280;
+  --lead-text-placeholder: #9ca3af;
+
+  --lead-border:           #d1d5db;
+  --lead-border-hover:     #9ca3af;
+  --lead-divider:          #e5e7eb;
+  --lead-bg-input:         #ffffff;
+  --lead-bg-white:         #ffffff;
+  --lead-danger:           #dc2626;
+
+  --lead-radius-input:     10px;
+  --lead-radius-btn:       9999px;
+  --lead-radius-modal:     16px;
 
   --lead-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
 
-  /* fill the drawer, never exceed it */
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 24px;
-  background: #ffffff; /* plain white, no box inside */
+  /* ── Drawer layout: flex column, fill full height ── */
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: var(--lead-bg-white);
   border: 0;
   border-radius: 0;
   box-shadow: none;
   outline: 0;
-  color: var(--lead-slate-900);
+  overflow: hidden !important;
+  color: var(--lead-text-primary);
   font-family: var(--lead-font);
   -webkit-font-smoothing: antialiased;
 }
 
-.lead-page,
-.lead-page *,
-.lead-page *::before,
-.lead-page *::after {
+.lead-drawer .lead-page,
+.lead-drawer .lead-page *,
+.lead-drawer .lead-page *::before,
+.lead-drawer .lead-page *::after {
   box-sizing: border-box;
 }
 
-.lead-page button,
-.lead-page input,
-.lead-page select,
-.lead-page textarea {
-  font-family: inherit;
+.lead-drawer .lead-page button,
+.lead-drawer .lead-page input,
+.lead-drawer .lead-page select,
+.lead-drawer .lead-page textarea {
+  font-family: var(--lead-font);
   max-width: 100%;
 }
 
-.lead-shell {
+/* ── Shell: flex column, fills remaining space ── */
+.lead-drawer .lead-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
-  max-width: 720px;
   min-width: 0;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   background: none;
   border: 0;
   box-shadow: none;
+  overflow: hidden;
 }
 
-/* ---------------- Header (sits inside the same 16px gutter as the card) ---------------- */
-.lead-header {
+/* ══════════════════════════════════════════════
+   HEADER — pinned at top, never scrolls
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 0 24px;
-  padding: 0;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 20px 24px 16px;
+  border-bottom: 1.5px solid var(--lead-divider);
+  background: var(--lead-bg-white);
 }
 
-.lead-header-text {
+.lead-drawer .lead-header-text {
   min-width: 0;
   flex: 1 1 auto;
 }
 
-.lead-eyebrow {
+/* "LEAD MANAGEMENT" eyebrow */
+.lead-drawer .lead-eyebrow {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   color: var(--lead-blue);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
-.lead-title {
+/* "Create Lead" title */
+.lead-drawer .lead-title {
   margin: 0;
   font-size: 22px;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--lead-slate-900);
+  color: var(--lead-text-primary);
 }
 
-.lead-subtitle {
-  margin: 4px 0 0;
+/* subtitle */
+.lead-drawer .lead-subtitle {
+  margin: 5px 0 0;
   font-size: 13px;
-  line-height: 1.4;
-  color: var(--lead-slate-500);
+  line-height: 1.45;
+  color: var(--lead-text-muted);
+  font-weight: 400;
 }
 
-.lead-close-btn {
+/* ✕ close button */
+.lead-drawer .lead-close-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
   flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   background: transparent;
-  color: var(--lead-slate-500);
+  color: var(--lead-text-muted);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.14s ease, color 0.14s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.lead-close-btn:hover {
+.lead-drawer .lead-close-btn:hover {
   background: var(--lead-divider);
-  color: var(--lead-slate-900);
+  color: var(--lead-text-primary);
 }
 
-.lead-close-btn:focus-visible {
+.lead-drawer .lead-close-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--lead-blue-ring);
-  color: var(--lead-blue);
 }
 
-.lead-close-btn--sm {
-  width: 30px;
-  height: 30px;
+.lead-drawer .lead-close-btn--sm {
+  width: 28px;
+  height: 28px;
 }
 
-/* ---------------- Form body: layout only. No box, border, shadow, padding or background. ---------------- */
-.lead-card {
+/* ══════════════════════════════════════════════
+   FORM BODY — scrollable middle zone
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-card {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 18px;
   width: 100%;
   min-width: 0;
-  padding: 0;
+  padding: 20px 24px 12px;
   background: none;
   border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  overflow-y: auto;
+  /* hidden scrollbar — scroll still works */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-/* ---------------- Fields ---------------- */
-.lead-field {
+.lead-drawer .lead-card::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Fields ── */
+.lead-drawer .lead-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  margin: 0; /* spacing comes from the parent gap only */
+  margin: 0;
 }
 
-.lead-field--full {
+.lead-drawer .lead-field--full {
   width: 100%;
 }
 
-.lead-label {
+.lead-drawer .lead-label {
   display: block;
-  color: var(--lead-slate-700);
+  color: var(--lead-text-secondary);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.3;
 }
 
-.lead-req {
+.lead-drawer .lead-req {
   margin-left: 2px;
   color: var(--lead-danger);
   font-weight: 700;
 }
 
-.lead-input {
+/* ══════════════════════════════════════════════
+   INPUT / SELECT — clearly visible border + radius
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-input {
   display: block;
   width: 100%;
   min-width: 0;
-  height: 44px;
+  height: 42px;
   margin: 0;
-  padding: 0 12px;
-  border: 1px solid var(--lead-border);
-  border-radius: 10px;
-  background-color: #ffffff;
-  color: var(--lead-slate-900);
+  padding: 0 14px;
+  border: 1.5px solid var(--lead-border);
+  border-radius: var(--lead-radius-input);
+  background-color: var(--lead-bg-input);
+  color: var(--lead-text-primary);
   font-size: 14px;
+  font-family: var(--lead-font);
   line-height: normal;
   text-overflow: ellipsis;
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease,
     background-color 0.15s ease;
 }
 
-.lead-input::placeholder {
-  color: var(--lead-slate-400);
+.lead-drawer .lead-input::placeholder {
+  color: var(--lead-text-placeholder);
   opacity: 1;
-  text-overflow: ellipsis;
 }
 
-.lead-input:hover:not(:disabled):not(.lead-input--readonly) {
-  border-color: #cbd5e1;
+.lead-drawer .lead-input:hover:not(:disabled):not(.lead-input--readonly):not([readonly]) {
+  border-color: var(--lead-border-hover);
 }
 
-.lead-input:focus {
+.lead-drawer .lead-input:focus {
   border-color: var(--lead-blue);
   box-shadow: 0 0 0 3px var(--lead-blue-ring);
+  background-color: var(--lead-bg-white);
 }
 
-.lead-input:disabled,
-.lead-input--readonly,
-.lead-input[readonly] {
-  background-color: #f8fafc;
-  color: var(--lead-slate-500);
+.lead-drawer .lead-input:disabled,
+.lead-drawer .lead-input--readonly,
+.lead-drawer .lead-input[readonly] {
+  background-color: #fafafa;
+  color: var(--lead-text-muted);
   cursor: not-allowed;
+  border-color: #e5e7eb;
 }
 
-.lead-textarea {
+/* Select dropdown arrow */
+.lead-drawer select.lead-input {
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+/* ── Textarea ── */
+.lead-drawer .lead-textarea {
   display: block;
   width: 100%;
   min-width: 0;
   min-height: 96px;
   margin: 0;
-  padding: 12px;
-  border: 1px solid var(--lead-border);
-  border-radius: 10px;
-  background: #ffffff;
-  color: var(--lead-slate-900);
+  padding: 11px 14px;
+  border: 1.5px solid var(--lead-border);
+  border-radius: var(--lead-radius-input);
+  background: var(--lead-bg-input);
+  color: var(--lead-text-primary);
   font-size: 14px;
-  line-height: 1.5;
-  resize: vertical; /* vertical only: can't be dragged past the card */
+  font-family: var(--lead-font);
+  line-height: 1.55;
+  resize: vertical;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
 }
 
-.lead-textarea::placeholder {
-  color: var(--lead-slate-400);
+.lead-drawer .lead-textarea::placeholder {
+  color: var(--lead-text-placeholder);
   opacity: 1;
 }
 
-.lead-textarea:hover {
-  border-color: #cbd5e1;
+.lead-drawer .lead-textarea:hover {
+  border-color: var(--lead-border-hover);
 }
 
-.lead-textarea:focus {
+.lead-drawer .lead-textarea:focus {
   border-color: var(--lead-blue);
   box-shadow: 0 0 0 3px var(--lead-blue-ring);
+  background: var(--lead-bg-white);
 }
 
-/* ---------------- Two-column grid ----------------
-   minmax(0, 1fr) is the key: columns may shrink below their content,
-   so nothing can push the card wider than the drawer. */
-.lead-grid {
+/* ══════════════════════════════════════════════
+   TWO-COLUMN GRID
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px 16px;
+  gap: 18px 14px;
   width: 100%;
   min-width: 0;
   margin: 0;
 }
 
-@media (max-width: 359px) {
-  .lead-grid {
+@media (max-width: 480px) {
+  .lead-drawer .lead-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* ---------------- Lookup input (search icon + input + spinner) ---------------- */
-.lead-lookup {
+/* ══════════════════════════════════════════════
+   LOOKUP (mobile search with icon + spinner)
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-lookup {
   position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   min-width: 0;
-  height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--lead-border);
-  border-radius: 10px;
-  background: #ffffff;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  height: 42px;
+  padding: 0 14px;
+  border: 1.5px solid var(--lead-border);
+  border-radius: var(--lead-radius-input);
+  background: var(--lead-bg-input);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
 }
 
-.lead-lookup:hover {
-  border-color: #cbd5e1;
+.lead-drawer .lead-lookup:hover {
+  border-color: var(--lead-border-hover);
 }
 
-.lead-lookup:focus-within {
+.lead-drawer .lead-lookup:focus-within {
   border-color: var(--lead-blue);
   box-shadow: 0 0 0 3px var(--lead-blue-ring);
+  background: var(--lead-bg-white);
 }
 
-.lead-lookup-icon {
+.lead-drawer .lead-lookup-icon {
   flex: 0 0 auto;
-  color: var(--lead-slate-400);
+  color: var(--lead-text-muted);
 }
 
-.lead-lookup-input {
+.lead-drawer .lead-lookup-input {
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;
@@ -309,28 +376,29 @@
   border: 0;
   outline: none;
   background: transparent;
-  color: var(--lead-slate-900);
+  color: var(--lead-text-primary);
   font-size: 14px;
+  font-family: var(--lead-font);
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
 }
 
-.lead-lookup-input::placeholder {
-  color: var(--lead-slate-400);
+.lead-drawer .lead-lookup-input::placeholder {
+  color: var(--lead-text-placeholder);
   opacity: 1;
 }
 
-.lead-lookup-input:disabled {
-  color: var(--lead-slate-400);
+.lead-drawer .lead-lookup-input:disabled {
+  color: var(--lead-text-muted);
   cursor: not-allowed;
 }
 
-.lead-lookup-spinner {
+.lead-drawer .lead-lookup-spinner {
   display: inline-block;
   width: 14px;
   height: 14px;
   flex: 0 0 auto;
-  border: 2px solid rgba(37, 99, 235, 0.25);
+  border: 2px solid rgba(37, 99, 235, 0.2);
   border-top-color: var(--lead-blue);
   border-radius: 50%;
   animation: leadSpin 0.7s linear infinite;
@@ -340,99 +408,123 @@
   to { transform: rotate(360deg); }
 }
 
-/* ---------------- Hints / errors ---------------- */
-.lead-hint {
+/* ══════════════════════════════════════════════
+   HINTS & ERRORS
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-hint {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin: 0;
-  color: var(--lead-slate-500);
+  color: var(--lead-text-muted);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.3;
 }
 
-.lead-hint--success {
+.lead-drawer .lead-hint--success {
   color: #059669;
 }
 
-.lead-field-error {
+.lead-drawer .lead-field-error {
   margin: 0;
   color: var(--lead-danger);
   font-size: 12px;
   font-weight: 500;
 }
 
-/* ---------------- Footer: Cancel (white) + primary, right-aligned, never clipped ---------------- */
-.lead-footer {
+/* ══════════════════════════════════════════════
+   FOOTER — sticky bottom, always pinned and fully visible
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-footer {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  width: 100%;
-  margin: 0;
-  padding-top: 20px;
+  flex-shrink: 0;
+  width: calc(100% + 48px);
+  margin-top: auto;
+  margin-left: -24px;
+  margin-right: -24px;
+  margin-bottom: -12px;
+  padding: 10px 24px 12px;
   border-top: 1px solid var(--lead-divider);
+  background: #ffffff;
+  box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.04);
 }
 
-/* ---------------- Buttons ---------------- */
-.lead-btn {
+/* ══════════════════════════════════════════════
+   BUTTONS — pill shaped, blue primary
+   ══════════════════════════════════════════════ */
+.lead-drawer .lead-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   flex: 0 0 auto;
-  height: 44px;
-  padding: 0 20px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  font-size: 14px;
+  height: 36px;
+  padding: 0 18px;
+  border: 1.5px solid transparent;
+  border-radius: var(--lead-radius-btn);
+  font-size: 13.5px;
   font-weight: 600;
-  letter-spacing: -0.005em;
+  font-family: var(--lead-font);
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease, color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.lead-btn:focus-visible {
+.lead-drawer .lead-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--lead-blue-ring);
 }
 
-.lead-btn:disabled {
+.lead-drawer .lead-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
-.lead-btn--ghost {
-  background: #ffffff;
+/* Ghost / Cancel */
+.lead-drawer .lead-btn--ghost {
+  background: var(--lead-bg-white);
   border-color: var(--lead-border);
-  color: var(--lead-slate-700);
+  color: var(--lead-text-secondary);
 }
 
-.lead-btn--ghost:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+.lead-drawer .lead-btn--ghost:hover:not(:disabled) {
+  background: var(--lead-bg-input);
+  border-color: var(--lead-border-hover);
+  color: var(--lead-text-primary);
 }
 
-.lead-btn--primary {
+/* Primary — solid blue pill */
+.lead-drawer .lead-btn--primary {
   background: var(--lead-blue);
   border-color: var(--lead-blue);
   color: #ffffff;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
 }
 
-.lead-btn--primary:hover:not(:disabled) {
+.lead-drawer .lead-btn--primary:hover:not(:disabled) {
   background: var(--lead-blue-hover);
   border-color: var(--lead-blue-hover);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
 }
 
-/* ==========================================================================
-   SUB-DIALOGS (new customer / new salesperson / success)
-   No dimming, no blur: overlay is transparent and only catches clicks.
-   ========================================================================== */
+/* ══════════════════════════════════════════════
+   SUB-DIALOGS — new customer / new salesperson
+   These use portals so they're on <body>, NOT inside
+   .lead-drawer. Keep these unscoped.
+   ══════════════════════════════════════════════ */
 .lead-modal-overlay {
   position: fixed;
   inset: 0;
@@ -440,9 +532,9 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background: rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   animation: leadFade 0.15s ease both;
 }
 
@@ -452,22 +544,48 @@
 }
 
 .lead-modal {
+  --lead-blue:        #2563eb;
+  --lead-blue-hover:  #1d4ed8;
+  --lead-blue-ring:   rgba(37, 99, 235, 0.15);
+  --lead-text-primary:   #111827;
+  --lead-text-secondary: #374151;
+  --lead-text-muted:     #6b7280;
+  --lead-text-placeholder: #9ca3af;
+  --lead-border:     #d1d5db;
+  --lead-border-hover: #9ca3af;
+  --lead-divider:    #e5e7eb;
+  --lead-bg-input:   #f9fafb;
+  --lead-bg-white:   #ffffff;
+  --lead-danger:     #dc2626;
+  --lead-radius-input: 10px;
+  --lead-radius-btn:   9999px;
+  --lead-radius-modal: 16px;
+  --lead-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+
   display: flex;
   flex-direction: column;
-  width: min(440px, 100%);
+  width: min(460px, 100%);
   max-height: calc(100dvh - 32px);
   overflow: hidden;
-  background: #ffffff;
-  border: 1px solid var(--lead-border);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px -6px rgba(15, 23, 42, 0.14),
-    0 1px 3px rgba(15, 23, 42, 0.06);
+  background: var(--lead-bg-white);
+  border: 1px solid var(--lead-divider);
+  border-radius: var(--lead-radius-modal);
+  box-shadow: 0 10px 32px -6px rgba(15, 23, 42, 0.18),
+    0 1px 4px rgba(15, 23, 42, 0.07);
   animation: leadRise 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  font-family: var(--lead-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.lead-modal,
+.lead-modal * {
+  box-sizing: border-box;
 }
 
 @keyframes leadRise {
-  from { opacity: 0; transform: translateY(6px) scale(0.99); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)  scale(1); }
 }
 
 .lead-modal-head {
@@ -492,8 +610,8 @@
 
 .lead-modal-title {
   margin: 0;
-  color: var(--lead-slate-900);
-  font-size: 16px;
+  color: var(--lead-text-primary);
+  font-size: 17px;
   font-weight: 700;
   line-height: 1.25;
 }
@@ -507,6 +625,78 @@
   flex: 1 1 auto;
 }
 
+/* inputs inside modal — same look */
+.lead-modal-body .lead-label {
+  display: block;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+.lead-modal-body .lead-input {
+  display: block;
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  background: #f9fafb;
+  color: #111827;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lead-modal-body .lead-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  background: #ffffff;
+}
+
+.lead-modal-body .lead-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lead-modal-body .lead-req {
+  color: #dc2626;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.lead-modal-body .lead-mobile-lock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.lead-modal-body .lead-mobile-lock span {
+  color: #6b7280;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lead-modal-body .lead-mobile-lock strong {
+  color: #1e40af;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.lead-modal-body .lead-mobile-lock small {
+  margin-top: 2px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .lead-modal-footer {
   display: flex;
   flex-wrap: wrap;
@@ -514,89 +704,115 @@
   gap: 10px;
   padding: 16px 20px 20px;
   border-top: 1px solid var(--lead-divider);
-  background: #ffffff;
+  background: var(--lead-bg-white);
   flex-shrink: 0;
 }
 
-.lead-mobile-lock {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: #eff6ff;
+/* Buttons inside modal */
+.lead-modal-footer .lead-btn,
+.lead-modal .lead-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 20px;
+  border: 1.5px solid transparent;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.lead-mobile-lock span {
-  color: var(--lead-slate-500);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.lead-modal-footer .lead-btn--ghost,
+.lead-modal .lead-btn--ghost {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #374151;
 }
 
-.lead-mobile-lock strong {
-  color: #1e40af;
-  font-size: 15px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+.lead-modal-footer .lead-btn--ghost:hover:not(:disabled),
+.lead-modal .lead-btn--ghost:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
-.lead-mobile-lock small {
-  margin-top: 2px;
-  color: var(--lead-slate-500);
-  font-size: 12px;
+.lead-modal-footer .lead-btn--primary,
+.lead-modal .lead-btn--primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lead-page *,
-  .lead-page *::before,
-  .lead-page *::after,
-  .lead-modal-overlay,
-  .lead-modal,
-  .lead-lookup-spinner {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
-  }
+.lead-modal-footer .lead-btn--primary:hover:not(:disabled),
+.lead-modal .lead-btn--primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
 }
 
+.lead-modal-footer .lead-btn:disabled,
+.lead-modal .lead-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 
-/* ==========================================================================
-   SUCCESS POPUP — dimmed, blurred backdrop (same look as the drawer backdrop).
-   Rendered in a portal on <body>, so it declares the tokens it needs.
-   ========================================================================== */
+/* close button inside modal */
+.lead-modal .lead-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.lead-modal .lead-close-btn:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.lead-modal .lead-close-btn--sm {
+  width: 26px;
+  height: 26px;
+}
+
+/* ══════════════════════════════════════════════
+   SUCCESS POPUP — dimmed backdrop (portal on body)
+   ══════════════════════════════════════════════ */
 .lead-modal-overlay--backdrop {
-  --lead-blue: #2563eb;
-  --lead-blue-hover: #1d4ed8;
-  --lead-blue-ring: rgba(37, 99, 235, 0.14);
-  --lead-slate-900: #0f172a;
-  --lead-slate-700: #334155;
-  --lead-slate-500: #64748b;
-  --lead-slate-400: #94a3b8;
-  --lead-border: #e2e8f0;
-  --lead-divider: #f1f5f9;
-
   z-index: 1500;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-
-.lead-modal-overlay--backdrop,
-.lead-modal-overlay--backdrop *,
-.lead-modal-overlay--backdrop *::before,
-.lead-modal-overlay--backdrop *::after {
-  box-sizing: border-box;
-}
-
-.lead-modal-overlay--backdrop button {
-  font-family: inherit;
 }
 
 .lead-modal-overlay--backdrop .lead-modal {
-  box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.35),
-    0 2px 6px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.38),
+    0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+/* ══════════════════════════════════════════════
+   REDUCED MOTION
+   ══════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .lead-drawer .lead-page *,
+  .lead-drawer .lead-page *::before,
+  .lead-drawer .lead-page *::after,
+  .lead-modal-overlay,
+  .lead-modal,
+  .lead-drawer .lead-lookup-spinner {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }

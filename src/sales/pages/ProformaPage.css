@@ -57,3 +57,319 @@
 
 .proforma-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap: var(--sp-3);margin-bottom: var(--sp-4)}.proforma-kpis>div{display:grid;grid-template-columns:1fr auto;gap: var(--sp-1) var(--sp-4);padding: var(--sp-4) var(--sp-5);border:1px solid #e3e9f2;border-radius:12px;background:#fff}.proforma-kpis span{grid-column:1/-1;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}.proforma-kpis strong{color:#111827;font-size:24px}.proforma-kpis small{align-self:end;color:#475569;font-size:12px;font-weight:650}.proforma-filters{display:flex;gap: var(--sp-3);margin-bottom: var(--sp-4)}.proforma-filters label{width:min(420px,100%);height:40px;display:flex;align-items:center;gap: var(--sp-2);padding: 0 var(--sp-3);border:1px solid #dfe6ef;border-radius:9px;background:#fff;color:#94a3b8}.proforma-filters input{width:100%;border:0;outline:0;background:transparent;color:#111827}.proforma-filters select{height:40px;padding: 0 var(--sp-7) 0 var(--sp-3);border:1px solid #dfe6ef;border-radius:9px;background:#fff;color:#334155}.proforma-invoice-table{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.proforma-invoice-table th{font-family:inherit;font-size:9.5px;letter-spacing:.5px}.proforma-invoice-table td{font-family:inherit;color:#111827;font-size:11.5px}.item-description strong{font-size:12px;font-weight:750}.item-description span{font-size:11px}.proforma-bill-to strong,.proforma-entity strong{color:#111827;font-weight:750}.proforma-bill-to span,.proforma-entity span{color:#263244}
 @media(max-width:760px){.proforma-kpis{grid-template-columns:1fr}.proforma-filters{flex-direction:column}.proforma-filters label{width:auto}}
+
+.proforma-invoice-sheet{--doc-ink:#111827;--doc-text:#374151;--doc-muted:#6b7280;--doc-line:#e5e7eb;--doc-soft:#f8fafc;--doc-accent:#1d4ed8;--doc-accent-soft:#eef4ff;
+  width:min(210mm,calc(100% - 48px));margin:var(--sp-6) auto;padding:12mm;border:1px solid var(--doc-line);border-radius:10px;font-size:11px;line-height:1.4;color:var(--doc-ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif}
+
+/* Header */
+.proforma-letterhead{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--sp-6);padding-bottom:var(--sp-5);border-bottom:1px solid var(--doc-line)}
+.proforma-brand{display:flex;gap:var(--sp-4);align-items:flex-start;min-width:0}
+.proforma-brand-logo{display:block;flex:none;width:auto;height:56px;max-width:110px;object-fit:contain}
+.proforma-entity{gap:2px}
+.proforma-entity strong{font-family:inherit;font-size:17px;font-weight:700;color:var(--doc-ink);margin-bottom:2px}
+.proforma-entity span{font-size:11px;color:var(--doc-text)}
+.proforma-title-block{display:grid;align-content:start;gap:var(--sp-1)}
+.proforma-invoice-title{margin:0;text-align:right;font-family:inherit;font-size:20px;font-weight:700;letter-spacing:.04em;color:var(--doc-ink)}
+.proforma-not-tax{margin:0 0 var(--sp-3);text-align:right;color:#b42318;font-size:10px;font-weight:700;letter-spacing:.08em}
+.proforma-info-line{display:grid;grid-template-columns:1fr 1.25fr;gap:var(--sp-2);font-size:11px;padding:3px 0}
+.proforma-info-line span{color:var(--doc-muted)}
+.proforma-info-line strong{text-align:right;font-weight:600;color:var(--doc-ink)}
+
+/* Bill To / Details cards */
+.proforma-party-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-5)}
+.proforma-bill-to,.proforma-meta{margin:0;padding:var(--sp-4);border:1px solid var(--doc-line);border-radius:8px;align-content:start}
+.proforma-meta{display:grid;gap:var(--sp-1)}
+.proforma-party-grid small{margin-bottom:var(--sp-2);color:var(--doc-muted);font-size:10px;font-weight:700;letter-spacing:.08em}
+.proforma-bill-to strong{font-family:inherit;font-size:13px;font-weight:600;color:var(--doc-ink)}
+.proforma-bill-to span{font-size:11px;color:var(--doc-text)}
+
+/* Items table: same columns and look as the tax invoice */
+.proforma-items-wrap{margin-top:var(--sp-5);overflow:visible;border:0;border-radius:0}
+.proforma-invoice-table{min-width:0;table-layout:fixed;font-size:11px;font-variant-numeric:tabular-nums}
+.proforma-invoice-sheet .proforma-invoice-table th{padding:var(--sp-2);background:var(--doc-soft);color:var(--doc-text);font-size:9px;font-weight:700;letter-spacing:.04em;text-align:left;border-top:1px solid var(--doc-line);border-bottom:1px solid var(--doc-line)}
+.proforma-invoice-sheet .proforma-invoice-table td{padding:var(--sp-2);font-size:11px;text-align:left;border-bottom:1px solid var(--doc-line);color:var(--doc-ink);overflow-wrap:break-word}
+.proforma-invoice-sheet .proforma-invoice-table th.num,
+.proforma-invoice-sheet .proforma-invoice-table td.num{text-align:right}
+.proforma-invoice-table td.item-description{white-space:normal}
+.item-description strong{font-size:11px;font-weight:600}
+.item-description small{margin-top:2px;color:var(--doc-muted);font-size:10px}
+.proforma-invoice-table td small{color:var(--doc-muted);font-size:10px}
+
+/* Bill Summary card */
+.proforma-summary-row{margin-top:var(--sp-5)}
+.proforma-summary-card{width:min(360px,100%);border:1px solid var(--doc-line);border-radius:8px}
+.proforma-summary-card h2{padding:var(--sp-3) var(--sp-4);background:var(--doc-soft);color:var(--doc-text);font-size:10px;font-weight:700;letter-spacing:.08em;border-radius:7px 7px 0 0}
+.proforma-summary-card>div{padding:var(--sp-2) var(--sp-4);font-size:11px;color:var(--doc-muted)}
+.proforma-summary-card>div strong{color:var(--doc-ink);font-weight:600}
+.proforma-summary-card .grand-total{padding:var(--sp-4);background:var(--doc-accent-soft);color:var(--doc-accent);font-size:13px;font-weight:700;border-radius:0 0 7px 7px}
+.proforma-summary-card .grand-total strong{color:var(--doc-accent);font-size:16px}
+.proforma-footer{margin-top:var(--sp-6);padding-top:var(--sp-4);border-top:1px solid var(--doc-line);font-size:10px;color:var(--doc-muted)}
+
+@media(max-width:760px){
+  .proforma-letterhead,.proforma-party-grid{grid-template-columns:1fr}
+  .proforma-invoice-title,.proforma-not-tax{text-align:left}
+  .proforma-items-wrap{overflow:auto}
+  .proforma-invoice-table{min-width:720px}
+}
+@media print{
+  .proforma-invoice-sheet{width:100%;margin:0;padding:var(--sp-5);border:0;border-radius:0;box-shadow:none}
+  .proforma-items-wrap{overflow:visible}
+  .proforma-invoice-table{min-width:0}
+  .proforma-not-tax{color:#111}
+  .proforma-summary-row,.proforma-summary-card,.proforma-invoice-table tr{break-inside:avoid;page-break-inside:avoid}
+  .proforma-invoice-table thead{display:table-header-group}
+  .proforma-invoice-sheet .proforma-invoice-table th,.proforma-summary-card h2,.proforma-summary-card .grand-total{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* ===== Proforma v2 tweaks: APPEND at the very END of ProformaPage.css,
+   after the "unified document design" block you already added. ===== */
+.proforma-invoice-sheet{--doc-muted:#4b5563;--doc-grid:#d1d5db;--doc-head:#e9edf3}
+
+/* Header hierarchy */
+.proforma-entity strong{font-size:16px}
+.proforma-invoice-title{font-size:26px;line-height:1.1;font-weight:800;letter-spacing:.03em;color:var(--doc-accent)}
+.proforma-letterhead{border-bottom-color:var(--doc-grid)}
+
+/* Label/value lists */
+.proforma-info-line{align-items:center}
+.proforma-info-line>span{color:var(--doc-muted);font-weight:400}
+.proforma-info-line>strong{font-weight:700;color:var(--doc-ink)}
+
+/* Status badge (same look as the tax invoice) */
+.doc-badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid transparent;font-size:10px;font-weight:700;letter-spacing:.02em;line-height:1.4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.doc-badge.doc-badge--ok{background:#dcfce7;border-color:#86efac;color:#14532d}
+.doc-badge.doc-badge--warn{background:#fef3c7;border-color:#fcd34d;color:#78350f}
+.doc-badge.doc-badge--danger{background:#fee2e2;border-color:#fca5a5;color:#7f1d1d}
+.doc-badge.doc-badge--neutral{background:#f1f5f9;border-color:#cbd5e1;color:#1f2937}
+
+/* Cards and summary borders */
+.proforma-bill-to,.proforma-meta,.proforma-summary-card{border-color:var(--doc-grid)}
+.proforma-summary-card h2{background:var(--doc-head);color:var(--doc-ink);border-bottom-color:var(--doc-grid)}
+.proforma-summary-card>div{border-bottom-color:var(--doc-line)}
+.proforma-summary-card>div strong{font-weight:700}
+
+/* Items table: full grid, filled header */
+.proforma-invoice-table{border:1px solid var(--doc-grid)}
+.proforma-invoice-sheet .proforma-invoice-table th{background:var(--doc-head);color:var(--doc-ink);font-weight:800;text-transform:uppercase;border:1px solid var(--doc-grid);vertical-align:middle}
+.proforma-invoice-sheet .proforma-invoice-table td{border:1px solid var(--doc-grid)}
+
+/* Part No + HSN on one compact line */
+.proforma-invoice-table td small.proforma-partno{display:flex;flex-wrap:wrap;gap:0 var(--sp-3);margin-top:2px;color:var(--doc-muted);font-size:10px}
+.proforma-partno span{display:inline;margin:0;font-size:inherit;color:inherit;overflow-wrap:anywhere}
+
+@media print{
+  .proforma-invoice-sheet .proforma-invoice-table th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* ===== Proforma v3 (navy accent + zebra rows): APPEND at the very END of ProformaPage.css ===== */
+.proforma-invoice-sheet{--doc-bar:#1e293b;--doc-zebra:#f9fafb;--doc-accent:#1e3a5f;--doc-accent-soft:#eef2f7}
+.proforma-invoice-sheet .proforma-invoice-table th{background:var(--doc-bar);color:#fff;border-color:#334155}
+.proforma-invoice-sheet .proforma-invoice-table tbody td{padding:var(--sp-3) var(--sp-2)}
+.proforma-invoice-table tbody tr:nth-child(even) td{background:var(--doc-zebra)}
+.proforma-summary-card .grand-total{background:var(--doc-bar);color:#fff}
+.proforma-summary-card .grand-total strong{color:#fff}
+@media print{
+  .proforma-invoice-table tbody tr:nth-child(even) td,.proforma-summary-card .grand-total{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* ===== Proforma: unified document design =====
+   APPEND to the END of ProformaPage.css. It overrides the older sheet rules
+   (so it must stay last) and re-declares the print rules at the bottom. */
+.proforma-invoice-sheet{--doc-ink:#111827;--doc-text:#374151;--doc-muted:#6b7280;--doc-line:#e5e7eb;--doc-soft:#f8fafc;--doc-accent:#1d4ed8;--doc-accent-soft:#eef4ff;
+  width:min(210mm,calc(100% - 48px));margin:var(--sp-6) auto;padding:12mm;border:1px solid var(--doc-line);border-radius:10px;font-size:11px;line-height:1.4;color:var(--doc-ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif}
+
+/* Header */
+.proforma-letterhead{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--sp-6);padding-bottom:var(--sp-5);border-bottom:1px solid var(--doc-line)}
+.proforma-brand{display:flex;gap:var(--sp-4);align-items:flex-start;min-width:0}
+.proforma-brand-logo{display:block;flex:none;width:auto;height:56px;max-width:110px;object-fit:contain}
+.proforma-entity{gap:2px}
+.proforma-entity strong{font-family:inherit;font-size:17px;font-weight:700;color:var(--doc-ink);margin-bottom:2px}
+.proforma-entity span{font-size:11px;color:var(--doc-text)}
+.proforma-title-block{display:grid;align-content:start;gap:var(--sp-1)}
+.proforma-invoice-title{margin:0;text-align:right;font-family:inherit;font-size:20px;font-weight:700;letter-spacing:.04em;color:var(--doc-ink)}
+.proforma-not-tax{margin:0 0 var(--sp-3);text-align:right;color:#b42318;font-size:10px;font-weight:700;letter-spacing:.08em}
+.proforma-info-line{display:grid;grid-template-columns:1fr 1.25fr;gap:var(--sp-2);font-size:11px;padding:3px 0}
+.proforma-info-line span{color:var(--doc-muted)}
+.proforma-info-line strong{text-align:right;font-weight:600;color:var(--doc-ink)}
+
+/* Bill To / Details cards */
+.proforma-party-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-5)}
+.proforma-bill-to,.proforma-meta{margin:0;padding:var(--sp-4);border:1px solid var(--doc-line);border-radius:8px;align-content:start}
+.proforma-meta{display:grid;gap:var(--sp-1)}
+.proforma-party-grid small{margin-bottom:var(--sp-2);color:var(--doc-muted);font-size:10px;font-weight:700;letter-spacing:.08em}
+.proforma-bill-to strong{font-family:inherit;font-size:13px;font-weight:600;color:var(--doc-ink)}
+.proforma-bill-to span{font-size:11px;color:var(--doc-text)}
+
+/* Items table: same columns and look as the tax invoice */
+.proforma-items-wrap{margin-top:var(--sp-5);overflow:visible;border:0;border-radius:0}
+.proforma-invoice-table{min-width:0;table-layout:fixed;font-size:11px;font-variant-numeric:tabular-nums}
+.proforma-invoice-sheet .proforma-invoice-table th{padding:var(--sp-2);background:var(--doc-soft);color:var(--doc-text);font-size:9px;font-weight:700;letter-spacing:.04em;text-align:left;border-top:1px solid var(--doc-line);border-bottom:1px solid var(--doc-line)}
+.proforma-invoice-sheet .proforma-invoice-table td{padding:var(--sp-2);font-size:11px;text-align:left;border-bottom:1px solid var(--doc-line);color:var(--doc-ink);overflow-wrap:break-word}
+.proforma-invoice-sheet .proforma-invoice-table th.num,
+.proforma-invoice-sheet .proforma-invoice-table td.num{text-align:right}
+.proforma-invoice-table td.item-description{white-space:normal}
+.item-description strong{font-size:11px;font-weight:600}
+.item-description small{margin-top:2px;color:var(--doc-muted);font-size:10px}
+.proforma-invoice-table td small{color:var(--doc-muted);font-size:10px}
+
+/* Bill Summary card */
+.proforma-summary-row{margin-top:var(--sp-5)}
+.proforma-summary-card{width:min(360px,100%);border:1px solid var(--doc-line);border-radius:8px}
+.proforma-summary-card h2{padding:var(--sp-3) var(--sp-4);background:var(--doc-soft);color:var(--doc-text);font-size:10px;font-weight:700;letter-spacing:.08em;border-radius:7px 7px 0 0}
+.proforma-summary-card>div{padding:var(--sp-2) var(--sp-4);font-size:11px;color:var(--doc-muted)}
+.proforma-summary-card>div strong{color:var(--doc-ink);font-weight:600}
+.proforma-summary-card .grand-total{padding:var(--sp-4);background:var(--doc-accent-soft);color:var(--doc-accent);font-size:13px;font-weight:700;border-radius:0 0 7px 7px}
+.proforma-summary-card .grand-total strong{color:var(--doc-accent);font-size:16px}
+.proforma-footer{margin-top:var(--sp-6);padding-top:var(--sp-4);border-top:1px solid var(--doc-line);font-size:10px;color:var(--doc-muted)}
+
+@media screen and (max-width:760px){
+  .proforma-letterhead,.proforma-party-grid{grid-template-columns:1fr}
+  .proforma-invoice-title,.proforma-not-tax{text-align:left}
+  .proforma-items-wrap{overflow:auto}
+  .proforma-invoice-table{min-width:720px}
+}
+@media print{
+  .proforma-invoice-sheet{width:100%;margin:0;padding:var(--sp-5);border:0;border-radius:0;box-shadow:none}
+  .proforma-items-wrap{overflow:visible}
+  .proforma-invoice-table{min-width:0}
+  .proforma-not-tax{color:#111}
+  .proforma-summary-row,.proforma-summary-card,.proforma-invoice-table tr{break-inside:avoid;page-break-inside:avoid}
+  .proforma-invoice-table thead{display:table-header-group}
+  .proforma-invoice-sheet .proforma-invoice-table th,.proforma-summary-card h2,.proforma-summary-card .grand-total{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+
+/* ===== Proforma: unified document design =====
+   APPEND to the END of ProformaPage.css. It overrides the older sheet rules
+   (so it must stay last) and re-declares the print rules at the bottom. */
+.proforma-invoice-sheet{--doc-ink:#111827;--doc-text:#374151;--doc-muted:#6b7280;--doc-line:#e5e7eb;--doc-soft:#f8fafc;--doc-accent:#1d4ed8;--doc-accent-soft:#eef4ff;
+  width:min(210mm,calc(100% - 48px));margin:var(--sp-6) auto;padding:12mm;border:1px solid var(--doc-line);border-radius:10px;font-size:11px;line-height:1.4;color:var(--doc-ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif}
+
+/* Header */
+.proforma-letterhead{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--sp-6);padding-bottom:var(--sp-5);border-bottom:1px solid var(--doc-line)}
+.proforma-brand{display:flex;gap:var(--sp-4);align-items:flex-start;min-width:0}
+.proforma-brand-logo{display:block;flex:none;width:auto;height:56px;max-width:110px;object-fit:contain}
+.proforma-entity{gap:2px}
+.proforma-entity strong{font-family:inherit;font-size:17px;font-weight:700;color:var(--doc-ink);margin-bottom:2px}
+.proforma-entity span{font-size:11px;color:var(--doc-text)}
+.proforma-title-block{display:grid;align-content:start;gap:var(--sp-1)}
+.proforma-invoice-title{margin:0;text-align:right;font-family:inherit;font-size:20px;font-weight:700;letter-spacing:.04em;color:var(--doc-ink)}
+.proforma-not-tax{margin:0 0 var(--sp-3);text-align:right;color:#b42318;font-size:10px;font-weight:700;letter-spacing:.08em}
+.proforma-info-line{display:grid;grid-template-columns:1fr 1.25fr;gap:var(--sp-2);font-size:11px;padding:3px 0}
+.proforma-info-line span{color:var(--doc-muted)}
+.proforma-info-line strong{text-align:right;font-weight:600;color:var(--doc-ink)}
+
+/* Bill To / Details cards */
+.proforma-party-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-top:var(--sp-5)}
+.proforma-bill-to,.proforma-meta{margin:0;padding:var(--sp-4);border:1px solid var(--doc-line);border-radius:8px;align-content:start}
+.proforma-meta{display:grid;gap:var(--sp-1)}
+.proforma-party-grid small{margin-bottom:var(--sp-2);color:var(--doc-muted);font-size:10px;font-weight:700;letter-spacing:.08em}
+.proforma-bill-to strong{font-family:inherit;font-size:13px;font-weight:600;color:var(--doc-ink)}
+.proforma-bill-to span{font-size:11px;color:var(--doc-text)}
+
+/* Items table: same columns and look as the tax invoice */
+.proforma-items-wrap{margin-top:var(--sp-5);overflow:visible;border:0;border-radius:0}
+.proforma-invoice-table{min-width:0;table-layout:fixed;font-size:11px;font-variant-numeric:tabular-nums}
+.proforma-invoice-sheet .proforma-invoice-table th{padding:var(--sp-2);background:var(--doc-soft);color:var(--doc-text);font-size:9px;font-weight:700;letter-spacing:.04em;text-align:left;border-top:1px solid var(--doc-line);border-bottom:1px solid var(--doc-line)}
+.proforma-invoice-sheet .proforma-invoice-table td{padding:var(--sp-2);font-size:11px;text-align:left;border-bottom:1px solid var(--doc-line);color:var(--doc-ink);overflow-wrap:break-word}
+.proforma-invoice-sheet .proforma-invoice-table th.num,
+.proforma-invoice-sheet .proforma-invoice-table td.num{text-align:right}
+.proforma-invoice-table td.item-description{white-space:normal}
+.item-description strong{font-size:11px;font-weight:600}
+.item-description small{margin-top:2px;color:var(--doc-muted);font-size:10px}
+.proforma-invoice-table td small{color:var(--doc-muted);font-size:10px}
+
+/* Bill Summary card */
+.proforma-summary-row{margin-top:var(--sp-5)}
+.proforma-summary-card{width:min(360px,100%);border:1px solid var(--doc-line);border-radius:8px}
+.proforma-summary-card h2{padding:var(--sp-3) var(--sp-4);background:var(--doc-soft);color:var(--doc-text);font-size:10px;font-weight:700;letter-spacing:.08em;border-radius:7px 7px 0 0}
+.proforma-summary-card>div{padding:var(--sp-2) var(--sp-4);font-size:11px;color:var(--doc-muted)}
+.proforma-summary-card>div strong{color:var(--doc-ink);font-weight:600}
+.proforma-summary-card .grand-total{padding:var(--sp-4);background:var(--doc-accent-soft);color:var(--doc-accent);font-size:13px;font-weight:700;border-radius:0 0 7px 7px}
+.proforma-summary-card .grand-total strong{color:var(--doc-accent);font-size:16px}
+.proforma-footer{margin-top:var(--sp-6);padding-top:var(--sp-4);border-top:1px solid var(--doc-line);font-size:10px;color:var(--doc-muted)}
+
+@media screen and (max-width:760px){
+  .proforma-letterhead,.proforma-party-grid{grid-template-columns:1fr}
+  .proforma-invoice-title,.proforma-not-tax{text-align:left}
+  .proforma-items-wrap{overflow:auto}
+  .proforma-invoice-table{min-width:720px}
+}
+@media print{
+  .proforma-invoice-sheet{width:100%;margin:0;padding:var(--sp-5);border:0;border-radius:0;box-shadow:none}
+  .proforma-items-wrap{overflow:visible}
+  .proforma-invoice-table{min-width:0}
+  .proforma-not-tax{color:#111}
+  .proforma-summary-row,.proforma-summary-card,.proforma-invoice-table tr{break-inside:avoid;page-break-inside:avoid}
+  .proforma-invoice-table thead{display:table-header-group}
+  .proforma-invoice-sheet .proforma-invoice-table th,.proforma-summary-card h2,.proforma-summary-card .grand-total{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* ===== Proforma v2 tweaks: APPEND at the very END of ProformaPage.css,
+   after the "unified document design" block you already added. ===== */
+.proforma-invoice-sheet{--doc-muted:#4b5563;--doc-grid:#d1d5db;--doc-head:#e9edf3}
+
+/* Header hierarchy */
+.proforma-entity strong{font-size:16px}
+.proforma-invoice-title{font-size:26px;line-height:1.1;font-weight:800;letter-spacing:.03em;color:var(--doc-accent)}
+.proforma-letterhead{border-bottom-color:var(--doc-grid)}
+
+/* Label/value lists */
+.proforma-info-line{align-items:center}
+.proforma-info-line>span{color:var(--doc-muted);font-weight:400}
+.proforma-info-line>strong{font-weight:700;color:var(--doc-ink)}
+
+/* Status badge (same look as the tax invoice) */
+.doc-badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid transparent;font-size:10px;font-weight:700;letter-spacing:.02em;line-height:1.4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.doc-badge.doc-badge--ok{background:#dcfce7;border-color:#86efac;color:#14532d}
+.doc-badge.doc-badge--warn{background:#fef3c7;border-color:#fcd34d;color:#78350f}
+.doc-badge.doc-badge--danger{background:#fee2e2;border-color:#fca5a5;color:#7f1d1d}
+.doc-badge.doc-badge--neutral{background:#f1f5f9;border-color:#cbd5e1;color:#1f2937}
+
+/* Cards and summary borders */
+.proforma-bill-to,.proforma-meta,.proforma-summary-card{border-color:var(--doc-grid)}
+.proforma-summary-card h2{background:var(--doc-head);color:var(--doc-ink);border-bottom-color:var(--doc-grid)}
+.proforma-summary-card>div{border-bottom-color:var(--doc-line)}
+.proforma-summary-card>div strong{font-weight:700}
+
+/* Items table: full grid, filled header */
+.proforma-invoice-table{border:1px solid var(--doc-grid)}
+.proforma-invoice-sheet .proforma-invoice-table th{background:var(--doc-head);color:var(--doc-ink);font-weight:800;text-transform:uppercase;border:1px solid var(--doc-grid);vertical-align:middle}
+.proforma-invoice-sheet .proforma-invoice-table td{border:1px solid var(--doc-grid)}
+
+/* Part No + HSN on one compact line */
+.proforma-invoice-table td small.proforma-partno{display:flex;flex-wrap:wrap;gap:0 var(--sp-3);margin-top:2px;color:var(--doc-muted);font-size:10px}
+.proforma-partno span{display:inline;margin:0;font-size:inherit;color:inherit;overflow-wrap:anywhere}
+
+@media print{
+  .proforma-invoice-sheet .proforma-invoice-table th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* ===== Proforma v3 (navy accent + zebra rows): APPEND at the very END of ProformaPage.css ===== */
+.proforma-invoice-sheet{--doc-bar:#1e293b;--doc-bar-text:#fff;--doc-bar-line:#334155;--doc-zebra:#f9fafb;--doc-accent:#1e3a5f;--doc-accent-soft:#eef2f7}
+.proforma-invoice-sheet .proforma-invoice-table th{background:var(--doc-bar);color:var(--doc-bar-text);border-color:var(--doc-bar-line)}
+.proforma-invoice-sheet .proforma-invoice-table tbody td{padding:var(--sp-3) var(--sp-2)}
+.proforma-invoice-table tbody tr:nth-child(even) td{background:var(--doc-zebra)}
+.proforma-summary-card .grand-total{background:var(--doc-bar);color:var(--doc-bar-text);border-top:1px solid var(--doc-bar-line)}
+.proforma-summary-card .grand-total strong{color:var(--doc-bar-text)}
+@media print{
+  .proforma-invoice-table tbody tr:nth-child(even) td,.proforma-summary-card .grand-total{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* Themes: swap variables only */
+.proforma-invoice-sheet[data-template="soft"]{--doc-bar:#e9edf3;--doc-bar-text:#111827;--doc-bar-line:#cbd5e1;--doc-accent:#1d4ed8}
+
+/* ===== Image-style table (same as the tax invoice): header band, no vertical lines, Total row ===== */
+.proforma-invoice-sheet .proforma-invoice-table{border:0}
+.proforma-invoice-sheet .proforma-invoice-table th{border:0}
+.proforma-invoice-sheet .proforma-invoice-table td{border:0;border-bottom:1px solid var(--doc-line)}
+.proforma-invoice-sheet .proforma-invoice-table tbody tr:nth-child(even) td{background:transparent}
+
+/* Centred columns (S.No, HSN, Qty), as in the original proforma table */
+.proforma-invoice-sheet .proforma-invoice-table th.ctr,
+.proforma-invoice-sheet .proforma-invoice-table td.ctr{text-align:center}
+
+/* Proforma table has 10-11 columns: slightly tighter side padding so every column fits the A4 sheet */
+.proforma-invoice-sheet .proforma-invoice-table th{padding-left:5px;padding-right:5px}
+.proforma-invoice-sheet .proforma-invoice-table tbody td{padding-left:5px;padding-right:5px}
+.proforma-invoice-table td.item-description{overflow-wrap:anywhere}

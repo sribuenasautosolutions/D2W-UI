@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getBatchReport } from "../../../services/inventoryService";
-import api from "../../../services/api";
+import { getActiveStoresCached } from "../../../services/storeService";
 import { createBatchReportPdf } from "./batchReportPdf";
 import BatchPdfPreview from "./BatchPdfPreview";
 
@@ -558,7 +558,7 @@ function BatchReportPage() {
 
     useEffect(() => {
         if (!isOwner) return;
-        api.get("/stores", { params: { page: 0, size: 100, active: true } })
+       getActiveStoresCached()
             .then(({ data }) => setStores(Array.isArray(data?.content) ? data.content : []))
             .catch(() => setError("Unable to load stores."));
     }, [isOwner]);

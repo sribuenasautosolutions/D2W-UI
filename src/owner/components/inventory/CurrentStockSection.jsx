@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import api from "../../../services/api";
+import { getActiveStoresCached } from "../../../services/storeService";
 import {
   getCurrentStockPage,
   getLocalStockFilterOptions,
@@ -205,8 +206,7 @@ export default function CurrentStockSection() {
   /* Load stores for SUPER_ADMIN */
   useEffect(() => {
     if (!isSuperAdmin) return;
-    api
-      .get("/stores", { params: { page: 0, size: 100, active: true } })
+    getActiveStoresCached()
       .then(({ data }) => {
         setStores(Array.isArray(data?.content) ? data.content : Array.isArray(data) ? data : []);
       })
@@ -222,7 +222,7 @@ export default function CurrentStockSection() {
       if (active) setError("Unable to load local product filters.");
     });
     return () => { active = false; };
-  }, [storeId, result]);
+  }, [storeId]);
 
   /* Click outside filters */
   useEffect(() => {

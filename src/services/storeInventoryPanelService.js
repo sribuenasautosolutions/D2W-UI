@@ -19,10 +19,11 @@ export const getStoreInventory = async (storeId) => {
   return response.data;
 };
 
-export const getCurrentStockPage = async (storeId, filters = {}) => {
+export const getCurrentStockPage = async (storeId, filters = {}, signal) => {
   const url = storeId ? `/store-inventory/store/${storeId}/paged` : `/store-inventory/paged`;
   const response = await api.get(url, {
     params: filters,
+    signal,
   });
   return response.data;
 };

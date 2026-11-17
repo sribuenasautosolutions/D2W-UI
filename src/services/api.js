@@ -1,14 +1,39 @@
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const DEFAULT_TIMEOUT_MS = 30000;
+const REFRESH_TIMEOUT_MS = 15000;
+const MAX_GET_RETRIES = 2;
+const LONG_TIMEOUT_MS = 180000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export const isTimeoutError = (error) =>
+    error?.code === "ECONNABORTED" || error?.code === "ETIMEDOUT";
+export const isNetworkError = (error) =>
+    !error?.response && error?.code === "ERR_NETWORK";
+
+const isRetryableGet = (error) =>
+    (error?.config?.method || "get").toLowerCase() === "get" &&
+    (error?.config?.timeout ?? 0) <= DEFAULT_TIMEOUT_MS &&
+    (isNetworkError(error) ||
+        [502, 503, 504].includes(error?.response?.status));
+
+const isHeavyRequest = (config) =>
+    (typeof FormData !== "undefined" && config.data instanceof FormData) ||
+    config.responseType === "blob" ||
+    /bulk-upload|import|preview|export|confirm|pdf|template/i.test(config.url || "");
 const api = axios.create({
     baseURL: BASE_URL,
+    timeout: DEFAULT_TIMEOUT_MS,
     headers: {
         "Content-Type": "application/json"
     }
 });
-
+if (!BASE_URL && import.meta.env.PROD) {
+    console.error(
+        "VITE_API_BASE_URL is not set. API calls will hit the frontend host."
+    );
+}
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -50,17 +75,37 @@ api.interceptors.request.use((config) => {
     } catch (error) {
         console.error("Failed to read user session:", error);
     }
-
+        if (isHeavyRequest(config) && config.timeout === DEFAULT_TIMEOUT_MS) {
+        config.timeout = LONG_TIMEOUT_MS;
+    }
     return config;
 });
 
 api.interceptors.response.use(
-    (response) => response,
+        (response) => {
+        const type = response.headers?.["content-type"] || "";
+        if (type.includes("text/html") && typeof response.data === "string") {
+            return Promise.reject(
+                new Error(
+                    "API returned HTML instead of JSON. Check VITE_API_BASE_URL."
+                )
+            );
+        }
+        return response;
+    },
 
     async (error) => {
         const originalRequest = error.config;
         const status = error?.response?.status;
+                if (originalRequest && isRetryableGet(error)) {
+            originalRequest._retryCount = originalRequest._retryCount || 0;
 
+            if (originalRequest._retryCount < MAX_GET_RETRIES) {
+                originalRequest._retryCount += 1;
+                await sleep(500 * originalRequest._retryCount);
+                return api(originalRequest);
+            }
+        }
         if (
             status !== 401 ||
             !originalRequest ||
@@ -112,6 +157,7 @@ api.interceptors.response.use(
                     refreshToken
                 },
                 {
+                    timeout: REFRESH_TIMEOUT_MS, 
                     headers: {
                         "Content-Type": "application/json"
                     }
@@ -151,12 +197,12 @@ localStorage.setItem(
 
             return api(originalRequest);
 
-        } catch (refreshError) {
-
+                } catch (refreshError) {
             processQueue(refreshError);
-
-            logoutAndRedirect();
-
+            
+            if (!isTimeoutError(refreshError) && !isNetworkError(refreshError)) {
+                logoutAndRedirect();
+            }
             return Promise.reject(refreshError);
 
         } finally {

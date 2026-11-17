@@ -17,8 +17,31 @@ function DashboardLayout({ children }) {
                 .dashboard-main::-webkit-scrollbar {
                     display: none;
                 }
+
+                /* ---- Mobile sidebar overlay ---- */
+                @media (max-width: 768px) {
+                    .dashboard-layout-root {
+                        position: relative;
+                    }
+                    .dashboard-sidebar-wrap {
+                        position: absolute !important;
+                        top: 0;
+                        left: 0;
+                        height: 100vh;
+                        z-index: 200;
+                    }
+                    .dashboard-sidebar-wrap--collapsed {
+                        position: relative !important;
+                        z-index: auto;
+                    }
+                    .dashboard-content-wrap {
+                        width: 100% !important;
+                        flex: 1 !important;
+                    }
+                }
             `}</style>
             <div
+                className="dashboard-layout-root"
                 style={{
                     display: "flex",
                     height: "100vh",
@@ -28,11 +51,13 @@ function DashboardLayout({ children }) {
                     overflow: "hidden",
                     background: "#FFFFFF",
                     color: "#0F172A",
+                    position: "relative",
                 }}
             >
                 <Sidebar />
 
                 <div
+                    className="dashboard-content-wrap"
                     style={{
                         flex: 1,
                         minWidth: 0,
@@ -45,7 +70,7 @@ function DashboardLayout({ children }) {
                         style={{
                             height: "100vh",
                             width: "100%",
-                            padding: "24px 28px", //fixed 
+                            padding: "24px 28px", // layout baseline padding — pages use negative margin to escape if needed
                             margin: 0,
                             overflow: "auto",
                             boxSizing: "border-box",

@@ -1,0 +1,83 @@
+/* Theme switcher: pill shape with a gradient active button.
+   Selectors are two classes deep so they beat ".proforma-view-actions button". */
+.invoice-theme-switch{display:inline-flex;align-items:center;gap:4px;padding:4px;border:1px solid #d3d9e3;border-radius:999px;background:#eef1f6;box-shadow:inset 0 1px 2px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04)}
+.invoice-theme-switch .invoice-theme-switch__btn{height:34px;padding:0 18px;border:0;border-radius:999px;background:transparent;color:#334155;font-size:13px;font-weight:700;letter-spacing:.01em;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
+.invoice-theme-switch .invoice-theme-switch__btn:hover{background:rgba(15,23,42,.06)}
+.invoice-theme-switch .invoice-theme-switch__btn.is-active,
+.invoice-theme-switch .invoice-theme-switch__btn.is-active:hover{background:linear-gradient(135deg,#3b3fc0 0%,#4b1380 100%);color:#fff;box-shadow:0 4px 12px rgba(75,19,128,.35)}
+.invoice-theme-switch .invoice-theme-switch__btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+@media print{.invoice-theme-switch{display:none}}
+
+/* "Sale" layout shared by the tax invoice and the proforma.
+   Change --vy to recolour the whole template. */
+.vy-sheet{--vy:#5c6bc0;--vy-tint:#eceefa;--vy-ink:#111827;--vy-text:#374151;--vy-muted:#4b5563;--vy-line:#e5e7eb;--vy-grid:#c5cae9;
+  color:var(--vy-ink);font-size:11px;line-height:1.4;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif}
+
+/* Header: store on the left, logo on the right */
+.vy-header{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-6);padding-bottom:var(--sp-4);border-bottom:1px solid var(--vy-ink)}
+.vy-store h1{margin:0 0 4px;font-size:17px;font-weight:800;text-transform:uppercase}
+.vy-store p{margin:2px 0;color:var(--vy-text)}
+.vy-logo{display:block;flex:none;width:auto;height:56px;max-width:130px;object-fit:contain}
+.vy-titlebox{margin:var(--sp-4) 0}
+.vy-title{margin:0;text-align:center;font-size:22px;font-weight:800;color:var(--vy)}
+.vy-notice{margin:var(--sp-1) 0 0;text-align:center;color:#b42318;font-size:10px;font-weight:700;letter-spacing:.08em}
+
+/* Bill To | Ship To | Details: separate rounded cards. Ship To is not drawn at all when there is no shipping address. */
+.vy-parties{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:var(--sp-4);margin-bottom:var(--sp-5)}
+.vy-parties--two{grid-template-columns:1fr 1fr}
+.vy-party{min-width:0;padding:var(--sp-4);border:1px solid var(--vy-grid);border-radius:8px}
+.vy-party h3{margin:0 0 var(--sp-3);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--vy-muted)}
+.vy-party p{margin:3px 0;color:var(--vy-text);overflow-wrap:anywhere}
+.vy-name{display:block;margin-bottom:3px;font-size:13px}
+.vy-detail-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:4px 0}
+.vy-detail-row span{color:var(--vy-muted)}
+.vy-detail-row strong{text-align:right;font-weight:700;color:var(--vy-ink)}
+
+/* Items table */
+.vy-table{width:100%;table-layout:fixed;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.vy-table th{padding:8px;background:var(--vy);color:#fff;font-size:10px;font-weight:700;text-align:left}
+.vy-table td{padding:7px 8px;vertical-align:top;border-bottom:1px solid var(--vy-line);overflow-wrap:break-word}
+.vy-table .num{text-align:right;white-space:nowrap}
+.vy-table .ctr{text-align:center}
+.vy-table .vy-sub{display:block;margin-top:2px;color:var(--vy-text)}
+.vy-table--proforma th,.vy-table--proforma td{padding-left:5px;padding-right:5px}
+.vy-table--proforma td strong{overflow-wrap:anywhere}
+.vy-table td small{display:block;margin-top:2px;color:var(--vy-muted);font-size:10px}
+.vy-table td small.vy-partno{display:flex;flex-wrap:wrap;gap:0 10px}
+.vy-partno span{overflow-wrap:anywhere}
+.vy-table tfoot{display:table-row-group}
+.vy-table tfoot td{font-weight:700;border-top:1px solid var(--vy-ink);border-bottom:1px solid var(--vy-ink)}
+.vy-count{padding:var(--sp-2) 2px 0;color:var(--vy-muted);font-size:10.5px}
+
+/* Lower section */
+.vy-bottom{display:grid;grid-template-columns:1.1fr .9fr;gap:var(--sp-6);margin-top:var(--sp-4);align-items:stretch}
+.vy-left,.vy-right{display:flex;flex-direction:column;min-width:0}
+.vy-block{margin-bottom:var(--sp-3)}
+.vy-block h3{margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase}
+.vy-block p{margin:0 0 2px;color:var(--vy-text)}
+.vy-block .vy-words{font-weight:700;color:var(--vy-ink)}
+.vy-block ol{margin:0;padding-left:var(--sp-4);color:var(--vy-text);line-height:1.55}
+.vy-pay-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:4px 0;border-bottom:1px solid var(--vy-line)}
+.vy-pay-row span{color:var(--vy-text)}
+.vy-pay-row small{grid-column:1/-1;color:var(--vy-muted)}
+
+.vy-summary{border:1px solid var(--vy-grid)}
+.vy-sum-row{display:flex;justify-content:space-between;gap:var(--sp-5);padding:5px 10px;border-bottom:1px solid var(--vy-line)}
+.vy-sum-row:last-child{border-bottom:0}
+.vy-sum-row span{color:var(--vy-muted)}
+.vy-sum-row strong{font-weight:700;color:var(--vy-ink)}
+.vy-sum-row.is-strong span{color:var(--vy-ink);font-weight:600}
+.vy-sum-row.is-bar{background:var(--vy);border-bottom-color:var(--vy)}
+.vy-sum-row.is-bar span,.vy-sum-row.is-bar strong{color:#fff;font-weight:700}
+
+.vy-sign{margin-top:auto;padding-top:var(--sp-3)}
+.vy-sign p{margin:0;color:var(--vy-text)}
+.vy-sign-box{height:14mm;margin:6px 0;border:1px dashed #9ca3af}
+.vy-sign-label{text-align:center}
+.vy-note{margin:var(--sp-4) 0 0;text-align:center;font-size:9px;color:var(--vy-muted)}
+
+@media print{
+  .vy-table thead{display:table-header-group}
+  .vy-table tr,.vy-summary,.vy-sign,.vy-block,.vy-parties{break-inside:avoid}
+  .vy-table th,.vy-sum-row.is-bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

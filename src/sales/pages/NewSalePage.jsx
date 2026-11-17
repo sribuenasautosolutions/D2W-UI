@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import OpeningStockManualEntry from "../../owner/components/inventory/OpeningStockManualEntry";
 import "../../owner/components/inventory/CurrentStockSection.css"; 
-import { saleCalculationRows } from "../utils/saleCalculationRows";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   convertProforma,
@@ -40,6 +39,7 @@ import {
 } from "../../services/customerService";
 
 import "./NewSalePage.css";
+import { saleCalculationRows } from "../utils/saleCalculationRows";
 
 /* =========================================================
    HELPERS
@@ -219,6 +219,10 @@ export default function NewSalePage({ documentMode = "SALE" }) {
   const [invoiceLoading, setInvoiceLoading] = useState(isExistingInvoice);
   const [invoiceEditError, setInvoiceEditError] = useState("");
   const [editReason, setEditReason] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [paymentStatus, setPaymentStatus] = useState("PAID");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [receivedAmount, setReceivedAmount] = useState("");
   const amendmentBusy = useRef(false);
 
   const user = useMemo(() => readUser(), []);
@@ -502,6 +506,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             paymentStatus,
             paymentMethod,
             paymentReference,
+            editReason,
           },
         },
       },
@@ -1054,7 +1059,7 @@ const handleItemCreated = async (result, submitted) => {
   const buildAmendmentRequest = useCallback(
     (currentItems) => ({
       editToken: originalInvoice?.editToken,
-      reason: editReason,
+      reason: editReason.trim(),
       billDiscountPercent: normalizePercentage(billDiscountPercent),
       items: currentItems.map((item) => ({
         orderItemId: item.orderItemId ?? null,
@@ -1241,15 +1246,29 @@ const handleItemCreated = async (result, submitted) => {
   const [savingCustomer, setSavingCustomer] = useState(false);
 
   const [creatingInvoice, setCreatingInvoice] = useState(false);
-
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [paymentStatus, setPaymentStatus] = useState("PAID");
-  const [paymentReference, setPaymentReference] = useState("");
-  const [receivedAmount, setReceivedAmount] = useState("");
   const [createdOrderId, setCreatedOrderId] = useState(null);
   const [createdOrderAmount, setCreatedOrderAmount] = useState(null);
 
   const customerLookupRequest = useRef(0);
+  const customerBoxRef = useRef(null);
+
+useEffect(() => {
+  if (!customerDropdownOpen) return undefined;
+  const onMouseDown = (event) => {
+    if (!customerBoxRef.current?.contains(event.target)) {
+      setCustomerDropdownOpen(false);
+    }
+  };
+  const onKeyDown = (event) => {
+    if (event.key === "Escape") setCustomerDropdownOpen(false);
+  };
+  document.addEventListener("mousedown", onMouseDown);
+  document.addEventListener("keydown", onKeyDown);
+  return () => {
+    document.removeEventListener("mousedown", onMouseDown);
+    document.removeEventListener("keydown", onKeyDown);
+  };
+}, [customerDropdownOpen]);
 
   const loadCustomerOptions = async (query = "") => {
     if (!selectedStoreId) return;
@@ -1556,6 +1575,7 @@ const payload = {
     setPaymentStatus(bill.paymentStatus || "PAID");
     setPaymentMethod(bill.paymentMethod || "CASH");
     setPaymentReference(bill.paymentReference || "");
+    if (bill.editReason) setEditReason(bill.editReason);
 
     const incoming = location.state?.salesBulk;
     if (incoming?.preview) {
@@ -1575,7 +1595,11 @@ const payload = {
     if (isInvoiceEdit) {
       if (amendmentBusy.current) return;
       if (!editReason.trim()) {
-        setInvoiceEditError("A reason is required to edit this invoice.");
+        setInvoiceEditError(
+          paymentStatus === "UNPAID"
+            ? "A reason is required to edit this invoice and mark it as Unpaid."
+            : "A reason is required to edit this invoice."
+        );
         return;
       }
       if (calcLoading || calcError || !calculation) {
@@ -2137,7 +2161,7 @@ const payload = {
 
         {/* ============ CUSTOMER BAR ============ */}
        <div className="ns-customer">
-  <div className="ns-combo">
+  <div className="ns-combo"  ref={customerBoxRef}>
     <Search size={14} className="ns-search-icon" />
     <input
       type="text"
@@ -2150,7 +2174,10 @@ const payload = {
       onFocus={() => {
         setCustomerDropdownOpen(true);
         loadCustomerOptions(customerSearch);
+        
       }}
+        onClick={() => setCustomerDropdownOpen(true)}
+
       onChange={(event) => {
         const value = event.target.value;
         setCustomerSearch(value);
@@ -2761,7 +2788,10 @@ const payload = {
             {isInvoiceEdit && (
               <div className="ns-edit">
                 <label htmlFor="invoice-edit-reason">
-                  Reason for invoice edit <span aria-hidden="true">*</span>
+                  {paymentStatus === "UNPAID"
+                    ? "Reason for invoice edit & Unpaid status"
+                    : "Reason for invoice edit"}{" "}
+                  <span aria-hidden="true">*</span>
                 </label>
                 <textarea
                   id="invoice-edit-reason"
@@ -2769,6 +2799,11 @@ const payload = {
                   maxLength={500}
                   disabled={creatingInvoice}
                   value={editReason}
+                  placeholder={
+                    paymentStatus === "UNPAID"
+                      ? "Specify the reason for editing and marking this invoice as Unpaid..."
+                      : undefined
+                  }
                   onChange={(event) => {
                     setEditReason(event.target.value);
                     setInvoiceEditError("");

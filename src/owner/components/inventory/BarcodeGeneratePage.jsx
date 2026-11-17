@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState,} from "react";
+import React, { useEffect, useMemo, useState,useRef} from "react";
 import api from "../../../services/api";
-import {getCurrentStockPage,printBarcodes,} from "../../../services/storeInventoryPanelService";
+import { getActiveStoresCached } from "../../../services/storeService";
+import {getCurrentStockPage,getLocalStockFilterOptions,printBarcodes,} from "../../../services/storeInventoryPanelService";
 import "./BarcodeGeneratePage.css";
 const ITEMS_PER_PAGE_OPTIONS = [10,25,50,100,];
 function readUser() {
@@ -15,110 +16,70 @@ function readUser() {
   }
 }
 
+
+const isCanceled = (error) =>
+  error?.code === "ERR_CANCELED" || error?.name === "CanceledError";
+
+const toBarcodeItems = (stockItems) =>
+  (Array.isArray(stockItems) ? stockItems : [])
+    .filter((item) => item?.inventoryId != null)
+    .map((item) => ({
+      id: item.inventoryId,
+      inventoryId: item.inventoryId,
+      partNumber: String(item.partNumber || "").trim(),
+      partName: item.itemName || item.productName || "",
+      brand: item.brandName || item.brand || "",
+    }))
+    .filter((item) => item.partNumber);
+
 function BarcodeGeneratePage() {
-  const user = useMemo(
-    () => readUser(),
-    []
-  );
+  const user = useMemo(() => readUser(), []);
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
 
-  const isSuperAdmin =
-    user.role === "SUPER_ADMIN";
-
-  /*
-   * ---------------------------------------------------------
-   * STORE
-   * ---------------------------------------------------------
-   *
-   * STORE_OWNER:
-   *     storeId comes from login.
-   *
-   * SUPER_ADMIN:
-   *     storeId starts empty because SUPER_ADMIN
-   *     does not have an assigned store.
-   *
-   *     The Super Admin selects a store from the
-   *     dropdown below.
-   */
+  /* STORE */
   const [stores, setStores] = useState([]);
+  const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
+  const [storesLoading, setStoresLoading] = useState(false);
 
-  const [storeId, setStoreId] = useState(
-    user.storeId
-      ? String(user.storeId)
-      : ""
-  );
-
-  const [storesLoading, setStoresLoading] =
-    useState(false);
-
-  /*
-   * ---------------------------------------------------------
-   * INVENTORY
-   * ---------------------------------------------------------
-   */
+  /* INVENTORY: only the rows of the CURRENT page are kept in memory */
   const [items, setItems] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
+  /* FILTERS (searched and filtered by the server) */
+  const [brands, setBrands] = useState([]);
+  const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("");
 
-  const [error, setError] =
-    useState("");
+  /* PAGINATION */
+  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  /*
-   * ---------------------------------------------------------
-   * FILTERS
-   * ---------------------------------------------------------
-   */
-  const [searchText, setSearchText] =
-    useState("");
+  /* SELECTION (kept across pages; the Map remembers the row objects) */
+  const [selectedIds, setSelectedIds] = useState([]);
+  const selectedItemsRef = useRef(new Map());
 
-  const [selectedBrand, setSelectedBrand] =
-    useState("");
+  /* BARCODE IMAGES */
+  const [barcodeImages, setBarcodeImages] = useState({});
+  const [barcodeFailed, setBarcodeFailed] = useState({});
+  const barcodeCacheRef = useRef(new Map());
 
-  /*
-   * ---------------------------------------------------------
-   * PAGINATION
-   * ---------------------------------------------------------
-   */
-  const [entriesPerPage, setEntriesPerPage] =
-    useState(10);
+  /* PRINTING */
+  const [printing, setPrinting] = useState(false);
 
-  const [currentPage, setCurrentPage] =
-    useState(1);
+  /* SEARCH DEBOUNCE: wait for a pause in typing, then go back to page 1 */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchText.trim());
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
-  /*
-   * ---------------------------------------------------------
-   * SELECTION
-   * ---------------------------------------------------------
-   */
-  const [selectedIds, setSelectedIds] =
-    useState([]);
-
-
-  /*
-   * ---------------------------------------------------------
-   * BARCODE IMAGE PREVIEW
-   * ---------------------------------------------------------
-   *
-   * Backend generates the actual barcode PNG.
-   *
-   * We only store the returned image URL here.
-   */
-  const [barcodeImages, setBarcodeImages] =
-    useState({});
-
-  /*
-   * ---------------------------------------------------------
-   * PRINTING
-   * ---------------------------------------------------------
-   */
-  const [printing, setPrinting] =
-    useState(false);
-
-  /*
-   * ---------------------------------------------------------
-   * LOAD STORES FOR SUPER ADMIN
-   * ---------------------------------------------------------
-   */
+  /* LOAD STORES FOR SUPER ADMIN */
   useEffect(() => {
     if (!isSuperAdmin) {
       return;
@@ -129,33 +90,15 @@ function BarcodeGeneratePage() {
         setStoresLoading(true);
         setError("");
 
-        const response =
-          await api.get("/stores", {
-            params: {
-              page: 0,
-              size: 100,
-              active: true,
-            },
-          });
+        const response = await getActiveStoresCached();
 
-        const activeStores =
-          Array.isArray(
-            response?.data?.content
-          )
-            ? response.data.content
-            : [];
-
-        setStores(activeStores);
-      } catch (requestError) {
-        console.error(
-          "Unable to load stores:",
-          requestError
+        setStores(
+          Array.isArray(response?.data?.content) ? response.data.content : []
         );
-
+      } catch (requestError) {
+        console.error("Unable to load stores:", requestError);
         setError(
-          requestError?.response?.data
-            ?.message ||
-            "Unable to load stores."
+          requestError?.response?.data?.message || "Unable to load stores."
         );
       } finally {
         setStoresLoading(false);
@@ -165,727 +108,391 @@ function BarcodeGeneratePage() {
     loadStores();
   }, [isSuperAdmin]);
 
-  /*
-   * ---------------------------------------------------------
-   * LOAD STORE INVENTORY
-   * ---------------------------------------------------------
-   *
-   * This is the important part.
-   *
-   * When Super Admin selects:
-   *
-   *     Store 1
-   *
-   * frontend calls:
-   *
-   *     GET /store-inventory/store/1/paged
-   *
-   * When Super Admin changes to:
-   *
-   *     Store 2
-   *
-   * frontend calls:
-   *
-   *     GET /store-inventory/store/2/paged
-   */
+  /* BRANDS: small separate call, so the brand list does not need every row */
+  useEffect(() => {
+    if (!storeId) {
+      return;
+    }
+
+    let active = true;
+
+    getLocalStockFilterOptions(storeId)
+      .then((options) => {
+        if (active) {
+          setBrands(Array.isArray(options?.brands) ? options.brands : []);
+        }
+      })
+      .catch((requestError) => {
+        console.error("Unable to load brands:", requestError);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [storeId]);
+
+  /* LOAD ONE PAGE OF INVENTORY (older request is cancelled when anything changes) */
   useEffect(() => {
     if (!storeId) {
       setItems([]);
-      setSelectedIds([]);
-      setBarcodeImages({});
+      setTotalItems(0);
+      setTotalPages(1);
       setError("");
       return;
     }
 
-    const loadBarcodeItems =
-      async () => {
-        try {
-          setLoading(true);
-          setError("");
-          setSelectedIds([]);
-          setBarcodeImages({});
+    const controller = new AbortController();
 
-          const response =
-            await getCurrentStockPage(
-              storeId,
-              {
-                page: 0,
-                size: 2147483647,
-                onlyAvailable: false,
-                sortBy: "id",
-                direction: "ASC",
-              }
-            );
+    const loadPage = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-          const stockItems =
-            Array.isArray(
-              response?.content
-            )
-              ? response.content
-              : [];
+        const response = await getCurrentStockPage(
+          storeId,
+          {
+            search: debouncedSearch || undefined,
+            brand: selectedBrand || undefined,
+            onlyAvailable: false,
+            page: currentPage - 1,
+            size: entriesPerPage,
+            sortBy: "id",
+            direction: "ASC",
+          },
+          controller.signal
+        );
 
-          /*
-           * Barcode belongs to StoreInventory.
-           *
-           * Every StoreInventory has either:
-           *
-           *     ProductItem
-           *
-           * OR
-           *
-           *     LocalProduct
-           *
-           * The response already gives us the
-           * resolved partNumber.
-           */
-          const formattedItems =
-            stockItems
-              .filter(
-                (item) =>
-                  item?.inventoryId !=
-                  null
-              )
-              .map((item) => {
-                const partNumber =
-                  String(
-                    item.partNumber ||
-                      ""
-                  ).trim();
+        if (controller.signal.aborted) {
+          return;
+        }
 
-                return {
-                  id: item.inventoryId,
+        setItems(toBarcodeItems(response?.content));
+        setTotalItems(Number(response?.totalElements) || 0);
+        setTotalPages(Math.max(1, Number(response?.totalPages) || 1));
+      } catch (requestError) {
+        if (isCanceled(requestError)) {
+          return;
+        }
 
-                  inventoryId:
-                    item.inventoryId,
+        console.error("Unable to load barcode inventory:", requestError);
 
-                  partNumber,
-
-                  partName:
-                    item.itemName ||
-                    item.productName ||
-                    "",
-
-                  brand:
-                    item.brandName ||
-                    item.brand ||
-                    "",
-                };
-              })
-              .filter(
-                (item) =>
-                  item.partNumber
-              );
-
-          setItems(
-            formattedItems
-          );
-        } catch (requestError) {
-          console.error(
-            "Unable to load barcode inventory:",
-            requestError
-          );
-
-          setItems([]);
-          setBarcodeImages({});
-
-          setError(
-            requestError?.response
-              ?.data?.message ||
-              "Unable to load inventory products."
-          );
-        } finally {
+        setItems([]);
+        setTotalItems(0);
+        setTotalPages(1);
+        setError(
+          requestError?.response?.data?.message ||
+            "Unable to load inventory products."
+        );
+      } finally {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
-      };
-
-    loadBarcodeItems();
-  }, [storeId]);
-
-  /*
-   * ---------------------------------------------------------
-   * LOAD BARCODE IMAGES FROM BACKEND
-   * ---------------------------------------------------------
-   *
-   * Backend endpoint:
-   *
-   *     GET /barcodes/{partNumber}
-   *
-   * Backend BarcodeService uses ZXing Code128.
-   *
-   * Example:
-   *
-   *     /barcodes/13766M75J00
-   *
-   * returns:
-   *
-   *     image/png
-   *
-   * The frontend does NOT generate the barcode.
-   */
-  
-  /*
-   * ---------------------------------------------------------
-   * BRANDS
-   * ---------------------------------------------------------
-   */
-  const brands = useMemo(() => {
-    return [
-      ...new Set(
-        items
-          .map(
-            (item) =>
-              item.brand
-          )
-          .filter(Boolean)
-      ),
-    ];
-  }, [items]);
-
-  /*
-   * ---------------------------------------------------------
-   * FILTER INVENTORY
-   * ---------------------------------------------------------
-   */
-  const filteredItems =
-    useMemo(() => {
-      const searchValue =
-        searchText
-          .trim()
-          .toLowerCase();
-
-      return items.filter(
-        (item) => {
-          const matchesBrand =
-            selectedBrand === "" ||
-            item.brand ===
-              selectedBrand;
-
-          const matchesSearch =
-            searchValue === "" ||
-            item.partNumber
-              .toLowerCase()
-              .includes(
-                searchValue
-              ) ||
-            item.partName
-              .toLowerCase()
-              .includes(
-                searchValue
-              ) ||
-            item.brand
-              .toLowerCase()
-              .includes(
-                searchValue
-              );
-
-          return (
-            matchesBrand &&
-            matchesSearch
-          );
-        }
-      );
-    }, [
-      items,
-      searchText,
-      selectedBrand,
-    ]);
-
-  /*
-   * ---------------------------------------------------------
-   * PAGINATION
-   * ---------------------------------------------------------
-   */
-  const totalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        filteredItems.length /
-          entriesPerPage
-      )
-    );
-
-  const paginatedItems =
-    useMemo(() => {
-      const startIndex =
-        (currentPage - 1) *
-        entriesPerPage;
-
-      const endIndex =
-        startIndex +
-        entriesPerPage;
-
-      return filteredItems.slice(
-        startIndex,
-        endIndex
-      );
-    }, [
-      filteredItems,
-      currentPage,
-      entriesPerPage,
-    ]);
-    useEffect(() => {
-  if (!storeId || paginatedItems.length === 0) {
-    setBarcodeImages({});
-    return;
-  }
-
-  let cancelled = false;
-  const createdUrls = new Set();
-
-  setBarcodeImages((currentImages) => {
-    Object.values(currentImages).forEach((url) => {
-      window.URL.revokeObjectURL(url);
-    });
-
-    return {};
-  });
-
-  const loadBarcode = async (item) => {
-    if (!item.partNumber) return;
-
-    try {
-      const response = await api.get("/barcodes", {
-        params: {
-          storeId: Number(storeId),
-          partNumber: item.partNumber,
-        },
-        responseType: "blob",
-      });
-
-      if (cancelled) return;
-
-      const imageUrl = window.URL.createObjectURL(
-        response.data
-      );
-
-      createdUrls.add(imageUrl);
-
-      setBarcodeImages((currentImages) => ({
-        ...currentImages,
-        [item.id]: imageUrl,
-      }));
-    } catch (requestError) {
-      if (!cancelled) {
-        console.error(
-          `Unable to load barcode for ${item.partNumber}:`,
-          requestError
-        );
       }
-    }
-  };
-
-  paginatedItems
-    .filter((item) => item.partNumber)
-    .forEach((item) => {
-      loadBarcode(item);
-    });
-
-  return () => {
-    cancelled = true;
-
-    createdUrls.forEach((url) => {
-      window.URL.revokeObjectURL(url);
-    });
-
-    createdUrls.clear();
-  };
-}, [paginatedItems, storeId]);
-
-  const firstEntry =
-    filteredItems.length === 0
-      ? 0
-      : (currentPage - 1) *
-          entriesPerPage +
-        1;
-
-  const lastEntry =
-    Math.min(
-      currentPage *
-        entriesPerPage,
-      filteredItems.length
-    );
-
-  /*
-   * ---------------------------------------------------------
-   * SELECT ALL
-   * ---------------------------------------------------------
-   */
-  const allVisibleSelected =
-    paginatedItems.length > 0 &&
-    paginatedItems.every(
-      (item) =>
-        selectedIds.includes(
-          item.id
-        )
-    );
-
-  /*
-   * ---------------------------------------------------------
-   * RESET PAGE WHEN FILTER CHANGES
-   * ---------------------------------------------------------
-   */
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    searchText,
-    selectedBrand,
-    entriesPerPage,
-    storeId,
-  ]);
-
-  /*
-   * ---------------------------------------------------------
-   * STORE CHANGE
-   * ---------------------------------------------------------
-   */
-  const handleStoreChange =
-    (event) => {
-      const newStoreId =
-        event.target.value;
-
-      setStoreId(
-        newStoreId
-      );
-
-      setSelectedIds([]);
-      setSearchText("");
-      setSelectedIds([]);
-      setSelectedBrand("");
-      setCurrentPage(1);
-      setError("");
-      setBarcodeImages({});
     };
 
-  /*
-   * ---------------------------------------------------------
-   * CLEAR FILTERS
-   * ---------------------------------------------------------
-   */
+    loadPage();
+
+    return () => controller.abort();
+  }, [storeId, currentPage, entriesPerPage, debouncedSearch, selectedBrand]);
+
+  /* The rows shown on screen are exactly the rows the server returned */
+  const paginatedItems = items;
+
+  /* BARCODE IMAGES: show cached ones at once, download only the missing ones, 4 at a time */
+  useEffect(() => {
+    if (!storeId || paginatedItems.length === 0) {
+      setBarcodeImages({});
+      return;
+    }
+
+    const controller = new AbortController();
+    const cache = barcodeCacheRef.current;
+    const keyOf = (item) => `${storeId}|${item.partNumber}`;
+
+    const ready = {};
+    const missing = [];
+    paginatedItems.forEach((item) => {
+      const cachedUrl = cache.get(keyOf(item));
+      if (cachedUrl) ready[item.id] = cachedUrl;
+      else missing.push(item);
+    });
+    setBarcodeImages(ready);
+    setBarcodeFailed((current) => {
+      const next = { ...current };
+      missing.forEach((item) => delete next[item.id]);
+      return next;
+    });
+
+    const loadBarcode = async (item) => {
+      try {
+        const response = await api.get("/barcodes", {
+          params: { storeId: Number(storeId), partNumber: item.partNumber },
+          responseType: "blob",
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted) return;
+
+        const key = keyOf(item);
+        let imageUrl = cache.get(key);
+        if (!imageUrl) {
+          imageUrl = window.URL.createObjectURL(response.data);
+          cache.set(key, imageUrl);
+        }
+
+        setBarcodeImages((currentImages) => ({
+          ...currentImages,
+          [item.id]: imageUrl,
+        }));
+      } catch (requestError) {
+        if (isCanceled(requestError)) {
+          return;
+        }
+        console.error(`Unable to load barcode for ${item.partNumber}:`, requestError);
+        setBarcodeFailed((current) => ({ ...current, [item.id]: true }));
+      }
+    };
+
+    let nextIndex = 0;
+    const worker = async () => {
+      while (!controller.signal.aborted && nextIndex < missing.length) {
+        const item = missing[nextIndex++];
+        await loadBarcode(item);
+      }
+    };
+    for (let i = 0; i < Math.min(4, missing.length); i++) worker();
+
+    return () => controller.abort();
+  }, [paginatedItems, storeId]);
+
+  /* Free the cached barcode images when the store changes or the page closes */
+  useEffect(() => {
+    const cache = barcodeCacheRef.current;
+    return () => {
+      cache.forEach((url) => window.URL.revokeObjectURL(url));
+      cache.clear();
+    };
+  }, [storeId]);
+
+  const firstEntry =
+    totalItems === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1;
+
+  const lastEntry = Math.min(currentPage * entriesPerPage, totalItems);
+
+  const allVisibleSelected =
+    paginatedItems.length > 0 &&
+    paginatedItems.every((item) => selectedIds.includes(item.id));
+
+  /* HANDLERS */
+  const handleStoreChange = (event) => {
+    setStoreId(event.target.value);
+
+    selectedItemsRef.current.clear();
+    setSelectedIds([]);
+    setSearchText("");
+    setDebouncedSearch("");
+    setSelectedBrand("");
+    setBrands([]);
+    setItems([]);
+    setTotalItems(0);
+    setTotalPages(1);
+    setCurrentPage(1);
+    setError("");
+    setBarcodeImages({});
+    setBarcodeFailed({});
+  };
+
+  const handleBrandChange = (value) => {
+    setSelectedBrand(value);
+    setCurrentPage(1);
+  };
+
+  const handleEntriesChange = (value) => {
+    setEntriesPerPage(value);
+    setCurrentPage(1);
+  };
+
   const handleClear = () => {
     setSearchText("");
+    setDebouncedSearch("");
     setSelectedBrand("");
     setCurrentPage(1);
   };
 
-  /*
-   * ---------------------------------------------------------
-   * ROW SELECTION
-   * ---------------------------------------------------------
-   */
-  const handleRowSelection =
-    (itemId) => {
-      setSelectedIds(
-        (previousIds) => {
-          if (
-            previousIds.includes(
-              itemId
-            )
-          ) {
-            return previousIds.filter(
-              (id) =>
-                id !== itemId
-            );
-          }
+  const handleRowSelection = (itemId) => {
+    const selectedMap = selectedItemsRef.current;
 
-          return [
-            ...previousIds,
-            itemId,
-          ];
-        }
+    if (selectedIds.includes(itemId)) {
+      selectedMap.delete(itemId);
+      setSelectedIds(selectedIds.filter((id) => id !== itemId));
+      return;
+    }
+
+    const item = items.find((row) => row.id === itemId);
+    if (item) selectedMap.set(itemId, item);
+    setSelectedIds([...selectedIds, itemId]);
+  };
+
+  const handleSelectAll = () => {
+    const selectedMap = selectedItemsRef.current;
+    const visibleIds = paginatedItems.map((item) => item.id);
+
+    if (allVisibleSelected) {
+      visibleIds.forEach((id) => selectedMap.delete(id));
+      setSelectedIds(selectedIds.filter((id) => !visibleIds.includes(id)));
+    } else {
+      paginatedItems.forEach((item) => selectedMap.set(item.id, item));
+      setSelectedIds([...new Set([...selectedIds, ...visibleIds])]);
+    }
+  };
+
+  /* PRINT THROUGH BACKEND */
+  const printInventoryItems = async (inventoryItems) => {
+    if (!storeId) {
+      window.alert("Please select a store first.");
+      return;
+    }
+
+    if (!inventoryItems || inventoryItems.length === 0) {
+      window.alert("No items available to print.");
+      return;
+    }
+
+    try {
+      setPrinting(true);
+      setError("");
+
+      const printItems = inventoryItems.map((item) => ({
+        inventoryId: item.inventoryId,
+        printQuantity: 1,
+      }));
+
+      const pdfBlob = await printBarcodes(Number(storeId), printItems);
+
+      const blob =
+        pdfBlob instanceof Blob
+          ? pdfBlob
+          : new Blob([pdfBlob], { type: "application/pdf" });
+
+      const pdfUrl = window.URL.createObjectURL(blob);
+
+      window.open(pdfUrl, "_blank", "noopener,noreferrer");
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(pdfUrl);
+      }, 60000);
+    } catch (requestError) {
+      console.error("Unable to print barcodes:", requestError);
+      setError(
+        requestError?.response?.data?.message ||
+          "Unable to generate barcode PDF."
       );
-    };
+    } finally {
+      setPrinting(false);
+    }
+  };
 
-  /*
-   * ---------------------------------------------------------
-   * SELECT / UNSELECT ALL VISIBLE
-   * ---------------------------------------------------------
-   */
-  const handleSelectAll =
-    () => {
-      const visibleIds =
-        paginatedItems.map(
-          (item) => item.id
-        );
+  const handlePrintSelected = async () => {
+    if (selectedIds.length === 0) {
+      window.alert("Please select at least one item to print.");
+      return;
+    }
 
-      if (
-        allVisibleSelected
-      ) {
-        setSelectedIds(
-          (previousIds) =>
-            previousIds.filter(
-              (id) =>
-                !visibleIds.includes(
-                  id
-                )
-            )
-        );
-      } else {
-        setSelectedIds(
-          (previousIds) => [
-            ...new Set([
-              ...previousIds,
-              ...visibleIds,
-            ]),
-          ]
-        );
+    const selectedItems = selectedIds
+      .map((id) => selectedItemsRef.current.get(id))
+      .filter(Boolean);
+
+    await printInventoryItems(selectedItems);
+  };
+
+  /* PRINT BRAND: fetch every item of the brand, 100 at a time, only when clicked */
+  const handlePrintBrand = async () => {
+    if (!selectedBrand) {
+      window.alert("Please select a brand first.");
+      return;
+    }
+
+    let brandItems = [];
+
+    try {
+      setPrinting(true);
+      setError("");
+
+      let page = 0;
+      let pages = 1;
+
+      while (page < pages) {
+        const response = await getCurrentStockPage(storeId, {
+          brand: selectedBrand,
+          onlyAvailable: false,
+          page,
+          size: 100,
+          sortBy: "id",
+          direction: "ASC",
+        });
+
+        brandItems = brandItems.concat(toBarcodeItems(response?.content));
+        pages = Number(response?.totalPages) || 1;
+        page += 1;
       }
-    };
-
-  /*
-   * ---------------------------------------------------------
-   * PRINT THROUGH BACKEND
-   * ---------------------------------------------------------
-   */
-  const printInventoryItems =
-    async (
-      inventoryItems
-    ) => {
-      if (!storeId) {
-        window.alert(
-          "Please select a store first."
-        );
-        return;
-      }
-
-      if (
-        !inventoryItems ||
-        inventoryItems.length ===
-          0
-      ) {
-        window.alert(
-          "No items available to print."
-        );
-        return;
-      }
-
-      try {
-        setPrinting(true);
-        setError("");
-
-        /*
-         * Exact backend DTO:
-         *
-         * BarcodePrintRequestDTO
-         *
-         * {
-         *     storeId,
-         *     items: [
-         *         {
-         *             inventoryId,
-         *             printQuantity
-         *         }
-         *     ]
-         * }
-         */
-        const printItems =
-          inventoryItems.map(
-            (item) => ({
-              inventoryId:
-                item.inventoryId,
-
-              /*
-               * One barcode label per
-               * selected inventory item.
-               */
-            printQuantity: 1,
-            })
-          );
-
-        const pdfBlob =
-          await printBarcodes(
-            Number(storeId),
-            printItems
-          );
-
-        const blob =
-          pdfBlob instanceof Blob
-            ? pdfBlob
-            : new Blob(
-                [pdfBlob],
-                {
-                  type:
-                    "application/pdf",
-                }
-              );
-
-        const pdfUrl =
-          window.URL.createObjectURL(
-            blob
-          );
-
-        /*
-         * Open the PDF generated by
-         * the Spring Boot backend.
-         */
-        window.open(
-          pdfUrl,
-          "_blank",
-          "noopener,noreferrer"
-        );
-
-        /*
-         * Release temporary URL.
-         */
-        setTimeout(() => {
-          window.URL.revokeObjectURL(
-            pdfUrl
-          );
-        }, 60000);
-      } catch (requestError) {
-        console.error(
-          "Unable to print barcodes:",
-          requestError
-        );
-
-        setError(
-          requestError?.response
-            ?.data?.message ||
-            "Unable to generate barcode PDF."
-        );
-      } finally {
-        setPrinting(false);
-      }
-    };
-
-  /*
-   * ---------------------------------------------------------
-   * PRINT SELECTED
-   * ---------------------------------------------------------
-   */
-  const handlePrintSelected =
-    async () => {
-      if (
-        selectedIds.length ===
-        0
-      ) {
-        window.alert(
-          "Please select at least one item to print."
-        );
-        return;
-      }
-
-      const selectedItems =
-        items.filter(
-          (item) =>
-            selectedIds.includes(
-              item.id
-            )
-        );
-
-      await printInventoryItems(
-        selectedItems
+    } catch (requestError) {
+      console.error("Unable to load brand items:", requestError);
+      setError(
+        requestError?.response?.data?.message ||
+          "Unable to load items for this brand."
       );
-    };
+      setPrinting(false);
+      return;
+    }
 
-  /*
-   * ---------------------------------------------------------
-   * PRINT BRAND
-   * ---------------------------------------------------------
-   */
-  const handlePrintBrand =
-    async () => {
-      if (!selectedBrand) {
-        window.alert(
-          "Please select a brand first."
-        );
-        return;
-      }
+    setPrinting(false);
 
-      const brandItems =
-        items.filter(
-          (item) =>
-            item.brand ===
-            selectedBrand
-        );
+    if (brandItems.length === 0) {
+      window.alert("No items found for this brand.");
+      return;
+    }
 
-      if (
-        brandItems.length === 0
-      ) {
-        window.alert(
-          "No items found for this brand."
-        );
-        return;
-      }
+    await printInventoryItems(brandItems);
+  };
 
-      await printInventoryItems(
-        brandItems
-      );
-    };
+  const handleBarcodeClick = async (item) => {
+    await printInventoryItems([item]);
+  };
 
-  /*
-   * ---------------------------------------------------------
-   * PRINT ONE BARCODE
-   * ---------------------------------------------------------
-   */
-  const handleBarcodeClick =
-    async (item) => {
-      await printInventoryItems([
-        item,
-      ]);
-    };
+  /* PAGE NUMBERS */
+  const getPageNumbers = () => {
+    const pages = [];
 
-  /*
-   * ---------------------------------------------------------
-   * PAGE NUMBERS
-   * ---------------------------------------------------------
-   */
-  const getPageNumbers =
-    () => {
-      const pages = [];
-
-      if (
-        totalPages <= 5
-      ) {
-        for (
-          let page = 1;
-          page <= totalPages;
-          page += 1
-        ) {
-          pages.push(page);
-        }
-
-        return pages;
-      }
-
-      pages.push(1);
-
-      if (
-        currentPage > 3
-      ) {
-        pages.push("...");
-      }
-
-      const startPage =
-        Math.max(
-          2,
-          currentPage - 1
-        );
-
-      const endPage =
-        Math.min(
-          totalPages - 1,
-          currentPage + 1
-        );
-
-      for (
-        let page = startPage;
-        page <= endPage;
-        page += 1
-      ) {
+    if (totalPages <= 5) {
+      for (let page = 1; page <= totalPages; page += 1) {
         pages.push(page);
       }
-
-      if (
-        currentPage <
-        totalPages - 2
-      ) {
-        pages.push("...");
-      }
-
-      pages.push(totalPages);
-
       return pages;
-    };
+    }
+
+    pages.push(1);
+
+    if (currentPage > 3) {
+      pages.push("...");
+    }
+
+    const startPage = Math.max(2, currentPage - 1);
+    const endPage = Math.min(totalPages - 1, currentPage + 1);
+
+    for (let page = startPage; page <= endPage; page += 1) {
+      pages.push(page);
+    }
+
+    if (currentPage < totalPages - 2) {
+      pages.push("...");
+    }
+
+    pages.push(totalPages);
+
+    return pages;
+  };
+
+
 
   return (
     <main className="barcode-page">
@@ -982,10 +589,8 @@ function BarcodeGeneratePage() {
           className="brand-select"
           value={selectedBrand}
           onChange={(event) =>
-            setSelectedBrand(
-              event.target.value
-            )
-          }
+  handleBrandChange(event.target.value)
+}
           disabled={!storeId}
         >
           <option value="">
@@ -1029,9 +634,10 @@ function BarcodeGeneratePage() {
         <button
           type="button"
           className="toolbar-button search-button"
-          onClick={() =>
-            setCurrentPage(1)
-          }
+          onClick={() => {
+            setDebouncedSearch(searchText.trim());
+            setCurrentPage(1);
+          }}
           disabled={!storeId}
         >
           <span>
@@ -1132,13 +738,11 @@ function BarcodeGeneratePage() {
               entriesPerPage
             }
             onChange={(event) =>
-              setEntriesPerPage(
-                Number(
-                  event.target.value
+                handleEntriesChange(
+                  Number(event.target.value)
                 )
-              )
-            }
-          >
+              }
+            >
             {ITEMS_PER_PAGE_OPTIONS.map(
               (option) => (
                 <option
@@ -1160,9 +764,7 @@ function BarcodeGeneratePage() {
         <div className="total-items">
           Total Items:{" "}
           <strong>
-            {
-              filteredItems.length
-            }
+            {totalItems}
           </strong>
         </div>
 
@@ -1344,10 +946,10 @@ function BarcodeGeneratePage() {
                                 "0 auto",
                             }}
                           />
+                          ) : barcodeFailed[item.id] ? (
+                          <span>Barcode unavailable</span>
                         ) : (
-                          <span>
-                            Loading barcode...
-                          </span>
+                          <span>Loading barcode...</span>
                         )}
 
                       </td>
@@ -1385,12 +987,9 @@ function BarcodeGeneratePage() {
             Showing{" "}
             {firstEntry} to{" "}
             {lastEntry} of{" "}
-            {
-              filteredItems.length
-            }{" "}
+            {totalItems}{" "}
             entries
           </div>
-
           <div className="pagination">
 
             {/* PREVIOUS */}

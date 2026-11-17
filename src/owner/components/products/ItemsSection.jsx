@@ -1,20 +1,25 @@
-import { Fragment, useState, useEffect, useMemo } from "react";
+import ProductUnitFields, { ProductUnitLabel } from "../../../components/ProductUnitFields";
+import { useState, useEffect, useMemo } from "react";
 import {
     Boxes,
+    Search,
     Download,
     UploadCloud,
     Loader2,
     X,
     Wrench,
     Pencil,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import apiclient from "../../../services/apiclient";
 import FitmentDrawer from "./FitmentDrawer";
 import ProductSpecificationsForm from "./ProductSpecificationsForm";
-import "./ItemSection.css";
+import "./ItemSection.css"; // still needed by ProductSpecificationsForm / Specifications tab; remove once those are migrated
 
 const EMPTY_FORM = {
-    itemName: "", stockUnit: "PCS",
+    itemName: "",
+    stockUnit: "PCS",
     description: "",
     partNumber: "",
     oemNumber: "",
@@ -26,6 +31,27 @@ const EMPTY_FORM = {
     masterName: "",
     masterId: "",
 };
+/* Tailwind class strings used by this section */
+const BTN_BASE =
+    "inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border px-4 text-[13.5px] font-semibold [font-family:inherit] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-60";
+const BTN_PRIMARY = `${BTN_BASE} border-brand bg-brand text-white hover:enabled:border-brand-hover hover:enabled:bg-brand-hover`;
+const BTN_GHOST = `${BTN_BASE} border-line bg-transparent text-ink-muted hover:enabled:bg-surface-soft`;
+const ROW_ACTION =
+    "group/act inline-flex h-[30px] cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold whitespace-nowrap [font-family:inherit] transition-colors duration-150 active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+const ROW_ACTION_FITMENT = `${ROW_ACTION} border-brand/25 bg-primary-soft text-brand hover:border-brand hover:bg-brand hover:text-white`;
+const ROW_ACTION_EDIT = `${ROW_ACTION} border-line bg-surface text-ink-soft hover:border-brand hover:bg-primary-soft hover:text-brand`;
+const LABEL = "mb-1 block text-xs font-medium text-ink-muted";
+const LABEL_SM = "mb-1 block text-[11.5px] font-medium text-ink-faint";
+const FIELD =
+    "box-border w-full rounded-[7px] border border-line bg-surface text-ink outline-none [font-family:inherit] transition placeholder:text-ink-faint focus:border-brand focus:ring-3 focus:ring-brand/15";
+const INPUT = `${FIELD} px-3 py-2 text-[13.5px]`;
+const INPUT_SM = `${FIELD} rounded-md px-2 py-2 text-[12.5px]`;
+const TEXTAREA = `${FIELD} min-h-[50px] resize-y px-3 py-2 text-[13.5px]`;
+const FIELD_ROW = "mt-3 flex gap-3 [&>*]:min-w-0 [&>*]:flex-1";
+const TH =
+    " bg-surface-soft px-4 py-2.5 text-left align-middle text-xs font-semibold tracking-[0.04em] whitespace-nowrap text-black uppercase";
+const TD = "px-4 py-2.5 align-middle text-sm leading-snug text-ink-soft [overflow-wrap:anywhere]";
+
 const UNIT_LABELS = { PCS: "Piece", BOTTLE: "Bottle", CAN: "Can", BOX: "Box", SET: "Set", PAIR: "Pair", PACK: "Pack" };
 
 /**
@@ -66,6 +92,15 @@ function ItemsSection({
 
     /* ---------- Fitment drawer state ---------- */
     const [fitmentPart, setFitmentPart] = useState(null);
+    /* ---------- Pagination (in the browser) ---------- */
+const [page, setPage] = useState(1);
+const [pageSize, setPageSize] = useState(25);
+const [prevQuery, setPrevQuery] = useState(query);
+if (query !== prevQuery) {
+    setPrevQuery(query);
+    setPage(1);
+}
+
 
     const loadData = async () => {
         setLoading(true);
@@ -91,7 +126,11 @@ function ItemsSection({
         loadData();
     }, []);
 
-    const selectedCategory = categories.find((category) => category.categoryName === formData.categoryName);
+    const selectedCategory = categories.find((category) =>
+        (formData.categoryId && String(category.id) === String(formData.categoryId)) ||
+        (formData.categoryName && category.categoryName === formData.categoryName)
+    );
+
     useEffect(() => {
         let active = true;
         if (!selectedCategory?.id) {
@@ -141,10 +180,19 @@ function ItemsSection({
                 .some((v) => String(v).toLowerCase().includes(q))
         );
     }, [items, query]);
+    const total = filteredItems.length;
+const pageCount = Math.max(1, Math.ceil(total / pageSize));
+const safePage = Math.min(page, pageCount);
+const startIndex = (safePage - 1) * pageSize;
+const pageItems = filteredItems.slice(startIndex, startIndex + pageSize);
 
     const brandOptions = useMemo(
         () => brands.map((b) => b.brandName).filter(Boolean),
         [brands]
+    );
+    const categoryOptions = useMemo(
+        () => categories.map((c) => c.categoryName).filter(Boolean),
+        [categories]
     );
     const masterOptions = useMemo(
         () => masters
@@ -160,7 +208,13 @@ function ItemsSection({
             const nextCategory = selectedMaster?.categoryName || formData.categoryName;
             const nextCategoryId = selectedMaster?.categoryId || categories.find((category) => category.categoryName === nextCategory)?.id || "";
             if (nextCategory !== formData.categoryName) setSpecificationValues({});
-            setFormData((current) => ({ ...current, masterId: value, masterName: selectedMaster?.masterName || "", categoryName: nextCategory, categoryId: String(nextCategoryId) }));
+            setFormData((current) => ({
+                ...current,
+                masterId: value,
+                masterName: selectedMaster?.masterName || "",
+                categoryName: nextCategory,
+                categoryId: String(nextCategoryId)
+            }));
             return;
         }
         if (name === "categoryId") {
@@ -168,9 +222,13 @@ function ItemsSection({
             const nextCategoryName = category?.categoryName || "";
             const currentMaster = masters.find((m) => String(m.id) === formData.masterId);
             if (nextCategoryName !== formData.categoryName) setSpecificationValues({});
-            setFormData((current) => ({ ...current, categoryId: value, categoryName: nextCategoryName,
+            setFormData((current) => ({
+                ...current,
+                categoryId: value,
+                categoryName: nextCategoryName,
                 masterName: currentMaster?.categoryName === nextCategoryName ? current.masterName : "",
-                masterId: currentMaster?.categoryName === nextCategoryName ? current.masterId : "" }));
+                masterId: currentMaster?.categoryName === nextCategoryName ? current.masterId : ""
+            }));
             return;
         }
         setFormData((current) => ({ ...current, [name]: value }));
@@ -189,7 +247,14 @@ function ItemsSection({
         try {
             const { data } = await apiclient.get(`/products/${item.id}`);
             setEditingItemId(item.id);
-            setFormData({ ...EMPTY_FORM, ...data, categoryId: String(data.categoryId || ""), masterId: String(data.masterId || ""), itemName: data.itemName || "", description: data.description || "" });
+            setFormData({
+                ...EMPTY_FORM,
+                ...data,
+                categoryId: String(data.categoryId || ""),
+                masterId: String(data.masterId || ""),
+                itemName: data.itemName || "",
+                description: data.description || "",
+            });
             const values = {};
             (data.specifications || []).forEach((specification) => {
                 values[specification.attributeId] = specification.inputType === "BOOLEAN"
@@ -200,7 +265,9 @@ function ItemsSection({
             setShowAddModal(true);
         } catch (error) {
             setToast({ type: "error", msg: error.response?.data?.message || "Could not load product details." });
-        } finally { setSaving(false); }
+        } finally {
+            setSaving(false);
+        }
     };
 
     const saveItem = async () => {
@@ -209,12 +276,12 @@ function ItemsSection({
             !formData.partNumber.trim() ||
             !formData.brandName.trim() ||
             !formData.categoryName.trim() ||
-            !formData.masterName.trim() ||
-            !formData.hsnCode.trim()
+            !formData.masterName.trim()
         ) {
-            setToast({ type: "error", msg: "Part name, part number, brand, category, subcategory and HSN code are required." });
+            setToast({ type: "error", msg: "Item name, part number, brand, category and subcategory are required." });
             return;
         }
+
         const missingRequired = specificationAttributes.find((attribute) => {
             const value = specificationValues[attribute.id];
             return attribute.required && (attribute.inputType === "BOOLEAN"
@@ -225,6 +292,7 @@ function ItemsSection({
             setToast({ type: "error", msg: `${missingRequired.attributeName} is required for this category.` });
             return;
         }
+
         setSaving(true);
         try {
             const specifications = specificationAttributes
@@ -235,26 +303,30 @@ function ItemsSection({
                     value: attribute.inputType === "BOOLEAN" ? Boolean(specificationValues[attribute.id])
                         : attribute.inputType === "NUMBER" ? Number(specificationValues[attribute.id]) : String(specificationValues[attribute.id]),
                 }));
+
             const payload = {
                 itemName: formData.itemName.trim(),
                 stockUnit: formData.stockUnit,
-                description: formData.description.trim() || null,
+                description: formData.description?.trim() || null,
                 partNumber: formData.partNumber.trim(),
-                oemNumber: formData.oemNumber.trim() || null,
-                ean: formData.ean.trim() || null,
-                hsnCode: formData.hsnCode.trim(),
+                oemNumber: formData.oemNumber?.trim() || null,
+                ean: formData.ean?.trim() || null,
+                hsnCode: formData.hsnCode?.trim() || null,
                 brandName: formData.brandName.trim(),
                 categoryName: formData.categoryName.trim(),
+                categoryId: formData.categoryId ? Number(formData.categoryId) : (selectedCategory?.id ? Number(selectedCategory.id) : null),
                 masterName: formData.masterName.trim(),
                 masterId: formData.masterId ? Number(formData.masterId) : null,
                 specifications,
             };
+
             const response = editingItemId
                 ? await apiclient.put(`/products/${editingItemId}`, payload)
                 : await apiclient.post("/products", payload);
+
             setToast({ type: "success", msg: editingItemId ? "Product updated." : response.data });
             resetAddModal();
-            await loadData();
+            loadData();
         } catch (error) {
             console.error("Failed to save item", error);
             setToast({ type: "error", msg: error.response?.data?.message || "Error saving item." });
@@ -283,7 +355,6 @@ function ItemsSection({
     };
 
     const handleExportItems = async () => {
-    if (exporting) return;
     setExporting(true);
     try {
         const response = await apiclient.get("/products/export", {
@@ -341,121 +412,157 @@ function ItemsSection({
     };
 
     return (
-        <div className="items-section">
+        <div className="w-full text-ink">
             {/* TABLE */}
-            <div className="items-table-card">
+            <div className="overflow-x-auto overflow-y-hidden rounded-[10px] bg-surface shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)]">
                 {loading ? (
-                    <div className="items-empty">
-                        <Loader2 size={18} className="pc-spin" /> Loading items…
+                    <div className="flex items-center justify-center gap-2 py-10 text-sm text-ink-faint">
+                        <Loader2 size={18} className="animate-spin" /> Loading items…
                     </div>
                 ) : filteredItems.length === 0 ? (
-                    <div className="items-empty">No items found.</div>
+                    <div className="flex items-center justify-center gap-2 py-10 text-sm text-ink-faint">No items found.</div>
                 ) : (
                     <>
-                        <table className="items-table">
+                        <table className="w-full min-w-[1100px] table-fixed border-collapse">
                             <colgroup>
-                                <col style={{ width: "13%" }} />
-                                <col style={{ width: "22%" }} />
-                                <col style={{ width: "10%" }} />
-                                <col style={{ width: "10%" }} />
-                                <col style={{ width: "13%" }} />
-                                <col style={{ width: "10%" }} />
-                                <col style={{ width: "8%" }} />
-                                <col style={{ width: "14%" }} />
+                                <col className="w-[12%]" />   {/* Part Number */}
+                                <col className="w-[20%]" />   {/* Part Name */}
+                                <col className="w-[9%]" />    {/* Unit */}
+                                <col className="w-[13%]" />   {/* Brand */}
+                                <col className="w-[14%]" />   {/* Category */}
+                                <col className="w-[13%]" />   {/* Subcategory */}
+                                <col className="w-[11%]" />   {/* Fitment */}
+                                <col className="w-[8%]" />    {/* Edit */}
                             </colgroup>
                             <thead>
                                 <tr>
-                                    <th className="items-th">Part Number</th>
-                                    <th className="items-th">Part Name</th>
-                                    <th className="items-th">Unit</th>
-                                    <th className="items-th">Brand</th>
-                                    <th className="items-th">Category</th>
-                                    <th className="items-th">Subcategory</th>
-                                    <th className="items-th">Fitment</th>
-                                    <th className="items-th">Edit</th>
+                                    <th className={TH}>Part Number</th>
+                                    <th className={TH}>Part Name</th>
+                                    <th className={TH}>Unit</th>
+                                    <th className={TH}>Brand</th>
+                                    <th className={TH}>Category</th>
+                                    <th className={TH}>Subcategory</th>
+                                    <th className={TH}>Fitment</th>
+                                    <th className={TH}>Edit</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredItems.map((item) => (
-                                    <Fragment key={item.id}>
-                                    <tr key={item.id} className="items-tr">
-                                        <td className="items-td-strong">{item.partNumber || "—"}</td>
-                                        <td className="items-td">
+                                {pageItems.map((item) => (
+    <tr key={item.id} className="transition-colors duration-150 even:bg-surface-soft hover:bg-primary-soft">
+                                        <td className={`${TD} font-semibold text-ink tabular-nums`}>{item.partNumber || "—"}</td>
+                                        <td className={TD}>
                                             {item.itemName}
                                         </td>
-                                        <td className="items-td">{UNIT_LABELS[item.stockUnit] || UNIT_LABELS.PCS}</td>
-                                        <td className="items-td">{item.brandName || "—"}</td>
-                                        <td className="items-td">{item.categoryName || "—"}</td>
-                                        <td className="items-td">{item.masterName || "—"}</td>
-                                        <td className="items-td">
+                                        <td className={`${TD} text-[13px] text-ink-muted`}>{UNIT_LABELS[item.stockUnit] || UNIT_LABELS.PCS}</td>
+                                        <td className={TD}>{item.brandName || "—"}</td>
+                                        <td className={TD}>{item.categoryName || "—"}</td>
+                                        <td className={TD}>{item.masterName || "—"}</td>
+                                        <td className={`${TD} whitespace-nowrap`}>
                                             <button
                                                 type="button"
-                                                className="items-fitment-btn"
+                                                className={ROW_ACTION_FITMENT}
                                                 onClick={() => setFitmentPart(item)}
                                             >
-                                                <Wrench size={13} />
+                                                <Wrench size={13} className="shrink-0" />
                                                 Fitment
                                                 {item.fitmentCount > 0 && (
-                                                    <span className="items-fitment-count">
+                                                    <span className="inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-brand px-[5px] text-[10px] font-bold text-white transition-colors group-hover/act:bg-white group-hover/act:text-brand">
                                                         {item.fitmentCount}
                                                     </span>
                                                 )}
                                             </button>
                                         </td>
-                                        <td className="items-td">
-                                            <button type="button" className="items-fitment-btn" onClick={() => editItem(item)} aria-label={`Edit ${item.itemName}`}>
-                                                <Pencil size={13} /> Edit
+                                        <td className={`${TD} whitespace-nowrap`}>
+                                            <button type="button" className={ROW_ACTION_EDIT} onClick={() => editItem(item)} aria-label={`Edit ${item.itemName}`}>
+                                                <Pencil size={13} className="shrink-0" /> Edit
                                             </button>
                                         </td>
                                     </tr>
-                                    </Fragment>
                                 ))}
                             </tbody>
                         </table>
-                        <div className="items-table-footer">
-                            {filteredItems.length} of {items.length} items
-                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-soft px-4 py-2.5 text-[12.5px] text-ink-muted">
+    <span className="tabular-nums">
+        Showing {startIndex + 1}–{startIndex + pageItems.length} of {total.toLocaleString()} items
+        {total !== items.length && ` (${items.length.toLocaleString()} total)`}
+    </span>
+    <div className="flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2">
+            Rows per page
+            <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                className="h-8 cursor-pointer rounded-md border border-line bg-surface px-2 text-[12.5px] text-ink hover:border-line-strong focus:border-brand"
+            >
+                {[25, 50, 100].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                ))}
+            </select>
+        </label>
+        <div className="flex items-center gap-2">
+            <button
+                type="button"
+                aria-label="Previous page"
+                disabled={safePage <= 1}
+                onClick={() => setPage(safePage - 1)}
+                className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-line bg-surface text-ink transition-colors hover:bg-line-soft disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-surface"
+            >
+                <ChevronLeft size={16} />
+            </button>
+            <span className="min-w-[88px] text-center font-medium text-ink tabular-nums">
+                Page {safePage} of {pageCount}
+            </span>
+            <button
+                type="button"
+                aria-label="Next page"
+                disabled={safePage >= pageCount}
+                onClick={() => setPage(safePage + 1)}
+                className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-line bg-surface text-ink transition-colors hover:bg-line-soft disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-surface"
+            >
+                <ChevronRight size={16} />
+            </button>
+        </div>
+    </div>
+</div>
                     </>
                 )}
             </div>
 
             {/* ADD ITEM MODAL */}
             {showAddModal && (
-                <div className="items-overlay" onClick={resetAddModal}>
-                    <div className="items-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="items-modal-header">
-                            <span className="items-modal-title">{editingItemId ? "Edit Item" : "Add Item"}</span>
-                            <button className="items-modal-close" onClick={resetAddModal}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.4)] p-4" onClick={resetAddModal}>
+                    <div className="box-border max-h-[82vh] w-[520px] max-w-full overflow-y-auto rounded-xl bg-surface p-5 shadow-[0_10px_30px_rgba(0,0,0,0.15)]" onClick={(e) => e.stopPropagation()}>
+                        <div className="mb-4 flex items-center justify-between">
+                            <span className="text-[15px] font-semibold text-ink">{editingItemId ? "Edit Item" : "Add Item"}</span>
+                            <button className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-ink-faint transition-colors hover:bg-line-soft hover:text-ink" onClick={resetAddModal}>
                                 <X size={16} />
                             </button>
                         </div>
 
-                        <label className="items-label">Part Name *</label>
+                        <label className={LABEL}>Part Name *</label>
                         <input
-                            className="items-input"
+                            className={INPUT}
                             autoFocus
                             placeholder="e.g. Brake Pad Set — Front"
-                            required
                             name="itemName"
                             value={formData.itemName}
                             onChange={handleInputChange}
                         />
 
-                        <label className="items-label" style={{ marginTop: 12 }}>Part Number *</label>
+                        <label className={`${LABEL} mt-3`}>Part Number *</label>
                         <input
-                            className="items-input"
+                            className={INPUT}
                             placeholder="PN-00123"
-                            required
                             name="partNumber"
                             value={formData.partNumber}
                             onChange={handleInputChange}
                         />
 
-                        <div className="items-field-row">
+                        <div className={FIELD_ROW}>
                             <div>
-                                <label className="items-label">Brand *</label>
+                                <label className={LABEL}>Brand *</label>
                                 <input
-                                    className="items-input"
+                                    className={INPUT}
                                     list="brand-options"
                                     name="brandName"
                                     value={formData.brandName}
@@ -468,8 +575,8 @@ function ItemsSection({
                                 </datalist>
                             </div>
                             <div>
-                                <label className="items-label">Category *</label>
-                                <select className="items-input" name="categoryId" value={formData.categoryId} onChange={handleInputChange}>
+                                <label className={LABEL}>Category *</label>
+                                <select className={INPUT} name="categoryId" value={formData.categoryId} onChange={handleInputChange}>
                                     <option value="">Select category</option>
                                     {categories.filter((category) => category.active !== false).map((category) =>
                                         <option key={category.id} value={category.id}>{category.categoryName}</option>)}
@@ -477,22 +584,22 @@ function ItemsSection({
                             </div>
                         </div>
 
-                        <label className="items-label" style={{ marginTop: 12 }}>Subcategory *</label>
-                        <select className="items-input" name="masterId" value={formData.masterId} onChange={handleInputChange}>
+                        <label className={`${LABEL} mt-3`}>Subcategory *</label>
+                        <select className={INPUT} name="masterId" value={formData.masterId} onChange={handleInputChange}>
                             <option value="">Select subcategory</option>
                             {masterOptions.map((master) => <option key={master.id} value={master.id}>
                                 {master.masterName}{masterOptions.filter((candidate) => candidate.masterName === master.masterName).length > 1 ? ` · ${master.categoryName} · #${master.id}` : ""}
                             </option>)}
                         </select>
 
-                        <div className="items-field-row">
+                        <div className={FIELD_ROW}>
                             <div>
-                                <label className="items-label" style={{ marginTop: 12 }}>HSN Code *</label>
-                                <input className="items-input" placeholder="Enter HSN code" name="hsnCode" value={formData.hsnCode} onChange={handleInputChange} required />
+                                <label className={`${LABEL} mt-3`}>HSN Code *</label>
+                                <input className={INPUT} placeholder="Enter HSN code" name="hsnCode" value={formData.hsnCode} onChange={handleInputChange} required />
                             </div>
                             <div>
-                                <label className="items-label" style={{ marginTop: 12 }}>Unit *</label>
-                                <select className="items-input" name="stockUnit" value={formData.stockUnit || "PCS"} onChange={handleInputChange} required>
+                                <label className={`${LABEL} mt-3`}>Unit *</label>
+                                <select className={INPUT} name="stockUnit" value={formData.stockUnit || "PCS"} onChange={handleInputChange} required>
                                     <option value="PCS">Piece</option><option value="BOTTLE">Bottle</option><option value="CAN">Can</option>
                                     <option value="BOX">Box</option><option value="SET">Set</option><option value="PAIR">Pair</option><option value="PACK">Pack</option>
                                 </select>
@@ -505,42 +612,41 @@ function ItemsSection({
 
                         <button
                             type="button"
-                            className="items-more-toggle"
+                            className="mt-4 block cursor-pointer border-0 bg-transparent p-0 text-[12.5px] font-semibold text-brand [font-family:inherit] hover:underline"
                             onClick={() => setShowMoreFields((v) => !v)}
                         >
                             {showMoreFields ? "Hide optional details" : "+ Add optional details"}
                         </button>
 
                         {showMoreFields && (
-                            <div className="items-more-fields">
-                                <label className="items-label-sm">Description</label>
+                            <div className="mt-3 rounded-lg border border-line-soft bg-surface-soft p-3">
+                                <label className={LABEL_SM}>Description</label>
                                 <textarea
-                                    className="items-textarea"
+                                    className={TEXTAREA}
                                     placeholder="Optional"
                                     name="description"
                                     value={formData.description}
                                     onChange={handleInputChange}
                                 />
 
-                                <div className="items-field-row">
+                                <div className={FIELD_ROW}>
                                     <div>
-                                        <label className="items-label-sm">OEM Number</label>
-                                        <input className="items-input-sm" placeholder="Optional" name="oemNumber" value={formData.oemNumber} onChange={handleInputChange} />
+                                        <label className={LABEL_SM}>OEM Number</label>
+                                        <input className={INPUT_SM} placeholder="Optional" name="oemNumber" value={formData.oemNumber} onChange={handleInputChange} />
                                     </div>
                                     <div>
-                                        <label className="items-label-sm">EAN / Barcode</label>
-                                        <input className="items-input-sm" placeholder="Optional" name="ean" value={formData.ean} onChange={handleInputChange} />
+                                        <label className={LABEL_SM}>EAN / Barcode</label>
+                                        <input className={INPUT_SM} placeholder="Optional" name="ean" value={formData.ean} onChange={handleInputChange} />
                                     </div>
                                 </div>
-
                             </div>
                         )}
 
 
-                        <div className="items-modal-actions">
-                            <button className="items-btn-ghost" onClick={resetAddModal}>Cancel</button>
-                            <button className="items-btn-primary" onClick={saveItem} disabled={saving}>
-                                {saving ? <Loader2 size={15} className="pc-spin" /> : <Boxes size={15} />}
+                        <div className="mt-5 flex justify-end gap-3 max-sm:flex-col-reverse max-sm:[&>button]:w-full">
+                            <button className={BTN_GHOST} onClick={resetAddModal}>Cancel</button>
+                            <button className={BTN_PRIMARY} onClick={saveItem} disabled={saving}>
+                                {saving ? <Loader2 size={15} className="animate-spin" /> : <Boxes size={15} />}
                                 {saving ? "Saving…" : editingItemId ? "Save Changes" : "Save Item"}
                             </button>
                         </div>
@@ -550,28 +656,28 @@ function ItemsSection({
 
             {/* BULK UPLOAD MODAL */}
             {showBulkModal && (
-                <div className="items-overlay" onClick={() => setShowBulkModal(false)}>
-                    <div className="items-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="items-modal-header">
-                            <span className="items-modal-title">Bulk Upload Items</span>
-                            <button className="items-modal-close" onClick={() => setShowBulkModal(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.4)] p-4" onClick={() => setShowBulkModal(false)}>
+                    <div className="box-border max-h-[82vh] w-[520px] max-w-full overflow-y-auto rounded-xl bg-surface p-5 shadow-[0_10px_30px_rgba(0,0,0,0.15)]" onClick={(e) => e.stopPropagation()}>
+                        <div className="mb-4 flex items-center justify-between">
+                            <span className="text-[15px] font-semibold text-ink">Bulk Upload Items</span>
+                            <button className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-ink-faint transition-colors hover:bg-line-soft hover:text-ink" onClick={() => setShowBulkModal(false)}>
                                 <X size={16} />
                             </button>
                         </div>
 
-                        <p className="items-hint">
+                        <p className="mb-4 text-[12.5px] leading-normal text-ink-muted">
                             Accepts .csv or .xlsx/.xls files with 9 columns: Brand, Category, Subcategory, Product
                             Name, Description, Part Number, OEM Number, EAN, HSN Code. Only Brand, Category,
-                            Subcategory, Product Name and Part Number are required — Brand/Category/Subcategory are
+                            Master, Product Name and Part Number are required — Brand/Category/Master are
                             created automatically if they don't exist yet. Pricing isn't supported in bulk
                             upload.
                         </p>
 
-                        <button className="items-btn-link" onClick={downloadTemplate}>
+                        <button className="mb-4 inline-flex h-auto cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-[13.5px] font-semibold text-brand [font-family:inherit] hover:underline" onClick={downloadTemplate}>
                             <Download size={14} /> Download Excel Template
                         </button>
 
-                        <div className="items-file-row">
+                        <div className="mb-2">
                             <input
                                 type="file"
                                 accept=".csv,.xlsx,.xls"
@@ -580,21 +686,21 @@ function ItemsSection({
                         </div>
 
                         {selectedFile && (
-                            <p className="items-file-label">Selected: {selectedFile.name}</p>
+                            <p className="mt-2 mb-0 text-[12.5px] text-ink-soft">Selected: {selectedFile.name}</p>
                         )}
 
-                        <div className="items-modal-actions">
-                            <button className="items-btn-ghost" onClick={() => setShowBulkModal(false)}>Close</button>
-                            <button className="items-btn-primary" onClick={uploadItems} disabled={uploading}>
-                                {uploading ? <Loader2 size={15} className="pc-spin" /> : <UploadCloud size={15} />}
+                        <div className="mt-5 flex justify-end gap-3 max-sm:flex-col-reverse max-sm:[&>button]:w-full">
+                            <button className={BTN_GHOST} onClick={() => setShowBulkModal(false)}>Close</button>
+                            <button className={BTN_PRIMARY} onClick={uploadItems} disabled={uploading}>
+                                {uploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
                                 {uploading ? "Uploading…" : "Upload File"}
                             </button>
                         </div>
 
                         {bulkResult && bulkResult.failedRows && bulkResult.failedRows.length > 0 && (
-                            <div className="items-failed-box">
-                                <p className="items-label">Skipped rows</p>
-                                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            <div className="mt-4 max-h-[140px] overflow-y-auto rounded-lg border border-red-100 bg-red-50 p-3">
+                                <p className={LABEL}>Skipped rows</p>
+                                <ul className="m-0 pl-[18px] text-[13px] text-red-700">
                                     {bulkResult.failedRows.map((f, idx) => (
                                         <li key={idx}>Row {f.rowNumber}: {f.reason}</li>
                                     ))}
@@ -607,7 +713,13 @@ function ItemsSection({
 
             {/* TOAST */}
             {toast && (
-                <div className={`items-toast items-toast-${toast.type === "error" ? "error" : "success"}`}>
+                <div
+                    className={`fixed right-6 bottom-6 z-[60] animate-[itemsToastIn_0.2s_ease_both] rounded-lg border px-5 py-3 text-[13.5px] font-medium shadow-[0_6px_16px_rgba(0,0,0,0.15)] ${
+                        toast.type === "error"
+                            ? "border-red-200 bg-red-50 text-red-700"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-600"
+                    }`}
+                >
                     {toast.msg}
                 </div>
             )}
