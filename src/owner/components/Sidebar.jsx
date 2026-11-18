@@ -60,11 +60,11 @@ function Sidebar() {
         return () => { mounted = false; };
     }, [user]);
 
-    const isOwner = user?.role === "SUPER_ADMIN";
-    const isStoreOwner = user?.role === "STORE_OWNER";
+    const isOwner = (user?.role || "").toUpperCase() === "SUPER_ADMIN";
+    const isStoreOwner = (user?.role || "").toUpperCase() === "STORE_OWNER";
     const canViewUsers = isOwner || isStoreOwner || hasAnyPermission?.(["EMPLOYEES.VIEW"]);
     const canManageRoles = isOwner || isStoreOwner || hasAnyPermission?.(["ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "ROLES.ASSIGN"]);
-    const canManageSystemRoles = isOwner || hasPermission?.("ROLES.CREATE") || hasPermission?.("PERMISSIONS.MANAGE");
+    const canManageSystemRoles = isOwner || (!isStoreOwner && hasAnyPermission?.(["ROLES.VIEW", "ROLES.CREATE", "PERMISSIONS.VIEW", "PERMISSIONS.MANAGE"]));
     const canViewStores = isOwner || hasPermission?.("STORES.VIEW");
     const canViewDashboard = isOwner || isStoreOwner || hasPermission?.("DASHBOARD.VIEW");
     const canViewInventory = isOwner || isStoreOwner || hasAnyPermission?.(["INVENTORY.VIEW", "INVENTORY.ADJUST", "INVENTORY.TRANSFER", "BARCODES.PRINT"]);

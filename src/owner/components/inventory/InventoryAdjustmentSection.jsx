@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import api from "../../../services/api";
+import { getActiveStoresCached } from "../../../services/storeService";
 import { createInventoryAdjustment } from "../../../services/inventoryTransactionService";
 
 const reasons = ["DAMAGED", "LOST", "PHYSICAL_COUNT", "MANUAL_CORRECTION"];
@@ -25,7 +26,7 @@ export default function InventoryAdjustmentSection() {
 
   useEffect(() => {
     if (!isSuperAdmin) return;
-    api.get("/stores", { params: { page: 0, size: 100, active: true } }).then((response) => {
+    getActiveStoresCached().then((response) => {
       const activeStores = Array.isArray(response.data?.content) ? response.data.content : [];
       setStores(activeStores);
     }).catch(() => setMessage({ type: "error", text: "Unable to load stores" }));

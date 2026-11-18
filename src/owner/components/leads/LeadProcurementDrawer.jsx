@@ -1330,25 +1330,25 @@ const deleteItem = async (item) => {
                                 >
                                     <table className="pd-table procurement-grid-table">
                                         <colgroup>
-                                            <col style={{ width: "16%" }} />
-                                            <col style={{ width: "20%" }} />
-                                            <col style={{ width: "9%" }} />
-                                            <col style={{ width: "9%" }} />
-                                            <col style={{ width: "12%" }} />
-                                            <col style={{ width: "14%" }} />
-                                            <col style={{ width: "15%" }} />
+                                            <col style={{ width: "135px" }} />
+                                            <col style={{ width: "175px" }} />
+                                            <col style={{ width: "110px" }} />
+                                            <col style={{ width: "90px" }} />
+                                            <col style={{ width: "115px" }} />
+                                            <col style={{ width: "145px" }} />
+                                            <col style={{ width: "135px" }} />
                                             <col style={{ width: "50px" }} />
                                         </colgroup>
                                         <thead>
                                             <tr>
-                                                <th>Part Number</th>
-                                                <th>Part Name</th>
-                                                <th>MRP</th>
-                                                <th>Req. Qty</th>
-                                                <th>Source</th>
-                                                <th>Availability</th>
-                                                <th>Est. Date</th>
-                                                <th className="pd-th-action">Action</th>
+                                                <th style={{ width: "135px" }}>Part Number</th>
+                                                <th style={{ width: "175px" }}>Part Name</th>
+                                                <th style={{ width: "110px" }}>MRP</th>
+                                                <th style={{ width: "90px" }}>Req. Qty</th>
+                                                <th style={{ width: "115px" }}>Source</th>
+                                                <th style={{ width: "145px" }}>Availability</th>
+                                                <th style={{ width: "135px" }}>Est. Date</th>
+                                                <th className="pd-th-action" style={{ width: "50px" }}>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>{items.map(renderEditableRow)}</tbody>

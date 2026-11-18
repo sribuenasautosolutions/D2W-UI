@@ -11,6 +11,7 @@ import {
     X
 } from "lucide-react";
 import api from "../../services/api";
+import { clearStoresCache } from "../../services/storeService";
 
 
 const COLORS = {
@@ -55,13 +56,23 @@ const emptyStore = {
 function StoresPage() {
 
     const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
-    const canCreateStore = hasPermission?.("STORES.CREATE");
-    const canUpdateStore = hasPermission?.("STORES.UPDATE");
-    const canDelegatePermissions = hasPermission?.("STORE_PERMISSIONS.DELEGATE");
+    const isSuperAdmin = Boolean(
+        currentUser?.role === "SUPER_ADMIN" ||
+        (currentUser?.role || "").toUpperCase() === "SUPER_ADMIN"
+    );
+    const canCreateStore = isSuperAdmin || hasPermission?.("STORES.CREATE");
+    const canUpdateStore = isSuperAdmin || hasPermission?.("STORES.UPDATE");
+    const canDelegatePermissions = Boolean(
+        isSuperAdmin ||
+        (typeof hasGlobalStoreManagementAuthority === "function" && hasGlobalStoreManagementAuthority()) ||
+        hasPermission?.("STORE_PERMISSIONS.DELEGATE") ||
+        hasPermission?.("PERMISSIONS.MANAGE") ||
+        hasPermission?.("PERMISSIONS.VIEW")
+    );
     const canDeleteStore = Boolean(
         typeof hasGlobalStoreManagementAuthority === "function"
             ? hasGlobalStoreManagementAuthority()
-            : currentUser?.role === "SUPER_ADMIN"
+            : isSuperAdmin
     );
 
     const [stores, setStores] = useState([]);
@@ -113,7 +124,7 @@ function StoresPage() {
      */
 
     const loadStores = async () => {
-
+        clearStoresCache(); 
         const active =
             statusFilter === "ALL"
                 ? undefined

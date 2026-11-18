@@ -15,15 +15,16 @@ function UnauthorizedPage() {
             navigate("/login");
             return;
         }
-        if (user.role === "SUPER_ADMIN") {
+        const role = (user.role || "").toUpperCase();
+        if (role === "SUPER_ADMIN") {
             navigate("/owner/dashboard");
-        } else if (user.role === "STORE_OWNER") {
+        } else if (role === "STORE_OWNER") {
             navigate("/store/dashboard");
-        } else if (user.role === "CASHIER") {
+        } else if (role === "CASHIER") {
             navigate("/pos");
-        } else if (user.role === "PROCUREMENT") {
+        } else if (role === "PROCUREMENT") {
             navigate("/store/purchases");
-        } else if (user.role === "SALESPERSON") {
+        } else if (role === "SALESPERSON") {
             navigate("/salesperson/sales/leads");
         } else {
             navigate("/store/sales");

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CirclePlus, Download, Filter, MoreHorizontal, Power, Search, Store, UserRoundCheck, X } from "lucide-react";
 import api from "../../../services/api";
 import { useAuth } from "../../../auth/AuthContext";
+import { getActiveStoresCached } from "../../../services/storeService";
 
 import VendorStockModal from "./VendorStockModal";
 import "./vendorssection.css";
@@ -57,7 +58,7 @@ export default function VendorsSection() {
     useEffect(() => {
         if (!isSuperAdmin) return;
         let active = true;
-        api.get("/stores", { params: { page: 0, size: 100, active: true } })
+        getActiveStoresCached()
             .then((response) => {
                 if (!active) return;
                 const content = Array.isArray(response.data?.content) ? response.data.content : [];

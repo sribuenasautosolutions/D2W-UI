@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
 import {
@@ -38,12 +38,14 @@ import {
 } from "../../../services/salespersonService";
 
 import "./LeadList.css";
-import LeadCreate from "./LeadCreate";
 import LeadKanbanCard from "./LeadKanbanCard";
-import LeadProcurementDrawer from "./LeadProcurementDrawer";
-import LeadFollowUpDrawer from "./LeadFollowupDrawer";
-import LeadWorkspaceDrawer from "./LeadWorkspaceDrawer";
 import { getLeadChatLinks } from "../../../services/whatsappChatService";
+
+// Lazy-load heavy drawer components to optimize initial route loading
+const LeadCreate = lazy(() => import("./LeadCreate"));
+const LeadProcurementDrawer = lazy(() => import("./LeadProcurementDrawer"));
+const LeadFollowUpDrawer = lazy(() => import("./LeadFollowupDrawer"));
+const LeadWorkspaceDrawer = lazy(() => import("./LeadWorkspaceDrawer"));
 
 /* ============================================================
    STAGE DEFINITIONS  (Proforma removed)
@@ -1766,13 +1768,15 @@ function LeadList() {
                         className="lead-drawer procurement-drawer"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <LeadProcurementDrawer
-                            lead={procurementLead}
-                            userRole={currentRole}
-                            onUpdated={() => loadLeads()}
-                            onClose={refreshAfterAction}
-                            onToast={pushToast}
-                        />
+                        <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "40vh" }}><strong>Loading procurement drawer...</strong></div>}>
+                            <LeadProcurementDrawer
+                                lead={procurementLead}
+                                userRole={currentRole}
+                                onUpdated={() => loadLeads()}
+                                onClose={refreshAfterAction}
+                                onToast={pushToast}
+                            />
+                        </Suspense>
                     </aside>
                 </div>
             )}
@@ -1787,12 +1791,14 @@ function LeadList() {
                         className="lead-drawer procurement-drawer"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <LeadFollowUpDrawer
-                            lead={followUpLead}
-                            onUpdated={() => loadLeads()}
-                            onClose={refreshAfterAction}
-                            onToast={pushToast}
-                        />
+                        <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "40vh" }}><strong>Loading follow-up drawer...</strong></div>}>
+                            <LeadFollowUpDrawer
+                                lead={followUpLead}
+                                onUpdated={() => loadLeads()}
+                                onClose={refreshAfterAction}
+                                onToast={pushToast}
+                            />
+                        </Suspense>
                     </aside>
                 </div>
             )}
@@ -1801,20 +1807,22 @@ function LeadList() {
             {workspaceLead && (
                 <div className="lead-drawer-backdrop" onClick={closeWorkspace}>
                     <aside className="lead-drawer procurement-drawer" onClick={(event) => event.stopPropagation()}>
-                        <LeadWorkspaceDrawer
-                            lead={workspaceLead}
-                            stage={getStage(workspaceLead)}
-                            userRole={currentRole}
-                            initialTab={workspaceInitialTab}
-                            onClose={closeWorkspace}
-                            onUpdated={loadLeads}
-                            onToast={pushToast}
-                            onChatActivity={() => setChatLinkTick((n) => n + 1)}
-                            onEditLead={(lead) => {
-                                setWorkspaceLeadId(null);
-                                handleEditLead(lead);
-                            }}
-                        />
+                        <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "40vh" }}><strong>Loading workspace...</strong></div>}>
+                            <LeadWorkspaceDrawer
+                                lead={workspaceLead}
+                                stage={getStage(workspaceLead)}
+                                userRole={currentRole}
+                                initialTab={workspaceInitialTab}
+                                onClose={closeWorkspace}
+                                onUpdated={loadLeads}
+                                onToast={pushToast}
+                                onChatActivity={() => setChatLinkTick((n) => n + 1)}
+                                onEditLead={(lead) => {
+                                    setWorkspaceLeadId(null);
+                                    handleEditLead(lead);
+                                }}
+                            />
+                        </Suspense>
                     </aside>
                 </div>
             )}
@@ -1829,30 +1837,32 @@ function LeadList() {
                         className="lead-drawer lead-drawer--narrow"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <LeadCreate
-                            onSaved={(created) => {
-                                setPage(0);
-                                setStore(current => current ? String(created.storeId) : "");
-                                setRefreshTick(current => current + 1);
-                                pushToast(
-                                    `${created?.leadNumber || "Lead"} created successfully.`,
-                                    "success"
-                                );
-                            }}
-                            onToast={pushToast}
-                            onViewLead={(created) => {
-                                setShowCreateLeadDrawer(false);
-                                setDrawer({
-                                    lead: created,
-                                    mode: "view",
-                                    nonce: Date.now(),
-                                });
-                            }}
-                            onClose={() => {
-                                setShowCreateLeadDrawer(false);
-                                loadLeads();
-                            }}
-                        />
+                        <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "40vh" }}><strong>Loading create form...</strong></div>}>
+                            <LeadCreate
+                                onSaved={(created) => {
+                                    setPage(0);
+                                    setStore(current => current ? String(created.storeId) : "");
+                                    setRefreshTick(current => current + 1);
+                                    pushToast(
+                                        `${created?.leadNumber || "Lead"} created successfully.`,
+                                        "success"
+                                    );
+                                }}
+                                onToast={pushToast}
+                                onViewLead={(created) => {
+                                    setShowCreateLeadDrawer(false);
+                                    setDrawer({
+                                        lead: created,
+                                        mode: "view",
+                                        nonce: Date.now(),
+                                    });
+                                }}
+                                onClose={() => {
+                                    setShowCreateLeadDrawer(false);
+                                    loadLeads();
+                                }}
+                            />
+                        </Suspense>
                     </aside>
                 </div>
             )}

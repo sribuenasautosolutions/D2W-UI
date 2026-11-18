@@ -44,6 +44,10 @@ const NewSalePage = lazy(
   () => import("../../sales/pages/NewSalePage")
 );
 
+const SaleBulkUploadPage = lazy(
+  () => import("../../sales/pages/SaleBulkUploadPage")
+);
+
 const ProformaListPage = lazy(
   () => import("../../sales/pages/ProformaListPage")
 );
@@ -176,7 +180,9 @@ function StoreRoutes() {
           element={
             <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW"]}>
               <DashboardLayout>
-                <LeadList />
+                <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
+                  <LeadList />
+                </Suspense>
               </DashboardLayout>
             </ProtectedRoute>
           }
@@ -232,6 +238,7 @@ function StoreRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route path="/sales/import-items" element={<SaleBulkUploadPage />} />
 
         <Route
           path="/sales/proforma"

@@ -88,19 +88,13 @@
     |--------------------------------------------------------------------------
     */
 
-    export const searchProducts =
-        async (
-            text,
-            storeId
-        ) => {
-
-            const response = await api.get(
-                `/store-inventory/store/${storeId}/paged`,
-                { params: { search: text, page: 0, size: 50, onlyAvailable: true } }
-            );
-
-            return response.data.content || [];
-        };
+   export const searchProducts = async (text, storeId, signal) => {
+    const response = await api.get(
+        `/store-inventory/store/${storeId}/paged`,
+        { params: { search: text, page: 0, size: 50, onlyAvailable: true }, signal }
+    );
+    return response.data.content || [];
+};
         export const getCompatibleVehicles =
         async (productId) => {
 

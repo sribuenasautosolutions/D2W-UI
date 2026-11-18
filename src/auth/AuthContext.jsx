@@ -12,8 +12,22 @@ function readStoredUser() {
 }
 
 function normalizePermissions(list) {
-    if (!Array.isArray(list)) return [];
-    return [...new Set(list.filter((p) => typeof p === "string" && p.trim()))];
+    if (!list) return [];
+    const items = Array.isArray(list)
+        ? list
+        : Array.isArray(list?.permissions)
+        ? list.permissions
+        : [];
+    const normalized = items
+        .map((p) => {
+            if (typeof p === "string") return p.trim();
+            if (p && typeof p === "object") {
+                return (p.code || p.permissionCode || p.name || "").trim();
+            }
+            return "";
+        })
+        .filter(Boolean);
+    return [...new Set(normalized)];
 }
 
 function writeStoredPermissions(nextPermissions) {
@@ -100,6 +114,12 @@ export function AuthProvider({ children }) {
         }
     }, [activeStoreId]);
 
+    useEffect(() => {
+        if (user) {
+            refreshPermissions().catch(() => {});
+        }
+    }, [user, refreshPermissions]);
+
     const switchActiveStore = useCallback(async (storeId) => {
         const nextStoreId = storeId != null && storeId !== "" ? Number(storeId) : null;
         setPermissions([]);
@@ -115,19 +135,21 @@ export function AuthProvider({ children }) {
         return refreshPermissions(nextStoreId);
     }, [refreshPermissions]);
 
+    const isSuperAdmin = (user?.role || "").toUpperCase() === "SUPER_ADMIN";
+
     const hasPermission = useCallback(
-        (code) => Boolean(code) && (user?.role === "SUPER_ADMIN" || permissions.includes(code)),
-        [user, permissions]
+        (code) => Boolean(code) && (isSuperAdmin || permissions.includes(code)),
+        [isSuperAdmin, permissions]
     );
 
     const hasAnyPermission = useCallback(
-        (codes) => Array.isArray(codes) && (user?.role === "SUPER_ADMIN" || codes.some((code) => permissions.includes(code))),
-        [user, permissions]
+        (codes) => Array.isArray(codes) && (isSuperAdmin || codes.some((code) => permissions.includes(code))),
+        [isSuperAdmin, permissions]
     );
 
     const hasGlobalStoreManagementAuthority = useCallback(() => {
-        return Boolean(user && (user.role === "SUPER_ADMIN" || permissions.includes("STORES.UPDATE")));
-    }, [user, permissions]);
+        return Boolean(user && (isSuperAdmin || permissions.includes("STORES.UPDATE")));
+    }, [user, isSuperAdmin, permissions]);
 
     const value = useMemo(
         () => ({
