@@ -4,6 +4,7 @@ import {
   MoreHorizontal, PackageCheck, ReceiptText, RotateCcw, Search, Trash2, Upload, X,
 } from "lucide-react";
 import api from "../../../services/api";
+import { useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 import VendorBillBulkUploader from "./VendorBillBulkUploader";
 import VendorPurchaseInvoiceView from "./VendorPurchaseInvoiceView";

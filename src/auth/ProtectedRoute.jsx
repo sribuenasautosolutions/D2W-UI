@@ -10,8 +10,10 @@ function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
         return <Navigate to="/login" replace />;
     }
 
+    const role = (user.role || "").toUpperCase();
+
     // Super Admin has global platform administrative access across all protected routes
-    if (user.role === "SUPER_ADMIN") {
+    if (role === "SUPER_ADMIN") {
         return children;
     }
 
@@ -19,7 +21,11 @@ function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
     const hasPermissionRestriction =
         Array.isArray(requiredPermissions) && requiredPermissions.length > 0;
 
-    const roleAllowed = hasRoleRestriction && allowedRoles.includes(user.role);
+    const normalizedAllowedRoles = hasRoleRestriction
+        ? allowedRoles.map((r) => String(r).toUpperCase())
+        : [];
+
+    const roleAllowed = hasRoleRestriction && normalizedAllowedRoles.includes(role);
     const permissionAllowed =
         hasPermissionRestriction && hasAnyPermission(requiredPermissions);
 

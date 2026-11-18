@@ -178,11 +178,13 @@ function StoreRoutes() {
         <Route
           path="/sales/leads"
           element={
-            <DashboardLayout>
-              <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
-                <LeadList />
-              </Suspense>
-            </DashboardLayout>
+            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW"]}>
+              <DashboardLayout>
+                <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
+                  <LeadList />
+                </Suspense>
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
 

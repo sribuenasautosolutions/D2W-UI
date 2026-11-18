@@ -89,107 +89,16 @@ function OwnerRoutes() {
           }
         />
 
-        path="/sales/new"
-
-        element={<NewSalePage />}
-
-      />
-     <Route path="/sales/import-items" element={<SaleBulkUploadPage />} />
-
-      <Route path="/sales/proforma" element={<DashboardLayout><ProformaListPage /></DashboardLayout>} />
-
-      <Route path="/sales/proforma/new" element={<NewSalePage documentMode="PROFORMA" />} />
-
-      <Route path="/sales/proforma/:id/edit" element={<NewSalePage documentMode="PROFORMA" />} />
-
-      <Route path="/sales/proforma/:id" element={<ProformaViewPage />} />
-
-<Route
-    path="/sales/leads"
-    element={
-        <DashboardLayout>
-            <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
-                <LeadList />
-            </Suspense>
-        </DashboardLayout>
-    }
-/>
-
-<Route
-
-    path="/sales/leads/:id"
-
-    element={
-
-        <DashboardLayout>
-
-            <LeadDetails />
-
-        </DashboardLayout>
-
-    }
-
-/>
-
-
-
-<Route path="/sales/leads/chats" element={<DashboardLayout><WhatsAppChats /></DashboardLayout>} />
-
-<Route path="/sales/leads/whatsapp" element={<DashboardLayout><WhatsAppConnect /></DashboardLayout>} />
-
-<Route
-
-    path="/sales/leads/new"
-
-    element={
-
-        <DashboardLayout>
-
-            <LeadCreate />
-
-        </DashboardLayout>
-
-    }
-
-/>
-
-  
-
-      <Route
-
-  path="/sales/payment/:orderId"
-
-  element={<PaymentPage />}
-
-/>
-
-      <Route
-
-  path="/sales/invoice/:orderId"
-
-  element={<InvoicePage />}
-
-/>
-
-
-
-      <Route
-
-        path="/reports"
-
-        element={
-
-          <DashboardLayout>
-
-            <ReportsPage />
-
-          </DashboardLayout>
-
-        }
-
-      />
-
-
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["DASHBOARD.VIEW"]}>
+              <DashboardLayout>
+                <DashboardHome />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/products"
@@ -335,7 +244,9 @@ function OwnerRoutes() {
           element={
             <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["LEADS.VIEW"]}>
               <DashboardLayout>
-                <LeadList />
+                <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
+                  <LeadList />
+                </Suspense>
               </DashboardLayout>
             </ProtectedRoute>
           }

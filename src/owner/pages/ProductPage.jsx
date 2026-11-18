@@ -149,23 +149,31 @@ function ProductPage() {
                         <button className={PM_BTN_SECONDARY} onClick={() => bumpItems("export")}>
                             <Download size={15} /> <span>Export</span>
                         </button>
-                        <button className={PM_BTN_SECONDARY} onClick={() => bumpItems("bulk")}>
-                            <Upload size={15} /> <span>Bulk Upload</span>
-                        </button>
-                        <button className={PM_BTN_PRIMARY} onClick={() => bumpItems("add")}>
-                            <Plus size={15} /> <span>Add Item</span>
-                        </button>
+                        {canCreate && (
+                            <>
+                                <button className={PM_BTN_SECONDARY} onClick={() => bumpItems("bulk")}>
+                                    <Upload size={15} /> <span>Bulk Upload</span>
+                                </button>
+                                <button className={PM_BTN_PRIMARY} onClick={() => bumpItems("add")}>
+                                    <Plus size={15} /> <span>Add Item</span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
 
                 {activeTab === "brands" && (
                     <div className="flex flex-none flex-wrap items-center gap-2 py-2 min-[901px]:py-[5px]">
-                        <button className={PM_BTN_SECONDARY} onClick={() => bumpBrands("bulk")}>
-                            <Upload size={15} /> <span>Bulk Upload</span>
-                        </button>
-                        <button className={PM_BTN_PRIMARY} onClick={() => bumpBrands("add")}>
-                            <Plus size={15} /> <span>Add Brand</span>
-                        </button>
+                        {canCreate && (
+                            <>
+                                <button className={PM_BTN_SECONDARY} onClick={() => bumpBrands("bulk")}>
+                                    <Upload size={15} /> <span>Bulk Upload</span>
+                                </button>
+                                <button className={PM_BTN_PRIMARY} onClick={() => bumpBrands("add")}>
+                                    <Plus size={15} /> <span>Add Brand</span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

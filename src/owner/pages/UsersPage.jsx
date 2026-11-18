@@ -16,6 +16,7 @@ import {
     X,
 } from "lucide-react";
 import api from "../../services/api";
+import { useAuth } from "../../auth/AuthContext";
 import { getActiveStoresCached } from "../../services/storeService";
 
 const emptyForm = {
@@ -149,28 +150,32 @@ function UsersPage() {
         return data;
     };
 
-    useEffect(() => {
-        const loadPage = async () => {
-            setLoading(true);
-            setError("");
-
-            try {
-                const requests = [loadUsers()];
-
-                if (isSuperAdmin) {
-                    requests.push(
-                    getActiveStoresCached().then((response) => {
-                            setStores(Array.isArray(response.data?.content) ? response.data.content : []);
-                        })
-                    );
-                }
-
-        const data = Array.isArray(response.data?.content)
-            ? response.data.content
-            : [];
-
-        setStores(data);
-        return data;
+    const loadStores = async () => {
+        try {
+            const response = await getActiveStoresCached();
+            const data = Array.isArray(response.data?.content)
+                ? response.data.content
+                : Array.isArray(response.data)
+                ? response.data
+                : [];
+            setStores(data);
+            return data;
+        } catch {
+            const response = await api.get("/stores", {
+                params: {
+                    page: 0,
+                    size: 20,
+                    active: true,
+                },
+            });
+            const data = Array.isArray(response.data?.content)
+                ? response.data.content
+                : Array.isArray(response.data)
+                ? response.data
+                : [];
+            setStores(data);
+            return data;
+        }
     };
 
     const loadConfigurableRoles = async () => {
