@@ -9,6 +9,7 @@ import {
 } from "../../services/productService";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../../pos/context/CartContext";
+import { useAuth } from "../../auth/AuthContext";
 import { getAllStores } from "../../services/storeService";
 
 function POSPage() {
@@ -24,6 +25,7 @@ function POSPage() {
     const [heldBills, setHeldBills] = useState([]);
     const [showHeldBills, setShowHeldBills] = useState(false);
     const { replaceCart, clearCart } = useCart();
+    const { switchActiveStore } = useAuth();
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const [stores,setStores]=useState([]);
     const [selectedStoreId,setSelectedStoreId]=useState(
@@ -161,7 +163,18 @@ const handleSearchChange = (text) => {
             heldBillsCount={heldBills.length}
             stores={stores}
             selectedStoreId={selectedStoreId}
-            onStoreChange={(id)=>{if (String(id) !== String(selectedStoreId)) clearCart();setSelectedStoreId(id);localStorage.setItem("pos_store_id",id);setProducts([]);setSearchResults([]);setSearchText("");setSelectedVariant("");setCurrentPage(1);setTimeout(()=>loadStoreInventory(1),0);}}
+            onStoreChange={(id) => {
+                if (String(id) !== String(selectedStoreId)) clearCart();
+                setSelectedStoreId(id);
+                localStorage.setItem("pos_store_id", id);
+                switchActiveStore?.(id).catch(console.error);
+                setProducts([]);
+                setSearchResults([]);
+                setSearchText("");
+                setSelectedVariant("");
+                setCurrentPage(1);
+                setTimeout(() => loadStoreInventory(1), 0);
+            }}
         >
             {/* SLOT 0 — Vehicle selector for sidebar */}
             <div>

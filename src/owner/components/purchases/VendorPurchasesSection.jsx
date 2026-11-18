@@ -422,8 +422,11 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
    Main component
    ========================================================= */
 function ManualStockReceipt() {
-  const user = getUser();
+  const { user: authUser, hasPermission } = useAuth();
+  const user = authUser || getUser();
   const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const isStoreOwner = user.role === "STORE_OWNER";
+  const canCreateBill = isSuperAdmin || isStoreOwner || hasPermission?.("PURCHASE_ORDERS.CREATE");
 
   const [rows, setRows] = useState([emptyRow()]);
   const [stores, setStores] = useState([]);
@@ -1256,9 +1259,11 @@ function ManualStockReceipt() {
                 </button>
                 {moreMenuOpen && (
                   <div className="vp-more-menu">
-                    <button type="button" onClick={openBillImport}>
-                      <Upload size={15} /> Import Bills
-                    </button>
+                    {canCreateBill && (
+                      <button type="button" onClick={openBillImport}>
+                        <Upload size={15} /> Import Bills
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -1279,9 +1284,11 @@ function ManualStockReceipt() {
                 )}
               </div>
 
-              <button type="button" className="vp-primary-button" onClick={startNewBill}>
-                <CirclePlus size={16} /> New Bill
-              </button>
+              {canCreateBill && (
+                <button type="button" className="vp-primary-button" onClick={startNewBill}>
+                  <CirclePlus size={16} /> New Bill
+                </button>
+              )}
             </div>
           </header>
 

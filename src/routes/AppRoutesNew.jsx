@@ -37,7 +37,15 @@ function AppRoutesNew() {
       <Route
         path="/owner/*"
         element={
-          <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+          <ProtectedRoute
+            allowedRoles={["SUPER_ADMIN"]}
+            requiredPermissions={[
+              "EMPLOYEES.VIEW", "STORES.VIEW", "CATALOGUE.VIEW", "VEHICLES.VIEW",
+              "INVENTORY.VIEW", "PURCHASE_ORDERS.VIEW", "SALES.VIEW",
+              "CUSTOMERS.VIEW", "LEADS.VIEW", "REPORTS.VIEW", "DASHBOARD.VIEW",
+              "ROLES.VIEW", "PERMISSIONS.VIEW"
+            ]}
+          >
             <OwnerRoutes />
           </ProtectedRoute>
         }
@@ -46,7 +54,14 @@ function AppRoutesNew() {
       <Route
         path="/store/*"
         element={
-          <ProtectedRoute allowedRoles={["STORE_OWNER"]}>
+          <ProtectedRoute
+            allowedRoles={["STORE_OWNER"]}
+            requiredPermissions={[
+              "INVENTORY.VIEW", "PURCHASE_ORDERS.VIEW", "SALES.VIEW",
+              "CUSTOMERS.VIEW", "LEADS.VIEW", "REPORTS.VIEW", "EMPLOYEES.VIEW",
+              "ROLES.VIEW", "PERMISSIONS.VIEW"
+            ]}
+          >
             <StoreRoutes />
           </ProtectedRoute>
         }
@@ -56,7 +71,9 @@ function AppRoutesNew() {
         path="/pos/*"
         element={
           <ProtectedRoute 
-          allowedRoles={["SUPER_ADMIN","STORE_OWNER","CASHIER"]}>
+            allowedRoles={["SUPER_ADMIN","STORE_OWNER","CASHIER"]}
+            requiredPermissions={["SALES.VIEW", "SALES.CREATE", "SALES.PAYMENT"]}
+          >
             <POSRoutes />
           </ProtectedRoute>
         }

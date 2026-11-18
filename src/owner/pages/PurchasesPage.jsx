@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import D2WStockRequestSection from "../components/purchases/D2WStockRequestSection";
 import VendorPurchasesSection from "../components/purchases/VendorPurchasesSection";
 import VendorsSection from "../components/purchases/VendorsSection";
@@ -28,11 +29,24 @@ const PURCHASE_VIEWS = {
 };
 
 export default function PurchasesPage() {
+    const { user, hasAnyPermission } = useAuth();
+    const isOwner = user?.role === "SUPER_ADMIN";
+    const isStoreOwner = user?.role === "STORE_OWNER";
+    const canViewVendors = isOwner || isStoreOwner || hasAnyPermission?.(["VENDORS.VIEW", "VENDORS.MANAGE"]);
+    const canViewOrders = isOwner || isStoreOwner || hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE"]);
+
     const [searchParams] = useSearchParams();
     const requestedView = searchParams.get("view") || "vendors";
     // Keep old saved links working after renaming Vendor Purchases to Bills.
-    const normalizedView = requestedView === "vendorpurchases" ? "bills" : requestedView;
-    const activeView = PURCHASE_VIEWS[normalizedView] || PURCHASE_VIEWS.vendors;
+    let normalizedView = requestedView === "vendorpurchases" ? "bills" : requestedView;
+
+    if (normalizedView === "vendors" && !canViewVendors && canViewOrders) {
+        normalizedView = "bills";
+    } else if (normalizedView !== "vendors" && !canViewOrders && canViewVendors) {
+        normalizedView = "vendors";
+    }
+
+    const activeView = PURCHASE_VIEWS[normalizedView] || (canViewVendors ? PURCHASE_VIEWS.vendors : PURCHASE_VIEWS.bills);
     const ActiveComponent = activeView.Component;
 
     const isBillsView = normalizedView === "bills";

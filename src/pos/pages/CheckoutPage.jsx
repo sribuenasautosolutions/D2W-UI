@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import { useCart } from "../context/CartContext";
 import { calculateOrder } from "../../services/orderService";
 import { getCustomerByMobile } from "../../services/customerService";
@@ -34,8 +35,14 @@ const getUser = () => {
 function CheckoutPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const {
-    cartItems,
+  const { user: authUser, hasPermission } = useAuth();
+  const isSuperAdmin = authUser?.role === "SUPER_ADMIN";
+  const isStoreOwner = authUser?.role === "STORE_OWNER";
+  const isCashier = authUser?.role === "CASHIER";
+  const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
+  const canMakePayment = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.PAYMENT");
+
+  const {    cartItems,
     increaseQuantity,
     decreaseQuantity,
     removeFromCart,
@@ -205,6 +212,15 @@ function CheckoutPage() {
   const handlePlaceOrder = async (action = "PAY") => {
     if (creatingInvoice || checkingQuantity || paymentDraft || calcLoading || !calculation) return;
 
+    if (!canCreateSale) {
+      alert("You do not have permission to create sales orders.");
+      return;
+    }
+    if (action === "PAY" && !canMakePayment) {
+      alert("You do not have permission to collect or process payments.");
+      return;
+    }
+
     if (cartItems.length === 0) {
       alert("Cart is empty. Please add at least one item before creating an invoice.");
       return;
@@ -321,7 +337,7 @@ function CheckoutPage() {
      ============================================================ */
 
   const disablePlaceOrder =
-    creatingInvoice || checkingQuantity || calcLoading || !calculation || cartItems.length === 0 || !!calcError;
+    creatingInvoice || checkingQuantity || calcLoading || !calculation || cartItems.length === 0 || !!calcError || !canCreateSale;
 
   return (
     <>
@@ -661,9 +677,10 @@ function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => handlePlaceOrder("PAY")}
-                  disabled={disablePlaceOrder}
+                  disabled={disablePlaceOrder || !canMakePayment}
                   className="checkout-action-btn checkout-pay-btn"
-                  style={{ opacity: disablePlaceOrder ? 0.6 : 1, cursor: disablePlaceOrder ? "not-allowed" : "pointer" }}
+                  style={{ opacity: (disablePlaceOrder || !canMakePayment) ? 0.6 : 1, cursor: (disablePlaceOrder || !canMakePayment) ? "not-allowed" : "pointer" }}
+                  title={!canMakePayment ? "You do not have permission to collect payments" : undefined}
                 >
                   {creatingInvoice ? "Opening Payment…" : "Make Payment"}
                 </button>
