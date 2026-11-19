@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useCallback, useRef, useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
 import {
@@ -8,6 +8,7 @@ import {
     ChevronRight,
     Filter,
     Globe,
+    LoaderCircle,
     PackageCheck,
     Phone,
     Plus,
@@ -1105,6 +1106,8 @@ function LeadList() {
     const pageSize = 30;
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const loadingMoreRef = useRef(false);
 
     const [selectedStage, setSelectedStage] = useState("ALL");
     const [searchTerm, setSearchTerm] = useState("");
@@ -1142,14 +1145,21 @@ function LeadList() {
     const removeToast = (id) =>
         setToasts((current) => current.filter((t) => t.id !== id));
 
-    /* ---- load leads ---- */
-    const loadLeads = async () => {
+    /* ---- load leads (supports initial fetch and infinite scroll append) ---- */
+    const loadLeads = useCallback(async (targetPage = 0, isAppend = false) => {
         const version = ++loadVersion.current;
-        setLoading(true);
-        setErrorMessage("");
+        if (isAppend) {
+            setLoadingMore(true);
+            loadingMoreRef.current = true;
+        } else {
+            setLoading(true);
+            setLoadingMore(false);
+            loadingMoreRef.current = false;
+            setErrorMessage("");
+        }
         try {
             const response = await getLeads(
-                page,
+                targetPage,
                 pageSize,
                 "createdAt",
                 "DESC",
@@ -1159,7 +1169,16 @@ function LeadList() {
             const content = Array.isArray(response?.content)
                 ? response.content
                 : [];
-            setLeads(content);
+            if (isAppend) {
+                setLeads((prev) => {
+                    const existingIds = new Set(prev.map((l) => l.id));
+                    const uniqueNew = content.filter((l) => !existingIds.has(l.id));
+                    return [...prev, ...uniqueNew];
+                });
+            } else {
+                setLeads(content);
+            }
+            setPage(targetPage);
             setTotalPages(Number(response?.totalPages || 0));
             setTotalElements(Number(response?.totalElements || 0));
         } catch (error) {
@@ -1169,19 +1188,39 @@ function LeadList() {
                 error?.response?.data?.message ||
                 error?.response?.data?.error ||
                 "Unable to load leads.";
-            setErrorMessage(message);
-            setLeads([]);
-            setTotalPages(0);
-            setTotalElements(0);
+            if (!isAppend) {
+                setErrorMessage(message);
+                setLeads([]);
+                setTotalPages(0);
+                setTotalElements(0);
+            }
         } finally {
-            if (version === loadVersion.current) setLoading(false);
+            if (version === loadVersion.current) {
+                setLoading(false);
+                setLoadingMore(false);
+                loadingMoreRef.current = false;
+            }
         }
-    };
+    }, [pageSize, store]);
 
     useEffect(() => {
-        loadLeads();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, store, refreshTick]);
+        loadLeads(0, false);
+    }, [store, refreshTick, loadLeads]);
+
+    const hasMore = page < totalPages - 1;
+
+    const loadMore = useCallback(() => {
+        if (loading || loadingMoreRef.current || !hasMore) return;
+        loadingMoreRef.current = true;
+        loadLeads(page + 1, true);
+    }, [loading, hasMore, page, loadLeads]);
+
+    const handleColumnScroll = useCallback((e) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 150) {
+            loadMore();
+        }
+    }, [loadMore]);
 
     useEffect(() => {
         if (!canViewLeadChats) {
@@ -1344,7 +1383,6 @@ function LeadList() {
         setStore("");
         setSource("");
         setFilterStatus("");
-        setPage(0);
     };
 
     const handleStageSelect = (stage) => setSelectedStage(stage);
@@ -1478,7 +1516,6 @@ function LeadList() {
                         <select
                             value={store}
                             onChange={(e) => {
-                                setPage(0);
                                 setStore(e.target.value);
                             }}
                         >
@@ -1668,13 +1705,19 @@ function LeadList() {
                                             )}
                                         </div>
 
-                                        <div className="ref-kanban-col-body">
-                                            {stageLeads.length === 0 ? (
-                                                <div className="ref-kanban-empty">
-                                                    No leads
-                                                </div>
-                                            ) : (
-                                                stageLeads.map((lead) => (
+                                        <div
+                                            className="ref-kanban-col-body"
+                                            onScroll={handleColumnScroll}
+                                        >
+                                            {(() => {
+                                                if (stageLeads.length === 0) {
+                                                    return (
+                                                        <div className="ref-kanban-empty">
+                                                            No leads
+                                                        </div>
+                                                    );
+                                                }
+                                                return stageLeads.map((lead) => (
                                                     <LeadKanbanCard
                                                         key={lead.id}
                                                         lead={lead}
@@ -1693,7 +1736,13 @@ function LeadList() {
                                                         onOpenWorkspace={handleOpenWorkspace}
                                                         chatLink={chatLinks[lead.id]}
                                                     />
-                                                ))
+                                                ));
+                                            })()}
+                                            {loadingMore && stageLeads.length > 0 && (
+                                                <div className="ref-col-loading-more">
+                                                    <LoaderCircle size={14} className="spin" />
+                                                    <span>Loading...</span>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -1704,32 +1753,28 @@ function LeadList() {
                 )}
             </section>
 
-            {/* PAGINATION */}
-            {!loading && totalPages > 1 && (
-                <div className="lead-pagination">
-                    <button
-                        type="button"
-                        disabled={page === 0}
-                        onClick={() =>
-                            setPage((current) => Math.max(0, current - 1))
-                        }
-                    >
-                        Previous
-                    </button>
-                    <span>
-                        Page {page + 1} of {totalPages}
-                    </span>
-                    <button
-                        type="button"
-                        disabled={page >= totalPages - 1}
-                        onClick={() =>
-                            setPage((current) =>
-                                Math.min(totalPages - 1, current + 1)
-                            )
-                        }
-                    >
-                        Next
-                    </button>
+            {/* INFINITE SCROLL / LOAD MORE */}
+            {hasMore && !loading && (
+                <div className="lead-pagination lead-pagination--infinite">
+                    {loadingMore ? (
+                        <div className="ref-board-loading-inline">
+                            <LoaderCircle size={15} className="spin" />
+                            <span>Loading more leads...</span>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            className="ref-load-more-btn"
+                            onClick={loadMore}
+                        >
+                            Load more leads ({filteredLeads.length} of {totalElements})
+                        </button>
+                    )}
+                </div>
+            )}
+            {!hasMore && leads.length > 0 && totalElements > pageSize && (
+                <div className="lead-pagination lead-pagination--done">
+                    <span>All {totalElements} leads loaded</span>
                 </div>
             )}
 

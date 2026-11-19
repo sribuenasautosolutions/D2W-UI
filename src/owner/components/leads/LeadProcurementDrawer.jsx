@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Check,
     ChevronDown,
     Loader2,
     Pencil,
+    RotateCcw,
     Trash2,
     X,
 } from "lucide-react";
@@ -144,6 +145,29 @@ function MetaField({ label, value, editing, onChange, placeholder }) {
     );
 }
 
+const PD_BASE_MIN_WIDTH = 955;
+const PD_RESIZE_MAX = 520;
+const PD_STORAGE_KEY = "d2w_lead_procurement_col_widths";
+
+const readSavedPdColWidths = () => {
+    try {
+        const raw = localStorage.getItem(PD_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+};
+
+const PD_COLUMNS = [
+    { key: "pn",     label: "Part Number",  min: 100, nominal: 135 },
+    { key: "name",   label: "Part Name",    min: 130, nominal: 175 },
+    { key: "mrp",    label: "MRP",          min: 85,  nominal: 110 },
+    { key: "qty",    label: "Req. Qty",     min: 60,  nominal: 90 },
+    { key: "src",    label: "Source",       min: 80,  nominal: 115 },
+    { key: "avail",  label: "Availability", min: 100, nominal: 145 },
+    { key: "eta",    label: "Est. Date",    min: 90,  nominal: 135 },
+];
+
 function LeadProcurementDrawer({
     lead,
     userRole,
@@ -163,6 +187,74 @@ function LeadProcurementDrawer({
 
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+
+    const [colPx, setColPx] = useState(() => readSavedPdColWidths());
+
+    const startColResize = useCallback((col, event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const startX = event.clientX;
+        const startW = event.currentTarget.parentElement.getBoundingClientRect().width;
+        const onMove = (e) => {
+            const next = Math.min(PD_RESIZE_MAX, Math.max(col.min, Math.round(startW + e.clientX - startX)));
+            setColPx((prev) => ({ ...prev, [col.key]: next }));
+        };
+        const onUp = () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            setColPx((current) => {
+                try {
+                    localStorage.setItem(PD_STORAGE_KEY, JSON.stringify(current));
+                } catch { /* ignore */ }
+                return current;
+            });
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+    }, []);
+
+    const resetColWidth = useCallback((key) => {
+        setColPx((prev) => {
+            if (!(key in prev)) return prev;
+            const rest = { ...prev };
+            delete rest[key];
+            try {
+                if (Object.keys(rest).length === 0) {
+                    localStorage.removeItem(PD_STORAGE_KEY);
+                } else {
+                    localStorage.setItem(PD_STORAGE_KEY, JSON.stringify(rest));
+                }
+            } catch { /* ignore */ }
+            return rest;
+        });
+    }, []);
+
+    const revertAllColWidths = useCallback(() => {
+        setColPx({});
+        try {
+            localStorage.removeItem(PD_STORAGE_KEY);
+        } catch { /* ignore */ }
+        onToast?.("Column widths reverted to default", "info");
+    }, [onToast]);
+
+    const colResized = Object.keys(colPx).length > 0;
+    const colTableStyle = colResized
+        ? PD_COLUMNS.reduce(
+            (style, col) => {
+                const px = colPx[col.key];
+                if (px != null) {
+                    style[`--pd-col-${col.key}`] = `${px}px`;
+                    style.__extra += Math.max(0, px - col.nominal);
+                }
+                return style;
+            },
+            { __extra: 0 }
+        )
+        : null;
+    if (colTableStyle) {
+        colTableStyle["--pd-table-min"] = `${PD_BASE_MIN_WIDTH + colTableStyle.__extra}px`;
+        delete colTableStyle.__extra;
+    }
 
     const [procurementLead, setProcurementLead] = useState(null);
     const [itemDrafts, setItemDrafts] = useState({});
@@ -1316,6 +1408,17 @@ const deleteItem = async (item) => {
                                 <span>Total MRP</span>
                                 <strong>{formatMrp(totalMrp)}</strong>
                             </div>
+                            {colResized && (
+                                <button
+                                    type="button"
+                                    className="fu-revert-cols-btn"
+                                    title="Revert column widths to default"
+                                    onClick={revertAllColWidths}
+                                >
+                                    <RotateCcw size={12} />
+                                    <span>Revert columns</span>
+                                </button>
+                            )}
                         </div>
 
                         {loading ? (
@@ -1328,26 +1431,35 @@ const deleteItem = async (item) => {
                                     disabled={loading || bulkLoading || readOnly || savingItemId !== null || completing}
                                     className="pd-fieldset"
                                 >
-                                    <table className="pd-table procurement-grid-table">
+                                    <table
+                                        className={`pd-table procurement-grid-table${colResized ? " is-col-resized" : ""}`}
+                                        style={colTableStyle || undefined}
+                                    >
                                         <colgroup>
-                                            <col style={{ width: "135px" }} />
-                                            <col style={{ width: "175px" }} />
-                                            <col style={{ width: "110px" }} />
-                                            <col style={{ width: "90px" }} />
-                                            <col style={{ width: "115px" }} />
-                                            <col style={{ width: "145px" }} />
-                                            <col style={{ width: "135px" }} />
+                                            <col style={{ width: colPx.pn ? `${colPx.pn}px` : "135px" }} />
+                                            <col style={{ width: colPx.name ? `${colPx.name}px` : "175px" }} />
+                                            <col style={{ width: colPx.mrp ? `${colPx.mrp}px` : "110px" }} />
+                                            <col style={{ width: colPx.qty ? `${colPx.qty}px` : "90px" }} />
+                                            <col style={{ width: colPx.src ? `${colPx.src}px` : "115px" }} />
+                                            <col style={{ width: colPx.avail ? `${colPx.avail}px` : "145px" }} />
+                                            <col style={{ width: colPx.eta ? `${colPx.eta}px` : "135px" }} />
                                             <col style={{ width: "50px" }} />
                                         </colgroup>
                                         <thead>
                                             <tr>
-                                                <th style={{ width: "135px" }}>Part Number</th>
-                                                <th style={{ width: "175px" }}>Part Name</th>
-                                                <th style={{ width: "110px" }}>MRP</th>
-                                                <th style={{ width: "90px" }}>Req. Qty</th>
-                                                <th style={{ width: "115px" }}>Source</th>
-                                                <th style={{ width: "145px" }}>Availability</th>
-                                                <th style={{ width: "135px" }}>Est. Date</th>
+                                                {PD_COLUMNS.map((col) => (
+                                                    <th key={col.key} className="fu-th-resizable">
+                                                        {col.label}
+                                                        <span
+                                                            className="fu-col-resizer"
+                                                            role="separator"
+                                                            aria-orientation="vertical"
+                                                            aria-label={`Resize ${col.label} column (double-click to reset)`}
+                                                            onPointerDown={(e) => startColResize(col, e)}
+                                                            onDoubleClick={() => resetColWidth(col.key)}
+                                                        />
+                                                    </th>
+                                                ))}
                                                 <th className="pd-th-action" style={{ width: "50px" }}>Action</th>
                                             </tr>
                                         </thead>
