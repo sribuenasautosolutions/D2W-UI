@@ -7,15 +7,17 @@ import "./styles/tailwind.css";
 import { Toaster } from "react-hot-toast";     
 
 import App from "./App";
+import { AuthProvider } from "./auth/AuthContext";
 import { CartProvider } from "./pos/context/CartContext";
 
 ReactDOM.createRoot(
     document.getElementById("root")
 ).render(
     <React.StrictMode>
-        <CartProvider>
-            <BrowserRouter>
-                <App />
+        <AuthProvider>
+            <CartProvider>
+                <BrowserRouter>
+                    <App />
 
                 {/* ← ADD THIS BLOCK (once, at the end) */}
                 <Toaster
@@ -50,7 +52,8 @@ ReactDOM.createRoot(
                         },
                     }}
                 />
-            </BrowserRouter>
-        </CartProvider>
+                </BrowserRouter>
+            </CartProvider>
+        </AuthProvider>
     </React.StrictMode>
 );

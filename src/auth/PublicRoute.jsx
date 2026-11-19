@@ -1,22 +1,30 @@
 import { Navigate } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 
 function PublicRoute({ children }) {
 
-    const user = JSON.parse(localStorage.getItem("user"));
+    const { user } = useAuth();
 
     if (user) {
+        const role = (user.role || "").toUpperCase();
 
-        if (user.role === "SUPER_ADMIN") {
+        if (role === "SUPER_ADMIN") {
             return <Navigate to="/owner/dashboard" replace />;
         }
 
-        if (user.role === "STORE_OWNER") {
+        if (role === "STORE_OWNER") {
             return <Navigate to="/store/dashboard" replace />;
         }
 
-        if (user.role === "CASHIER") {
+        if (role === "CASHIER") {
             return <Navigate to="/pos" replace />;
         }
+
+        if (role === "SALESPERSON" || role === "PROCUREMENT") {
+            return <Navigate to="/store/dashboard" replace />;
+        }
+
+        return <Navigate to="/store/dashboard" replace />;
     }
 
     return children;

@@ -1,9 +1,37 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 
 function UnauthorizedPage() {
+    const navigate = useNavigate();
+    const { user, logoutSession } = useAuth();
+
+    const handleLogoutAndLogin = () => {
+        logoutSession();
+        navigate("/login");
+    };
+
+    const handleReturnHome = () => {
+        if (!user) {
+            navigate("/login");
+            return;
+        }
+        const role = (user.role || "").toUpperCase();
+        if (role === "SUPER_ADMIN") {
+            navigate("/owner/dashboard");
+        } else if (role === "STORE_OWNER") {
+            navigate("/store/dashboard");
+        } else if (role === "CASHIER") {
+            navigate("/pos");
+        } else if (role === "PROCUREMENT") {
+            navigate("/store/purchases");
+        } else if (role === "SALESPERSON") {
+            navigate("/salesperson/sales/leads");
+        } else {
+            navigate("/store/sales");
+        }
+    };
 
     return (
-
         <div
             style={{
                 display: "flex",
@@ -11,13 +39,14 @@ function UnauthorizedPage() {
                 alignItems: "center",
                 height: "100vh",
                 flexDirection: "column",
-                background: "#f8fafc"
+                background: "#f8fafc",
+                fontFamily: "Inter, -apple-system, sans-serif"
             }}
         >
-
             <h1
                 style={{
                     fontSize: "80px",
+                    fontWeight: "800",
                     color: "#dc2626",
                     margin: 0
                 }}
@@ -25,30 +54,51 @@ function UnauthorizedPage() {
                 403
             </h1>
 
-            <h2>Access Denied</h2>
+            <h2 style={{ fontSize: "24px", color: "#1e293b", margin: "10px 0 6px" }}>
+                Access Denied
+            </h2>
 
-            <p>
-                You don't have permission to access this page.
+            <p style={{ color: "#64748b", margin: "0 0 24px", fontSize: "15px" }}>
+                You do not have permission to view this page or resource.
             </p>
 
-            <Link
-                to="/login"
-                style={{
-                    marginTop: "20px",
-                    textDecoration: "none",
-                    background: "#2563eb",
-                    color: "white",
-                    padding: "12px 24px",
-                    borderRadius: "8px"
-                }}
-            >
-                Go to Login
-            </Link>
+            <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                    type="button"
+                    onClick={handleReturnHome}
+                    style={{
+                        background: "#0ea5e9",
+                        color: "white",
+                        padding: "11px 20px",
+                        borderRadius: "8px",
+                        border: "none",
+                        fontWeight: "600",
+                        fontSize: "14px",
+                        cursor: "pointer"
+                    }}
+                >
+                    Return to My Workspace
+                </button>
 
+                <button
+                    type="button"
+                    onClick={handleLogoutAndLogin}
+                    style={{
+                        background: "#ef4444",
+                        color: "white",
+                        padding: "11px 20px",
+                        borderRadius: "8px",
+                        border: "none",
+                        fontWeight: "600",
+                        fontSize: "14px",
+                        cursor: "pointer"
+                    }}
+                >
+                    Logout & Switch User
+                </button>
+            </div>
         </div>
-
     );
-
 }
 
 export default UnauthorizedPage;

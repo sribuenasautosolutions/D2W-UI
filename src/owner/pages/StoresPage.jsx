@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../../auth/AuthContext";
 import {
     ChevronLeft,
     ChevronRight,
@@ -35,12 +36,6 @@ const FONT_DISPLAY = "'Space Grotesk', 'Segoe UI', sans-serif";
 const FONT_BODY = "'Inter', 'Segoe UI', Helvetica, Arial, sans-serif";
 const FONT_MONO = "'IBM Plex Mono', 'Consolas', monospace";
 
-const isSuperAdmin = (() => {
-    try { return JSON.parse(localStorage.getItem("user") || "null")?.role === "SUPER_ADMIN"; }
-    catch { return false; }
-})();
-
-
 const emptyStore = {
     storeName: "",
     storeCode: "",
@@ -58,8 +53,27 @@ const emptyStore = {
     gstno: "",
 };
 
-
 function StoresPage() {
+
+    const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const isSuperAdmin = Boolean(
+        currentUser?.role === "SUPER_ADMIN" ||
+        (currentUser?.role || "").toUpperCase() === "SUPER_ADMIN"
+    );
+    const canCreateStore = isSuperAdmin || hasPermission?.("STORES.CREATE");
+    const canUpdateStore = isSuperAdmin || hasPermission?.("STORES.UPDATE");
+    const canDelegatePermissions = Boolean(
+        isSuperAdmin ||
+        (typeof hasGlobalStoreManagementAuthority === "function" && hasGlobalStoreManagementAuthority()) ||
+        hasPermission?.("STORE_PERMISSIONS.DELEGATE") ||
+        hasPermission?.("PERMISSIONS.MANAGE") ||
+        hasPermission?.("PERMISSIONS.VIEW")
+    );
+    const canDeleteStore = Boolean(
+        typeof hasGlobalStoreManagementAuthority === "function"
+            ? hasGlobalStoreManagementAuthority()
+            : isSuperAdmin
+    );
 
     const [stores, setStores] = useState([]);
     const [selectedId, setSelectedId] = useState(null);
@@ -94,6 +108,13 @@ function StoresPage() {
     });
 
     const [activeTab, setActiveTab] = useState("Overview");
+
+    // Store-level permission delegation (Super Admin only).
+    const [storePermissions, setStorePermissions] = useState([]);
+    const [storeDelegations, setStoreDelegations] = useState([]);
+    const [permissionsLoading, setPermissionsLoading] = useState(false);
+    const [permissionError, setPermissionError] = useState("");
+    const [updatingPermissionCode, setUpdatingPermissionCode] = useState("");
 
 
     /*
@@ -281,6 +302,94 @@ function StoresPage() {
 
     const currentPage =
         Math.min(page, totalPages);
+
+
+    /*
+     * ---------------------------------------------------------
+     * STORE PERMISSION DELEGATION
+     * ---------------------------------------------------------
+     * Uses the existing RBAC APIs:
+     * GET  /access-control/permissions
+     * GET  /stores/{storeId}/permissions
+     * PUT  /stores/{storeId}/permissions/{code}/grant
+     * PUT  /stores/{storeId}/permissions/{code}/revoke
+     */
+
+    const loadStorePermissions = async (storeId) => {
+        if (!storeId) return;
+
+        setPermissionsLoading(true);
+        setPermissionError("");
+
+        try {
+            const [permissionResponse, delegationResponse] = await Promise.all([
+                api.get("/access-control/permissions"),
+                api.get(`/stores/${storeId}/permissions`),
+            ]);
+
+            const permissionData = Array.isArray(permissionResponse.data)
+                ? permissionResponse.data
+                : [];
+
+            const delegationData = Array.isArray(delegationResponse.data)
+                ? delegationResponse.data
+                : [];
+
+            setStorePermissions(
+                permissionData
+                    .filter((permission) => permission && typeof permission === "object")
+                    .filter((permission) =>
+                        (permission.active ?? permission.isActive) !== false
+                    )
+                    .filter((permission) => permission.scope !== "SYSTEM")
+                    .sort((a, b) => {
+                        const moduleCompare = (a.module || "").localeCompare(b.module || "");
+                        return moduleCompare || (a.action || "").localeCompare(b.action || "");
+                    })
+            );
+
+            setStoreDelegations(delegationData);
+        } catch (error) {
+            setPermissionError(
+                error.response?.data?.message ||
+                "Unable to load store permissions. Please try again."
+            );
+        } finally {
+            setPermissionsLoading(false);
+        }
+    };
+
+    const toggleStorePermission = async (permission) => {
+        if (!selected || !permission?.code || updatingPermissionCode) return;
+
+        const delegation = storeDelegations.find(
+            (item) => item.permissionCode === permission.code
+        );
+        const currentlyDelegated = delegation?.delegated === true;
+        const action = currentlyDelegated ? "revoke" : "grant";
+
+        setUpdatingPermissionCode(permission.code);
+        setPermissionError("");
+
+        try {
+            await api.put(
+                `/stores/${selected.id}/permissions/${encodeURIComponent(permission.code)}/${action}`
+            );
+
+            // Refresh the persisted delegation state from the backend.
+            const response = await api.get(`/stores/${selected.id}/permissions`);
+            setStoreDelegations(
+                Array.isArray(response.data) ? response.data : []
+            );
+        } catch (error) {
+            setPermissionError(
+                error.response?.data?.message ||
+                `Unable to ${action} ${permission.code}.`
+            );
+        } finally {
+            setUpdatingPermissionCode("");
+        }
+    };
 
 
     /*
@@ -648,17 +757,19 @@ function StoresPage() {
                 </label>
 
 
-                <button
-                    type="button"
-                    onClick={openCreate}
-                    style={S.primary}
-                >
+                {canCreateStore && (
+                    <button
+                        type="button"
+                        onClick={openCreate}
+                        style={S.primary}
+                    >
 
-                    <Plus size={16} />
+                        <Plus size={16} />
 
-                    Add Store
+                        Add Store
 
-                </button>
+                    </button>
+                )}
 
             </div>
 
@@ -819,6 +930,9 @@ function StoresPage() {
                                     setActiveTab(
                                         "Overview"
                                     );
+                                    setStorePermissions([]);
+                                    setStoreDelegations([]);
+                                    setPermissionError("");
                                 }}
                                 style={{
                                     ...S.storeRow,
@@ -955,36 +1069,39 @@ function StoresPage() {
                                 </button>
 
 
-                                <button
-                                    type="button"
-                                    onClick={openEdit}
-                                    style={S.secondary}
-                                >
+                                {canUpdateStore && (
+                                    <button
+                                        type="button"
+                                        onClick={openEdit}
+                                        style={S.secondary}
+                                    >
 
-                                    <Pencil size={14} />
+                                        <Pencil size={14} />
 
-                                    Edit
+                                        Edit
 
-                                </button>
+                                    </button>
+                                )}
 
+                                {canUpdateStore && (
+                                    <button
+                                        type="button"
+                                        onClick={toggleStatus}
+                                        style={
+                                            selected.isActive === false
+                                                ? S.activate
+                                                : S.deactivate
+                                        }
+                                    >
 
-                                <button
-                                    type="button"
-                                    onClick={toggleStatus}
-                                    style={
-                                        selected.isActive === false
-                                            ? S.activate
-                                            : S.deactivate
-                                    }
-                                >
+                                        {selected.isActive === false
+                                            ? "Activate"
+                                            : "Deactivate"}
 
-                                    {selected.isActive === false
-                                        ? "Activate"
-                                        : "Deactivate"}
+                                    </button>
+                                )}
 
-                                </button>
-
-                                {isSuperAdmin && (
+                                {canDeleteStore && (
                                     <button type="button" onClick={deleteStore} disabled={deleting} style={S.deactivate}>
                                         <Trash2 size={14} /> {deleting ? "Deleting…" : "Delete store"}
                                     </button>
@@ -997,8 +1114,13 @@ function StoresPage() {
 
                         <Tabs
                             active={activeTab}
-                            onChange={setActiveTab}
-                            items={["Overview"]}
+                            onChange={(tab) => {
+                                setActiveTab(tab);
+                                if (tab === "Permissions" && canDelegatePermissions) {
+                                    loadStorePermissions(selected.id);
+                                }
+                            }}
+                            items={canDelegatePermissions ? ["Overview", "Permissions"] : ["Overview"]}
                         />
 
 
@@ -1091,20 +1213,105 @@ function StoresPage() {
 
                             </>
 
+                        ) : activeTab === "Permissions" && canDelegatePermissions ? (
+
+                            <div style={S.permissionPanel}>
+                                <div style={S.permissionIntro}>
+                                    <div>
+                                        <strong style={S.permissionHeading}>
+                                            Store Permission Delegation
+                                        </strong>
+                                        <span style={S.permissionDescription}>
+                                            Control which permissions this store may use when its Store Owner creates store roles.
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => loadStorePermissions(selected.id)}
+                                        disabled={permissionsLoading || Boolean(updatingPermissionCode)}
+                                        style={S.secondary}
+                                    >
+                                        Refresh
+                                    </button>
+                                </div>
+
+                                {permissionError && (
+                                    <div style={S.error}>{permissionError}</div>
+                                )}
+
+                                {permissionsLoading ? (
+                                    <div style={S.tabEmpty}>Loading permission catalogue and store delegations…</div>
+                                ) : storePermissions.length === 0 ? (
+                                    <div style={S.tabEmpty}>
+                                        <strong>No active permissions found</strong>
+                                        <span>The active permission catalogue returned no permissions.</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={S.permissionSummary}>
+                                            <span>
+                                                {storeDelegations.filter((item) => item.delegated === true).length} delegated permissions
+                                            </span>
+                                            <span>{storePermissions.length} active catalogue permissions</span>
+                                        </div>
+
+                                        <div style={S.permissionList}>
+                                            {Object.entries(
+                                                storePermissions.reduce((groups, permission) => {
+                                                    const moduleName = permission.module || "Other";
+                                                    if (!groups[moduleName]) groups[moduleName] = [];
+                                                    groups[moduleName].push(permission);
+                                                    return groups;
+                                                }, {})
+                                            ).map(([moduleName, permissions]) => (
+                                                <section key={moduleName} style={S.permissionGroup}>
+                                                    <div style={S.permissionGroupTitle}>{moduleName}</div>
+                                                    {permissions.map((permission) => {
+                                                        const delegation = storeDelegations.find(
+                                                            (item) => item.permissionCode === permission.code
+                                                        );
+                                                        const delegated = delegation?.delegated === true;
+                                                        const updating = updatingPermissionCode === permission.code;
+
+                                                        return (
+                                                            <div key={permission.code} style={S.permissionRow}>
+                                                                <div style={S.permissionCopy}>
+                                                                    <strong>{permission.action || permission.code}</strong>
+                                                                    <span>{permission.description || permission.code}</span>
+                                                                    <code style={S.permissionCode}>{permission.code}</code>
+                                                                </div>
+                                                                <div style={S.permissionControl}>
+                                                                    <span style={delegated ? S.active : S.inactive}>
+                                                                        {delegated ? "Delegated" : "Not delegated"}
+                                                                    </span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleStorePermission(permission)}
+                                                                        disabled={Boolean(updatingPermissionCode)}
+                                                                        style={delegated ? S.permissionRevoke : S.permissionGrant}
+                                                                    >
+                                                                        {updating
+                                                                            ? "Saving…"
+                                                                            : delegated
+                                                                                ? "Revoke"
+                                                                                : "Grant"}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </section>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
                         ) : (
 
                             <div style={S.tabEmpty}>
-
-                                <strong>
-                                    {activeTab}
-                                </strong>
-
-                                <span>
-                                    No{" "}
-                                    {activeTab.toLowerCase()}
-                                    data is available for this store.
-                                </span>
-
+                                <strong>{activeTab}</strong>
+                                <span>No {activeTab.toLowerCase()} data is available for this store.</span>
                             </div>
 
                         )}
@@ -2570,6 +2777,128 @@ const S = {
         textAlign: "center",
         color: COLORS.inkSoft,
         fontSize: 12
+    },
+
+    permissionPanel: {
+        display: "grid",
+        gap: 12,
+        padding: 16,
+        maxHeight: 520,
+        overflowY: "auto"
+    },
+
+    permissionIntro: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12
+    },
+
+    permissionHeading: {
+        display: "block",
+        color: COLORS.navy,
+        fontFamily: FONT_DISPLAY,
+        fontSize: 14,
+        fontWeight: 700
+    },
+
+    permissionDescription: {
+        display: "block",
+        marginTop: 4,
+        color: COLORS.inkSoft,
+        fontSize: 11.5,
+        lineHeight: 1.5
+    },
+
+    permissionSummary: {
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "9px 12px",
+        border: `1px solid ${COLORS.hairline}`,
+        borderRadius: 7,
+        background: COLORS.slateFill,
+        color: COLORS.inkSoft,
+        fontSize: 11,
+        fontWeight: 600
+    },
+
+    permissionList: {
+        display: "grid",
+        gap: 12
+    },
+
+    permissionGroup: {
+        border: `1px solid ${COLORS.hairline}`,
+        borderRadius: 8,
+        overflow: "hidden"
+    },
+
+    permissionGroupTitle: {
+        padding: "9px 12px",
+        background: COLORS.slateFill,
+        borderBottom: `1px solid ${COLORS.hairline}`,
+        color: COLORS.navy,
+        fontSize: 11,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: 0.35
+    },
+
+    permissionRow: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "10px 12px",
+        borderBottom: `1px solid ${COLORS.hairlineSoft}`
+    },
+
+    permissionCopy: {
+        display: "grid",
+        gap: 3,
+        minWidth: 0,
+        color: COLORS.ink,
+        fontSize: 12
+    },
+
+    permissionCode: {
+        color: COLORS.inkSoft,
+        fontSize: 10,
+        fontFamily: FONT_MONO
+    },
+
+    permissionControl: {
+        display: "flex",
+        alignItems: "center",
+        gap: 9,
+        flexShrink: 0
+    },
+
+    permissionGrant: {
+        height: 30,
+        minWidth: 66,
+        padding: "0 10px",
+        border: `1px solid ${COLORS.success}55`,
+        borderRadius: 6,
+        background: COLORS.successSoft,
+        color: COLORS.success,
+        fontSize: 11,
+        fontWeight: 700,
+        cursor: "pointer"
+    },
+
+    permissionRevoke: {
+        height: 30,
+        minWidth: 66,
+        padding: "0 10px",
+        border: `1px solid ${COLORS.danger}55`,
+        borderRadius: 6,
+        background: COLORS.dangerSoft,
+        color: COLORS.danger,
+        fontSize: 11,
+        fontWeight: 700,
+        cursor: "pointer"
     },
 };
 

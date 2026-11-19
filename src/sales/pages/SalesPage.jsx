@@ -1,6 +1,8 @@
 import {useCallback,useEffect,useMemo,useState,useRef,} from "react";
 import {Search,Plus,Bell,ChevronDown,FileText,Wallet,TrendingUp,Store,} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
+
 import {
     getAllOrders,
     getOrdersByStore,
@@ -35,13 +37,13 @@ export default function SalesPage() {
 
     const navigate = useNavigate();
 
-    const user = useMemo(
-        () => readUser(),
-        []
-    );
+    const { user: authUser, hasPermission } = useAuth();
+    const user = authUser || readUser();
 
-    const isSuperAdmin =
-        user?.role === "SUPER_ADMIN";
+    const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    const isStoreOwner = user?.role === "STORE_OWNER";
+    const isCashier = user?.role === "CASHIER";
+    const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
 
 
     const displayName =
@@ -466,14 +468,16 @@ const loadSales = useCallback(
                     </label>
                 )}
 
-                <button
-                    type="button"
-                    className="sales-new-sale-button"
-                    onClick={() => navigate("new")}
-                >
-                    <Plus size={16} />
-                    New Sale
-                </button>
+                {canCreateSale && (
+                    <button
+                        type="button"
+                        className="sales-new-sale-button"
+                        onClick={() => navigate("new")}
+                    >
+                        <Plus size={16} />
+                        New Sale
+                    </button>
+                )}
             </div>
         </div>
 
