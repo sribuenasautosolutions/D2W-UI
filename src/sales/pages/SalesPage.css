@@ -643,3 +643,6 @@ h1, h2, h3, h4, h5, h6, strong, b {
     --accent-border: #fde68a;
     --accent-2: #fbbf24;
 }
+.sales-pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 4px 4px; font-size: 13px; color: #64748b; }
+.sales-pager button { padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; cursor: pointer; }
+.sales-pager button:disabled { opacity: 0.45; cursor: not-allowed; }
