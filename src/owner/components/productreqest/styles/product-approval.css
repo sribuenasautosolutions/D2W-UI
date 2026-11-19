@@ -507,3 +507,6 @@
   }
 
 }
+.pa-pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 4px 0; font-size: 13px; color: #64748b; }
+.pa-pager button { padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; cursor: pointer; }
+.pa-pager button:disabled { opacity: 0.45; cursor: not-allowed; }
