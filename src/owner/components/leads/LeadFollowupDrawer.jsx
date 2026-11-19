@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { X, Trash2, Download, Plus, Pencil, Check } from "lucide-react";
+import { X, Trash2, Download, Plus, Pencil, Check, RotateCcw } from "lucide-react";
 
 import {
   getLeadById,
@@ -54,17 +54,28 @@ function MetaField({ label, value, editing, onChange }) {
   );
 }
 
-const FU_BASE_MIN_WIDTH = 860;
-const FU_RESIZE_MAX = 480;
+const FU_BASE_MIN_WIDTH = 980;
+const FU_RESIZE_MAX = 520;
+const FU_STORAGE_KEY = "d2w_lead_estimation_col_widths";
+
+const readSavedColWidths = () => {
+  try {
+    const raw = localStorage.getItem(FU_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
 const FU_COLUMNS = [
-  { key: "pn",     label: "Part Number",  min: 96, nominal: 146 },
-  { key: "name",   label: "Part Name",    min: 90, nominal: 138 },
-  { key: "mrp",    label: "MRP",          min: 92, nominal: 103 },
-  { key: "qty",    label: "Req. Qty",     min: 56, nominal: 69 },
-  { key: "src",    label: "Source",       min: 64, nominal: 86 },
-  { key: "vendor", label: "Vendor",       min: 70, nominal: 95 },
-  { key: "avail",  label: "Availability", min: 90, nominal: 112 },
-  { key: "eta",    label: "ETA",          min: 90, nominal: 112 },
+  { key: "pn",     label: "Part Number",  min: 100, nominal: 140 },
+  { key: "name",   label: "Part Name",    min: 140, nominal: 220 },
+  { key: "mrp",    label: "MRP",          min: 85,  nominal: 105 },
+  { key: "qty",    label: "Req. Qty",     min: 60,  nominal: 80 },
+  { key: "src",    label: "Source",       min: 70,  nominal: 90 },
+  { key: "vendor", label: "Vendor",       min: 85,  nominal: 115 },
+  { key: "avail",  label: "Availability", min: 100, nominal: 130 },
+  { key: "eta",    label: "ETA",          min: 85,  nominal: 110 },
 ];
 
 export default function LeadFollowUpDrawer({
@@ -82,7 +93,7 @@ export default function LeadFollowUpDrawer({
   const [fullLead, setFullLead] = useState(() => lead || null);
   const [loading, setLoading] = useState(() => !lead?.items?.length && !lead?.customerRequirement);
   const [busy, setBusy] = useState(false);
-  const [colPx, setColPx] = useState({});
+  const [colPx, setColPx] = useState(() => readSavedColWidths());
 
 const startColResize = useCallback((col, event) => {
   event.preventDefault();
@@ -91,11 +102,20 @@ const startColResize = useCallback((col, event) => {
   const startW = event.currentTarget.parentElement.getBoundingClientRect().width;
   const onMove = (e) => {
     const next = Math.min(FU_RESIZE_MAX, Math.max(col.min, Math.round(startW + e.clientX - startX)));
-    setColPx((prev) => (prev[col.key] === next ? prev : { ...prev, [col.key]: next }));
+    setColPx((prev) => {
+      const updated = { ...prev, [col.key]: next };
+      return updated;
+    });
   };
   const onUp = () => {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
+    setColPx((current) => {
+      try {
+        localStorage.setItem(FU_STORAGE_KEY, JSON.stringify(current));
+      } catch { /* ignore */ }
+      return current;
+    });
   };
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
@@ -106,9 +126,24 @@ const resetColWidth = useCallback((key) => {
     if (!(key in prev)) return prev;
     const rest = { ...prev };
     delete rest[key];
+    try {
+      if (Object.keys(rest).length === 0) {
+        localStorage.removeItem(FU_STORAGE_KEY);
+      } else {
+        localStorage.setItem(FU_STORAGE_KEY, JSON.stringify(rest));
+      }
+    } catch { /* ignore */ }
     return rest;
   });
 }, []);
+
+const revertAllColWidths = useCallback(() => {
+  setColPx({});
+  try {
+    localStorage.removeItem(FU_STORAGE_KEY);
+  } catch { /* ignore */ }
+  onToast?.("Column widths reverted to default", "info");
+}, [onToast]);
 
 const colResized = Object.keys(colPx).length > 0;
 const colTableStyle = colResized
@@ -702,6 +737,17 @@ if (colTableStyle) {
                 <span>Total MRP</span>
                 <strong>{formatMrp(totalMrp)}</strong>
               </div>
+              {colResized && (
+                <button
+                  type="button"
+                  className="fu-revert-cols-btn"
+                  title="Revert column widths to default"
+                  onClick={revertAllColWidths}
+                >
+                  <RotateCcw size={12} />
+                  <span>Revert columns</span>
+                </button>
+              )}
             </div>
 
             {items.length === 0 ? (
@@ -710,14 +756,14 @@ if (colTableStyle) {
               <div className="lpt-table-wrap pd-table-wrap">
                <table className={`lpt-table lpt-table--followup-lite procurement-grid-table${colResized ? " is-col-resized" : ""}`} style={colTableStyle}>
                   <colgroup>
-                    <col style={{ width: "130px" }} />
-                    <col style={{ width: "170px" }} />
-                    <col style={{ width: "105px" }} />
-                    <col style={{ width: "85px" }} />
-                    <col style={{ width: "95px" }} />
-                    <col style={{ width: "125px" }} />
-                    <col style={{ width: "135px" }} />
-                    <col style={{ width: "120px" }} />
+                    <col style={{ width: colPx.pn ? `${colPx.pn}px` : "140px" }} />
+                    <col style={{ width: colPx.name ? `${colPx.name}px` : "220px" }} />
+                    <col style={{ width: colPx.mrp ? `${colPx.mrp}px` : "105px" }} />
+                    <col style={{ width: colPx.qty ? `${colPx.qty}px` : "80px" }} />
+                    <col style={{ width: colPx.src ? `${colPx.src}px` : "90px" }} />
+                    <col style={{ width: colPx.vendor ? `${colPx.vendor}px` : "115px" }} />
+                    <col style={{ width: colPx.avail ? `${colPx.avail}px` : "130px" }} />
+                    <col style={{ width: colPx.eta ? `${colPx.eta}px` : "110px" }} />
                     <col style={{ width: "50px" }} />
                   </colgroup>
                                     <thead>
