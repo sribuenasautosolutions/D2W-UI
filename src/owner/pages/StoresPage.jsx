@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import {
     ChevronLeft,
@@ -8,33 +8,23 @@ import {
     Plus,
     Search,
     Trash2,
-    X
+    X,
+    Store,
+    Building2,
+    Warehouse,
+    CheckCircle2,
+    XCircle,
+    Eye,
+    EyeOff,
+    Power,
+    Check,
+    LoaderCircle,
+    RefreshCw,
+    MoreVertical,
 } from "lucide-react";
 import api from "../../services/api";
 import { clearStoresCache } from "../../services/storeService";
-
-
-const COLORS = {
-    ink: "#16283B",
-    inkSoft: "#5B6B79",
-    navy: "#15304D",
-    navyDeep: "#0B2038",
-    brass: "#A9791F",
-    brassSoft: "#F6EEDC",
-    hairline: "#E1E6EA",
-    hairlineSoft: "#EDF1F3",
-    slateFill: "#F7F9FA",
-    paper: "#FFFFFF",
-    canvas: "#EEF1F4",
-    danger: "#A93131",
-    dangerSoft: "#FBEBEB",
-    success: "#1E7145",
-    successSoft: "#E9F5EE",
-};
-
-const FONT_DISPLAY = "'Space Grotesk', 'Segoe UI', sans-serif";
-const FONT_BODY = "'Inter', 'Segoe UI', Helvetica, Arial, sans-serif";
-const FONT_MONO = "'IBM Plex Mono', 'Consolas', monospace";
+import toast from "react-hot-toast";
 
 const emptyStore = {
     storeName: "",
@@ -54,7 +44,6 @@ const emptyStore = {
 };
 
 function StoresPage() {
-
     const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const isSuperAdmin = Boolean(
         currentUser?.role === "SUPER_ADMIN" ||
@@ -88,10 +77,11 @@ function StoresPage() {
         active: 0,
         inactive: 0,
         main: 0,
-        warehouse: 0
+        warehouse: 0,
     });
 
-    const [modal, setModal] = useState(null);
+    // Drawer state for Create / Edit
+    const [modal, setModal] = useState(null); // "create" | "edit" | null
     const [form, setForm] = useState(emptyStore);
     const originalEditFormRef = useRef(null);
     const lastPincodeLookupRef = useRef(null);
@@ -102,29 +92,39 @@ function StoresPage() {
     const [showInitialPassword, setShowInitialPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const [message, setMessage] = useState({
-        type: "",
-        text: ""
-    });
+    // 3-dots action menu popover
+    const [actionMenuStoreId, setActionMenuStoreId] = useState(null);
 
+    // Details drawer state
+    const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("Overview");
 
-    // Store-level permission delegation (Super Admin only).
+    // Store-level permission delegation
     const [storePermissions, setStorePermissions] = useState([]);
     const [storeDelegations, setStoreDelegations] = useState([]);
     const [permissionsLoading, setPermissionsLoading] = useState(false);
     const [permissionError, setPermissionError] = useState("");
     const [updatingPermissionCode, setUpdatingPermissionCode] = useState("");
 
+    const [message, setMessage] = useState({
+        type: "",
+        text: "",
+    });
+
+    // Close 3-dots menu on window click
+    useEffect(() => {
+        const handleOutsideClick = () => setActionMenuStoreId(null);
+        window.addEventListener("click", handleOutsideClick);
+        return () => window.removeEventListener("click", handleOutsideClick);
+    }, []);
 
     /*
      * ---------------------------------------------------------
      * LOAD STORES
      * ---------------------------------------------------------
      */
-
-    const loadStores = async () => {
-        clearStoresCache(); 
+    const loadStores = useCallback(async () => {
+        clearStoresCache();
         const active =
             statusFilter === "ALL"
                 ? undefined
@@ -145,13 +145,8 @@ function StoresPage() {
 
         setStores(data);
 
-        const returnedTotalPages =
-            Math.max(1, response.data?.totalPages || 1);
-
-        setTotalElements(
-            response.data?.totalElements || 0
-        );
-
+        const returnedTotalPages = Math.max(1, response.data?.totalPages || 1);
+        setTotalElements(response.data?.totalElements || 0);
         setTotalPages(returnedTotalPages);
 
         if (page > returnedTotalPages) {
@@ -164,83 +159,46 @@ function StoresPage() {
             main: response.data?.mainStores || 0,
             warehouse: response.data?.warehouses || 0,
         });
+    }, [page, pageSize, search, statusFilter]);
 
-        setSelectedId((current) =>
-            data.some((store) => store.id === current)
-                ? current
-                : null
-        );
-    };
+    useEffect(() => {
+        const timer = window.setTimeout(async () => {
+            try {
+                await loadStores();
+            } catch (error) {
+                const msg = error.response?.data?.message || "Unable to load stores";
+                setMessage({ type: "error", text: msg });
+                toast.error(msg);
+            }
+        }, 250);
 
+        return () => window.clearTimeout(timer);
+    }, [loadStores]);
+
+    const selected = stores.find((s) => s.id === selectedId) || null;
 
     /*
      * ---------------------------------------------------------
-     * FETCH PINCODE DETAILS
+     * PINCODE LOOKUP
      * ---------------------------------------------------------
-     *
-     * User enters 6 digit pincode
-     *
-     * React
-     *    ↓
-     * GET /pincode/{pincode}
-     *    ↓
-     * Spring Boot PincodeController
-     *    ↓
-     * PincodeService
-     *    ↓
-     * External Pincode API
-     *    ↓
-     * district + state
-     *
      */
-
     const fetchPincodeDetails = async (pincode) => {
-
-        // Only call API when exactly 6 digits are entered
-        if (!/^\d{6}$/.test(pincode)) {
-            return;
-        }
+        if (!/^\d{6}$/.test(pincode)) return;
 
         const requestId = ++pincodeRequestRef.current;
         lastPincodeLookupRef.current = pincode;
 
         try {
+            const response = await api.get(`/api/pincode/${pincode}`);
 
-           const response = await api.get(`/api/pincode/${pincode}`);
+            if (requestId !== pincodeRequestRef.current) return;
 
-            /*
-             * Backend response expected:
-             *
-             * {
-             *     "district": "Medak",
-             *     "state": "Telangana"
-             * }
-             */
-
-            if (requestId !== pincodeRequestRef.current) {
-                return;
-            }
-
-            updateField(
-                "district",
-                response.data?.district || ""
-            );
-
-            updateField(
-                "state",
-                response.data?.state || ""
-            );
-
+            updateField("district", response.data?.district || "");
+            updateField("state", response.data?.state || "");
         } catch (error) {
-
-            if (requestId !== pincodeRequestRef.current) {
-                return;
-            }
+            if (requestId !== pincodeRequestRef.current) return;
 
             lastPincodeLookupRef.current = null;
-
-            // Do not clear existing district/state when pincode lookup fails.
-            // This prevents existing store address data from disappearing.
             setFieldErrors((current) => ({
                 ...current,
                 pincode: "Unable to verify this pincode",
@@ -248,73 +206,19 @@ function StoresPage() {
                 state: "State could not be fetched",
             }));
 
-            setMessage({
-                type: "error",
-                text:
-                    error.response?.data?.message ||
-                    "Unable to fetch pincode details. Please check the pincode and try again.",
-            });
+            const errorMsg =
+                error.response?.data?.message ||
+                "Unable to fetch pincode details. Please check the pincode and try again.";
+            setMessage({ type: "error", text: errorMsg });
+            toast.error(errorMsg);
         }
     };
 
-
     /*
      * ---------------------------------------------------------
-     * LOAD STORES WHEN SEARCH / PAGE / FILTER CHANGES
+     * STORE PERMISSIONS DELEGATION
      * ---------------------------------------------------------
      */
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-
-        const timer = window.setTimeout(async () => {
-
-            try {
-
-                await loadStores();
-
-            } catch (error) {
-
-                setMessage({
-                    type: "error",
-                    text:
-                        error.response?.data?.message ||
-                        "Unable to load stores",
-                });
-            }
-
-        }, 250);
-
-        return () => window.clearTimeout(timer);
-
-    }, [
-        page,
-        pageSize,
-        search,
-        statusFilter
-    ]);
-
-
-    const selected =
-        stores.find(
-            (store) => store.id === selectedId
-        ) || null;
-
-    const currentPage =
-        Math.min(page, totalPages);
-
-
-    /*
-     * ---------------------------------------------------------
-     * STORE PERMISSION DELEGATION
-     * ---------------------------------------------------------
-     * Uses the existing RBAC APIs:
-     * GET  /access-control/permissions
-     * GET  /stores/{storeId}/permissions
-     * PUT  /stores/{storeId}/permissions/{code}/grant
-     * PUT  /stores/{storeId}/permissions/{code}/revoke
-     */
-
     const loadStorePermissions = async (storeId) => {
         if (!storeId) return;
 
@@ -337,11 +241,9 @@ function StoresPage() {
 
             setStorePermissions(
                 permissionData
-                    .filter((permission) => permission && typeof permission === "object")
-                    .filter((permission) =>
-                        (permission.active ?? permission.isActive) !== false
-                    )
-                    .filter((permission) => permission.scope !== "SYSTEM")
+                    .filter((p) => p && typeof p === "object")
+                    .filter((p) => (p.active ?? p.isActive) !== false)
+                    .filter((p) => p.scope !== "SYSTEM")
                     .sort((a, b) => {
                         const moduleCompare = (a.module || "").localeCompare(b.module || "");
                         return moduleCompare || (a.action || "").localeCompare(b.action || "");
@@ -350,10 +252,11 @@ function StoresPage() {
 
             setStoreDelegations(delegationData);
         } catch (error) {
-            setPermissionError(
+            const errorMsg =
                 error.response?.data?.message ||
-                "Unable to load store permissions. Please try again."
-            );
+                "Unable to load store permissions. Please try again.";
+            setPermissionError(errorMsg);
+            toast.error(errorMsg);
         } finally {
             setPermissionsLoading(false);
         }
@@ -376,209 +279,118 @@ function StoresPage() {
                 `/stores/${selected.id}/permissions/${encodeURIComponent(permission.code)}/${action}`
             );
 
-            // Refresh the persisted delegation state from the backend.
             const response = await api.get(`/stores/${selected.id}/permissions`);
-            setStoreDelegations(
-                Array.isArray(response.data) ? response.data : []
-            );
+            setStoreDelegations(Array.isArray(response.data) ? response.data : []);
+            toast.success(`Permission ${permission.code} ${currentlyDelegated ? "revoked" : "granted"}.`);
         } catch (error) {
-            setPermissionError(
+            const errorMsg =
                 error.response?.data?.message ||
-                `Unable to ${action} ${permission.code}.`
-            );
+                `Unable to ${action} ${permission.code}.`;
+            setPermissionError(errorMsg);
+            toast.error(errorMsg);
         } finally {
             setUpdatingPermissionCode("");
         }
     };
 
-
     /*
      * ---------------------------------------------------------
-     * CREATE STORE
+     * FORM HANDLERS
      * ---------------------------------------------------------
      */
-
     const openCreate = () => {
-
-        const createForm = {
-            ...emptyStore
-        };
-
+        setForm({ ...emptyStore });
         originalEditFormRef.current = null;
         lastPincodeLookupRef.current = null;
         pincodeRequestRef.current += 1;
-        setForm(createForm);
-
         setModal("create");
         setFieldErrors({});
         setShowInitialPassword(false);
         setShowConfirmPassword(false);
-
-        setMessage({
-            type: "",
-            text: ""
-        });
+        setMessage({ type: "", text: "" });
     };
 
-
-    /*
-     * ---------------------------------------------------------
-     * EDIT STORE
-     * ---------------------------------------------------------
-     */
-
-    const openEdit = () => {
-
-        if (!selected) {
-            return;
-        }
+    const openEdit = (storeToEdit) => {
+        const target = storeToEdit || selected;
+        if (!target) return;
 
         const editForm = {
-
-            storeName: selected.storeName || "",
-
-            storeCode: selected.storeCode || "",
-
-            ownerName: selected.ownerName || "",
-
-            phone: selected.phone || "",
-
-            email: selected.email || "",
-
+            storeName: target.storeName || "",
+            storeCode: target.storeCode || "",
+            ownerName: target.ownerName || "",
+            phone: target.phone || "",
+            email: target.email || "",
             ownerPassword: "",
-
             confirmOwnerPassword: "",
-
-            address: selected.address || "",
-
-            district: selected.district || "",
-
-            state: selected.state || "",
-
+            address: target.address || "",
+            district: target.district || "",
+            state: target.state || "",
             country: "India",
-
-            pincode: selected.pincode || "",
-
-            storeType:
-                selected.storeType || "MAIN_STORE",
-
-            gstno: selected.gstno || "",
+            pincode: target.pincode || "",
+            storeType: target.storeType || "MAIN_STORE",
+            gstno: target.gstno || "",
         };
 
+        setSelectedId(target.id);
         originalEditFormRef.current = editForm;
         lastPincodeLookupRef.current = editForm.pincode;
         pincodeRequestRef.current += 1;
         setForm(editForm);
-
         setModal("edit");
         setFieldErrors({});
         setShowInitialPassword(false);
         setShowConfirmPassword(false);
-
-        setMessage({
-            type: "",
-            text: ""
-        });
+        setMessage({ type: "", text: "" });
     };
 
-
-    /*
-     * ---------------------------------------------------------
-     * UPDATE FORM FIELD
-     * ---------------------------------------------------------
-     */
+    const openDetails = (store) => {
+        setSelectedId(store.id);
+        setActiveTab("Overview");
+        setStorePermissions([]);
+        setStoreDelegations([]);
+        setPermissionError("");
+        setDetailsDrawerOpen(true);
+    };
 
     const updateField = (field, value) => {
-
         setForm((current) => ({
             ...current,
-            [field]: value
+            [field]: value,
         }));
-
         setFieldErrors((current) => ({
             ...current,
-            [field]: ""
+            [field]: "",
         }));
     };
 
-
-    /*
-     * ---------------------------------------------------------
-     * SAVE STORE
-     * ---------------------------------------------------------
-     */
-
     const saveStore = async (event) => {
-
         event.preventDefault();
-
         setSaving(true);
-
-        setMessage({
-            type: "",
-            text: ""
-        });
+        setMessage({ type: "", text: "" });
         setFieldErrors({});
 
-
         const payload = {
-
             ...form,
-
             storeName: form.storeName.trim(),
             ownerName: form.ownerName.trim(),
             email: form.email.trim(),
             gstno: form.gstno.trim().toUpperCase(),
-
             address: form.address.trim(),
             district: form.district?.trim() || "",
             state: form.state?.trim() || "",
             pincode: form.pincode.trim(),
-
-            /*
-             * Country is always India
-             */
             country: "India",
         };
 
-
-        /*
-         * Store code is generated by backend.
-         */
         delete payload.storeCode;
 
-
         try {
-
-            /*
-             * CREATE
-             */
             if (modal === "create") {
-
-                await api.post(
-                    "/stores",
-                    payload
-                );
-
-            }
-
-            /*
-             * UPDATE
-             */
-            else {
-
-                /*
-                 * Country should not be sent
-                 * during update.
-                 */
+                await api.post("/stores", payload);
+                toast.success("Store created successfully!");
+            } else {
                 delete payload.country;
-
-                /*
-                 * Password fields are not part
-                 * of update request.
-                 */
                 delete payload.ownerPassword;
-
                 delete payload.confirmOwnerPassword;
 
                 const original = originalEditFormRef.current || {};
@@ -588,674 +400,1163 @@ function StoresPage() {
                     )
                 );
 
-                if (Object.keys(changedPayload).length > 0) {
-                    await api.patch(
-                        `/stores/${selected.id}`,
-                        changedPayload
-                    );
+                const targetId = selectedId || selected?.id;
+                if (Object.keys(changedPayload).length > 0 && targetId) {
+                    await api.patch(`/stores/${targetId}`, changedPayload);
                 }
+                toast.success("Store updated successfully!");
             }
 
-
             setModal(null);
-
-            setMessage({
-                type: "success",
-                text:
-                    modal === "create"
-                        ? "Store created successfully"
-                        : "Store updated successfully",
-            });
-
-
             await loadStores();
-
         } catch (error) {
-
             const data = error.response?.data;
-
             setFieldErrors(data?.fieldErrors || {});
 
             const errorMessages = Array.isArray(data?.errors)
                 ? data.errors.filter(Boolean)
                 : [];
 
-            setMessage({
-                type: "error",
-                text:
-                    errorMessages.length > 0
-                        ? errorMessages.join(" • ")
-                        : data?.message || "Unable to save store",
-            });
+            const errorText =
+                errorMessages.length > 0
+                    ? errorMessages.join(" • ")
+                    : data?.message || "Unable to save store";
 
+            setMessage({ type: "error", text: errorText });
+            toast.error(errorText);
         } finally {
-
             setSaving(false);
         }
     };
 
+    const toggleStatus = async (storeToToggle) => {
+        const target = storeToToggle || selected;
+        if (!target) return;
 
-    /*
-     * ---------------------------------------------------------
-     * ACTIVATE / DEACTIVATE STORE
-     * ---------------------------------------------------------
-     */
-
-    const toggleStatus = async () => {
-
-        if (!selected) {
-            return;
-        }
-
-        const active =
-            selected.isActive === false;
-
-        if (
-            !window.confirm(
-                `${active ? "Activate" : "Deactivate"} ${selected.storeName}?`
-            )
-        ) {
+        const active = target.isActive === false;
+        if (!window.confirm(`${active ? "Activate" : "Deactivate"} ${target.storeName}?`)) {
             return;
         }
 
         try {
-
-            await api.patch(
-                `/stores/${selected.id}/status`,
-                { active }
-            );
-
-            setMessage({
-                type: "success",
-                text:
-                    `Store ${active ? "activated" : "deactivated"}`
-            });
-
+            await api.patch(`/stores/${target.id}/status`, { active });
+            const successMsg = `Store ${active ? "activated" : "deactivated"} successfully.`;
+            toast.success(successMsg);
             await loadStores();
-
         } catch (error) {
-
-            setMessage({
-                type: "error",
-                text:
-                    error.response?.data?.message ||
-                    "Unable to update status",
-            });
+            const errorMsg = error.response?.data?.message || "Unable to update store status";
+            toast.error(errorMsg);
         }
     };
 
-    const deleteStore = async () => {
-        if (!selected || deleting) return;
+    const deleteStore = async (storeToDelete) => {
+        const target = storeToDelete || selected;
+        if (!target || deleting) return;
+
         const confirmed = window.confirm(
-            `Permanently delete ${selected.storeName} (${selected.storeCode}) and all data owned by this store?\n\n` +
-            `This includes invoices, payments, inventory and transactions, local products, customers, users, suppliers, purchasing, leads, requests, and store communications. Product approval history will be retained with store and local-product links cleared. Global products will be kept. This cannot be undone.`
+            `Permanently delete ${target.storeName} (${target.storeCode}) and all data owned by this store?\n\n` +
+            `This includes invoices, payments, inventory and transactions, local products, customers, users, suppliers, purchasing, leads, requests, and store communications. This cannot be undone.`
         );
         if (!confirmed) return;
+
         setDeleting(true);
         try {
-            const response = await api.delete(`/stores/${selected.id}`);
+            const response = await api.delete(`/stores/${target.id}`);
             const deletedRecords = response.data?.deletedRecords || response.data;
-            const summary = deletedRecords && typeof deletedRecords === "object"
-                ? Object.entries(deletedRecords).map(([name, count]) => `${name}: ${count}`).join(", ")
-                : response.data?.message || "Store and its data were deleted.";
-            setSelectedId(null);
-            setMessage({ type: "success", text: `Store deleted. ${summary}. Global products and product approval history were preserved.` });
+            const summaryText =
+                deletedRecords && typeof deletedRecords === "object"
+                    ? Object.entries(deletedRecords)
+                          .map(([name, count]) => `${name}: ${count}`)
+                          .join(", ")
+                    : response.data?.message || "Store was deleted.";
+
+            if (selectedId === target.id) {
+                setSelectedId(null);
+                setDetailsDrawerOpen(false);
+            }
+            toast.success(`Store deleted. ${summaryText}`);
             await loadStores();
         } catch (error) {
-            setMessage({ type: "error", text: error.response?.data?.message || "Unable to delete store" });
+            const errorMsg = error.response?.data?.message || "Unable to delete store";
+            toast.error(errorMsg);
         } finally {
             setDeleting(false);
         }
     };
 
+    const kpiList = [
+        {
+            label: "Total Stores",
+            value: summary.active + summary.inactive,
+            icon: Store,
+            iconBg: "bg-blue-50",
+            iconColor: "text-blue-600",
+        },
+        {
+            label: "Active Stores",
+            value: summary.active,
+            icon: CheckCircle2,
+            iconBg: "bg-emerald-50",
+            iconColor: "text-emerald-600",
+        },
+        {
+            label: "Inactive Stores",
+            value: summary.inactive,
+            icon: XCircle,
+            iconBg: "bg-rose-50",
+            iconColor: "text-rose-600",
+        },
+        {
+            label: "Main Stores",
+            value: summary.main,
+            icon: Building2,
+            iconBg: "bg-amber-50",
+            iconColor: "text-amber-600",
+        },
+        {
+            label: "Warehouses",
+            value: summary.warehouse,
+            icon: Warehouse,
+            iconBg: "bg-indigo-50",
+            iconColor: "text-indigo-600",
+        },
+    ];
 
     return (
-
-        <div style={S.page}>
-
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-            `}</style>
-
-
+        <div className="w-full max-w-[1580px] mx-auto px-4 sm:px-6 py-6 font-sans text-slate-800 antialiased">
             {/* -------------------------------------------------
-                HEADER
+                TOP HEADER:
+                - TOP LEFT: STORE MANAGEMENT HEADING
+                - TOP RIGHT: ADD STORE BUTTON (create-role-btn style)
             ------------------------------------------------- */}
-
-            <div style={S.header}>
-
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
-
-                    <span style={S.breadcrumb}>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-0.5">
                         Organization / Stores
                     </span>
-
-                    <h1 style={S.title}>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                         Store Management
                     </h1>
-
                 </div>
-
-
-                <label style={S.headerSearch}>
-
-                    <Search
-                        size={17}
-                        color={COLORS.inkSoft}
-                    />
-
-                    <input
-                        value={search}
-                        onChange={(e) => {
-                            setSearch(e.target.value);
-                            setPage(1);
-                        }}
-                        placeholder="Search stores by name, code, district or owner"
-                        style={S.searchInput}
-                    />
-
-                </label>
-
 
                 {canCreateStore && (
+                    <div className="shrink-0">
+                        <button
+                            type="button"
+                            className="create-role-btn"
+                            onClick={openCreate}
+                        >
+                            <Plus size={16} />
+                            <span>Add Store</span>
+                        </button>
+                    </div>
+                )}
+            </header>
+
+            {/* -------------------------------------------------
+                BELOW HEADING: KPI CARDS (Compact, streamlined metric cards)
+            ------------------------------------------------- */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-5">
+                {kpiList.map((kpi) => {
+                    const Icon = kpi.icon;
+                    return (
+                        <div
+                            key={kpi.label}
+                            className="kpi-metric-card group"
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider group-hover:text-black transition-colors">
+                                    {kpi.label}
+                                </span>
+                                <div
+                                    className={`w-7 h-7 rounded-lg ${kpi.iconBg} ${kpi.iconColor} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs`}
+                                >
+                                    <Icon size={15} strokeWidth={2.75} />
+                                </div>
+                            </div>
+                            <div className="mt-1 text-xl font-bold text-slate-900 tracking-tight">
+                                {kpi.value}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* -------------------------------------------------
+                BANNER MESSAGE (IF ANY)
+            ------------------------------------------------- */}
+            {message.text && !modal && (
+                <div
+                    className={`mb-4 px-4 py-3 rounded-xl border text-sm font-medium flex items-center justify-between ${
+                        message.type === "error"
+                            ? "bg-rose-50 text-rose-800 border-rose-200"
+                            : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                    }`}
+                >
+                    <span>{message.text}</span>
                     <button
                         type="button"
-                        onClick={openCreate}
-                        style={S.primary}
+                        onClick={() => setMessage({ type: "", text: "" })}
+                        className="text-slate-400 hover:text-slate-600 ml-3"
                     >
-
-                        <Plus size={16} />
-
-                        Add Store
-
+                        <X size={16} />
                     </button>
-                )}
-
-            </div>
-
-
-            {/* -------------------------------------------------
-                MESSAGE
-            ------------------------------------------------- */}
-
-            {message.text && !modal && (
-
-                <div
-                    style={
-                        message.type === "error"
-                            ? S.error
-                            : S.success
-                    }
-                >
-                    {message.text}
                 </div>
-
             )}
 
-
             {/* -------------------------------------------------
-                STATS
+                MAIN SECTION:
+                - ALL STORES
+                - BESIDE: SEARCH BAR
+                - BESIDE: STATUS DROPDOWN
+                - BELOW: TABLE IN TABLE FORMAT
             ------------------------------------------------- */}
+            <section className="bg-white rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+                {/* TOOLBAR */}
+                <div className="p-4 sm:px-6 sm:py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
+                    <div className="flex items-center gap-2.5">
+                        <h2 className="text-base font-semibold text-slate-900 tracking-tight">
+                            All Stores
+                        </h2>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/70">
+                            {totalElements} records
+                        </span>
+                    </div>
 
-            <div style={S.stats}>
-
-                <Stat
-                    label="Total Stores"
-                    value={
-                        summary.active +
-                        summary.inactive
-                    }
-                />
-
-                <Stat
-                    label="Active Stores"
-                    value={summary.active}
-                    color={COLORS.success}
-                />
-
-                <Stat
-                    label="Inactive Stores"
-                    value={summary.inactive}
-                    color={COLORS.danger}
-                />
-
-                <Stat
-                    label="Main Stores"
-                    value={summary.main}
-                    color={COLORS.brass}
-                />
-
-                <Stat
-                    label="Warehouses"
-                    value={summary.warehouse}
-                    color={COLORS.navy}
-                />
-
-            </div>
-
-
-            {/* -------------------------------------------------
-                WORKSPACE
-            ------------------------------------------------- */}
-
-            <div
-                style={{
-                    ...S.workspace,
-                    gridTemplateColumns:
-                        selected
-                            ? "35fr 65fr"
-                            : "1fr"
-                }}
-            >
-
-
-                {/* -------------------------------------------------
-                    STORE LIST
-                ------------------------------------------------- */}
-
-                <section style={S.list}>
-
-                    <div style={S.listTools}>
-
-                        <div style={S.listCaption}>
-
-                            <strong>
-                                All Stores
-                            </strong>
-
-                            <span>
-                                {totalElements} records
-                            </span>
-
+                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                        {/* SEARCH BAR (CLEAN, NO TRUNCATED PLACEHOLDER) */}
+                        <div className="relative w-full sm:w-80">
+                            <Search
+                                size={15}
+                                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                            />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => {
+                                    setSearch(e.target.value);
+                                    setPage(1);
+                                }}
+                                placeholder="Search by name, code, or owner..."
+                                className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors shadow-2xs"
+                            />
                         </div>
 
-
+                        {/* STATUS DROPDOWN */}
                         <select
                             aria-label="Filter stores by status"
                             value={statusFilter}
                             onChange={(e) => {
-                                setStatusFilter(
-                                    e.target.value
-                                );
+                                setStatusFilter(e.target.value);
                                 setPage(1);
                             }}
-                            style={S.filterSelect}
+                            className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 px-3.5 py-2 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer shadow-2xs"
                         >
+                            <option value="ALL">All status</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                    </div>
+                </div>
 
-                            <option value="ALL">
-                                All status
-                            </option>
+                {/* TABLE IN TABLE FORMAT (Row Click opens Overview drawer) */}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b-2 border-slate-200 bg-white text-black text-xs font-bold uppercase tracking-wider">
+                                <th className="py-3 px-5 sm:px-6 text-black border-r border-slate-200/80">Store & Owner</th>
+                                <th className="py-3 px-4 text-black border-r border-slate-200/80">Code</th>
+                                <th className="py-3 px-4 text-black border-r border-slate-200/80">District / State</th>
+                                <th className="py-3 px-4 text-black border-r border-slate-200/80">Type</th>
+                                <th className="py-3 px-4 text-black border-r border-slate-200/80">Status</th>
+                                <th className="py-3 px-5 sm:px-6 text-black text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200/70 text-sm">
+                            {stores.map((store) => {
+                                const isActive = store.isActive !== false;
+                                const isMenuOpen = actionMenuStoreId === store.id;
+                                const isSelected = selectedId === store.id && detailsDrawerOpen;
 
-                            <option value="ACTIVE">
-                                Active
-                            </option>
+                                return (
+                                    <tr
+                                        key={store.id}
+                                        onClick={() => openDetails(store)}
+                                        className={`transition-colors cursor-pointer group ${
+                                            isSelected
+                                                ? "bg-blue-50/50"
+                                                : "hover:bg-slate-50/80"
+                                        }`}
+                                    >
+                                        {/* STORE NAME & OWNER */}
+                                        <td className="py-3.5 px-5 sm:px-6 border-r border-slate-200/60">
+                                            <div className="font-semibold text-slate-900 text-sm group-hover:text-blue-700 transition-colors">
+                                                {store.storeName}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-0.5">
+                                                {store.ownerName || "No owner"}
+                                            </div>
+                                        </td>
 
-                            <option value="INACTIVE">
-                                Inactive
-                            </option>
+                                        {/* CODE (SUBTLE MONOSPACE PILL, DOES NOT DOMINATE STORE NAME) */}
+                                        <td className="py-3.5 px-4 border-r border-slate-200/60">
+                                            <span className="font-mono text-xs font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/70 tracking-tight">
+                                                {store.storeCode}
+                                            </span>
+                                        </td>
 
+                                        {/* DISTRICT / STATE (NO FLOATING HYPHENS) */}
+                                        <td className="py-3.5 px-4 border-r border-slate-200/60">
+                                            {store.district ? (
+                                                <div>
+                                                    <div className="text-sm font-medium text-slate-800">
+                                                        {store.district}
+                                                    </div>
+                                                    <div className="text-xs text-slate-400 mt-0.5">
+                                                        {store.state || store.country || "India"}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-xs text-slate-500">
+                                                    {store.state || store.country || "India"}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* TYPE */}
+                                        <td className="py-3.5 px-4 border-r border-slate-200/60">
+                                            <span
+                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                    store.storeType === "WAREHOUSE"
+                                                        ? "bg-indigo-50 text-indigo-700 border border-indigo-200/80"
+                                                        : "bg-blue-50 text-blue-700 border border-blue-200/80"
+                                                }`}
+                                            >
+                                                {store.storeType === "WAREHOUSE" ? "Warehouse" : "Main Store"}
+                                            </span>
+                                        </td>
+
+                                        {/* STATUS BADGE */}
+                                        <td className="py-3.5 px-4 border-r border-slate-200/60">
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                    isActive
+                                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                                                        : "bg-slate-100 text-slate-600 border border-slate-200/80"
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`w-1.5 h-1.5 rounded-full ${
+                                                        isActive ? "bg-emerald-500" : "bg-slate-400"
+                                                    }`}
+                                                />
+                                                {isActive ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
+
+                                        {/* 3-DOTS ACTION MENU */}
+                                        <td
+                                            className="py-3.5 px-4 sm:px-6 text-right relative"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                                <button
+                                                    type="button"
+                                                    title="Store options"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActionMenuStoreId((prev) =>
+                                                            prev === store.id ? null : store.id
+                                                        );
+                                                    }}
+                                                    className="w-8 h-8 rounded-lg border-0 bg-transparent hover:bg-slate-100 text-slate-500 hover:text-slate-800 inline-flex items-center justify-center transition-colors cursor-pointer"
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
+
+                                                {/* DROPDOWN MENU (CLEAN MODERN DROPDOWN NO HARSH BORDERS) */}
+                                                {isMenuOpen && (
+                                                    <div
+                                                        className="store-action-menu absolute right-4 top-11 z-30 text-left animate-in fade-in zoom-in-95 duration-150"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setActionMenuStoreId(null);
+                                                                openDetails(store);
+                                                            }}
+                                                            className="store-action-item text-slate-700"
+                                                        >
+                                                            <Eye size={15} className="text-slate-400" />
+                                                            <span>View Details</span>
+                                                        </button>
+
+                                                        {canUpdateStore && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setActionMenuStoreId(null);
+                                                                    openEdit(store);
+                                                                }}
+                                                                className="store-action-item text-blue-600 hover:bg-blue-50/70"
+                                                            >
+                                                                <Pencil size={15} />
+                                                                <span>Edit Store</span>
+                                                            </button>
+                                                        )}
+
+                                                        {canUpdateStore && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setActionMenuStoreId(null);
+                                                                    toggleStatus(store);
+                                                                }}
+                                                                className={`store-action-item ${
+                                                                    isActive
+                                                                        ? "text-amber-600 hover:bg-amber-50/70"
+                                                                        : "text-emerald-600 hover:bg-emerald-50/70"
+                                                                }`}
+                                                            >
+                                                                <Power size={15} />
+                                                                <span>
+                                                                    {isActive ? "Deactivate Store" : "Activate Store"}
+                                                                </span>
+                                                            </button>
+                                                        )}
+
+                                                        {canDeleteStore && (
+                                                            <>
+                                                                <div className="my-1 border-t border-slate-100" />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                      setActionMenuStoreId(null);
+                                                                      deleteStore(store);
+                                                                  }}
+                                                                  className="store-action-item text-rose-600 hover:bg-rose-50/80"
+                                                              >
+                                                                  <Trash2 size={15} />
+                                                                  <span>Delete Store</span>
+                                                              </button>
+                                                          </>
+                                                      )}
+                                                  </div>
+                                              )}
+                                          </td>
+                                    </tr>
+                                );
+                            })}
+
+                            {stores.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={6}
+                                        className="py-12 text-center text-slate-400 text-sm font-medium"
+                                    >
+                                        No stores found matching your criteria.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* TABLE FOOTER / PAGINATION */}
+                <div className="p-4 sm:px-6 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+                    <div>
+                        {totalElements
+                            ? `${(page - 1) * pageSize + 1}-${Math.min(
+                                  page * pageSize,
+                                  totalElements
+                              )} of ${totalElements} records`
+                            : "0 records"}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <select
+                            aria-label="Rows per page"
+                            value={pageSize}
+                            onChange={(e) => {
+                                setPageSize(Number(e.target.value));
+                                setPage(1);
+                            }}
+                            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                            <option value={5}>5 / page</option>
+                            <option value={10}>10 / page</option>
+                            <option value={20}>20 / page</option>
                         </select>
 
-                    </div>
-
-
-                    <div style={S.tableHeader}>
-
-                        <span>
-                            Store
-                        </span>
-
-                        <span>
-                            Code / District
-                        </span>
-
-                        <span>
-                            Status
-                        </span>
-
-                    </div>
-
-
-                    <div style={S.storeList}>
-
-                        {stores.map((store) => (
-
+                        <div className="flex items-center gap-1">
                             <button
-                                key={store.id}
                                 type="button"
-                                onClick={() => {
-                                    setSelectedId(
-                                        store.id
-                                    );
-                                    setActiveTab(
-                                        "Overview"
-                                    );
-                                    setStorePermissions([]);
-                                    setStoreDelegations([]);
-                                    setPermissionError("");
-                                }}
-                                style={{
-                                    ...S.storeRow,
-                                    ...(selectedId === store.id
-                                        ? S.selectedRow
-                                        : {})
-                                }}
+                                disabled={page === 1}
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                className="w-7 h-7 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
                             >
-
-                                <div style={S.storeText}>
-
-                                    <strong>
-                                        {store.storeName}
-                                    </strong>
-
-                                    <span>
-                                        {store.ownerName ||
-                                            "No owner"}
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    style={S.storeLocation}
-                                >
-
-                                    {store.storeCode}
-
-                                    <small>
-                                        {store.district || "-"}
-                                    </small>
-
-                                </span>
-
-
-                                <span
-                                    style={
-                                        store.isActive === false
-                                            ? S.inactive
-                                            : S.active
-                                    }
-                                >
-
-                                    {store.isActive === false
-                                        ? "Inactive"
-                                        : "Active"}
-
-                                </span>
-
+                                <ChevronLeft size={14} />
                             </button>
-
-                        ))}
-
-
-                        {stores.length === 0 && (
-
-                            <div style={S.empty}>
-                                No stores found
-                            </div>
-
-                        )}
-
-                    </div>
-
-
-                    <Pagination
-                        page={currentPage}
-                        totalPages={totalPages}
-                        pageSize={pageSize}
-                        total={totalElements}
-                        onPage={setPage}
-                        onPageSize={(size) => {
-                            setPageSize(size);
-                            setPage(1);
-                        }}
-                    />
-
-                </section>
-
-
-                {/* -------------------------------------------------
-                    STORE DETAILS
-                ------------------------------------------------- */}
-
-                {selected && (
-
-                    <section style={S.details}>
-
-                        <div style={S.detailHeader}>
-
-                            <div>
-
-                                <div style={S.nameLine}>
-
-                                    <h2
-                                        style={S.detailTitle}
-                                    >
-                                        {selected.storeName}
-                                    </h2>
-
-                                    <span
-                                        style={
-                                            selected.isActive === false
-                                                ? S.inactive
-                                                : S.active
-                                        }
-                                    >
-                                        {selected.isActive === false
-                                            ? "Inactive"
-                                            : "Active"}
-                                    </span>
-
-                                </div>
-
-
-                                <span style={S.code}>
-                                    {selected.storeCode}
-                                </span>
-
-                            </div>
-
-
-                            <div style={S.actions}>
-
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setSelectedId(null)
-                                    }
-                                    style={S.secondary}
-                                >
-                                    Back to table
-                                </button>
-
-
-                                {canUpdateStore && (
-                                    <button
-                                        type="button"
-                                        onClick={openEdit}
-                                        style={S.secondary}
-                                    >
-
-                                        <Pencil size={14} />
-
-                                        Edit
-
-                                    </button>
-                                )}
-
-                                {canUpdateStore && (
-                                    <button
-                                        type="button"
-                                        onClick={toggleStatus}
-                                        style={
-                                            selected.isActive === false
-                                                ? S.activate
-                                                : S.deactivate
-                                        }
-                                    >
-
-                                        {selected.isActive === false
-                                            ? "Activate"
-                                            : "Deactivate"}
-
-                                    </button>
-                                )}
-
-                                {canDeleteStore && (
-                                    <button type="button" onClick={deleteStore} disabled={deleting} style={S.deactivate}>
-                                        <Trash2 size={14} /> {deleting ? "Deleting…" : "Delete store"}
-                                    </button>
-                                )}
-
-                            </div>
-
+                            <span className="px-2 font-semibold text-slate-800">
+                                {page}
+                            </span>
+                            <button
+                                type="button"
+                                disabled={page === totalPages}
+                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                className="w-7 h-7 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                            >
+                                <ChevronRight size={14} />
+                            </button>
                         </div>
+                    </div>
+                </div>
+            </section>
 
+            {/* -------------------------------------------------
+                CREATE / EDIT STORE DRAWER:
+                - Increased width: max-w-2xl sm:max-w-3xl
+                - White background
+                - Field names are bold black
+                - Eye icon for password toggling (no text "Show")
+                - Sticky footer with Cancel and Create Store (create-role-btn style)
+            ------------------------------------------------- */}
+            {modal && (
+                <div
+                    role="presentation"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) setModal(null);
+                    }}
+                    className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300"
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="store-form-title"
+                        className="w-full max-w-2xl lg:max-w-3xl h-full bg-white shadow-2xl flex flex-col border-l border-slate-200 transition-all duration-300"
+                    >
+                        {/* DRAWER HEADER */}
+                        <header className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+                            <div>
+                                <h2
+                                    id="store-form-title"
+                                    className="text-lg font-semibold text-slate-900"
+                                >
+                                    {modal === "create" ? "Create Store" : "Edit Store"}
+                                </h2>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {modal === "create"
+                                        ? "Add store identity, owner contact and address details."
+                                        : `Update information for ${form.storeName || "store"}.`}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setModal(null)}
+                                className="drawer-close-btn"
+                                aria-label="Close drawer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </header>
 
-                        <Tabs
-                            active={activeTab}
-                            onChange={(tab) => {
-                                setActiveTab(tab);
-                                if (tab === "Permissions" && canDelegatePermissions) {
-                                    loadStorePermissions(selected.id);
-                                }
-                            }}
-                            items={canDelegatePermissions ? ["Overview", "Permissions"] : ["Overview"]}
-                        />
-
-
-                        {activeTab === "Overview" ? (
-
-                            <>
-
-                                <div style={S.detailGrid}>
-
-                                    <Info
-                                        label="Store Owner"
-                                        value={
-                                            selected.ownerName
-                                        }
-                                    />
-
-                                    <Info
-                                        label="GSTIN"
-                                        value={selected.gstno}
-                                        mono
-                                    />
-
-                                    <Info
-                                        label="Owner Email"
-                                        value={selected.email}
-                                    />
-
-                                    <Info
-                                        label="Phone"
-                                        value={selected.phone}
-                                        mono
-                                    />
-
-                                    <Info
-                                        label="Store Type"
-                                        value={
-                                            selected.storeType
-                                                ?.replaceAll(
-                                                    "_",
-                                                    " "
-                                                )
-                                        }
-                                    />
-
-                                    <Info
-                                        label="Country"
-                                        value="India"
-                                    />
-
-                                </div>
-
-
-                                <div style={S.address}>
-
-                                    <MapPin
-                                        size={16}
-                                        color={COLORS.brass}
-                                    />
-
-                                    <div>
-
-                                        <span
-                                            style={S.infoLabel}
-                                        >
-                                            Full Address
-                                        </span>
-
-
-                                        <strong
-                                            style={
-                                                S.addressText
-                                            }
-                                        >
-
-                                            {[
-                                                selected.address,
-                                                selected.district,
-                                                selected.state,
-                                                selected.pincode,
-                                                "India"
-                                            ]
-                                                .filter(Boolean)
-                                                .join(", ")}
-
-                                        </strong>
-
-                                    </div>
-
-                                </div>
-
-                            </>
-
-                        ) : activeTab === "Permissions" && canDelegatePermissions ? (
-
-                            <div style={S.permissionPanel}>
-                                <div style={S.permissionIntro}>
-                                    <div>
-                                        <strong style={S.permissionHeading}>
-                                            Store Permission Delegation
-                                        </strong>
-                                        <span style={S.permissionDescription}>
-                                            Control which permissions this store may use when its Store Owner creates store roles.
-                                        </span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => loadStorePermissions(selected.id)}
-                                        disabled={permissionsLoading || Boolean(updatingPermissionCode)}
-                                        style={S.secondary}
+                        {/* DRAWER BODY (SCROLLABLE, WHITE BG, BLACK FIELD NAMES) */}
+                        <form
+                            onSubmit={saveStore}
+                            className="flex-1 flex flex-col overflow-hidden bg-white"
+                            noValidate
+                        >
+                            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 bg-white">
+                                {/* ERROR BANNER IN DRAWER */}
+                                {message.text && (
+                                    <div
+                                        className={`p-3.5 rounded-xl border text-xs font-medium ${
+                                            message.type === "error"
+                                                ? "bg-rose-50 text-rose-800 border-rose-200"
+                                                : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                        }`}
                                     >
-                                        Refresh
-                                    </button>
-                                </div>
-
-                                {permissionError && (
-                                    <div style={S.error}>{permissionError}</div>
+                                        {message.text}
+                                    </div>
                                 )}
 
-                                {permissionsLoading ? (
-                                    <div style={S.tabEmpty}>Loading permission catalogue and store delegations…</div>
-                                ) : storePermissions.length === 0 ? (
-                                    <div style={S.tabEmpty}>
-                                        <strong>No active permissions found</strong>
-                                        <span>The active permission catalogue returned no permissions.</span>
+                                {/* ROW 1: STORE NAME & STORE CODE */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Store Name *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Example: Hyderabad Store"
+                                            value={form.storeName}
+                                            onChange={(e) => updateField("storeName", e.target.value)}
+                                            className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 ${
+                                                fieldErrors.storeName ? "border-rose-500! bg-rose-50/20" : ""
+                                            }`}
+                                        />
+                                        {fieldErrors.storeName && (
+                                            <p className="text-xs text-rose-600 mt-1">{fieldErrors.storeName}</p>
+                                        )}
                                     </div>
-                                ) : (
-                                    <>
-                                        <div style={S.permissionSummary}>
-                                            <span>
-                                                {storeDelegations.filter((item) => item.delegated === true).length} delegated permissions
-                                            </span>
-                                            <span>{storePermissions.length} active catalogue permissions</span>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Store Code
+                                        </label>
+                                        <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-600 font-mono">
+                                            {modal === "create"
+                                                ? storeCodePreview(form.storeName)
+                                                : form.storeCode}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ROW 2: STORE OWNER & OWNER EMAIL */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Store Owner *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Example: Ravi Kumar"
+                                            value={form.ownerName}
+                                            onChange={(e) => updateField("ownerName", e.target.value)}
+                                            className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 ${
+                                                fieldErrors.ownerName ? "border-rose-500! bg-rose-50/20" : ""
+                                            }`}
+                                        />
+                                        {fieldErrors.ownerName && (
+                                            <p className="text-xs text-rose-600 mt-1">{fieldErrors.ownerName}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Owner Email *
+                                        </label>
+                                        <input
+                                            type="email"
+                                            required
+                                            placeholder="Example: ravi@gmail.com"
+                                            value={form.email}
+                                            onChange={(e) => updateField("email", e.target.value)}
+                                            className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 ${
+                                                fieldErrors.email ? "border-rose-500! bg-rose-50/20" : ""
+                                            }`}
+                                        />
+                                        {fieldErrors.email && (
+                                            <p className="text-xs text-rose-600 mt-1">{fieldErrors.email}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* PASSWORD (FOR CREATE STORE ONLY) WITH EYE ICON TOGGLE */}
+                                {modal === "create" && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-black mb-1.5">
+                                                Initial Password *
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type={showInitialPassword ? "text" : "password"}
+                                                    placeholder="Min 8 characters"
+                                                    value={form.ownerPassword}
+                                                    onChange={(e) => updateField("ownerPassword", e.target.value)}
+                                                    className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 pr-11 ${
+                                                        fieldErrors.ownerPassword ? "border-rose-500!" : ""
+                                                    }`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    title={showInitialPassword ? "Hide password" : "Show password"}
+                                                    onClick={() => setShowInitialPassword((s) => !s)}
+                                                    className="password-eye-btn absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                                                >
+                                                    {showInitialPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                            {fieldErrors.ownerPassword && (
+                                                <p className="text-xs text-rose-600 mt-1">{fieldErrors.ownerPassword}</p>
+                                            )}
                                         </div>
 
-                                        <div style={S.permissionList}>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-black mb-1.5">
+                                                Confirm Password *
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type={showConfirmPassword ? "text" : "password"}
+                                                    placeholder="Repeat password"
+                                                    value={form.confirmOwnerPassword}
+                                                    onChange={(e) => updateField("confirmOwnerPassword", e.target.value)}
+                                                    className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 pr-11 ${
+                                                        fieldErrors.confirmOwnerPassword ? "border-rose-500!" : ""
+                                                    }`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    title={showConfirmPassword ? "Hide password" : "Show password"}
+                                                    onClick={() => setShowConfirmPassword((s) => !s)}
+                                                    className="password-eye-btn absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                                                >
+                                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                            {fieldErrors.confirmOwnerPassword && (
+                                                <p className="text-xs text-rose-600 mt-1">{fieldErrors.confirmOwnerPassword}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ROW 3: PHONE & GSTIN */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Phone *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            maxLength={10}
+                                            inputMode="numeric"
+                                            placeholder="10 digit mobile"
+                                            value={form.phone}
+                                            onChange={(e) => updateField("phone", e.target.value.replace(/\D/g, ""))}
+                                            className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 ${
+                                                fieldErrors.phone ? "border-rose-500!" : ""
+                                            }`}
+                                        />
+                                        {fieldErrors.phone && (
+                                            <p className="text-xs text-rose-600 mt-1">{fieldErrors.phone}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            GSTIN
+                                        </label>
+                                        <input
+                                            type="text"
+                                            maxLength={15}
+                                            placeholder="15 alphanumeric characters"
+                                            value={form.gstno}
+                                            onChange={(e) =>
+                                                updateField(
+                                                    "gstno",
+                                                    e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase()
+                                                )
+                                            }
+                                            className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 uppercase ${
+                                                fieldErrors.gstno ? "border-rose-500!" : ""
+                                            }`}
+                                        />
+                                        {fieldErrors.gstno && (
+                                            <p className="text-xs text-rose-600 mt-1">{fieldErrors.gstno}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ADDRESS */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-black mb-1.5">
+                                        Address *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Example: 12-3 Main Road, Hanamkonda"
+                                        value={form.address}
+                                        onChange={(e) => updateField("address", e.target.value)}
+                                        className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 ${
+                                            fieldErrors.address ? "border-rose-500!" : ""
+                                        }`}
+                                    />
+                                    {fieldErrors.address && (
+                                        <p className="text-xs text-rose-600 mt-1">{fieldErrors.address}</p>
+                                    )}
+                                </div>
+
+                                {/* PINCODE, DISTRICT, STATE */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Pincode *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            maxLength={6}
+                                            inputMode="numeric"
+                                            placeholder="6 digits"
+                                            value={form.pincode}
+                                            onChange={(e) => {
+                                                const pincode = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                                updateField("pincode", pincode);
+
+                                                const original = originalEditFormRef.current;
+                                                if (modal === "edit" && pincode === original?.pincode) {
+                                                    pincodeRequestRef.current += 1;
+                                                    lastPincodeLookupRef.current = pincode;
+                                                    updateField("district", original.district);
+                                                    updateField("state", original.state);
+                                                } else if (
+                                                    pincode.length === 6 &&
+                                                    pincode !== lastPincodeLookupRef.current
+                                                ) {
+                                                    fetchPincodeDetails(pincode);
+                                                }
+                                            }}
+                                            className={`store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 ${
+                                                fieldErrors.pincode ? "border-rose-500!" : ""
+                                            }`}
+                                        />
+                                        {fieldErrors.pincode && (
+                                            <p className="text-xs text-rose-600 mt-1">{fieldErrors.pincode}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            District
+                                        </label>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            placeholder="Auto-fetched"
+                                            value={form.district}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-600"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            State
+                                        </label>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            placeholder="Auto-fetched"
+                                            value={form.state}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-600"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* STORE TYPE & COUNTRY */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Store Type *
+                                        </label>
+                                        <select
+                                            value={form.storeType}
+                                            onChange={(e) => updateField("storeType", e.target.value)}
+                                            className="store-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 cursor-pointer"
+                                        >
+                                            <option value="MAIN_STORE">Main Store</option>
+                                            <option value="WAREHOUSE">Warehouse</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-black mb-1.5">
+                                            Country
+                                        </label>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            value="India"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-600"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* STICKY DRAWER FOOTER: CANCEL & CREATE STORE (CREATE-ROLE-BTN STYLING) */}
+                            <footer className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3 shrink-0 z-10 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+                                <button
+                                    type="button"
+                                    onClick={() => setModal(null)}
+                                    disabled={saving}
+                                    className="create-role-btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="create-role-btn"
+                                >
+                                    {saving ? (
+                                        <LoaderCircle size={15} className="animate-spin" />
+                                    ) : (
+                                        <Check size={15} />
+                                    )}
+                                    <span>
+                                        {saving
+                                            ? "Saving..."
+                                            : modal === "create"
+                                                ? "Create Store"
+                                                : "Save Changes"}
+                                    </span>
+                                </button>
+                            </footer>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* -------------------------------------------------
+                STORE DETAILS DRAWER (OVERVIEW & PERMISSIONS):
+                - Stylings exactly matching the reference screenshot:
+                  * Clean underline tabs
+                  * Grouped module cards with grey headers
+                  * Soft DELEGATED / NOT DELEGATED badges
+                  * Soft pink/red Revoke button & soft blue Grant button
+                  * Clean delete button with no border
+            ------------------------------------------------- */}
+            {detailsDrawerOpen && selected && (
+                <div
+                    role="presentation"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) setDetailsDrawerOpen(false);
+                    }}
+                    className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300"
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="store-details-title"
+                        className="w-full max-w-2xl lg:max-w-3xl h-full bg-white shadow-2xl flex flex-col border-l border-slate-200 transition-all duration-300"
+                    >
+                        {/* HEADER */}
+                        <header className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+                            <div>
+                                <div className="flex items-center gap-3">
+                                    <h2 id="store-details-title" className="text-lg font-semibold text-slate-900">
+                                        {selected.storeName}
+                                    </h2>
+                                    <span
+                                        className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                                            selected.isActive !== false ? "text-emerald-600" : "text-slate-500"
+                                        }`}
+                                    >
+                                        <span
+                                            className={`w-2 h-2 rounded-full ${
+                                                selected.isActive !== false ? "bg-emerald-500" : "bg-slate-400"
+                                            }`}
+                                        />
+                                        {selected.isActive !== false ? "Active" : "Inactive"}
+                                    </span>
+                                </div>
+                                <span className="font-mono text-xs text-slate-500 mt-0.5 block">
+                                    {selected.storeCode}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setDetailsDrawerOpen(false)}
+                                className="drawer-close-btn"
+                                aria-label="Close drawer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </header>
+
+                        {/* TABS (CLEAN UNDERLINE TABS WITH NO FOCUS BOX OR GREY BACKGROUND) */}
+                        <div className="flex items-center border-b border-slate-200 px-6 bg-white shrink-0 gap-6">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("Overview")}
+                                className={`store-tab-btn ${activeTab === "Overview" ? "active" : ""}`}
+                            >
+                                Overview
+                            </button>
+                            {canDelegatePermissions && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveTab("Permissions");
+                                        loadStorePermissions(selected.id);
+                                    }}
+                                    className={`store-tab-btn ${activeTab === "Permissions" ? "active" : ""}`}
+                                >
+                                    Permissions
+                                </button>
+                            )}
+                        </div>
+
+                        {/* TAB CONTENT (PURE WHITE BACKGROUND) */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-white">
+                            {/* OVERVIEW TAB */}
+                            {activeTab === "Overview" ? (
+                                <div className="space-y-5 bg-white">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                                                Store Owner
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-900 block">
+                                                {selected.ownerName || "—"}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                                                Owner Email
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-900 block truncate">
+                                                {selected.email || "—"}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                                                Phone
+                                            </span>
+                                            <span className="text-sm font-semibold font-mono text-slate-900 block">
+                                                {selected.phone || "—"}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                                                Store Type
+                                            </span>
+                                            <span className="text-sm font-semibold text-slate-900 block">
+                                                {selected.storeType === "WAREHOUSE" ? "Warehouse" : "Main Store"}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs sm:col-span-2">
+                                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                                                GSTIN
+                                            </span>
+                                            <span className="text-sm font-semibold font-mono text-slate-900 block">
+                                                {selected.gstno || "—"}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* ADDRESS */}
+                                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs flex items-start gap-3">
+                                        <MapPin size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-0.5">
+                                                Full Address
+                                            </span>
+                                            <p className="text-sm text-slate-800 font-medium leading-relaxed">
+                                                {[
+                                                    selected.address,
+                                                    selected.district,
+                                                    selected.state,
+                                                    selected.pincode,
+                                                    "India",
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(", ")}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* ACTION BUTTONS (INCREASED WIDTH DELETE BUTTON) */}
+                                    <div className="flex items-center gap-3 pt-4 border-t border-slate-200 bg-white">
+                                        {canUpdateStore && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDetailsDrawerOpen(false);
+                                                    openEdit(selected);
+                                                }}
+                                                className="create-role-btn"
+                                            >
+                                                <Pencil size={15} />
+                                                <span>Edit Store</span>
+                                            </button>
+                                        )}
+
+                                        {canUpdateStore && (
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleStatus(selected)}
+                                                className="create-role-btn-secondary"
+                                            >
+                                                <Power size={15} />
+                                                <span>
+                                                    {selected.isActive !== false ? "Deactivate" : "Activate"}
+                                                </span>
+                                            </button>
+                                        )}
+
+                                        {canDeleteStore && (
+                                            <button
+                                                type="button"
+                                                onClick={() => deleteStore(selected)}
+                                                disabled={deleting}
+                                                className="min-w-[160px] px-6 py-2.5 rounded-full text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors ml-auto cursor-pointer border-0 outline-none flex items-center justify-center gap-2 shadow-2xs"
+                                            >
+                                                <Trash2 size={15} />
+                                                <span>{deleting ? "Deleting..." : "Delete Store"}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : activeTab === "Permissions" && canDelegatePermissions ? (
+                                /* PERMISSIONS TAB (MATCHING USER'S SCREENSHOT EXACTLY) */
+                                <div className="space-y-4 bg-white">
+                                    {/* HEADING & REFRESH */}
+                                    <div className="flex items-start justify-between gap-4 bg-white">
+                                        <div>
+                                            <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                                                Store Permission Delegation
+                                            </h3>
+                                            <p className="text-xs text-slate-500 mt-0.5">
+                                                Control which permissions this store may use when its Store Owner creates store roles.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => loadStorePermissions(selected.id)}
+                                            disabled={permissionsLoading || Boolean(updatingPermissionCode)}
+                                            className="px-4 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0"
+                                        >
+                                            <RefreshCw
+                                                size={13}
+                                                className={permissionsLoading ? "animate-spin text-blue-600" : "text-slate-500"}
+                                            />
+                                            Refresh
+                                        </button>
+                                    </div>
+
+                                    {permissionError && (
+                                        <div className="p-3 bg-rose-50 text-rose-800 text-xs rounded-xl border border-rose-200">
+                                            {permissionError}
+                                        </div>
+                                    )}
+
+                                    {/* SUMMARY PILL BAR */}
+                                    <div className="bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs font-semibold text-slate-600 shadow-2xs">
+                                        <span>
+                                            {storeDelegations.filter((item) => item.delegated === true).length} delegated permissions
+                                        </span>
+                                        <span>{storePermissions.length} active catalogue permissions</span>
+                                    </div>
+
+                                    {/* PERMISSION CARDS GROUPED BY MODULE */}
+                                    {permissionsLoading ? (
+                                        <div className="py-12 text-center text-slate-400 text-xs">
+                                            Loading permissions catalogue...
+                                        </div>
+                                    ) : storePermissions.length === 0 ? (
+                                        <div className="py-8 text-center text-slate-400 text-xs">
+                                            No active permissions found.
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4 bg-white">
                                             {Object.entries(
                                                 storePermissions.reduce((groups, permission) => {
                                                     const moduleName = permission.module || "Other";
@@ -1263,1644 +1564,329 @@ function StoresPage() {
                                                     groups[moduleName].push(permission);
                                                     return groups;
                                                 }, {})
-                                            ).map(([moduleName, permissions]) => (
-                                                <section key={moduleName} style={S.permissionGroup}>
-                                                    <div style={S.permissionGroupTitle}>{moduleName}</div>
-                                                    {permissions.map((permission) => {
-                                                        const delegation = storeDelegations.find(
-                                                            (item) => item.permissionCode === permission.code
-                                                        );
-                                                        const delegated = delegation?.delegated === true;
-                                                        const updating = updatingPermissionCode === permission.code;
+                                            ).map(([moduleName, perms]) => (
+                                                <div
+                                                    key={moduleName}
+                                                    className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs"
+                                                >
+                                                    {/* MODULE HEADER */}
+                                                    <div className="px-4 py-2.5 bg-white border-b border-slate-200 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                                        {moduleName}
+                                                    </div>
 
-                                                        return (
-                                                            <div key={permission.code} style={S.permissionRow}>
-                                                                <div style={S.permissionCopy}>
-                                                                    <strong>{permission.action || permission.code}</strong>
-                                                                    <span>{permission.description || permission.code}</span>
-                                                                    <code style={S.permissionCode}>{permission.code}</code>
+                                                    {/* PERMISSION ROWS */}
+                                                    <div className="divide-y divide-slate-100">
+                                                        {perms.map((permission) => {
+                                                            const delegation = storeDelegations.find(
+                                                                (item) => item.permissionCode === permission.code
+                                                            );
+                                                            const delegated = delegation?.delegated === true;
+                                                            const updating = updatingPermissionCode === permission.code;
+
+                                                            return (
+                                                                <div
+                                                                    key={permission.code}
+                                                                    className="px-4 py-3.5 flex items-center justify-between gap-4"
+                                                                >
+                                                                    {/* LEFT: ACTION, DESCRIPTION & CODE */}
+                                                                    <div className="space-y-0.5">
+                                                                        <div className="text-xs font-bold text-slate-900 tracking-wider uppercase">
+                                                                            {permission.action || permission.code}
+                                                                        </div>
+                                                                        <div className="text-xs text-slate-600 font-normal">
+                                                                            {permission.description || permission.code}
+                                                                        </div>
+                                                                        <div className="text-[10px] font-mono text-slate-400 font-semibold tracking-wider uppercase">
+                                                                            {permission.code}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* RIGHT: BADGE & TOGGLE BUTTON */}
+                                                                    <div className="flex items-center gap-2.5 shrink-0">
+                                                                        <span
+                                                                            className={`px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase ${
+                                                                                delegated
+                                                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                                                    : "bg-slate-50 text-slate-500 border border-slate-200"
+                                                                            }`}
+                                                                        >
+                                                                            {delegated ? "DELEGATED" : "NOT DELEGATED"}
+                                                                        </span>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleStorePermission(permission)}
+                                                                            disabled={Boolean(updatingPermissionCode)}
+                                                                            className={`px-3.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 border ${
+                                                                                delegated
+                                                                                    ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                                                                    : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                                                            }`}
+                                                                        >
+                                                                            {updating
+                                                                                ? "Saving..."
+                                                                                : delegated
+                                                                                    ? "Revoke"
+                                                                                    : "Grant"}
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
-                                                                <div style={S.permissionControl}>
-                                                                    <span style={delegated ? S.active : S.inactive}>
-                                                                        {delegated ? "Delegated" : "Not delegated"}
-                                                                    </span>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => toggleStorePermission(permission)}
-                                                                        disabled={Boolean(updatingPermissionCode)}
-                                                                        style={delegated ? S.permissionRevoke : S.permissionGrant}
-                                                                    >
-                                                                        {updating
-                                                                            ? "Saving…"
-                                                                            : delegated
-                                                                                ? "Revoke"
-                                                                                : "Grant"}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </section>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
-                                    </>
-                                )}
-                            </div>
-
-                        ) : (
-
-                            <div style={S.tabEmpty}>
-                                <strong>{activeTab}</strong>
-                                <span>No {activeTab.toLowerCase()} data is available for this store.</span>
-                            </div>
-
-                        )}
-
-                    </section>
-
-                )}
-
-            </div>
-
-
-            {/* -------------------------------------------------
-                CREATE / EDIT MODAL
-            ------------------------------------------------- */}
-
-            {modal && (
-
-                <div style={S.overlay}>
-
-                    <div style={S.modal}>
-
-                        <div style={S.modalHeader}>
-
-                            <div>
-
-                                <h2
-                                    style={S.detailTitle}
-                                >
-                                    {modal === "create"
-                                        ? "Create Store"
-                                        : "Edit Store"}
-                                </h2>
-
-                                <span
-                                    style={S.modalSubtitle}
-                                >
-
-                                    {modal === "create"
-                                        ? "Add store identity, owner contact and address"
-                                        : `Update ${form.storeName}`}
-
-                                </span>
-
-                            </div>
-
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setModal(null)
-                                }
-                                style={S.iconButton}
-                            >
-                                <X size={17} />
-                            </button>
-
+                                    )}
+                                </div>
+                            ) : null}
                         </div>
 
-
-                        {message.text && (
-
-                            <div
-                                style={
-                                    message.type === "error"
-                                        ? S.modalError
-                                        : S.modalSuccess
-                                }
+                        {/* STICKY FOOTER */}
+                        <footer className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end shrink-0 z-10 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+                            <button
+                                type="button"
+                                onClick={() => setDetailsDrawerOpen(false)}
+                                className="create-role-btn-secondary"
                             >
-                                {message.text}
-                            </div>
-
-                        )}
-
-
-                        <form
-                            onSubmit={saveStore}
-                            style={S.form}
-                            noValidate
-                        >
-
-
-                            {/* STORE NAME */}
-
-                            <Field
-                                label="Store Name"
-                                placeholder="Example: Hyderabad Store"
-                                value={form.storeName}
-                                error={fieldErrors.storeName}
-                                onChange={(v) =>
-                                    updateField(
-                                        "storeName",
-                                        v
-                                    )
-                                }
-                            />
-
-
-                            {/* STORE CODE */}
-
-                            {modal === "create" && (
-
-                                <ReadOnly
-                                    label="Store Code"
-                                    value={storeCodePreview(
-                                        form.storeName
-                                    )}
-                                />
-
-                            )}
-
-
-                            {modal === "edit" && (
-
-                                <ReadOnly
-                                    label="Store Code"
-                                    value={form.storeCode}
-                                />
-
-                            )}
-
-
-                            {/* OWNER */}
-
-                            <Field
-                                label="Store Owner"
-                                placeholder="Example: Ravi Kumar"
-                                value={form.ownerName}
-                                error={fieldErrors.ownerName}
-                                onChange={(v) =>
-                                    updateField(
-                                        "ownerName",
-                                        v
-                                    )
-                                }
-                            />
-
-
-                            {/* EMAIL */}
-
-                            <Field
-                                label="Owner Email"
-                                type="email"
-                                placeholder="Example: ravi@gmail.com"
-                                value={form.email}
-                                error={fieldErrors.email}
-                                onChange={(v) =>
-                                    updateField(
-                                        "email",
-                                        v
-                                    )
-                                }
-                            />
-
-
-                            {/* PASSWORD */}
-
-                            {modal === "create" && (
-
-                                <>
-
-                                    <div style={S.passwordField}>
-
-                                        <Field
-                                            label="Initial Password"
-                                            type={
-                                                showInitialPassword
-                                                    ? "text"
-                                                    : "password"
-                                            }
-                                            placeholder="Minimum 8 characters"
-                                            value={form.ownerPassword}
-                                            error={fieldErrors.ownerPassword}
-                                            onChange={(v) =>
-                                                updateField(
-                                                    "ownerPassword",
-                                                    v
-                                                )
-                                            }
-                                        />
-
-                                        <button
-                                            type="button"
-                                            style={S.passwordToggle}
-                                            onClick={() =>
-                                                setShowInitialPassword(
-                                                    (current) => !current
-                                                )
-                                            }
-                                        >
-                                            {showInitialPassword
-                                                ? "Hide"
-                                                : "Show"}
-                                        </button>
-
-                                    </div>
-
-
-                                    <div style={S.passwordField}>
-
-                                        <Field
-                                            label="Confirm Password"
-                                            type={
-                                                showConfirmPassword
-                                                    ? "text"
-                                                    : "password"
-                                            }
-                                            placeholder="Enter password again"
-                                            value={
-                                                form.confirmOwnerPassword
-                                            }
-                                            error={
-                                                fieldErrors.confirmOwnerPassword
-                                            }
-                                            onChange={(v) =>
-                                                updateField(
-                                                    "confirmOwnerPassword",
-                                                    v
-                                                )
-                                            }
-                                        />
-
-                                        <button
-                                            type="button"
-                                            style={S.passwordToggle}
-                                            onClick={() =>
-                                                setShowConfirmPassword(
-                                                    (current) => !current
-                                                )
-                                            }
-                                        >
-                                            {showConfirmPassword
-                                                ? "Hide"
-                                                : "Show"}
-                                        </button>
-
-                                    </div>
-
-                                </>
-
-                            )}
-
-
-                            {/* PHONE */}
-
-                            <Field
-                                label="Phone"
-                                placeholder="Example: 9876543210"
-                                value={form.phone}
-                                maxLength={10}
-                                error={fieldErrors.phone}
-                                inputMode="numeric"
-                                onChange={(v) =>
-                                    updateField(
-                                        "phone",
-                                        v.replace(
-                                            /\D/g,
-                                            ""
-                                        )
-                                    )
-                                }
-                            />
-
-
-                            {/* GSTIN */}
-
-                            <Field
-                                label="GSTIN"
-                                placeholder="15 letters and numbers"
-                                value={form.gstno}
-                                maxLength={15}
-                                error={fieldErrors.gstno}
-                                pattern="[A-Za-z0-9]{15}"
-                                title="GSTIN must be exactly 15 letters and numbers without spaces or special characters"
-                                onChange={(v) =>
-                                    updateField(
-                                        "gstno",
-                                        v
-                                            .replace(
-                                                /[^A-Za-z0-9]/g,
-                                                ""
-                                            )
-                                            .toUpperCase()
-                                    )
-                                }
-                            />
-
-
-                            {/* ADDRESS */}
-
-                            <Field
-                                label="Address"
-                                placeholder="Example: 12-3 Main Road, Hanamkonda"
-                                value={form.address}
-                                error={fieldErrors.address}
-                                onChange={(v) =>
-                                    updateField(
-                                        "address",
-                                        v
-                                    )
-                                }
-                            />
-
-
-                            {/* PINCODE */}
-
-                            <Field
-                                label="Pincode"
-                                placeholder="Enter 6-digit pincode"
-                                value={form.pincode}
-                                maxLength={6}
-                                inputMode="numeric"
-                                error={fieldErrors.pincode}
-                                onChange={(v) => {
-
-                                    const pincode =
-                                        v
-                                            .replace(
-                                                /\D/g,
-                                                ""
-                                            )
-                                            .slice(
-                                                0,
-                                                6
-                                            );
-
-                                    updateField(
-                                        "pincode",
-                                        pincode
-                                    );
-
-                                    const original = originalEditFormRef.current;
-
-                                    if (modal === "edit" && pincode === original?.pincode) {
-                                        pincodeRequestRef.current += 1;
-                                        lastPincodeLookupRef.current = pincode;
-                                        updateField("district", original.district);
-                                        updateField("state", original.state);
-                                    } else if (
-                                        pincode.length === 6 &&
-                                        pincode !== lastPincodeLookupRef.current
-                                    ) {
-
-                                        fetchPincodeDetails(
-                                            pincode
-                                        );
-                                    }
-                                }}
-                            />
-
-
-                            {/* DISTRICT */}
-
-                            <Field
-                                label="District"
-                                placeholder="Automatically fetched from pincode"
-                                value={form.district}
-                                readOnly
-                                error={fieldErrors.district}
-                            />
-
-
-                            {/* STATE */}
-
-                            <Field
-                                label="State"
-                                placeholder="Automatically fetched from pincode"
-                                value={form.state}
-                                readOnly
-                                error={fieldErrors.state}
-                            />
-
-
-                            {/* COUNTRY */}
-
-                            <ReadOnly
-                                label="Country"
-                                value="India"
-                            />
-
-
-                            {/* STORE TYPE */}
-
-                            <label style={S.field}>
-
-                                <span
-                                    style={S.infoLabel}
-                                >
-                                    Store Type
-                                </span>
-
-
-                                <select
-                                    style={{
-                                        ...S.input,
-                                        ...(fieldErrors.storeType
-                                            ? S.inputError
-                                            : {})
-                                    }}
-                                    value={
-                                        form.storeType
-                                    }
-                                    onChange={(e) =>
-                                        updateField(
-                                            "storeType",
-                                            e.target.value
-                                        )
-                                    }
-                                >
-
-                                    <option value="MAIN_STORE">
-                                        Main Store
-                                    </option>
-
-                                    <option value="WAREHOUSE">
-                                        Warehouse
-                                    </option>
-
-                                </select>
-
-                                {fieldErrors.storeType && (
-                                    <span style={S.fieldError}>
-                                        {fieldErrors.storeType}
-                                    </span>
-                                )}
-
-                            </label>
-
-
-                            {/* ACTIONS */}
-
-                            <div style={S.modalActions}>
-
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setModal(null)
-                                    }
-                                    style={S.secondary}
-                                >
-                                    Cancel
-                                </button>
-
-
-                                <button
-                                    disabled={saving}
-                                    type="submit"
-                                    style={S.primary}
-                                >
-
-                                    {saving
-                                        ? "Saving…"
-                                        : modal === "create"
-                                            ? "Create Store"
-                                            : "Update Store"}
-
-                                </button>
-
-                            </div>
-
-                        </form>
-
+                                Close
+                            </button>
+                        </footer>
                     </div>
-
                 </div>
-
             )}
 
+            {/* -------------------------------------------------
+                BUTTON STYLES (MATCHING CREATE ROLE EXACTLY)
+            ------------------------------------------------- */}
+            <style>{`
+                .create-role-btn {
+                    min-width: 9.5em;
+                    padding: 0 1.4em;
+                    height: 2.9em;
+                    border-radius: 30em;
+                    font-size: 13.5px;
+                    font-family: inherit;
+                    border: none !important;
+                    outline: none !important;
+                    background: linear-gradient(to right, #002d74 0%, #2563eb 100%) !important;
+                    color: #ffffff !important;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 7px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 14px -1px rgba(37, 99, 235, 0.4), 0 2px 6px -1px rgba(0, 45, 116, 0.2) !important;
+                    transition: all 0.25s ease !important;
+                    white-space: nowrap;
+                }
+
+                .create-role-btn:hover {
+                    background: linear-gradient(to right, #001f52 0%, #1d4ed8 100%) !important;
+                    box-shadow: 0 6px 20px -2px rgba(37, 99, 235, 0.5), 0 3px 8px -1px rgba(0, 45, 116, 0.3) !important;
+                    transform: translateY(-1px);
+                    color: #ffffff !important;
+                }
+
+                .create-role-btn:active {
+                    transform: translateY(0);
+                    box-shadow: 0 2px 8px -1px rgba(37, 99, 235, 0.3) !important;
+                }
+
+                .create-role-btn-secondary {
+                    min-width: 7.5em;
+                    padding: 0 1.25em;
+                    height: 3em;
+                    border-radius: 30em;
+                    font-size: 14px;
+                    font-family: inherit;
+                    border: none !important;
+                    outline: none !important;
+                    background: #f1f5f9;
+                    color: #475569;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 4px 4px 10px #e2e8f0, -4px -4px 10px #ffffff;
+                    transition: all 0.3s ease;
+                    white-space: nowrap;
+                }
+
+                .create-role-btn-secondary:hover {
+                    background: #e2e8f0;
+                    color: #1e293b;
+                }
+
+                .store-action-menu {
+                    background: #ffffff !important;
+                    border-radius: 16px !important;
+                    box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.08) !important;
+                    border: 1px solid #f1f5f9 !important;
+                    padding: 6px !important;
+                    min-width: 180px !important;
+                }
+
+                .store-action-item {
+                    width: 100% !important;
+                    padding: 8px 12px !important;
+                    border: none !important;
+                    outline: none !important;
+                    background: transparent !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 10px !important;
+                    font-size: 13px !important;
+                    font-weight: 500 !important;
+                    border-radius: 10px !important;
+                    cursor: pointer !important;
+                    transition: background 0.15s ease, color 0.15s ease !important;
+                    text-align: left !important;
+                }
+
+                .store-action-item:hover {
+                    background: #f8fafc !important;
+                }
+
+                /* INPUT STYLING: SOFT LIGHT BORDER (NO HARSH BLACK BORDER), CLEAN FOCUS */
+                .store-input {
+                    border: 1px solid #e2e8f0 !important;
+                    background-color: #ffffff !important;
+                    outline: none !important;
+                    outline-offset: 0 !important;
+                    box-shadow: none !important;
+                    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+                }
+
+                .store-input:hover {
+                    border-color: #cbd5e1 !important;
+                }
+
+                .store-input:focus,
+                .store-input:focus-visible {
+                    outline: none !important;
+                    outline-offset: 0 !important;
+                    box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.25) !important;
+                    border-color: #93c5fd !important;
+                }
+
+                .store-input.border-rose-500,
+                .store-input[class*="border-rose-500"] {
+                    border-color: #f43f5e !important;
+                }
+
+                input,
+                select,
+                textarea {
+                    outline: none !important;
+                    outline-offset: 0 !important;
+                }
+
+                /* PASSWORD EYE TOGGLE: ZERO BOX BORDER, TRANSPARENT BACKGROUND */
+                .password-eye-btn {
+                    appearance: none !important;
+                    -webkit-appearance: none !important;
+                    border: none !important;
+                    outline: none !important;
+                    outline-offset: 0 !important;
+                    background: transparent !important;
+                    background-color: transparent !important;
+                    box-shadow: none !important;
+                    padding: 4px !important;
+                    margin: 0 !important;
+                    cursor: pointer !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                }
+
+                /* DRAWER CLOSE CROSS MARK: RED HOVER HIGHLIGHT */
+                .drawer-close-btn {
+                    width: 32px !important;
+                    height: 32px !important;
+                    border-radius: 8px !important;
+                    border: none !important;
+                    outline: none !important;
+                    background: #f1f5f9 !important;
+                    color: #64748b !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s ease !important;
+                }
+
+                .drawer-close-btn:hover {
+                    background: #ffe4e6 !important;
+                    color: #e11d48 !important;
+                }
+
+                /* TABS: ZERO BUTTONFACE GREY BOX, CLEAN UNDERLINE HIGHLIGHT */
+                .store-tab-btn {
+                    appearance: none !important;
+                    -webkit-appearance: none !important;
+                    background: transparent !important;
+                    background-color: transparent !important;
+                    border: none !important;
+                    border-bottom: 2px solid transparent !important;
+                    outline: none !important;
+                    outline-offset: 0 !important;
+                    box-shadow: none !important;
+                    border-radius: 0 !important;
+                    padding: 14px 18px !important;
+                    font-size: 14px !important;
+                    font-weight: 600 !important;
+                    color: #64748b !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s ease !important;
+                }
+
+                .store-tab-btn.active {
+                    background: transparent !important;
+                    background-color: transparent !important;
+                    border-bottom: 2px solid #d97706 !important;
+                    color: #0f172a !important;
+                    font-weight: 700 !important;
+                }
+
+                .store-tab-btn:hover:not(.active) {
+                    background: transparent !important;
+                    background-color: transparent !important;
+                    color: #1e293b !important;
+                }
+
+                /* KPI CARDS: COMPACT LENGTH, PADDING & SUBTLE SHADOW */
+                .kpi-metric-card {
+                    background: #ffffff !important;
+                    border: 1px solid #e2e8f0 !important;
+                    border-radius: 12px !important;
+                    padding: 8px 12px !important;
+                    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
+                    transition: all 0.2s ease !important;
+                    cursor: default !important;
+                }
+
+                .kpi-metric-card:hover {
+                    border-color: #cbd5e1 !important;
+                    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.03) !important;
+                    transform: translateY(-1px) !important;
+                }
+            `}</style>
         </div>
     );
 }
-
-
-/*
- * ---------------------------------------------------------
- * STAT COMPONENT
- * ---------------------------------------------------------
- */
-
-function Stat({
-    label,
-    value,
-    color = COLORS.navy
-}) {
-
-    return (
-
-        <div style={S.stat}>
-
-            <span>
-                {label}
-            </span>
-
-            <strong
-                style={{ color }}
-            >
-                {value}
-            </strong>
-
-        </div>
-    );
-}
-
-
-/*
- * ---------------------------------------------------------
- * INFO COMPONENT
- * ---------------------------------------------------------
- */
-
-function Info({
-    label,
-    value,
-    mono
-}) {
-
-    return (
-
-        <div style={S.info}>
-
-            <span style={S.infoLabel}>
-                {label}
-            </span>
-
-            <strong
-                style={
-                    mono
-                        ? {
-                            fontFamily: FONT_MONO,
-                            fontWeight: 600
-                        }
-                        : undefined
-                }
-            >
-                {value || "—"}
-            </strong>
-
-        </div>
-    );
-}
-
-
-/*
- * ---------------------------------------------------------
- * TABS
- * ---------------------------------------------------------
- */
-
-function Tabs({
-    active,
-    onChange,
-    items
-}) {
-
-    return (
-
-        <div style={S.tabs}>
-
-            {items.map((item) => (
-
-                <button
-                    key={item}
-                    type="button"
-                    onClick={() =>
-                        onChange(item)
-                    }
-                    style={
-                        active === item
-                            ? S.activeTab
-                            : S.tab
-                    }
-                >
-                    {item}
-                </button>
-
-            ))}
-
-        </div>
-    );
-}
-
-
-/*
- * ---------------------------------------------------------
- * FIELD COMPONENT
- * ---------------------------------------------------------
- */
-
-function Field({
-    label,
-    value,
-    onChange,
-    type = "text",
-    maxLength,
-    placeholder,
-    pattern,
-    title,
-    readOnly = false,
-    error,
-    inputMode
-}) {
-
-    return (
-
-        <label style={S.field}>
-
-            <span style={S.infoLabel}>
-                {label}
-            </span>
-
-            <input
-                required
-                type={type}
-                maxLength={maxLength}
-                placeholder={placeholder}
-                pattern={pattern}
-                title={title}
-                readOnly={readOnly}
-                inputMode={inputMode}
-                style={{
-                    ...S.input,
-                    ...(error ? S.inputError : {})
-                }}
-                value={value}
-                onChange={(e) =>
-                    onChange?.(e.target.value)
-                }
-            />
-
-            {error && (
-                <span style={S.fieldError}>
-                    {error}
-                </span>
-            )}
-
-        </label>
-    );
-}
-
-
-/*
- * ---------------------------------------------------------
- * READ ONLY FIELD
- * ---------------------------------------------------------
- */
-
-function ReadOnly({
-    label,
-    value
-}) {
-
-    return (
-
-        <label style={S.field}>
-
-            <span style={S.infoLabel}>
-                {label}
-            </span>
-
-            <div style={S.readOnly}>
-                {value}
-            </div>
-
-        </label>
-    );
-}
-
-
-/*
- * ---------------------------------------------------------
- * PAGINATION
- * ---------------------------------------------------------
- */
-
-function Pagination({
-    page,
-    totalPages,
-    pageSize,
-    total,
-    onPage,
-    onPageSize
-}) {
-
-    return (
-
-        <div style={S.pagination}>
-
-            <span style={S.pageMeta}>
-
-                {total
-                    ? `${(page - 1) * pageSize + 1}-${Math.min(
-                        page * pageSize,
-                        total
-                    )} of ${total}`
-                    : "0 records"}
-
-            </span>
-
-
-            <select
-                aria-label="Rows per page"
-                value={pageSize}
-                onChange={(e) =>
-                    onPageSize(
-                        Number(e.target.value)
-                    )
-                }
-                style={S.pageSize}
-            >
-
-                <option value={5}>
-                    5 / page
-                </option>
-
-                <option value={10}>
-                    10 / page
-                </option>
-
-                <option value={20}>
-                    20 / page
-                </option>
-
-            </select>
-
-
-            <button
-                type="button"
-                title="Previous page"
-                disabled={page === 1}
-                onClick={() =>
-                    onPage(page - 1)
-                }
-                style={S.pageButton}
-            >
-                <ChevronLeft size={15} />
-            </button>
-
-
-            <strong style={S.pageNumber}>
-                {page}
-            </strong>
-
-
-            <button
-                type="button"
-                title="Next page"
-                disabled={
-                    page === totalPages
-                }
-                onClick={() =>
-                    onPage(page + 1)
-                }
-                style={S.pageButton}
-            >
-                <ChevronRight size={15} />
-            </button>
-
-        </div>
-    );
-}
-
-
-/*
- * ---------------------------------------------------------
- * STORE CODE PREVIEW
- * ---------------------------------------------------------
- */
 
 function storeCodePreview(storeName) {
+    const slug = (storeName || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z]+/g, "_")
+        .replace(/^_+|_+$/g, "");
 
-    const slug =
-        storeName
-            .trim()
-            .toUpperCase()
-            .replace(/[^A-Z]+/g, "_")
-            .replace(/^_+|_+$/g, "");
-
-    return slug
-        ? `D2W_${slug}_###`
-        : "Generated automatically";
+    return slug ? `D2W_${slug}_###` : "Generated automatically";
 }
-
-
-/*
- * ---------------------------------------------------------
- * STYLES
- * ---------------------------------------------------------
- */
-
-const S = {
-
-    page: {
-        display: "grid",
-        gap: 14,
-        fontFamily: FONT_BODY,
-        color: COLORS.ink
-    },
-
-    header: {
-        display: "grid",
-        gridTemplateColumns:
-            "minmax(220px, auto) minmax(280px, 1fr) auto",
-        alignItems: "center",
-        gap: 16
-    },
-
-    breadcrumb: {
-        display: "block",
-        marginBottom: 4,
-        color: COLORS.inkSoft,
-        fontSize: 10.5,
-        fontWeight: 600,
-        letterSpacing: 0.4,
-        textTransform: "uppercase"
-    },
-
-    title: {
-        margin: 0,
-        fontFamily: FONT_DISPLAY,
-        fontSize: 22,
-        fontWeight: 700,
-        color: COLORS.navy,
-        letterSpacing: 0.2
-    },
-
-    headerSearch: {
-        height: 40,
-        display: "flex",
-        alignItems: "center",
-        gap: 9,
-        padding: "0 12px",
-        border: `1px solid ${COLORS.hairline}`,
-        borderRadius: 8,
-        background: COLORS.paper,
-        boxShadow:
-            "0 1px 3px rgba(21,48,77,0.05)"
-    },
-
-    searchInput: {
-        width: "100%",
-        border: 0,
-        outline: 0,
-        font: "inherit",
-        fontSize: 13,
-        color: COLORS.ink,
-        background: "transparent"
-    },
-
-    primary: {
-        height: 40,
-        padding: "0 16px",
-        border: 0,
-        borderRadius: 7,
-        background: COLORS.navy,
-        color: "#FFF",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 7,
-        fontWeight: 600,
-        fontSize: 13.5,
-        cursor: "pointer",
-        boxShadow:
-            "0 1px 3px rgba(11,32,56,0.2)"
-    },
-
-    secondary: {
-        height: 34,
-        padding: "0 13px",
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 6,
-        background: COLORS.paper,
-        color: COLORS.navy,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        fontWeight: 600,
-        fontSize: 12.5,
-        cursor: "pointer"
-    },
-
-    activate: {
-        height: 34,
-        padding: "0 13px",
-        border:
-            `1px solid ${COLORS.success}55`,
-        borderRadius: 6,
-        background: COLORS.successSoft,
-        color: COLORS.success,
-        fontWeight: 600,
-        fontSize: 12.5,
-        cursor: "pointer"
-    },
-
-    deactivate: {
-        height: 34,
-        padding: "0 13px",
-        border:
-            `1px solid ${COLORS.danger}55`,
-        borderRadius: 6,
-        background: COLORS.dangerSoft,
-        color: COLORS.danger,
-        fontWeight: 600,
-        fontSize: 12.5,
-        cursor: "pointer"
-    },
-
-    error: {
-        padding: 11,
-        border:
-            `1px solid ${COLORS.danger}44`,
-        borderRadius: 7,
-        background: COLORS.dangerSoft,
-        color: COLORS.danger,
-        fontSize: 13
-    },
-
-    success: {
-        padding: 11,
-        border:
-            `1px solid ${COLORS.success}44`,
-        borderRadius: 7,
-        background: COLORS.successSoft,
-        color: COLORS.success,
-        fontSize: 13
-    },
-
-    stats: {
-        display: "grid",
-        gridTemplateColumns:
-            "repeat(5, minmax(0, 1fr))",
-        gap: 10
-    },
-
-    stat: {
-        minHeight: 46,
-        padding: "0 15px",
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 8,
-        background: COLORS.paper,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        color: COLORS.inkSoft,
-        fontSize: 11.5,
-        fontWeight: 500,
-        boxShadow:
-            "0 1px 3px rgba(21,48,77,0.04)"
-    },
-
-    workspace: {
-        display: "grid",
-        gridTemplateColumns:
-            "35fr 65fr",
-        gap: 16,
-        height:
-            "clamp(440px, calc(100vh - 270px), 620px)",
-        minHeight: 0
-    },
-
-    list: {
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 10,
-        background: COLORS.paper,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        boxShadow:
-            "0 1px 6px rgba(21,48,77,0.05)"
-    },
-
-    listTools: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 9,
-        padding: 13,
-        borderBottom:
-            `1px solid ${COLORS.hairline}`
-    },
-
-    listCaption: {
-        display: "grid",
-        gap: 2,
-        color: COLORS.navy,
-        fontSize: 12.5,
-        fontFamily: FONT_DISPLAY,
-        fontWeight: 700
-    },
-
-    filterSelect: {
-        height: 34,
-        minWidth: 112,
-        padding: "0 26px 0 9px",
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 6,
-        background: COLORS.paper,
-        color: COLORS.ink,
-        fontSize: 11.5,
-        fontFamily: FONT_BODY
-    },
-
-    tableHeader: {
-        display: "grid",
-        gridTemplateColumns:
-            "2fr 1fr 110px",
-        gap: 12,
-        padding: "9px 18px",
-        borderBottom:
-            `1px solid ${COLORS.hairline}`,
-        background: COLORS.slateFill,
-        color: COLORS.inkSoft,
-        fontSize: 10,
-        fontWeight: 700,
-        textTransform: "uppercase"
-    },
-
-    storeList: {
-        overflowY: "auto",
-        flex: 1,
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column"
-    },
-
-    storeRow: {
-        width: "100%",
-        minHeight: 62,
-        border: 0,
-        borderBottom:
-            `1px solid ${COLORS.hairline}`,
-        background: "transparent",
-        display: "grid",
-        gridTemplateColumns:
-            "2fr 1fr 110px",
-        alignItems: "center",
-        gap: 12,
-        padding: "9px 18px",
-        textAlign: "left",
-        cursor: "pointer",
-        fontFamily: FONT_BODY
-    },
-
-    selectedRow: {
-        background: COLORS.brassSoft,
-        border:
-            `1px solid ${COLORS.brass}`
-    },
-
-    storeIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 7,
-        background: COLORS.slateFill,
-        color: COLORS.navy,
-        display: "grid",
-        placeItems: "center",
-        flexShrink: 0
-    },
-
-    storeText: {
-        display: "grid",
-        gap: 3,
-        minWidth: 0,
-        flex: 1,
-        fontSize: 13,
-        color: COLORS.ink
-    },
-
-    storeLocation: {
-        display: "grid",
-        gap: 3,
-        color: COLORS.ink,
-        fontSize: 12,
-        fontFamily: FONT_MONO
-    },
-
-    active: {
-        padding: "3px 8px",
-        borderRadius: 20,
-        background: COLORS.successSoft,
-        color: COLORS.success,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0.3,
-        textTransform: "uppercase"
-    },
-
-    inactive: {
-        padding: "3px 8px",
-        borderRadius: 20,
-        background: COLORS.dangerSoft,
-        color: COLORS.danger,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0.3,
-        textTransform: "uppercase"
-    },
-
-    details: {
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 10,
-        background: COLORS.paper,
-        overflow: "hidden",
-        alignSelf: "start",
-        boxShadow:
-            "0 1px 6px rgba(21,48,77,0.05)"
-    },
-
-    detailHeader: {
-        minHeight: 68,
-        padding: "14px 18px",
-        borderBottom:
-            `1px solid ${COLORS.hairline}`,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 16
-    },
-
-    detailTitle: {
-        margin: 0,
-        fontFamily: FONT_DISPLAY,
-        fontSize: 18,
-        fontWeight: 700,
-        color: COLORS.navy,
-        letterSpacing: 0.2
-    },
-
-    nameLine: {
-        display: "flex",
-        alignItems: "center",
-        gap: 9
-    },
-
-    code: {
-        display: "block",
-        marginTop: 5,
-        color: COLORS.inkSoft,
-        fontSize: 12,
-        fontFamily: FONT_MONO
-    },
-
-    actions: {
-        display: "flex",
-        gap: 8
-    },
-
-    detailGrid: {
-        display: "grid",
-        gridTemplateColumns:
-            "repeat(3, minmax(0, 1fr))",
-        gap: 1,
-        background: COLORS.hairline,
-        borderBottom:
-            `1px solid ${COLORS.hairline}`
-    },
-
-    info: {
-        minHeight: 72,
-        padding: "12px 16px",
-        background: COLORS.paper,
-        display: "grid",
-        alignContent: "center",
-        gap: 5,
-        fontSize: 12.5,
-        overflowWrap: "anywhere",
-        color: COLORS.ink
-    },
-
-    infoLabel: {
-        color: COLORS.inkSoft,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: 0.2
-    },
-
-    address: {
-        margin: 14,
-        padding: "12px 14px",
-        border:
-            `1px solid ${COLORS.brass}33`,
-        borderRadius: 8,
-        background: COLORS.brassSoft,
-        display: "flex",
-        gap: 10
-    },
-
-    addressText: {
-        display: "block",
-        marginTop: 6,
-        color: COLORS.ink,
-        fontSize: 13
-    },
-
-    empty: {
-        padding: 34,
-        textAlign: "center",
-        color: COLORS.inkSoft,
-        fontSize: 13
-    },
-
-    overlay: {
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        background: "rgba(11,32,56,.55)",
-        display: "grid",
-        placeItems: "center",
-        padding: 20
-    },
-
-    modal: {
-        width: "min(880px, 100%)",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        background: COLORS.paper,
-        borderRadius: 12,
-        boxShadow:
-            "0 24px 60px rgba(11,32,56,.28)"
-    },
-
-    modalHeader: {
-        padding: "18px 22px",
-        borderBottom:
-            `1px solid ${COLORS.hairline}`,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center"
-    },
-
-    modalSubtitle: {
-        display: "block",
-        marginTop: 5,
-        color: COLORS.inkSoft,
-        fontSize: 12
-    },
-
-    modalError: {
-        margin: "14px 18px 0",
-        padding: "10px 12px",
-        border:
-            `1px solid ${COLORS.danger}44`,
-        borderRadius: 6,
-        background: COLORS.dangerSoft,
-        color: COLORS.danger,
-        fontSize: 12.5
-    },
-
-    modalSuccess: {
-        margin: "14px 18px 0",
-        padding: "10px 12px",
-        border:
-            `1px solid ${COLORS.success}44`,
-        borderRadius: 6,
-        background: COLORS.successSoft,
-        color: COLORS.success,
-        fontSize: 12.5
-    },
-
-    iconButton: {
-        width: 34,
-        height: 34,
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 7,
-        background: COLORS.paper,
-        color: COLORS.inkSoft,
-        display: "grid",
-        placeItems: "center",
-        cursor: "pointer"
-    },
-
-    form: {
-        padding: 22,
-        display: "grid",
-        gridTemplateColumns:
-            "repeat(2, minmax(0, 1fr))",
-        gap: "16px 18px",
-        background: COLORS.slateFill
-    },
-
-    field: {
-        display: "grid",
-        gap: 6
-    },
-
-    input: {
-        width: "100%",
-        height: 39,
-        padding: "0 10px",
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 6,
-        boxSizing: "border-box",
-        font: "inherit",
-        fontSize: 13,
-        color: COLORS.ink,
-        background: COLORS.paper
-    },
-
-    inputError: {
-        border:
-            `1px solid ${COLORS.danger}`,
-        background: COLORS.dangerSoft
-    },
-
-    fieldError: {
-        color: COLORS.danger,
-        fontSize: 11,
-        fontWeight: 500,
-        lineHeight: 1.3
-    },
-
-    passwordField: {
-        position: "relative"
-    },
-
-    passwordToggle: {
-        position: "absolute",
-        right: 8,
-        top: 28,
-        height: 28,
-        padding: "0 8px",
-        border: 0,
-        background: "transparent",
-        color: COLORS.navy,
-        fontSize: 11,
-        fontWeight: 600,
-        cursor: "pointer"
-    },
-
-    readOnly: {
-        height: 39,
-        padding: "0 10px",
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 6,
-        background: COLORS.hairlineSoft,
-        display: "flex",
-        alignItems: "center",
-        color: COLORS.inkSoft,
-        fontSize: 13,
-        fontFamily: FONT_MONO
-    },
-
-    modalActions: {
-        gridColumn: "1 / -1",
-        position: "sticky",
-        bottom: -22,
-        zIndex: 2,
-        display: "flex",
-        justifyContent: "flex-end",
-        gap: 9,
-        margin: "0 -22px -22px",
-        padding: "14px 22px",
-        borderTop:
-            `1px solid ${COLORS.hairline}`,
-        background: COLORS.paper
-    },
-
-    pagination: {
-        minHeight: 52,
-        padding: "8px 10px",
-        borderTop:
-            `1px solid ${COLORS.hairline}`,
-        display: "flex",
-        alignItems: "center",
-        gap: 7,
-        background: COLORS.paper
-    },
-
-    pageMeta: {
-        marginRight: "auto",
-        color: COLORS.inkSoft,
-        fontSize: 10.5,
-        fontFamily: FONT_MONO
-    },
-
-    pageSize: {
-        height: 32,
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 6,
-        background: COLORS.paper,
-        color: COLORS.ink,
-        fontSize: 11
-    },
-
-    pageButton: {
-        width: 32,
-        height: 32,
-        border:
-            `1px solid ${COLORS.hairline}`,
-        borderRadius: 6,
-        background: COLORS.paper,
-        color: COLORS.ink,
-        display: "grid",
-        placeItems: "center",
-        cursor: "pointer"
-    },
-
-    pageNumber: {
-        minWidth: 20,
-        textAlign: "center",
-        color: COLORS.brass,
-        fontSize: 12,
-        fontFamily: FONT_MONO
-    },
-
-    tabs: {
-        height: 44,
-        padding: "0 14px",
-        display: "flex",
-        alignItems: "end",
-        gap: 4,
-        borderBottom:
-            `1px solid ${COLORS.hairline}`,
-        overflowX: "auto",
-        background: COLORS.paper
-    },
-
-    tab: {
-        height: 43,
-        padding: "0 12px",
-        border: 0,
-        borderBottom:
-            "2px solid transparent",
-        background: "transparent",
-        color: COLORS.inkSoft,
-        fontSize: 12,
-        fontWeight: 600,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-        fontFamily: FONT_BODY
-    },
-
-    activeTab: {
-        height: 43,
-        padding: "0 12px",
-        border: 0,
-        borderBottom:
-            `2px solid ${COLORS.brass}`,
-        background: "transparent",
-        color: COLORS.navy,
-        fontSize: 12,
-        fontWeight: 700,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-        fontFamily: FONT_BODY
-    },
-
-    tabEmpty: {
-        minHeight: 130,
-        padding: 24,
-        display: "grid",
-        placeContent: "center",
-        gap: 6,
-        textAlign: "center",
-        color: COLORS.inkSoft,
-        fontSize: 12
-    },
-
-    permissionPanel: {
-        display: "grid",
-        gap: 12,
-        padding: 16,
-        maxHeight: 520,
-        overflowY: "auto"
-    },
-
-    permissionIntro: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12
-    },
-
-    permissionHeading: {
-        display: "block",
-        color: COLORS.navy,
-        fontFamily: FONT_DISPLAY,
-        fontSize: 14,
-        fontWeight: 700
-    },
-
-    permissionDescription: {
-        display: "block",
-        marginTop: 4,
-        color: COLORS.inkSoft,
-        fontSize: 11.5,
-        lineHeight: 1.5
-    },
-
-    permissionSummary: {
-        display: "flex",
-        justifyContent: "space-between",
-        gap: 12,
-        padding: "9px 12px",
-        border: `1px solid ${COLORS.hairline}`,
-        borderRadius: 7,
-        background: COLORS.slateFill,
-        color: COLORS.inkSoft,
-        fontSize: 11,
-        fontWeight: 600
-    },
-
-    permissionList: {
-        display: "grid",
-        gap: 12
-    },
-
-    permissionGroup: {
-        border: `1px solid ${COLORS.hairline}`,
-        borderRadius: 8,
-        overflow: "hidden"
-    },
-
-    permissionGroupTitle: {
-        padding: "9px 12px",
-        background: COLORS.slateFill,
-        borderBottom: `1px solid ${COLORS.hairline}`,
-        color: COLORS.navy,
-        fontSize: 11,
-        fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: 0.35
-    },
-
-    permissionRow: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        padding: "10px 12px",
-        borderBottom: `1px solid ${COLORS.hairlineSoft}`
-    },
-
-    permissionCopy: {
-        display: "grid",
-        gap: 3,
-        minWidth: 0,
-        color: COLORS.ink,
-        fontSize: 12
-    },
-
-    permissionCode: {
-        color: COLORS.inkSoft,
-        fontSize: 10,
-        fontFamily: FONT_MONO
-    },
-
-    permissionControl: {
-        display: "flex",
-        alignItems: "center",
-        gap: 9,
-        flexShrink: 0
-    },
-
-    permissionGrant: {
-        height: 30,
-        minWidth: 66,
-        padding: "0 10px",
-        border: `1px solid ${COLORS.success}55`,
-        borderRadius: 6,
-        background: COLORS.successSoft,
-        color: COLORS.success,
-        fontSize: 11,
-        fontWeight: 700,
-        cursor: "pointer"
-    },
-
-    permissionRevoke: {
-        height: 30,
-        minWidth: 66,
-        padding: "0 10px",
-        border: `1px solid ${COLORS.danger}55`,
-        borderRadius: 6,
-        background: COLORS.dangerSoft,
-        color: COLORS.danger,
-        fontSize: 11,
-        fontWeight: 700,
-        cursor: "pointer"
-    },
-};
-
 
 export default StoresPage;
