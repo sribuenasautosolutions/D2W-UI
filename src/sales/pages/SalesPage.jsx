@@ -203,7 +203,7 @@ const loadSales = useCallback(
         const query =
             search.trim().toLowerCase();
 
-        return sales.filter((sale) => {
+        const filtered = sales.filter((sale) => {
             const saleDate = localDateValue(sale.orderDate);
             const matchesDate = (!fromDate || saleDate >= fromDate)
                 && (!toDate || saleDate <= toDate);
@@ -221,6 +221,13 @@ const loadSales = useCallback(
             );
             return matchesDate && matchesSearch;
 
+        });
+
+        return filtered.sort((a, b) => {
+            const timeA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
+            const timeB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
+            if (timeB !== timeA) return timeB - timeA;
+            return (b.orderId || 0) - (a.orderId || 0);
         });
 
     }, [fromDate, sales, search, toDate]);
@@ -329,30 +336,20 @@ const loadSales = useCallback(
    return (
     <section className="sales-page">
 
-        {/* NAVBAR */}
-        <header className="sales-navbar">
-            <h1 className="sales-navbar-title">Sales Invoices</h1>
-            <div className="sales-navbar-right">
-                <div className="sales-search">
-                    <Search size={16} />
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search invoice, customer, phone..."
-                    />
-                </div>
-                <button type="button" className="sales-icon-button" aria-label="Notifications">
-                    <Bell size={18} />
-                    <span className="sales-notification-dot" />
+        {/* HEADER: Title on left, New Sale button on right */}
+        <div className="sales-header-row">
+            <h1 className="sales-header-title">Sales Invoices</h1>
+            {canCreateSale && (
+                <button
+                    type="button"
+                    className="sales-new-sale-button"
+                    onClick={() => navigate("new")}
+                >
+                    <Plus size={16} />
+                    New Sale
                 </button>
-                <button type="button" className="sales-profile" aria-label="Profile">
-                    <span className="sales-avatar">{initials}</span>
-                    <span className="sales-profile-name">{displayName}</span>
-                    <ChevronDown size={16} />
-                </button>
-            </div>
-        </header>
+            )}
+        </div>
 
         {/* KPI CARDS */}
             <div className="sales-kpis">
@@ -468,16 +465,15 @@ const loadSales = useCallback(
                     </label>
                 )}
 
-                {canCreateSale && (
-                    <button
-                        type="button"
-                        className="sales-new-sale-button"
-                        onClick={() => navigate("new")}
-                    >
-                        <Plus size={16} />
-                        New Sale
-                    </button>
-                )}
+                <div className="sales-search">
+                    <Search size={16} />
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search invoice, customer, phone..."
+                    />
+                </div>
             </div>
         </div>
 

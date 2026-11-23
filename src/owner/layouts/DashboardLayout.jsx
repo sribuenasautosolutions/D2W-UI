@@ -38,6 +38,9 @@ function DashboardLayout({ children }) {
                         width: 100% !important;
                         flex: 1 !important;
                     }
+                    .dashboard-main {
+                        padding: 12px 10px !important;
+                    }
                 }
             `}</style>
             <div
