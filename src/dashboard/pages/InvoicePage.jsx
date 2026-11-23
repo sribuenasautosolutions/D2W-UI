@@ -57,6 +57,12 @@ function InvoicePage() {
                 Customer Details
             </h3>
 
+            {invoice.customerLegalName && (
+                <p>
+                    <b>Legal Name:</b> {invoice.customerLegalName}
+                </p>
+            )}
+
             <p>
                 <b>Name:</b> {invoice.customerName}
             </p>

@@ -148,8 +148,11 @@ const buildInvoiceSaleDoc = ({ invoice, items, payments, collectedBy, totals, ha
       ].filter(Boolean),
     },
     billTo: {
-      name: text(invoice.customerName),
+      name: text(invoice.customerLegalName || invoice.customerName),
       lines: [
+        invoice.customerLegalName && invoice.customerName && invoice.customerLegalName.trim().toLowerCase() !== invoice.customerName.trim().toLowerCase()
+          ? `Trade Name: ${text(invoice.customerName)}`
+          : null,
         billingAddress && String(billingAddress),
         `Mobile: ${text(invoice.phone)}`,
         ...(isB2B ? [
@@ -408,7 +411,12 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
       <section className="invoice-party-grid">
         <div className="invoice-party">
           <h3>BILL TO</h3>
-          <strong className="invoice-customer-name">{text(invoice.customerName)}</strong>
+          <strong className="invoice-customer-name">{text(invoice.customerLegalName || invoice.customerName)}</strong>
+          {invoice.customerLegalName && invoice.customerName && invoice.customerLegalName.trim().toLowerCase() !== invoice.customerName.trim().toLowerCase() && (
+            <p className="invoice-customer-trade-name" style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 4px" }}>
+              Trade Name: {text(invoice.customerName)}
+            </p>
+          )}
           <p>Mobile: {text(invoice.phone)}</p>
           {invoice.saleType === "B2B" && <>
             <p>GSTIN: {text(invoice.customerGstin)}</p>

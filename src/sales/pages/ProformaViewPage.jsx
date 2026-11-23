@@ -58,8 +58,11 @@ const buildProformaSaleDoc = ({ record, items, maskPartNos, showDiscount, totalM
       lines: [record.storeAddress || "Address not available", `GSTIN: ${record.storeGstin || "—"}`],
     },
     billTo: {
-      name: record.customerName,
+      name: record.customerLegalName || record.customerName,
       lines: [
+        record.customerLegalName && record.customerName && record.customerLegalName.trim().toLowerCase() !== record.customerName.trim().toLowerCase()
+          ? `Trade Name: ${record.customerName}`
+          : null,
         record.billingAddress,
         record.customerMobile && `Mobile: ${record.customerMobile}`,
         record.customerEmail && `Email: ${record.customerEmail}`,
@@ -199,7 +202,12 @@ export default function ProformaViewPage() {
       <section className="proforma-party-grid">
         <div className="proforma-bill-to">
           <small>BILL TO</small>
-          <strong>{record.customerName}</strong>
+          <strong>{record.customerLegalName || record.customerName}</strong>
+          {record.customerLegalName && record.customerName && record.customerLegalName.trim().toLowerCase() !== record.customerName.trim().toLowerCase() && (
+            <span style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 4px", display: "block" }}>
+              Trade Name: {record.customerName}
+            </span>
+          )}
           {record.billingAddress && <span><MapPin size={12}/>{record.billingAddress}</span>}
           {record.customerMobile && <span><Phone size={12}/>{record.customerMobile}</span>}
           {record.customerEmail && <span><Mail size={12}/>{record.customerEmail}</span>}
