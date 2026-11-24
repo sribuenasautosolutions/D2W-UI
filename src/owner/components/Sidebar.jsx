@@ -28,6 +28,7 @@ import {
 
 import logo from "../../assets/NEW LOGO D2W.png";
 import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName } from "../../auth/AuthContext";
 import "./Sidebar.css";
 
 function NavLabel({ collapsed, children }) {
@@ -60,8 +61,9 @@ function Sidebar() {
         return () => { mounted = false; };
     }, [user]);
 
-    const isOwner = (user?.role || "").toUpperCase() === "SUPER_ADMIN";
-    const isStoreOwner = (user?.role || "").toUpperCase() === "STORE_OWNER";
+    const role = normalizeRoleName(user?.role);
+    const isOwner = role === "SUPER_ADMIN";
+    const isStoreOwner = role === "STORE_OWNER";
     const canViewUsers = isOwner || isStoreOwner || hasAnyPermission?.(["EMPLOYEES.VIEW"]);
     const canManageRoles = isOwner || isStoreOwner || hasAnyPermission?.(["ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "ROLES.ASSIGN"]);
     const canManageSystemRoles = isOwner || (!isStoreOwner && hasAnyPermission?.(["ROLES.VIEW", "ROLES.CREATE", "PERMISSIONS.VIEW", "PERMISSIONS.MANAGE"]));
@@ -69,10 +71,10 @@ function Sidebar() {
     const canViewDashboard = isOwner || isStoreOwner || hasPermission?.("DASHBOARD.VIEW");
     const canViewInventory = isOwner || isStoreOwner || hasAnyPermission?.(["INVENTORY.VIEW", "INVENTORY.ADJUST", "INVENTORY.TRANSFER", "BARCODES.PRINT"]);
     const canViewPurchases = isOwner || isStoreOwner || hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE", "VENDORS.VIEW", "VENDORS.MANAGE"]);
-    const canViewSales = isOwner || isStoreOwner || user?.role === "CASHIER" || hasAnyPermission?.(["SALES.VIEW", "SALES.CREATE", "PROFORMA.VIEW", "LEADS.VIEW"]);
+    const canViewSales = isOwner || isStoreOwner || role === "CASHIER" || hasAnyPermission?.(["SALES.VIEW", "SALES.CREATE", "PROFORMA.VIEW", "LEADS.VIEW"]);
     const canViewReports = isOwner || isStoreOwner || hasPermission?.("REPORTS.VIEW");
-    const isSalesperson = user?.role === "SALESPERSON";
-    const isProcurement = user?.role === "PROCUREMENT";
+    const isSalesperson = role === "SALESPERSON";
+    const isProcurement = role === "PROCUREMENT";
     const isLeadStaff = isSalesperson || isProcurement;
 
     const homeBase = isSalesperson

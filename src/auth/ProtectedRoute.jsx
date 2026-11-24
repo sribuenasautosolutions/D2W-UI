@@ -1,6 +1,32 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
+// Normalize role name - handles variations like "SUPER_ADMIN", "Super Administrator", "SUPER ADMINISTRATOR"
+function normalizeRoleName(role) {
+    if (!role) return "";
+    const normalized = role.toUpperCase().trim();
+    // Map various name formats to standard form
+    if (normalized === "SUPER_ADMIN" || normalized === "SUPER ADMINISTRATOR" || normalized === "SUPER ADMINISTRATOR") {
+        return "SUPER_ADMIN";
+    }
+    if (normalized === "STORE_OWNER" || normalized === "STORE MANAGER") {
+        return "STORE_OWNER";
+    }
+    if (normalized === "CASHIER") {
+        return "CASHIER";
+    }
+    if (normalized === "SALESPERSON" || normalized === "STORE SALESPERSON") {
+        return "SALESPERSON";
+    }
+    if (normalized === "PROCUREMENT" || normalized === "PROCUREMENT SPECIALIST") {
+        return "PROCUREMENT";
+    }
+    if (normalized === "USER") {
+        return "USER";
+    }
+    return normalized;
+}
+
 function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
 
     const { user, hasAnyPermission } = useAuth();
@@ -10,11 +36,17 @@ function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
         return <Navigate to="/login" replace />;
     }
 
-    const role = (user.role || "").toUpperCase();
+    const role = normalizeRoleName(user.role);
+    const isSuperAdmin = role === "SUPER_ADMIN";
 
     // Super Admin has global platform administrative access across all protected routes
-    if (role === "SUPER_ADMIN") {
+    if (isSuperAdmin) {
         return children;
+    }
+
+    // USER role (or no role) has minimal access - deny all restricted routes
+    if (role === "USER" || !role) {
+        return <Navigate to="/unauthorized" replace />;
     }
 
     const hasRoleRestriction = Array.isArray(allowedRoles) && allowedRoles.length > 0;
@@ -22,7 +54,7 @@ function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
         Array.isArray(requiredPermissions) && requiredPermissions.length > 0;
 
     const normalizedAllowedRoles = hasRoleRestriction
-        ? allowedRoles.map((r) => String(r).toUpperCase())
+        ? allowedRoles.map((r) => normalizeRoleName(r))
         : [];
 
     const roleAllowed = hasRoleRestriction && normalizedAllowedRoles.includes(role);

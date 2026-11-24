@@ -198,13 +198,13 @@
   gap: 12px;
   padding: 8px var(--pad);
   background: #fff;
-  border-bottom: 1px solid var(--grid);
+  border-bottom: 1px solid #cbd5e1;
   flex-wrap: wrap;
 }
 .ns-top h1 {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   letter-spacing: -0.01em;
   color: #0f172a;
   white-space: nowrap;
@@ -220,6 +220,16 @@
 }
 .ns-top-right .ns-date {
   width: 160px;
+}
+.ns-top-right .ns-store select,
+.ns-top-right .ns-date input {
+  border-color: #cbd5e1;
+  color: #0f172a;
+  font-weight: 600;
+}
+.ns-top-right .ns-store select:focus,
+.ns-top-right .ns-date input:focus {
+  border-color: #1d4ed8 !important;
 }
 .ns-store,
 .ns-date {
@@ -255,16 +265,18 @@
   align-items: center;
   justify-content: center;
   padding: 6px;
-  border: 0;
-  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
   background: transparent;
-  color: #ef4444;
+  color: #64748b;
   font-size: 18px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 .ns-close:hover:not(:disabled) {
-  background: #fef2f2;
+  background: #fee2e2;
   color: #b91c1c;
+  border-color: #fca5a5;
 }
 .ns-err {
   color: #dc2626;
@@ -526,36 +538,53 @@
   border-collapse: collapse;
   border: 1px solid #e2e8f0;
 }
+/* Table cell containers */
 .ns-table th,
 .ns-table td {
-  border: 1px solid #e2e8f0;
-  padding: 5px 6px;
+  border: 1px solid #cbd5e1;
+  padding: 6px 8px;
   vertical-align: middle;
   text-align: left;
 }
 .ns-table td {
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ns-table td.ns-cell-box {
+  padding: 0;
+  background: #ffffff;
 }
 .ns-table td.ns-name {
   white-space: normal;
   line-height: 1.3;
 }
+/* Table headers - transparent light beige theme */
+.ns-page .ns-table thead th,
 .ns-table th {
-  background: #f5f9ff;
-  color: #374151;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  line-height: 1.25;
+  background: rgba(253, 253, 253, 0.945) !important;
+  color: #292524 !important;  
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  line-height: 1.3 !important;
   white-space: normal;
   overflow: visible;
+  border: 1px solid rgba(231, 223, 213, 0.8) !important;
+  padding: 8px 6px !important;
 }
+.ns-page .ns-table thead tr + tr th,
 .ns-table thead tr + tr th {
-  padding: 3px 5px;
+  background: rgba(250, 246, 240, 0.5) !important;
+  color: #44403c !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(231, 223, 213, 0.8) !important;
+  padding: 5px 6px !important;
 }
 .ns-table thead th {
   text-align: center;
@@ -563,6 +592,8 @@
 .ns-table .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #0f172a;
 }
 .ns-table .ctr {
   text-align: center;
@@ -572,63 +603,90 @@
   font-weight: 600;
 }
 .ns-strong {
-  font-weight: 600;
+  font-weight: 700;
+  color: #0f172a;
 }
 .ns-muted {
-  color: #9ca3af;
+  color: #64748b;
 }
 .ns-sub {
   display: block;
   font-size: 11px;
   font-weight: 500;
-  color: #9ca3af;
+  color: #64748b;
 }
 
 /* header dropdowns (Price / Unit tax mode, GST type + rate) */
 .ns-page .ns-th-select {
   display: block;
   width: 100%;
-  height: 22px;
+  height: 24px;
   padding: 0 18px 0 6px;
-  border: 1px solid #93c5fd;
+  border: 1px solid #cbd5e1;
   border-radius: 4px;
-  color: #1e40af;
-  font-size: 11px;
-  font-weight: 400;
+  color: #0f172a;
+  background-color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
   background: #fff
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d4ed8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
     no-repeat right 5px center/10px;
 }
 .ns-page .ns-th-select:hover {
-  background-color: #eff6ff;
+  background-color: #f8fafc;
 }
 
-/* editable cells that look like plain data (no border until focus) */
+/* Seamless editable cell inputs - crystal clear high contrast text */
 .ns-table input.ns-cell-input {
   width: 100%;
-  height: 26px;
-  padding: 0 2px;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  height: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 0;
   background: transparent;
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a !important;
+  box-sizing: border-box;
   text-align: right;
+  font-family: inherit;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
+
+.ns-table input.ns-cell-input.text-left {
+  text-align: left;
+}
+
+.ns-page .ns-table input.ns-cell-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.ns-page .ns-table input.ns-cell-input:hover:not(:focus) {
+  background-color: #f8fafc;
+}
+
 .ns-page .ns-table input.ns-cell-input:focus {
-  background: transparent;
-  border-color: transparent !important;
+  background-color: #eff6ff;
+  outline: none;
+  box-shadow: inset 0 0 0 2px #2563eb;
+  color: #0f172a !important;
+  font-weight: 700;
 }
 
 /* totals row */
 .ns-table tfoot td {
-  background: #fff;
+  background: #f1f5f9;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 13.5px;
+  color: #0f172a;
+  border-top: 2px solid #94a3b8;
 }
 
 .ns-del {
@@ -1280,3 +1338,63 @@
 }
 .ns-results .ns-add-item-opt:hover:not(:disabled) { background: #dbeafe; }
 .ns-results .ns-add-item-opt:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Middle Section Prominent Grand Total */
+.ns-overall.ns-middle-grand-total {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  padding: 8px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.ns-middle-grand-total label {
+  color: #166534;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ns-middle-grand-total .ns-grand-display strong {
+  font-size: 20px;
+  font-weight: 800;
+  color: #15803d;
+  display: inline-block;
+}
+.ns-balance-due-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #b91c1c;
+  font-weight: 700;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* Highlighted Calculated Cells & Headers */
+.ns-calc-cell {
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-weight: 600;
+}
+.ns-calc-total {
+  color: #0f172a;
+  font-weight: 700;
+}
+.ns-table thead th {
+  background: rgba(245, 240, 230, 0.65);
+  color: #292524;
+  font-weight: 700;
+  border-bottom: 2px solid rgba(231, 223, 213, 0.8);
+}
+.ns-th-select {
+  background: #fff;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-weight: 600;
+  color: #1e40af;
+  cursor: pointer;
+}

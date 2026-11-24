@@ -148,15 +148,16 @@ const buildInvoiceSaleDoc = ({ invoice, items, payments, collectedBy, totals, ha
       ].filter(Boolean),
     },
     billTo: {
-      name: text(invoice.customerName),
+      name: text(invoice.customerLegalName || invoice.customerName),
+      secondaryName: invoice.customerLegalName && invoice.customerName && invoice.customerLegalName.toLowerCase() !== invoice.customerName.toLowerCase() ? text(invoice.customerName) : null,
       lines: [
-        billingAddress && String(billingAddress),
-        `Mobile: ${text(invoice.phone)}`,
+        `Phone: ${text(invoice.phone)}`,
         ...(isB2B ? [
           `GSTIN: ${text(invoice.customerGstin)}`,
           `Registration: ${registration}`,
           `State / Place of Supply: ${text(invoice.placeOfSupply || invoice.customerState)}`,
         ] : []),
+        billingAddress && String(billingAddress),
         invoice.customerEmail && `Email: ${invoice.customerEmail}`,
       ].filter(Boolean),
     },

@@ -5,9 +5,19 @@ export const getProformas = async (storeId) =>
 export const getProforma = async (id) => (await apiclient.get(`/proforma-invoices/${id}`)).data;
 export const saveProforma = async (payload) => (await apiclient.post("/proforma-invoices", payload)).data;
 export const updateProforma = async (id, payload) => (await apiclient.put(`/proforma-invoices/${id}`, payload)).data;
+export const calculateProformaPreview = async (payload) => (await apiclient.post("/proforma-invoices/calculation-preview", payload)).data;
 export const cancelProforma = async (id) => (await apiclient.post(`/proforma-invoices/${id}/cancel`)).data;
 export const previewProformaConversion = async (id) => (await apiclient.get(`/proforma-invoices/${id}/conversion-preview`)).data;
 export const convertProforma = async (id, payload) => (await apiclient.post(`/proforma-invoices/${id}/convert`, payload)).data;
+export const downloadProformaTemplate = async () =>
+  (await apiclient.get("/proforma-invoices/import-template", { responseType: "blob" })).data;
+export const previewProformaUpload = async (file, storeId) => {
+  const form = new FormData();
+  form.append("file", file);
+  return (await apiclient.post(`/proforma-invoices/import-preview?storeId=${storeId}`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  })).data;
+};
 
 export const toProformaSaleSource = (record) => ({
   ...record,

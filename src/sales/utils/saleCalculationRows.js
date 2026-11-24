@@ -10,8 +10,9 @@ export function saleCalculationRows(items, calculation, isInvoiceEdit = false) {
             if (used.has(index)) continue;
             const matches = isInvoiceEdit ? index === itemIndex
                 : line.requestLineIndex != null ? line.requestLineIndex === itemIndex
-                : String(line.inventoryId) === String(item.inventoryId)
-                    && (item.batchId == null || String(line.batchId) === String(item.batchId));
+                : (line.inventoryId != null && item.inventoryId != null && !String(item.inventoryId).startsWith("row-") && !String(item.inventoryId).startsWith("item-") && !String(item.inventoryId).startsWith("manual-"))
+                    ? String(line.inventoryId) === String(item.inventoryId) && (item.batchId == null || String(line.batchId) === String(item.batchId))
+                    : index === itemIndex;
             if (!matches) continue;
             used.add(index);
             allocations.push(line);

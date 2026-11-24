@@ -10,6 +10,10 @@ import {
   downloadSalesBulkUploadTemplate,
   previewSalesBulkUpload,
 } from "../../services/orderService";
+import {
+  downloadProformaTemplate,
+  previewProformaUpload,
+} from "../../services/proformaService";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = /\.(csv|xls|xlsx)$/i;
 
@@ -90,19 +94,25 @@ export default function SalesBulkUploadPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const isProforma = Boolean(location.state?.isProforma);
+
   const downloadSample = async () => {
     try {
-      const blob = await downloadSalesBulkUploadTemplate();
+      const blob = isProforma
+        ? await downloadProformaTemplate()
+        : await downloadSalesBulkUploadTemplate();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "sales-bulk-upload-template.xlsx";
+      link.download = isProforma
+        ? "proforma-bulk-upload-template.xlsx"
+        : "sales-bulk-upload-template.xlsx";
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (requestError) {
-      console.error("Failed to download sales template:", requestError);
+      console.error("Failed to download template:", requestError);
       setError("Unable to download the sample Excel file.");
     }
   };
@@ -121,13 +131,15 @@ export default function SalesBulkUploadPage() {
     setBusy(true);
     setError("");
     try {
-      const preview = await previewSalesBulkUpload(file, storeId);
+      const preview = isProforma
+        ? await previewProformaUpload(file, storeId)
+        : await previewSalesBulkUpload(file, storeId);
       navigate(returnTo, {
         replace: true,
         state: { ...(returnState || {}), salesBulk: { preview } },
       });
     } catch (requestError) {
-      setError(errorMessage(requestError, "Unable to read the sale file."));
+      setError(errorMessage(requestError, "Unable to read the file."));
     } finally {
       workInProgress.current = false;
       setBusy(false);

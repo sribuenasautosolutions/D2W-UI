@@ -368,16 +368,18 @@ function LoginPage() {
             loginSession(response);
 
             const role = (response.role || "").toUpperCase();
-            if (role === "SUPER_ADMIN") {
+            if (role === "SUPER_ADMIN" || role === "SUPER ADMINISTRATOR") {
                 navigate("/owner/dashboard");
-            } else if (role === "STORE_OWNER") {
+            } else if (role === "STORE_OWNER" || role === "STORE MANAGER") {
                 navigate("/store/dashboard");
-            } else if (role === "CASHIER") {
+            } else if (role === "CASHIER" || role === "STORE CASHIER") {
                 navigate("/pos");
-            } else if (role === "SALESPERSON") {
+            } else if (role === "SALESPERSON" || role === "STORE SALESPERSON") {
                 navigate("/salesperson/dashboard");
-            } else if (role === "PROCUREMENT") {
+            } else if (role === "PROCUREMENT" || role === "PROCUREMENT SPECIALIST") {
                 navigate("/procurement/dashboard");
+            } else {
+                navigate("/owner/dashboard");
             }
         } catch (error) {
             const data = error.response?.data;
