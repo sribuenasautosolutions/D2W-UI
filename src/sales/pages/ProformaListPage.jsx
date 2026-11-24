@@ -109,7 +109,7 @@ export default function ProformaListPage() {
       });
   }, [records, statusFilter, query]);
   const totalValue = records.reduce((sum, record) => sum + Number(record.netPayable || 0), 0);
-  const openRecords = records.filter((record) => record.status === "SAVED");
+  const openRecords = records.filter((record) => record.status === "SAVED" || record.status === "DRAFT");
   const openValue = openRecords.reduce((sum, record) => sum + Number(record.netPayable || 0), 0);
   const convertedCount = records.filter((record) => record.status === "CONVERTED").length;
   const cancelledCount = records.filter((record) => record.status === "CANCELLED").length;

@@ -551,6 +551,55 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     lastPathnameRef.current = location.pathname;
   }, [location.pathname, editOrderId, proformaEditId, location.state, resetFormState]);
 
+  /* Discount entry mode for the whole table: PERCENT (default) or AMOUNT */
+  const [discountType, setDiscountType] = useState("PERCENT");
+
+  /* Price tax mode for the whole table: GST_EXCLUSIVE (default) or GST_INCLUSIVE */
+  const [columnPriceMode, setColumnPriceMode] = useState("GST_EXCLUSIVE");
+
+  /* =====================================================
+       GST DEFAULTS
+       One header dropdown sets tax type AND rate together.
+       Value format: "<TYPE>:<PERCENT>" e.g. "CGST_SGST:18"
+    ===================================================== */
+
+  const [defaultGstType, setDefaultGstType] = useState("CGST_SGST");
+
+  const [defaultGstPercentage, setDefaultGstPercentage] = useState(18);
+
+  const createEmptyItem = useCallback(
+    () => ({
+      inventoryId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      productId: null,
+      localProductId: null,
+      batchId: null,
+      batchNumber: null,
+      partNumber: "",
+      itemName: "",
+      brandName: "",
+      hsnCode: "",
+      stockUnit: "PCS",
+      packSize: null,
+      contentsUnit: null,
+      quantity: "",
+      availableQuantity: 999999,
+      mrp: "",
+      sellingPrice: "",
+      isManualPriceOverride: false,
+      discountMode: discountType,
+      discountPercentage: 0,
+      discountAmount: 0,
+      discountValue: 0,
+      gstType: defaultGstType === "NONE" ? "NONE" : defaultGstType,
+      gstPercentage:
+        defaultGstType === "NONE" ? 0 : Number(defaultGstPercentage),
+      gstAmount: 0,
+      taxableAmount: 0,
+      lineTotal: 0,
+    }),
+    [defaultGstType, defaultGstPercentage, discountType],
+  );
+
   const handleStoreChange = (event) => {
     const newStoreId = event.target.value;
 
@@ -618,115 +667,57 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     ===================================================== */
 
   const fetchStock = async (text) => {
-    const storeIdToUse =
-      selectedStoreId ||
-      (user?.storeId ? String(user.storeId) : "") ||
-      (stores.length > 0 ? String(stores[0].id) : "");
     if (isProforma) {
       try {
-        const promises = [];
-        if (storeIdToUse) {
-          promises.push(
-            getCurrentStockPage(storeIdToUse, {
-              search: text,
-              onlyAvailable: false,
-              page: 0,
-              size: 50,
-            }),
-          );
-        } else if (isSuperAdmin) {
-          promises.push(
-            getCurrentStockPage(null, {
-              search: text,
-              onlyAvailable: false,
-              page: 0,
-              size: 50,
-            }),
-          );
-        } else {
-          promises.push(Promise.resolve({ content: [] }));
-        }
-
-        promises.push(
-          api.get(`/products/search`, {
-            params: { text, keyword: text, storeId: storeIdToUse || undefined },
-          }),
-        );
-
-        const [stockRes, catRes] = await Promise.allSettled(promises);
-
-        const stockRaw = stockRes.status === "fulfilled" ? stockRes.value : [];
-        const stockItems = Array.isArray(stockRaw)
-          ? stockRaw
-          : Array.isArray(stockRaw?.content)
-            ? stockRaw.content
+        const response = await getCurrentStockPage(selectedStoreId, {
+          search: text,
+          onlyAvailable: false,
+          page: 0,
+          size: 100,
+        });
+        const stockItems = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.content)
+            ? response.content
             : [];
 
-        const catRaw = catRes.status === "fulfilled" ? catRes.value?.data : [];
-        const catData = Array.isArray(catRaw) ? catRaw : [];
-
-        // Format store inventory items
-        const formattedStockItems = stockItems.map((p) => ({
-          inventoryId: p.inventoryId,
-          storeId: p.storeId,
-          productId: p.productId ?? null,
-          localProductId: p.localProductId ?? null,
-          itemName: p.itemName,
-          partNumber: p.partNumber,
-          brand: p.brandName || p.brand,
-          brandName: p.brandName || p.brand,
-          hsnCode: p.hsncode || p.hsnCode,
-          gstPercentage: p.gstPercentage,
-          quantity: Number(p.quantity ?? 0),
-          mrp: Number(p.mrp ?? 0),
-          sellingPrice: Number(p.sellingPrice ?? 0),
-          source: "STOCK",
-        }));
-
-        // Format global catalog items
-        const formattedGlobalItems = catData.map((p) => ({
-          inventoryId: p.inventoryId ?? null,
-          storeId: p.storeId,
-          productId: p.id,
-          localProductId: null,
-          itemName: p.itemName,
-          partNumber: p.partNumber,
-          brand: p.brandName,
-          brandName: p.brandName,
-          hsnCode: p.hsnCode,
-          gstPercentage: p.gstPercentage,
-          quantity: Number(p.quantity ?? 0),
-          mrp: Number(p.mrp ?? p.mrpPrice ?? 0),
-          sellingPrice: Number(p.sellingPrice ?? 0),
-          source: p.inventoryId ? "STOCK" : "GLOBAL",
-        }));
+        // Also query global catalogue
+        let globalItems = [];
+        try {
+          const catRes = await api.get(`/products/search`, { params: { keyword: text } });
+          const catData = Array.isArray(catRes?.data) ? catRes.data : [];
+          globalItems = catData.map((p) => ({
+            productId: p.id,
+            itemName: p.itemName,
+            partNumber: p.partNumber,
+            brand: p.brandName,
+            hsnCode: p.hsnCode,
+            mrp: Number(p.mrpPrice || 0),
+            sellingPrice: Number(p.sellingPrice || 0),
+            quantity: 0,
+          }));
+        } catch {
+          // ignore global catalog lookup failure
+        }
 
         const seen = new Set();
         const merged = [];
-
-        // Include current stock items first (prioritize available store stock)
-        for (const item of [...formattedStockItems, ...formattedGlobalItems]) {
-          const partNorm = normalizePartNumber(item.partNumber);
-          const nameKey = (item.itemName || "").trim().toLowerCase();
-          const uniqueKey = partNorm ? `part-${partNorm}` : nameKey ? `name-${nameKey}` : `id-${item.productId || item.inventoryId}`;
-
-          if (!seen.has(uniqueKey)) {
-            seen.add(uniqueKey);
+        for (const item of [...stockItems, ...globalItems]) {
+          const key = (item.partNumber || "").trim().toLowerCase();
+          if (key && !seen.has(key)) {
+            seen.add(key);
             merged.push(item);
           }
         }
         return merged;
-      } catch (err) {
-        console.error("fetchStock error:", err);
+      } catch {
         return [];
       }
     }
 
-    if (!storeIdToUse && !isSuperAdmin) {
-      return [];
-    }
-
-    const response = await getCurrentStockPage(storeIdToUse || null, {
+    // Sales must search stock, including store-local products
+    // that do not exist in the global product catalogue.
+    const response = await getCurrentStockPage(selectedStoreId, {
       search: text,
       onlyAvailable: true,
       page: 0,
@@ -754,15 +745,14 @@ export default function NewSalePage({ documentMode = "SALE" }) {
       partNumber: "",
       itemName: "",
       brandName: "",
-      brand: "",
       hsnCode: "",
       stockUnit: "PCS",
       packSize: null,
       contentsUnit: null,
-      quantity: "",
+      quantity: 1,
       availableQuantity: 999999,
-      mrp: "",
-      sellingPrice: "",
+      mrp: 0,
+      sellingPrice: 0,
       discountMode: "PERCENT",
       discountPercentage: 0,
       discountAmount: 0,
@@ -778,26 +768,8 @@ export default function NewSalePage({ documentMode = "SALE" }) {
   useEffect(() => {
     if (items.length === 0 && !isExistingInvoice) {
       setItems([createEmptyItem()]);
-      return;
     }
-    const last = items[items.length - 1];
-    const isLastFilled = Boolean(
-      (last && (
-        (last.partNumber && String(last.partNumber).trim() !== "") ||
-        (last.itemName && String(last.itemName).trim() !== "") ||
-        (last.brand && String(last.brand).trim() !== "") ||
-        (last.brandName && String(last.brandName).trim() !== "") ||
-        (last.mrp !== "" && Number(last.mrp) > 0) ||
-        (last.sellingPrice !== "" && Number(last.sellingPrice) > 0) ||
-        (last.quantity !== "" && Number(last.quantity) > 0) ||
-        last.productId != null
-      ))
-    );
-
-    if (isLastFilled) {
-      setItems((prev) => [...prev, createEmptyItem()]);
-    }
-  }, [items, isExistingInvoice, createEmptyItem]);
+  }, [items.length, isExistingInvoice, createEmptyItem]);
 
   const [bulkSalePreview, setBulkSalePreview] = useState(null);
   const bulkSaleStore = useRef(selectedStoreId);
@@ -960,24 +932,14 @@ export default function NewSalePage({ documentMode = "SALE" }) {
 
   useEffect(() => {
     if (!rowSearch) return undefined;
-    const handleOutsideClick = (e) => {
-      if (e?.target && e.target.closest?.(".ns-results")) {
-        return;
-      }
-      setRowSearch(null);
-    };
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setRowSearch(null);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    window.addEventListener("keydown", handleKeyDown);
+    const close = () => setRowSearch(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
     return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
     };
-  }, [rowSearch]);
+  }, [rowSearch?.itemIndex]);
 
   const handlePartNumberSearch = async (itemIndex, text, element) => {
     updateItemField(itemIndex, "partNumber", text);
@@ -986,198 +948,21 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     if (!element) return;
     const box = element.getBoundingClientRect();
     const position = {
-      left: Math.max(10, Math.min(box.left, window.innerWidth - 470)),
-      top: box.bottom + 4,
-      width: Math.max(box.width, 460),
+      left: box.left,
+      top: box.bottom + 2,
+      width: Math.max(box.width, 380),
     };
     const trimmed = (text || "").trim();
 
-    if (trimmed.length < 2) {
+    if (!selectedStoreId || trimmed.length < 2) {
       setRowSearch(null);
       return;
     }
 
     try {
-      const results = await fetchStock(trimmed);
-      if (requestId !== rowSearchRequest.current) return;
-      if (Array.isArray(results) && results.length > 0) {
-        setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
-
-        // Auto-fetch details if there is an exact or normalized part number match!
-        const normTarget = normalizePartNumber(trimmed);
-        const exact = results.find(
-          (r) =>
-            (r.partNumber || "").trim().toLowerCase() === trimmed.toLowerCase() ||
-            (normTarget && normalizePartNumber(r.partNumber) === normTarget),
-        );
-        if (exact) {
-          applyProductToItem(itemIndex, exact, null, true /* keepDropdownOpen */);
-          setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
-        }
-      } else {
-        setRowSearch(null);
-      }
-    } catch {
-      if (requestId !== rowSearchRequest.current) return;
-      setRowSearch(null);
-    }
-  };
-
-  const handlePartNumberPaste = async (itemIndex, event) => {
-    const pasted = event.clipboardData?.getData("text") || "";
-    const cleanText = pasted.trim();
-    if (!cleanText) return;
-
-    updateItemField(itemIndex, "partNumber", cleanText);
-
-    const targetElement = event.currentTarget;
-    const requestId = ++rowSearchRequest.current;
-    const box = targetElement.getBoundingClientRect();
-    const position = {
-      left: Math.max(10, Math.min(box.left, window.innerWidth - 470)),
-      top: box.bottom + 4,
-      width: Math.max(box.width, 460),
-    };
-
-    try {
       const results = await fetchStock(cleanText);
       if (requestId !== rowSearchRequest.current) return;
       if (Array.isArray(results) && results.length > 0) {
-        const normTarget = normalizePartNumber(cleanText);
-        const exact =
-          results.find(
-            (r) =>
-              (r.partNumber || "").trim().toLowerCase() === cleanText.toLowerCase() ||
-              (normTarget && normalizePartNumber(r.partNumber) === normTarget),
-          ) || results[0];
-
-        if (exact) {
-          applyProductToItem(itemIndex, exact, null, true /* keepDropdownOpen */);
-        }
-        setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
-      } else {
-        setRowSearch(null);
-      }
-    } catch {
-      if (requestId !== rowSearchRequest.current) return;
-      setRowSearch(null);
-    }
-  };
-
-  const handlePartNumberKeyDown = (itemIndex, event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      if (rowSearch && rowSearch.results?.length > 0) {
-        const val = (event.target.value || "").trim().toLowerCase();
-        const normVal = normalizePartNumber(event.target.value);
-        const exact = rowSearch.results.find(
-          (r) =>
-            (r.partNumber || "").trim().toLowerCase() === val ||
-            (normVal && normalizePartNumber(r.partNumber) === normVal),
-        );
-        const picked = exact || rowSearch.results[0];
-        handleAddProduct(picked, itemIndex);
-        setRowSearch(null);
-      }
-    } else if (event.key === "Escape") {
-      setRowSearch(null);
-    }
-  };
-
-  const handlePartNumberBlur = async (itemIndex, value) => {
-    setTimeout(async () => {
-      const trimmed = (value || "").trim();
-      if (trimmed.length >= 2) {
-        const normTarget = normalizePartNumber(trimmed);
-        try {
-          const results = await fetchStock(trimmed);
-          if (Array.isArray(results) && results.length > 0) {
-            const exact = results.find(
-              (r) =>
-                (r.partNumber || "").trim().toLowerCase() === trimmed.toLowerCase() ||
-                (normTarget && normalizePartNumber(r.partNumber) === normTarget),
-            );
-            if (exact) {
-              setItems((current) => {
-                const target = current[itemIndex];
-                if (!target || target.itemName) return current; // already autofilled
-                return current;
-              });
-              handleAddProduct(exact, itemIndex);
-            }
-          }
-        } catch {}
-      }
-    }, 200);
-  };
-
-  const handleItemNameSearch = async (itemIndex, text, element) => {
-    updateItemField(itemIndex, "itemName", text);
-
-    const requestId = ++rowSearchRequest.current;
-    if (!element) return;
-    const box = element.getBoundingClientRect();
-    const position = {
-      left: Math.max(10, Math.min(box.left, window.innerWidth - 470)),
-      top: box.bottom + 4,
-      width: Math.max(box.width, 460),
-    };
-    const trimmed = (text || "").trim();
-
-    if (trimmed.length < 2) {
-      setRowSearch(null);
-      return;
-    }
-
-    try {
-      const results = await fetchStock(trimmed);
-      if (requestId !== rowSearchRequest.current) return;
-      if (Array.isArray(results) && results.length > 0) {
-        setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
-
-        // Auto-fetch if exact item name match
-        const exact = results.find(
-          (r) => (r.itemName || "").trim().toLowerCase() === trimmed.toLowerCase(),
-        );
-        if (exact) {
-          applyProductToItem(itemIndex, exact, null, true /* keepDropdownOpen */);
-          setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
-        }
-      } else {
-        setRowSearch(null);
-      }
-    } catch {
-      if (requestId !== rowSearchRequest.current) return;
-      setRowSearch(null);
-    }
-  };
-
-  const handleItemNamePaste = async (itemIndex, event) => {
-    const pasted = event.clipboardData?.getData("text") || "";
-    const cleanText = pasted.trim();
-    if (!cleanText) return;
-
-    updateItemField(itemIndex, "itemName", cleanText);
-
-    const targetElement = event.currentTarget;
-    const requestId = ++rowSearchRequest.current;
-    const box = targetElement.getBoundingClientRect();
-    const position = {
-      left: Math.max(10, Math.min(box.left, window.innerWidth - 470)),
-      top: box.bottom + 4,
-      width: Math.max(box.width, 460),
-    };
-
-    try {
-      const results = await fetchStock(cleanText);
-      if (requestId !== rowSearchRequest.current) return;
-      if (Array.isArray(results) && results.length > 0) {
-        const exact = results.find(
-          (r) => (r.itemName || "").trim().toLowerCase() === cleanText.toLowerCase(),
-        );
-        if (exact) {
-          applyProductToItem(itemIndex, exact, null, true /* keepDropdownOpen */);
-        }
         setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
       } else {
         setRowSearch(null);
@@ -1224,8 +1009,8 @@ export default function NewSalePage({ documentMode = "SALE" }) {
    * so stale React state cannot make a second product disappear.
    */
 
-  const applyProductToItem = (index, product, batch = null, keepDropdownOpen = false) => {
-    const productId = product.productId ?? (product.source === "GLOBAL" ? product.id : null);
+  const applyProductToItem = (index, product, batch = null) => {
+    const productId = product.productId ?? null;
     const localProductId = product.localProductId ?? null;
     const inventoryId =
       product.inventoryId ||
@@ -1243,14 +1028,10 @@ export default function NewSalePage({ documentMode = "SALE" }) {
       batch?.sellingPrice ??
         batch?.sellingPriceAmount ??
         product?.sellingPrice ??
-        product?.unitPrice ??
         0,
     );
-    const gstPct = Number(
-      product?.gstPercentage != null && product?.gstPercentage !== ""
-        ? product.gstPercentage
-        : (defaultGstType === "NONE" ? 0 : defaultGstPercentage),
-    );
+    const gstPct =
+      defaultGstType === "NONE" ? 0 : Number(defaultGstPercentage);
     let calculatedMrp = rawMrp;
     let calculatedPrice = rawPrice;
     if (calculatedMrp > 0 && calculatedPrice === 0) {
@@ -1269,7 +1050,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
       partNumber: product.partNumber ?? "",
       itemName:
         product.itemName ?? product.productName ?? product.name ?? "",
-      brandName: product.brandName || product.brand || "",
+      brandName: product.brand || product.brandName || "",
       hsnCode: product.hsnCode || product.hsncode || "",
       stockUnit: product.stockUnit || "PCS",
       packSize: product.packSize ?? null,
@@ -1283,7 +1064,8 @@ export default function NewSalePage({ documentMode = "SALE" }) {
       discountAmount: 0,
       discountValue: 0,
       gstType: defaultGstType === "NONE" ? "NONE" : defaultGstType,
-      gstPercentage: gstPct,
+      gstPercentage:
+        defaultGstType === "NONE" ? 0 : Number(defaultGstPercentage),
       gstAmount: 0,
       taxableAmount: 0,
       lineTotal: 0,
@@ -1296,7 +1078,6 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             ? {
                 ...item,
                 ...itemData,
-                _rowId: item._rowId,
                 quantity:
                   item.quantity && Number(item.quantity) > 0
                     ? item.quantity
@@ -1305,37 +1086,25 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             : item,
         );
       }
-      return [
-        ...current,
-        {
-          ...itemData,
-          _rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        },
-      ];
+      return [...current, itemData];
     });
 
-    if (!keepDropdownOpen) {
-      setRowSearch(null);
-    }
+    setRowSearch(null);
     closeBatchSelector();
   };
 
-  const addProductWithBatch = (product, batch, replaceRowIndex = null, keepDropdownOpen = false) => {
-    applyProductToItem(replaceRowIndex, product, batch, keepDropdownOpen);
+  const addProductWithBatch = (product, batch, replaceRowIndex = null) => {
+    applyProductToItem(replaceRowIndex, product, batch);
   };
 
-  const handleAddProduct = async (product, replaceRowIndex = null, keepDropdownOpen = false) => {
-    if (!selectedStoreId && (product?.storeId || stores.length > 0)) {
-      setSelectedStoreId(String(product?.storeId || stores[0].id));
-    }
-
-    if (!product?.inventoryId && !isProforma) {
+  const handleAddProduct = async (product, replaceRowIndex = null) => {
+    if (!selectedStoreId || (!product?.inventoryId && !isProforma)) {
       return;
     }
 
     if (!isInvoiceEdit || isProforma) {
       // New sales, drafts, and proformas use direct addition or FIFO allocation
-      addProductWithBatch(product, null, replaceRowIndex, keepDropdownOpen);
+      addProductWithBatch(product, null, replaceRowIndex);
       return;
     }
 
@@ -1488,6 +1257,14 @@ const handleItemCreated = async (result, submitted) => {
           };
         }
 
+        if (isProforma) {
+          return {
+            ...item,
+            quantity:
+              Number.isFinite(quantity) && quantity >= 1 ? quantity : 1,
+          };
+        }
+
         return {
           ...item,
           quantity: Math.min(quantity, availableQuantity),
@@ -1545,63 +1322,26 @@ const handleItemCreated = async (result, submitted) => {
 
         if (field === "mrp") {
           const mrp = value === "" ? "" : Math.max(0, Number(value) || 0);
-          // Only auto-recalculate rate if user hasn't manually overridden price or price is empty
-          const shouldAutoCalcRate =
-            !item.isManualPriceOverride ||
-            item.sellingPrice === "" ||
-            Number(item.sellingPrice) === 0;
           const autoRate =
-            shouldAutoCalcRate && mrp !== ""
-              ? columnPriceMode === "GST_INCLUSIVE"
+            mrp === ""
+              ? ""
+              : columnPriceMode === "GST_INCLUSIVE"
                 ? mrp
-                : calculateRateFromMrp(mrp, gstPct)
-              : item.sellingPrice;
+                : calculateRateFromMrp(mrp, gstPct);
           return {
             ...item,
             mrp,
             sellingPrice: autoRate,
+            isManualPriceOverride: false,
           };
         }
 
         if (field === "sellingPrice") {
           const rate = value === "" ? "" : Math.max(0, Number(value) || 0);
-          // Do NOT overwrite MRP if product is autofetched or MRP is already set.
-          // Only auto-calculate MRP on a blank manual entry row.
-          const shouldAutoMrp =
-            (item.mrp === "" || item.mrp == null || Number(item.mrp) === 0) &&
-            !item.productId;
-          const autoMrp =
-            shouldAutoMrp && rate !== ""
-              ? columnPriceMode === "GST_INCLUSIVE"
-                ? rate
-                : calculateMrpFromRate(rate, gstPct)
-              : item.mrp;
           return {
             ...item,
             sellingPrice: rate,
-            mrp: autoMrp,
             isManualPriceOverride: true,
-          };
-        }
-
-        if (field === "gstPercentage") {
-          const newGst = value === "" ? 0 : Number(value) || 0;
-          let newPrice = item.sellingPrice;
-          if (!item.isManualPriceOverride && item.mrp && Number(item.mrp) > 0) {
-            newPrice = calculateRateFromMrp(item.mrp, newGst);
-          }
-          return {
-            ...item,
-            gstPercentage: newGst,
-            sellingPrice: newPrice,
-          };
-        }
-
-        if (field === "brandName" || field === "brand") {
-          return {
-            ...item,
-            brandName: value,
-            brand: value,
           };
         }
 
@@ -1661,6 +1401,8 @@ const handleItemCreated = async (result, submitted) => {
     ===================================================== */
 
   const removeItem = (index) => {
+    // Lines already saved on a completed invoice cannot be deleted.
+    if (isInvoiceEdit && items[index]?.orderItemId) return;
     setItems((current) => {
       const updated = current.filter((_, itemIndex) => itemIndex !== index);
       return updated.length === 0 ? [createEmptyItem()] : updated;
@@ -1704,13 +1446,8 @@ const handleItemCreated = async (result, submitted) => {
 
         billDiscountPercent: normalizePercentage(billDiscountPercent),
 
-        items: activeItems.map((item) => {
-          const rawPrice = Number(item.sellingPrice ?? 0);
-          const gstPct = Number(item.gstPercentage ?? 0);
-          const taxableUnitPrice =
-            columnPriceMode === "GST_INCLUSIVE" && gstPct > 0
-              ? Math.round((rawPrice / (1 + gstPct / 100)) * 100) / 100
-              : rawPrice;
+        items: activeItems.map((item) => ({
+          productId: item.productId ?? null,
 
           return {
             productId: item.productId ?? null,
@@ -1723,12 +1460,17 @@ const handleItemCreated = async (result, submitted) => {
 
             inventoryId: item.inventoryId,
 
-            batchId: item.batchId ?? null,
+          quantity: Number(item.quantity || 1),
 
-            quantity: Number(item.quantity || 1),
-            unitPrice: taxableUnitPrice,
-            sellingPrice: rawPrice,
-            mrp: Number(item.mrp ?? 0),
+          discountPercentage: effectiveDiscountPct(item),
+          discountType:
+            (item.discountMode || discountType) === "AMOUNT"
+              ? "AMOUNT"
+              : "PERCENT",
+          discountValue:
+            (item.discountMode || discountType) === "AMOUNT"
+              ? Number(item.discountAmount ?? item.discountValue ?? 0)
+              : Number(item.discountPercentage ?? 0),
 
             discountPercentage: effectiveDiscountPct(item),
             discountType:
@@ -1780,8 +1522,8 @@ const handleItemCreated = async (result, submitted) => {
                 : null,
             productId: item.productId ?? null,
             localProductId: item.localProductId ?? null,
-            partNumber: item.partNumber ? item.partNumber.trim() : null,
-            itemName: item.itemName?.trim() || item.partNumber?.trim() || "Item",
+            partNumber: item.partNumber ?? null,
+            itemName: item.itemName ?? null,
             brandName: item.brandName ?? null,
             hsnCode: item.hsnCode ?? null,
             mrp: Number(item.mrp ?? 0),
@@ -1871,7 +1613,7 @@ const handleItemCreated = async (result, submitted) => {
               !String(it.inventoryId).startsWith("item-"),
           );
 
-      if (!selectedStoreId || !hasActive) {
+      if (!selectedStoreId || (!isInvoiceEdit && !hasActive)) {
         setCalculation(null);
         setCalcError("");
         setCalcLoading(false);
@@ -1944,7 +1686,7 @@ const handleItemCreated = async (result, submitted) => {
           Number(item.mrp) > 0),
     );
 
-    if (!selectedStoreId || activeValidItems.length === 0) {
+    if (!selectedStoreId || (!isInvoiceEdit && activeValidItems.length === 0)) {
       setCalculation(null);
       setCalcError("");
       setCalcLoading(false);
@@ -1987,9 +1729,7 @@ const handleItemCreated = async (result, submitted) => {
 
     displayRows.forEach(({ item, line }) => {
       const qty = Math.max(0, Number(line?.quantity ?? item.quantity ?? 0) || 0);
-      const rawPrice = item.isManualPriceOverride
-        ? Number(item.sellingPrice ?? 0)
-        : Number(line?.sellingPrice ?? item.sellingPrice ?? 0);
+      const rawPrice = Number(line?.sellingPrice ?? item.sellingPrice ?? 0);
       const gstPct = Number(item.gstPercentage || 0);
       const gstFactor = gstPct / 100;
       const unit =
@@ -1999,31 +1739,25 @@ const handleItemCreated = async (result, submitted) => {
 
       const discountAmt = lineDiscountAmount(item, unit, qty);
       const computedTaxable = Math.max(0, unit * qty - discountAmt);
-      const rowTaxable = item.isManualPriceOverride
-        ? computedTaxable
-        : Number(
-            line?.taxableAmount != null && Number(line.taxableAmount) > 0
-              ? line.taxableAmount
-              : computedTaxable,
-          );
-      const rowGst = item.isManualPriceOverride
-        ? (rowTaxable * gstFactor)
-        : Number(
-            line?.gstAmount != null && Number(line.gstAmount) > 0
-              ? line.gstAmount
-              : (rowTaxable * gstFactor),
-          );
-      const rowTotal = item.isManualPriceOverride
-        ? (rowTaxable + rowGst)
-        : Number(
-            line?.lineTotal != null && Number(line.lineTotal) > 0
-              ? line.lineTotal
-              : (rowTaxable + rowGst),
-          );
+      const rowTaxable = Number(
+        line?.taxableAmount != null && Number(line.taxableAmount) > 0
+          ? line.taxableAmount
+          : computedTaxable,
+      );
+      const rowGst = Number(
+        line?.gstAmount != null && Number(line.gstAmount) > 0
+          ? line.gstAmount
+          : (rowTaxable * gstFactor),
+      );
+      const rowTotal = Number(
+        line?.lineTotal != null && Number(line.lineTotal) > 0
+          ? line.lineTotal
+          : (rowTaxable + rowGst),
+      );
 
       sum.qty += qty;
       sum.mrp += Number(line?.mrp ?? item.mrp ?? 0) * qty;
-      sum.price += rawPrice * qty;
+      sum.price += unit * qty;
       sum.discount += discountAmt;
       sum.taxable += rowTaxable;
       sum.total += rowTotal;
@@ -2040,13 +1774,10 @@ const handleItemCreated = async (result, submitted) => {
     Number(calculation?.igst ?? 0);
 
   const calculatedGstTotal = useMemo(() => {
-    const hasManualPrice = displayRows.some(({ item }) => item.isManualPriceOverride);
-    if (gstTotal > 0 && !hasManualPrice) return gstTotal;
+    if (gstTotal > 0) return gstTotal;
     return displayRows.reduce((acc, { item, line }) => {
       const rowQty = Math.max(0, Number(line?.quantity ?? item.quantity ?? 0) || 0);
-      const rawPrice = item.isManualPriceOverride
-        ? Number(item.sellingPrice ?? 0)
-        : Number(line?.sellingPrice ?? item.sellingPrice ?? 0);
+      const rawPrice = Number(line?.sellingPrice ?? item.sellingPrice ?? 0);
       const gstPct = Number(item.gstPercentage || 0);
       const gstFactor = gstPct / 100;
       const unit =
@@ -2056,46 +1787,19 @@ const handleItemCreated = async (result, submitted) => {
 
       const discountAmt = lineDiscountAmount(item, unit, rowQty);
       const computedTaxable = Math.max(0, unit * rowQty - discountAmt);
-      const rowTaxable = item.isManualPriceOverride
-        ? computedTaxable
-        : Number(
-            line?.taxableAmount != null && Number(line.taxableAmount) > 0
-              ? line.taxableAmount
-              : computedTaxable,
-          );
-      const rowGst = item.isManualPriceOverride
-        ? (rowTaxable * gstFactor)
-        : Number(
-            line?.gstAmount != null && Number(line.gstAmount) > 0
-              ? line.gstAmount
-              : (rowTaxable * gstFactor),
-          );
+      const rowTaxable = Number(
+        line?.taxableAmount != null && Number(line.taxableAmount) > 0
+          ? line.taxableAmount
+          : computedTaxable,
+      );
+      const rowGst = Number(
+        line?.gstAmount != null && Number(line.gstAmount) > 0
+          ? line.gstAmount
+          : (rowTaxable * gstFactor),
+      );
       return acc + rowGst;
     }, 0);
   }, [gstTotal, displayRows, columnPriceMode]);
-
-  const hasManualPrice = useMemo(
-    () => displayRows.some(({ item }) => item.isManualPriceOverride),
-    [displayRows],
-  );
-
-  const effectiveTaxableAmount = hasManualPrice
-    ? totals.taxable
-    : calculation?.taxableAmount != null
-      ? calculation.taxableAmount
-      : totals.taxable;
-
-  const effectiveGstTotal = hasManualPrice
-    ? calculatedGstTotal
-    : gstTotal > 0
-      ? gstTotal
-      : calculatedGstTotal;
-
-  const effectiveGrandTotal = hasManualPrice
-    ? totals.total || (totals.taxable + calculatedGstTotal)
-    : calculation?.netPayable != null
-      ? calculation.netPayable
-      : totals.total || (totals.taxable + calculatedGstTotal);
 
   /* =====================================================
        CUSTOMER
@@ -2103,7 +1807,6 @@ const handleItemCreated = async (result, submitted) => {
 
   const emptyCustomerForm = {
     customerName: "",
-    tradeName: "",
     legalName: "",
     mobileNumber: "",
     gstRegistrationType: isProforma ? "REGISTERED" : "UNREGISTERED",
@@ -2207,12 +1910,9 @@ const handleItemCreated = async (result, submitted) => {
       shippingAddress: shipping,
     });
     setSaleSameAsBilling(Boolean(billing) && billing === shipping);
-    const displayName =
-      customer.legalName &&
-      customer.customerName &&
-      customer.legalName !== customer.customerName
-        ? `${customer.legalName} (${customer.customerName})`
-        : customer.customerName || customer.legalName || "";
+    const displayName = customer.legalName
+      ? `${customer.legalName} (${customer.customerName})`
+      : (customer.customerName ?? "");
     setCustomerSearch(displayName);
     setPhoneSearch(customer.mobileNumber ?? "");
     setCustomerDropdownOpen(false);
@@ -2256,9 +1956,8 @@ const handleItemCreated = async (result, submitted) => {
     setCustomerForm(
       customer
         ? {
-            customerName: legal,
-            tradeName: trade,
-            legalName: legal,
+            customerName: customer.customerName ?? "",
+            legalName: customer.legalName ?? "",
             mobileNumber: customer.mobileNumber ?? "",
             gstRegistrationType:
               customer.gstRegistrationType ??
@@ -2325,16 +2024,9 @@ const handleItemCreated = async (result, submitted) => {
 
     const { billingAddress, shippingAddress, ...customerFields } = customerForm;
 
-    const legalNameVal = customerForm.customerName.trim();
-    const tradeNameVal =
-      isRegistered && customerForm.tradeName?.trim()
-        ? customerForm.tradeName.trim()
-        : legalNameVal;
-
     const payload = {
       ...(isProforma ? customerFields : customerForm),
-      customerName: tradeNameVal,
-      legalName: legalNameVal,
+      legalName: customerForm.legalName?.trim() || null,
       storeId: Number(selectedStoreId),
       customerType: "B2B",
       gstin: customerForm.gstin.trim().toUpperCase() || null,
@@ -2763,7 +2455,6 @@ const handleItemCreated = async (result, submitted) => {
         const proformaPayload = {
           storeId: Number(selectedStoreId),
           customerId: selectedCustomer.id,
-          customerLegalName: (selectedCustomer?.legalName || selectedCustomer?.customerLegalName || customerForm?.legalName || "").trim() || null,
           items: validItems.map((item) => ({
             inventoryId:
               item.inventoryId &&
@@ -2775,8 +2466,8 @@ const handleItemCreated = async (result, submitted) => {
                 : null,
             productId: item.productId ?? null,
             localProductId: item.localProductId ?? null,
-            partNumber: item.partNumber ? item.partNumber.trim() : null,
-            itemName: item.itemName?.trim() || item.partNumber?.trim() || "Item",
+            partNumber: item.partNumber ?? null,
+            itemName: item.itemName ?? null,
             brandName: item.brandName ?? null,
             hsnCode: item.hsnCode ?? null,
             mrp: Number(item.mrp ?? 0),
@@ -3063,7 +2754,6 @@ const handleItemCreated = async (result, submitted) => {
         className="ns-result"
         key={product.inventoryId ?? product.productId ?? index}
         disabled={!isProforma && quantity <= 0}
-        onMouseDown={(e) => e.preventDefault()}
         onClick={() => onPick(product)}
       >
         <div>
@@ -3271,13 +2961,7 @@ const handleItemCreated = async (result, submitted) => {
               key={customer.id}
               onClick={() => selectCustomer(customer)}
             >
-              <strong>
-                {customer.legalName &&
-                customer.customerName &&
-                customer.legalName !== customer.customerName
-                  ? `${customer.legalName} (${customer.customerName})`
-                  : customer.customerName || customer.legalName}
-              </strong>
+              <strong>{customer.legalName ? `${customer.legalName} (${customer.customerName})` : customer.customerName}</strong>
               <small>
                 {customer.mobileNumber}
                 {customer.gstin ? ` · ${customer.gstin}` : ""}
@@ -3427,71 +3111,30 @@ const handleItemCreated = async (result, submitted) => {
               }}
             >
               <colgroup>
-                {colWidths.map((w, i) => (
-                  <col key={i} style={{ width: `${w}px` }} />
+                {[3.5, 12, 14, 5, 7, 8, 5.5, 6.5, 8, 7.5, 7, 9, 4].map((w, i) => (
+                  <col key={i} style={{ width: `${w}%` }} />
                 ))}
               </colgroup>
               <thead>
                 <tr>
-                  <th rowSpan={2} className="ctr ns-th-resizable">
-                    S.No
-                    {renderResizer(0)}
-                  </th>
-                  <th rowSpan={2} className="ns-th-resizable">
-                    Part Number
-                    {renderResizer(1)}
-                  </th>
-                  <th rowSpan={2} className="ns-th-resizable">
-                    Part Name
-                    {renderResizer(2)}
-                  </th>
-                  <th rowSpan={2} className="ns-th-resizable">
-                    Brand
-                    {renderResizer(3)}
-                  </th>
-                  <th rowSpan={2} className="num ns-th-resizable">
-                    Qty
-                    {renderResizer(4)}
-                  </th>
-                  <th rowSpan={2} className="num ns-th-resizable">
-                    MRP
-                    {renderResizer(5)}
-                  </th>
-                  <th rowSpan={2} className="num ns-th-resizable">
+                  <th rowSpan={2}>S.No</th>
+                  <th rowSpan={2}>Part Number</th>
+                  <th rowSpan={2}>Part Name</th>
+                  <th rowSpan={2} className="num">Qty</th>
+                  <th rowSpan={2} className="num">MRP</th>
+                  <th rowSpan={2} className="num">
                     Price / Unit
-                    {renderResizer(6)}
                   </th>
-                  <th colSpan={2} className="ctr ns-th-resizable">
-                    Discount
-                    {renderResizer(8)}
-                  </th>
-                  <th rowSpan={2} className="num ns-th-resizable">
-                    Taxable
-                    {renderResizer(9)}
-                  </th>
-                  <th colSpan={2} className="ctr ns-th-resizable">
-                    GST
-                    {renderResizer(11)}
-                  </th>
-                  <th rowSpan={2} className="num ns-th-resizable">
-                    Total
-                    {renderResizer(12)}
-                  </th>
-                  <th rowSpan={2} className="ctr ns-th-resizable">
-                    Actions
-                    {renderResizer(13)}
-                  </th>
+                  <th colSpan={2} className="ctr">Discount</th>
+                  <th rowSpan={2} className="num">Taxable</th>
+                  <th colSpan={2} className="ctr">GST</th>
+                  <th rowSpan={2} className="num">Total</th>
+                  <th rowSpan={2} className="ctr">Actions</th>
                 </tr>
                 <tr>
-                  <th className="num ns-th-resizable">
-                    Disc %
-                    {renderResizer(7)}
-                  </th>
-                  <th className="num ns-th-resizable">
-                    Disc (₹)
-                    {renderResizer(8)}
-                  </th>
-                  <th className="ns-th-resizable">
+                  <th className="num">Disc %</th>
+                  <th className="num">Disc (₹)</th>
+                  <th>
                     <select
                       className="ns-th-select"
                       value={
@@ -3533,9 +3176,9 @@ const handleItemCreated = async (result, submitted) => {
                 {displayRows.map(
                   ({ item, itemIndex, line, allocationIndex }, index) => {
                     const rowQty = Math.max(0, Number(line?.quantity ?? item.quantity ?? 0) || 0);
-                    const rawPrice = item.isManualPriceOverride
-                      ? Number(item.sellingPrice ?? 0)
-                      : Number(line?.sellingPrice ?? item.sellingPrice ?? 0);
+                    const rawPrice = Number(
+                      line?.sellingPrice ?? item.sellingPrice ?? 0,
+                    );
                     const gstPct = Number(item.gstPercentage || 0);
                     const gstFactor = gstPct / 100;
                     const unitPrice =
@@ -3547,39 +3190,33 @@ const handleItemCreated = async (result, submitted) => {
                     const discountBase = unitPrice * rowQty;
                     const discountAmt = lineDiscountAmount(item, unitPrice, rowQty);
                     const computedTaxable = Math.max(0, unitPrice * rowQty - discountAmt);
-                    const rowTaxable = item.isManualPriceOverride
-                      ? computedTaxable
-                      : Number(
-                          line?.taxableAmount != null && Number(line.taxableAmount) > 0
-                            ? line.taxableAmount
-                            : computedTaxable,
-                        );
+                    const rowTaxable = Number(
+                      line?.taxableAmount != null && Number(line.taxableAmount) > 0
+                        ? line.taxableAmount
+                        : computedTaxable,
+                    );
                     const computedGst = rowTaxable * gstFactor;
-                    const rowGstAmount = item.isManualPriceOverride
-                      ? computedGst
-                      : Number(
-                          line?.gstAmount != null && Number(line.gstAmount) > 0
-                            ? line.gstAmount
-                            : computedGst,
-                        );
-                    const rowTotal = item.isManualPriceOverride
-                      ? (rowTaxable + rowGstAmount)
-                      : Number(
-                          line?.lineTotal != null && Number(line.lineTotal) > 0
-                            ? line.lineTotal
-                            : (rowTaxable + rowGstAmount),
-                        );
+                    const rowGstAmount = Number(
+                      line?.gstAmount != null && Number(line.gstAmount) > 0
+                        ? line.gstAmount
+                        : computedGst,
+                    );
+                    const rowTotal = Number(
+                      line?.lineTotal != null && Number(line.lineTotal) > 0
+                        ? line.lineTotal
+                        : (rowTaxable + rowGstAmount),
+                    );
                     const lockedLine = isInvoiceEdit && Boolean(item.orderItemId);
 
                     return (
                       <tr
-                        key={item._rowId || `row-${itemIndex}-${allocationIndex}`}
+                        key={`${item.inventoryId || "row"}-${line?.batchId ?? item.batchId ?? "pending"}-${itemIndex}-${allocationIndex}`}
                       >
                         <td>{index + 1}</td>
                         <td className="ns-cell-box ns-part">
                           <input
                             type="text"
-                            className="ns-cell-input text-center"
+                            className="ns-cell-input text-left"
                             placeholder="Search / enter part..."
                             value={item.partNumber || ""}
                             disabled={lockedLine || creatingInvoice}
@@ -3589,15 +3226,6 @@ const handleItemCreated = async (result, submitted) => {
                                 event.target.value,
                                 event.currentTarget,
                               )
-                            }
-                            onPaste={(event) =>
-                              handlePartNumberPaste(itemIndex, event)
-                            }
-                            onKeyDown={(event) =>
-                              handlePartNumberKeyDown(itemIndex, event)
-                            }
-                            onBlur={(event) =>
-                              handlePartNumberBlur(itemIndex, event.target.value)
                             }
                             onFocus={(event) => {
                               if ((item.partNumber || "").trim().length >= 2) {
@@ -3614,47 +3242,18 @@ const handleItemCreated = async (result, submitted) => {
                         <td className="ns-cell-box ns-name">
                           <input
                             type="text"
-                            className="ns-cell-input text-center"
+                            className="ns-cell-input text-left"
                             placeholder="Part name"
                             value={item.itemName || ""}
                             disabled={lockedLine || creatingInvoice}
                             onChange={(event) =>
-                              handleItemNameSearch(
-                                itemIndex,
-                                event.target.value,
-                                event.currentTarget,
-                              )
-                            }
-                            onPaste={(event) =>
-                              handleItemNamePaste(itemIndex, event)
-                            }
-                            onFocus={(event) => {
-                              if ((item.itemName || "").trim().length >= 2) {
-                                handleItemNameSearch(
-                                  itemIndex,
-                                  item.itemName,
-                                  event.currentTarget,
-                                );
-                              }
-                            }}
-                            aria-label={`Part name for row ${index + 1}`}
-                          />
-                        </td>
-                        <td className="ns-cell-box ns-brand">
-                          <input
-                            type="text"
-                            className="ns-cell-input text-center"
-                            placeholder="Brand"
-                            value={item.brandName || item.brand || ""}
-                            disabled={lockedLine || creatingInvoice}
-                            onChange={(event) =>
                               updateItemField(
                                 itemIndex,
-                                "brandName",
+                                "itemName",
                                 event.target.value,
                               )
                             }
-                            aria-label={`Brand for row ${index + 1}`}
+                            aria-label={`Part name for row ${index + 1}`}
                           />
                         </td>
                         <td className="ns-cell-box num">
@@ -3662,14 +3261,14 @@ const handleItemCreated = async (result, submitted) => {
                             type="number"
                             min="0"
                             max={isProforma ? undefined : item.availableQuantity}
-                            className="ns-cell-input text-center ns-input-qty"
+                            className="ns-cell-input text-right ns-input-qty"
                             placeholder="0"
                             value={
                               item.quantity === 0 || item.quantity === "" || item.quantity == null
                                 ? ""
                                 : item.quantity
                             }
-                            disabled={creatingInvoice}
+                            disabled={lockedLine || creatingInvoice}
                             onFocus={(event) => event.currentTarget.select()}
                             onChange={(event) =>
                               updateItemQuantity(
@@ -3686,14 +3285,14 @@ const handleItemCreated = async (result, submitted) => {
                             type="number"
                             min="0"
                             step="0.01"
-                            className="ns-cell-input text-center"
+                            className="ns-cell-input text-right"
                             placeholder="0.00"
                             value={
                               item.mrp === 0 || item.mrp === "" || item.mrp == null
                                 ? ""
                                 : item.mrp
                             }
-                            disabled={creatingInvoice}
+                            disabled={lockedLine || creatingInvoice}
                             onFocus={(event) => event.currentTarget.select()}
                             onChange={(event) =>
                               updateItemField(
@@ -3710,7 +3309,7 @@ const handleItemCreated = async (result, submitted) => {
                             type="number"
                             min="0"
                             step="0.01"
-                            className="ns-cell-input text-center ns-input-price"
+                            className="ns-cell-input text-right ns-input-price"
                             placeholder="0.00"
                             value={
                               item.sellingPrice === 0 ||
@@ -3719,7 +3318,7 @@ const handleItemCreated = async (result, submitted) => {
                                 ? ""
                                 : item.sellingPrice
                             }
-                            disabled={creatingInvoice}
+                            disabled={lockedLine || creatingInvoice}
                             title={columnPriceMode === "GST_INCLUSIVE" ? "Unit price (including tax)" : "Unit price (excluding tax)"}
                             onFocus={(event) => event.currentTarget.select()}
                             onChange={(event) =>
@@ -3738,14 +3337,14 @@ const handleItemCreated = async (result, submitted) => {
                             min="0"
                             max="100"
                             step="0.01"
-                            className="ns-cell-input text-center"
+                            className="ns-cell-input text-right"
                             placeholder="0"
                             value={
                               !discountPct || discountPct === 0
                                 ? ""
                                 : Number(discountPct.toFixed(2))
                             }
-                            disabled={creatingInvoice}
+                            disabled={lockedLine || creatingInvoice}
                             onFocus={(e) => e.currentTarget.select()}
                             onChange={(e) =>
                               updateItemDiscountPercent(itemIndex, e.target.value)
@@ -3758,14 +3357,14 @@ const handleItemCreated = async (result, submitted) => {
                             type="number"
                             min="0"
                             step="0.01"
-                            className="ns-cell-input text-center"
+                            className="ns-cell-input text-right"
                             placeholder="0.00"
                             value={
                               !discountAmt || discountAmt === 0
                                 ? ""
                                 : Number(discountAmt.toFixed(2))
                             }
-                            disabled={creatingInvoice}
+                            disabled={lockedLine || creatingInvoice}
                             onFocus={(e) => e.currentTarget.select()}
                             onChange={(e) =>
                               updateItemDiscountAmount(
@@ -3821,7 +3420,7 @@ const handleItemCreated = async (result, submitted) => {
               {displayRows.length > 0 && (
                 <tfoot>
                   <tr>
-                    <td colSpan={4}>TOTAL</td>
+                    <td colSpan={3}>TOTAL</td>
                     <td className="num">{totals.qty || 0}</td>
                     <td className="num">{money(totals.mrp)}</td>
                     <td className="num">{money(totals.price)}</td>
@@ -4055,7 +3654,7 @@ const handleItemCreated = async (result, submitted) => {
             <div className="ns-overall ns-middle-grand-total">
               <label>Grand Total</label>
               <div className="ns-grand-display">
-                <strong>{money(effectiveGrandTotal)}</strong>
+                <strong>{money(calculation?.netPayable != null ? calculation.netPayable : (totals.total || (totals.taxable + calculatedGstTotal)))}</strong>
               </div>
             </div>
 
@@ -4082,7 +3681,7 @@ const handleItemCreated = async (result, submitted) => {
             {Number(receivedAmount) > 0 && (
               <div className="ns-balance-due-display">
                 <span>Balance Due:</span>
-                <strong>{money(Math.max(0, Number(effectiveGrandTotal) - Number(receivedAmount)))}</strong>
+                <strong>{money(Math.max(0, (calculation?.netPayable != null ? Number(calculation.netPayable) : Number(totals.total || (totals.taxable + calculatedGstTotal))) - Number(receivedAmount)))}</strong>
               </div>
             )}
           </div>
@@ -4096,7 +3695,11 @@ const handleItemCreated = async (result, submitted) => {
             <div className="ns-term" style={{ "--accent": "#64748b" }}>
               <span>Taxable amount</span>
               <strong>
-                {money(effectiveTaxableAmount)}
+                {money(
+                  calculation?.taxableAmount != null
+                    ? calculation.taxableAmount
+                    : totals.taxable,
+                )}
               </strong>
             </div>
 
@@ -4106,7 +3709,11 @@ const handleItemCreated = async (result, submitted) => {
                 <div className="ns-term" style={{ "--accent": "#2563eb" }}>
                   <span>IGST</span>
                   <strong>
-                    {money(effectiveGstTotal)}
+                    {money(
+                      calculation?.igst != null
+                        ? calculation.igst
+                        : calculatedGstTotal,
+                    )}
                   </strong>
                 </div>
               </>
@@ -4116,14 +3723,22 @@ const handleItemCreated = async (result, submitted) => {
                 <div className="ns-term" style={{ "--accent": "#2563eb" }}>
                   <span>CGST</span>
                   <strong>
-                    {money(effectiveGstTotal / 2)}
+                    {money(
+                      calculation?.cgst != null
+                        ? calculation.cgst
+                        : calculatedGstTotal / 2,
+                    )}
                   </strong>
                 </div>
                 <b className="ns-op">+</b>
                 <div className="ns-term" style={{ "--accent": "#7c3aed" }}>
                   <span>SGST</span>
                   <strong>
-                    {money(effectiveGstTotal / 2)}
+                    {money(
+                      calculation?.sgst != null
+                        ? calculation.sgst
+                        : calculatedGstTotal / 2,
+                    )}
                   </strong>
                 </div>
               </>
@@ -4149,7 +3764,11 @@ const handleItemCreated = async (result, submitted) => {
             <div className="ns-term grand">
               <span>Grand total</span>
               <strong>
-                {money(effectiveGrandTotal)}
+                {money(
+                  calculation?.netPayable != null
+                    ? calculation.netPayable
+                    : totals.total || (totals.taxable + calculatedGstTotal),
+                )}
               </strong>
             </div>
           </div>
@@ -4159,21 +3778,6 @@ const handleItemCreated = async (result, submitted) => {
         </div>
 
         <div className="ns-foot-right">
-          {isProforma && (
-            <button
-              type="button"
-              className="ns-btn"
-              disabled={creatingInvoice}
-              onClick={() =>
-                navigate(
-                  isSuperAdmin ? "/owner/sales/proforma" : "/store/sales/proforma"
-                )
-              }
-            >
-              Cancel
-            </button>
-          )}
-
           {(!isInvoiceEdit || isProforma) && !createdOrderId && (
             <button
               type="button"
@@ -4255,44 +3859,10 @@ const handleItemCreated = async (result, submitted) => {
           }}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "6px 12px",
-              background: "#f8fafc",
-              borderBottom: "1px solid #e2e8f0",
-              fontSize: "11px",
-              fontWeight: 600,
-              color: "#64748b",
-            }}
-          >
-            <span>Suggestions ({rowSearch.results.length})</span>
-            <button
-              type="button"
-              onClick={() => setRowSearch(null)}
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "2px 4px",
-                borderRadius: "4px",
-                color: "#64748b",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-              title="Close suggestions"
-              aria-label="Close suggestions"
-            >
-              <X size={14} />
-            </button>
-          </div>
           {rowSearch.results.map((product, index) =>
-            renderStockResult(product, index, (picked) => {
-              handleAddProduct(picked, rowSearch.itemIndex);
-              setRowSearch(null);
-            }),
+            renderStockResult(product, index, (picked) =>
+              handleAddProduct(picked, rowSearch.itemIndex),
+            ),
           )}
         </div>
       )}
@@ -4320,20 +3890,22 @@ const handleItemCreated = async (result, submitted) => {
 
             <div className="ns-form">
               <label>
-                {customerForm.gstRegistrationType !== "UNREGISTERED" ||
-                Boolean(customerForm.gstin?.trim()) ||
-                isProforma
-                  ? "Customer Name (Legal Name) *"
-                  : "Customer Name *"}
+                Legal Name {isProforma ? "*" : "(Optional)"}
                 <input
                   className="ns-input"
-                  placeholder={
-                    customerForm.gstRegistrationType !== "UNREGISTERED" ||
-                    Boolean(customerForm.gstin?.trim()) ||
-                    isProforma
-                      ? "Legal company name as per GST certificate"
-                      : "Customer Name"
+                  placeholder="Legal Company / Registered Trade Name"
+                  value={customerForm.legalName || ""}
+                  onChange={(event) =>
+                    handleCustomerFormChange("legalName", event.target.value)
                   }
+                />
+              </label>
+
+              <label>
+                Customer Name / Trade Name *
+                <input
+                  className="ns-input"
+                  placeholder="Customer or Trade Name"
                   value={customerForm.customerName}
                   onChange={(event) =>
                     handleCustomerFormChange("customerName", event.target.value)

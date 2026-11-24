@@ -30,6 +30,27 @@ function normalizePermissions(list) {
     return [...new Set(normalized)];
 }
 
+// Normalize role name - handles variations like "SUPER_ADMIN", "Super Administrator", "SUPER ADMINISTRATOR"
+export function normalizeRoleName(role) {
+    if (!role) return "";
+    const normalized = role.toUpperCase().trim();
+    if (normalized === "SUPER_ADMIN" || normalized === "SUPER ADMINISTRATOR") {
+        return "SUPER_ADMIN";
+    }
+    if (normalized === "STORE_OWNER" || normalized === "STORE MANAGER") {
+        return "STORE_OWNER";
+    }
+    if (normalized === "CASHIER") return "CASHIER";
+    if (normalized === "SALESPERSON" || normalized === "STORE SALESPERSON") {
+        return "SALESPERSON";
+    }
+    if (normalized === "PROCUREMENT" || normalized === "PROCUREMENT SPECIALIST") {
+        return "PROCUREMENT";
+    }
+    if (normalized === "USER") return "USER";
+    return normalized;
+}
+
 function writeStoredPermissions(nextPermissions) {
     const currentStored = readStoredUser();
     if (currentStored) {
@@ -135,7 +156,8 @@ export function AuthProvider({ children }) {
         return refreshPermissions(nextStoreId);
     }, [refreshPermissions]);
 
-    const isSuperAdmin = (user?.role || "").toUpperCase() === "SUPER_ADMIN";
+    const roleUpper = normalizeRoleName(user?.role);
+    const isSuperAdmin = roleUpper === "SUPER_ADMIN";
 
     const hasPermission = useCallback(
         (code) => Boolean(code) && (isSuperAdmin || permissions.includes(code)),

@@ -16,18 +16,18 @@ function UnauthorizedPage() {
             return;
         }
         const role = (user.role || "").toUpperCase();
-        if (role === "SUPER_ADMIN") {
+        if (role === "SUPER_ADMIN" || role === "SUPER ADMINISTRATOR") {
             navigate("/owner/dashboard");
-        } else if (role === "STORE_OWNER") {
+        } else if (role === "STORE_OWNER" || role === "STORE MANAGER") {
             navigate("/store/dashboard");
-        } else if (role === "CASHIER") {
+        } else if (role === "CASHIER" || role === "STORE CASHIER") {
             navigate("/pos");
-        } else if (role === "PROCUREMENT") {
+        } else if (role === "PROCUREMENT" || role === "PROCUREMENT SPECIALIST") {
             navigate("/store/purchases");
-        } else if (role === "SALESPERSON") {
+        } else if (role === "SALESPERSON" || role === "STORE SALESPERSON") {
             navigate("/salesperson/sales/leads");
         } else {
-            navigate("/store/sales");
+            navigate("/owner/dashboard");
         }
     };
 

@@ -160,6 +160,7 @@ const buildInvoiceSaleDoc = ({ invoice, items, payments, collectedBy, totals, ha
           `Registration: ${registration}`,
           `State / Place of Supply: ${text(invoice.placeOfSupply || invoice.customerState)}`,
         ] : []),
+        billingAddress && String(billingAddress),
         invoice.customerEmail && `Email: ${invoice.customerEmail}`,
       ].filter(Boolean),
     },

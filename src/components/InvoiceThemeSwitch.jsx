@@ -122,6 +122,11 @@ export function SaleDocumentSheet({ doc, className = "", id, sheetRef }) {
       <div className="vy-party">
         <h3>Bill To</h3>
         <strong className="vy-name">{saleDash(doc.billTo.name)}</strong>
+        {doc.billTo.secondaryName && (
+          <p className="vy-secondary-name" style={{ fontWeight: 600, color: "#334155", margin: "2px 0 4px" }}>
+            {doc.billTo.secondaryName}
+          </p>
+        )}
         {doc.billTo.lines.map((line, index) => <p key={index}>{line}</p>)}
       </div>
       {hasShipTo && <div className="vy-party">

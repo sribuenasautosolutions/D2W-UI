@@ -29,12 +29,11 @@ export function saleCalculationRows(items, calculation, isInvoiceEdit = false) {
         for (let index = 0; index < lines.length; index++) {
             const line = lines[index];
             if (used.has(index)) continue;
-            const matches = isInvoiceEdit
-                ? (requestIdx !== -1 && index === requestIdx)
-                : line.requestLineIndex != null
-                    ? (requestIdx !== -1 && line.requestLineIndex === requestIdx)
-                    : String(line.inventoryId) === String(item.inventoryId)
-                        && (item.batchId == null || String(line.batchId) === String(item.batchId));
+            const matches = isInvoiceEdit ? index === itemIndex
+                : line.requestLineIndex != null ? line.requestLineIndex === itemIndex
+                : (line.inventoryId != null && item.inventoryId != null && !String(item.inventoryId).startsWith("row-") && !String(item.inventoryId).startsWith("item-") && !String(item.inventoryId).startsWith("manual-"))
+                    ? String(line.inventoryId) === String(item.inventoryId) && (item.batchId == null || String(line.batchId) === String(item.batchId))
+                    : index === itemIndex;
             if (!matches) continue;
             used.add(index);
             allocations.push(line);
