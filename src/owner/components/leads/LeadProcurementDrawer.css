@@ -4589,15 +4589,56 @@
     font-weight: 600 !important;
 }
 
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(1) { width: var(--fu-col-pn, 17%) !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(2) { width: var(--fu-col-name, 16%) !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(3) { width: var(--fu-col-mrp, 12%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(1) { width: var(--fu-col-pn, 14%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(2) { width: var(--fu-col-name, 22%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(3) { width: var(--fu-col-mrp, 11%) !important; }
 .lpt-table--followup-lite.procurement-grid-table col:nth-child(4) { width: var(--fu-col-qty, 8%) !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(5) { width: var(--fu-col-src, 10%) !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(6) { width: var(--fu-col-vendor, 11%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(5) { width: var(--fu-col-src, 9%) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(6) { width: var(--fu-col-vendor, 12%) !important; }
 .lpt-table--followup-lite.procurement-grid-table col:nth-child(7) { width: var(--fu-col-avail, 13%) !important; }
-.lpt-table--followup-lite.procurement-grid-table col:nth-child(8) { width: var(--fu-col-eta, 13%) !important; }
-.lpt-table--followup-lite.procurement-grid-table.is-col-resized { min-width: var(--fu-table-min, 860px) !important; }
+.lpt-table--followup-lite.procurement-grid-table col:nth-child(8) { width: var(--fu-col-eta, 11%) !important; }
+.lpt-table--followup-lite.procurement-grid-table { min-width: 980px !important; }
+.lpt-table--followup-lite.procurement-grid-table.is-col-resized { min-width: var(--fu-table-min, 980px) !important; }
 .lpt-table--followup-lite.procurement-grid-table th.fu-th-resizable { position: relative; }
+
+.pd-table.procurement-grid-table col:nth-child(1) { width: var(--pd-col-pn, 135px) !important; }
+.pd-table.procurement-grid-table col:nth-child(2) { width: var(--pd-col-name, 175px) !important; }
+.pd-table.procurement-grid-table col:nth-child(3) { width: var(--pd-col-mrp, 110px) !important; }
+.pd-table.procurement-grid-table col:nth-child(4) { width: var(--pd-col-qty, 90px) !important; }
+.pd-table.procurement-grid-table col:nth-child(5) { width: var(--pd-col-src, 115px) !important; }
+.pd-table.procurement-grid-table col:nth-child(6) { width: var(--pd-col-avail, 145px) !important; }
+.pd-table.procurement-grid-table col:nth-child(7) { width: var(--pd-col-eta, 135px) !important; }
+.pd-table.procurement-grid-table col:nth-child(8) { width: 50px !important; }
+
+.pd-table.procurement-grid-table { min-width: 955px !important; }
+.pd-table.procurement-grid-table.is-col-resized { min-width: var(--pd-table-min, 955px) !important; }
+.pd-table.procurement-grid-table th.fu-th-resizable { position: relative; }
 .fu-col-resizer { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; z-index: 2; }
 .fu-col-resizer:hover, .fu-col-resizer:active { background: rgba(37, 99, 235, 0.35); }
+
+.lpt-table--followup-lite.procurement-grid-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 6px 10px !important;
+}
+
+.fu-revert-cols-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.fu-revert-cols-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}

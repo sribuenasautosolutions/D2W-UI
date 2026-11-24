@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Search,
@@ -13,24 +12,14 @@ import {
     AlertCircle,
     RefreshCw,
     LockKeyhole,
+    SlidersHorizontal,
+    Copy,
+    ChevronRight,
+    ChevronLeft,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import api from "../../services/api";
 import { useAuth } from "../../auth/AuthContext";
-
-const COLORS = {
-    ink: "#172B42",
-    muted: "#64748B",
-    primary: "#245BDB",
-    primarySoft: "#EFF4FF",
-    border: "#E2E8F0",
-    borderSoft: "#EDF1F5",
-    surface: "#FFFFFF",
-    canvas: "#F7F9FC",
-    success: "#15803D",
-    successSoft: "#F0FDF4",
-    danger: "#B42318",
-    dangerSoft: "#FEF3F2",
-};
 
 const emptyForm = {
     name: "",
@@ -39,96 +28,41 @@ const emptyForm = {
     permissions: [],
 };
 
-const styles = {
-    page: {
-        maxWidth: 1440,
-        margin: "0 auto",
-        color: COLORS.ink,
-        fontFamily: "var(--app-font)",
-    },
-    header: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: 16,
-        marginBottom: 24,
-    },
-    title: {
-        fontSize: 25,
-        fontWeight: 700,
-        letterSpacing: "-0.5px",
-    },
-    subtitle: {
-        color: COLORS.muted,
-        fontSize: 13,
-        marginTop: 5,
-    },
-    button: {
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        minHeight: 38,
-        padding: "0 14px",
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 8,
-        background: "#fff",
-        color: COLORS.ink,
-        fontWeight: 600,
-        cursor: "pointer",
-    },
-    primaryButton: {
-        background: COLORS.primary,
-        borderColor: COLORS.primary,
-        color: "#fff",
-    },
-    panel: {
-        background: COLORS.surface,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 10,
-    },
-    input: {
-        width: "100%",
-        minHeight: 40,
-        padding: "8px 11px",
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 7,
-        background: "#fff",
-        color: COLORS.ink,
-        outlineOffset: 1,
-    },
-    label: {
-        display: "block",
-        fontSize: 12,
-        fontWeight: 650,
-        color: "#475569",
-        marginBottom: 7,
-    },
-    tableHead: {
-        background: "#F8FAFC",
-        color: COLORS.muted,
-        fontSize: 11,
-        fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: "0.45px",
-    },
-    tableCell: {
-        padding: "14px 16px",
-        borderTop: `1px solid ${COLORS.borderSoft}`,
-        verticalAlign: "middle",
-    },
-};
+function toTitleCase(str) {
+    if (!str || typeof str !== "string") return "";
+    if (str.includes("_") || str === str.toUpperCase()) {
+        return str
+            .toLowerCase()
+            .split(/[_\s]+/)
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+    }
+    return str;
+}
+
+function formatPermissionAction(code) {
+    if (!code) return "";
+    let action = code;
+    if (action.includes(".")) {
+        const parts = action.split(".");
+        action = parts[parts.length - 1];
+    } else if (action.includes(":")) {
+        const parts = action.split(":");
+        action = parts[parts.length - 1];
+    } else if (action.includes("_")) {
+        const parts = action.split("_");
+        action = parts[parts.length - 1];
+    }
+    return action.toLowerCase();
+}
 
 function getErrorMessage(error, fallback) {
     const data = error?.response?.data;
-
     if (typeof data === "string" && data.trim()) return data;
     if (data?.message) return data.message;
     if (Array.isArray(data?.errors) && data.errors.length) {
         return data.errors[0];
     }
-
     return fallback;
 }
 
@@ -148,22 +82,24 @@ function RoleManagementPage() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState("");
     const [storeLoadError, setStoreLoadError] = useState("");
-    const [success, setSuccess] = useState("");
-
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("ALL");
 
+    // Drawer state
     const [formOpen, setFormOpen] = useState(false);
+    const [drawerExpanded, setDrawerExpanded] = useState(false);
     const [editingRole, setEditingRole] = useState(null);
     const [form, setForm] = useState(emptyForm);
-    const [permissionSearch, setPermissionSearch] = useState("");
     const [formError, setFormError] = useState("");
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        setError("");
+    // In-drawer permission controls
+    const [leftRoleSearch, setLeftRoleSearch] = useState("");
+    const [permSearch, setPermSearch] = useState("");
+    const [selectedRefRoleName, setSelectedRefRoleName] = useState(null);
+
+    const loadData = useCallback(async (showSpinner = true) => {
+        if (showSpinner) setLoading(true);
         setStoreLoadError("");
 
         try {
@@ -173,7 +109,6 @@ function RoleManagementPage() {
                 api.get("/access-control/roles"),
                 api.get("/access-control/permissions"),
                 api.get("/access-control/stores").catch((storeRequestError) => {
-                    console.error("Failed to load stores:", storeRequestError);
                     storeFailed = true;
                     storeFailureMessage = getErrorMessage(
                         storeRequestError,
@@ -186,26 +121,19 @@ function RoleManagementPage() {
             const [roleResponse, permissionResponse, storeResponse] =
                 await Promise.all(requests);
 
-            setRoles(
-                Array.isArray(roleResponse.data)
-                    ? roleResponse.data
-                    : []
-            );
+            setRoles(Array.isArray(roleResponse.data) ? roleResponse.data : []);
 
             const permissionData = Array.isArray(permissionResponse.data)
                 ? permissionResponse.data
                 : [];
 
-            // /access-control/permissions returns PermissionDefinition entities
-            // (isActive), while /permissions returns PermissionResponseDTO (active).
-            // Normalize both shapes so the page has one consistent permission model.
             const normalizedPermissions = permissionData
                 .filter(Boolean)
-                .map((permission) => ({
-                    ...permission,
-                    active: permission.active ?? permission.isActive,
+                .map((p) => ({
+                    ...p,
+                    active: p.active ?? p.isActive,
                 }))
-                .filter((permission) => permission.active !== false);
+                .filter((p) => p.active !== false);
 
             setPermissions(normalizedPermissions);
 
@@ -217,19 +145,20 @@ function RoleManagementPage() {
                         ? storeData.content
                         : []
             );
+
             if (storeFailed) {
                 setStoreLoadError(storeFailureMessage);
-                setError(storeFailureMessage);
+                toast.error(storeFailureMessage);
             }
         } catch (requestError) {
-            setError(
+            toast.error(
                 getErrorMessage(
                     requestError,
                     "Unable to load role management data."
                 )
             );
         } finally {
-            setLoading(false);
+            if (showSpinner) setLoading(false);
         }
     }, []);
 
@@ -246,8 +175,8 @@ function RoleManagementPage() {
             stores.length === 1 &&
             !form.storeId
         ) {
-            setForm((previous) => ({
-                ...previous,
+            setForm((prev) => ({
+                ...prev,
                 storeId: String(stores[0].id),
             }));
         }
@@ -267,23 +196,23 @@ function RoleManagementPage() {
                     setDelegatedPermissions(
                         data
                             .filter(Boolean)
-                            .map((permission) => ({
-                                ...permission,
-                                active: permission.active ?? permission.isActive,
+                            .map((p) => ({
+                                ...p,
+                                active: p.active ?? p.isActive,
                             }))
-                            .filter((permission) => permission.active !== false)
+                            .filter((p) => p.active !== false)
                     );
                 }
             })
             .catch((requestError) => {
                 if (!cancelled) {
                     setDelegatedPermissions([]);
-                    setFormError(
-                        getErrorMessage(
-                            requestError,
-                            "Unable to load delegated permissions for this store."
-                        )
+                    const msg = getErrorMessage(
+                        requestError,
+                        "Unable to load store permissions."
                     );
+                    setFormError(msg);
+                    toast.error(msg);
                 }
             });
 
@@ -294,10 +223,7 @@ function RoleManagementPage() {
 
     const storeName = useCallback(
         (storeId) => {
-            const store = stores.find(
-                (item) => String(item.id) === String(storeId)
-            );
-
+            const store = stores.find((s) => String(s.id) === String(storeId));
             return store?.storeName || `Store #${storeId}`;
         },
         [stores]
@@ -305,15 +231,12 @@ function RoleManagementPage() {
 
     const filteredRoles = useMemo(() => {
         const query = search.trim().toLowerCase();
-
         return roles.filter((role) => {
             const matchesSearch =
                 !query ||
                 role.name?.toLowerCase().includes(query) ||
                 role.scope?.toLowerCase().includes(query) ||
-                role.permissions?.some((code) =>
-                    code.toLowerCase().includes(query)
-                );
+                role.permissions?.some((c) => c.toLowerCase().includes(query));
 
             const matchesStatus =
                 statusFilter === "ALL" ||
@@ -324,33 +247,76 @@ function RoleManagementPage() {
         });
     }, [roles, search, statusFilter]);
 
-    const groupedPermissions = useMemo(() => {
-        const query = permissionSearch.trim().toLowerCase();
-        const sourcePermissions =
-            form.scope === "STORE"
-                ? (form.storeId ? delegatedPermissions : [])
-                : permissions;
+    const availablePermissions = useMemo(() => {
+        return form.scope === "STORE"
+            ? (form.storeId ? delegatedPermissions : [])
+            : permissions;
+    }, [form.scope, form.storeId, delegatedPermissions, permissions]);
 
-        const filtered = sourcePermissions.filter((permission) => {
+    const groupedPermissions = useMemo(() => {
+        const query = permSearch.trim().toLowerCase();
+        const filtered = availablePermissions.filter((p) => {
             return (
                 !query ||
-                permission.code?.toLowerCase().includes(query) ||
-                permission.module?.toLowerCase().includes(query) ||
-                permission.description?.toLowerCase().includes(query)
+                p.code?.toLowerCase().includes(query) ||
+                p.module?.toLowerCase().includes(query) ||
+                p.description?.toLowerCase().includes(query)
             );
         });
 
         return filtered.reduce((groups, permission) => {
             const module = permission.module || "Other";
-
             if (!groups[module]) groups[module] = [];
             groups[module].push(permission);
-
             return groups;
         }, {});
-    }, [permissions, delegatedPermissions, form.scope, form.storeId, permissionSearch]);
+    }, [availablePermissions, permSearch]);
 
-    const activeCount = roles.filter((role) => role.active).length;
+    const consolidatedReferenceRoles = useMemo(() => {
+        const query = leftRoleSearch.trim().toLowerCase();
+        const map = new Map();
+
+        roles.forEach((r) => {
+            const normalizedName = (r.name || "").trim().toLowerCase();
+            if (!normalizedName) return;
+
+            if (!map.has(normalizedName)) {
+                map.set(normalizedName, {
+                    key: normalizedName,
+                    name: r.name,
+                    scope: r.scope,
+                    stores: [],
+                    permissions: r.permissions || [],
+                });
+            }
+
+            const item = map.get(normalizedName);
+            if (r.scope === "STORE" && r.storeId) {
+                const sName = storeName(r.storeId);
+                if (sName && !item.stores.includes(sName)) {
+                    item.stores.push(sName);
+                }
+            } else if (r.scope === "SYSTEM" && !item.stores.includes("Platform Global")) {
+                item.stores.push("Platform Global");
+            }
+
+            if ((r.permissions?.length || 0) > item.permissions.length) {
+                item.permissions = r.permissions;
+            }
+        });
+
+        const list = Array.from(map.values());
+        return list.filter((r) => {
+            return (
+                !query ||
+                r.name?.toLowerCase().includes(query) ||
+                r.scope?.toLowerCase().includes(query) ||
+                r.stores.some((s) => s.toLowerCase().includes(query))
+            );
+        });
+    }, [roles, leftRoleSearch, storeName]);
+
+    const activeCount = roles.filter((r) => r.active).length;
     const inactiveCount = roles.length - activeCount;
 
     const openCreate = () => {
@@ -367,10 +333,11 @@ function RoleManagementPage() {
             scope: isSuperAdmin ? "SYSTEM" : "STORE",
             storeId: defaultStoreId,
         });
-        setPermissionSearch("");
         setFormError("");
-        setError("");
-        setSuccess("");
+        setSelectedRefRoleName(null);
+        setLeftRoleSearch("");
+        setPermSearch("");
+        setDrawerExpanded(false);
         setFormOpen(true);
     };
 
@@ -382,71 +349,132 @@ function RoleManagementPage() {
             storeId: role.storeId ? String(role.storeId) : "",
             permissions: role.permissions || [],
         });
-        setPermissionSearch("");
         setFormError("");
-        setError("");
-        setSuccess("");
+        setSelectedRefRoleName((role.name || "").trim().toLowerCase());
+        setLeftRoleSearch("");
+        setPermSearch("");
+        setDrawerExpanded(false);
         setFormOpen(true);
     };
 
     const closeForm = () => {
         if (saving) return;
         setFormOpen(false);
+        setDrawerExpanded(false);
         setEditingRole(null);
         setForm(emptyForm);
     };
 
     const updateField = (field, value) => {
-        setForm((previous) => ({
-            ...previous,
+        setForm((prev) => ({
+            ...prev,
             [field]: value,
         }));
     };
 
     const togglePermission = (code) => {
-        setForm((previous) => {
-            const selected = previous.permissions.includes(code);
-
+        setForm((prev) => {
+            const selected = prev.permissions.includes(code);
             return {
-                ...previous,
+                ...prev,
                 permissions: selected
-                    ? previous.permissions.filter((item) => item !== code)
-                    : [...previous.permissions, code],
+                    ? prev.permissions.filter((item) => item !== code)
+                    : [...prev.permissions, code],
             };
         });
+    };
+
+    const toggleModuleAll = (modulePermissions) => {
+        const moduleCodes = modulePermissions.map((p) => p.code);
+        const allSelected = moduleCodes.every((code) =>
+            form.permissions.includes(code)
+        );
+
+        setForm((prev) => {
+            if (allSelected) {
+                return {
+                    ...prev,
+                    permissions: prev.permissions.filter(
+                        (c) => !moduleCodes.includes(c)
+                    ),
+                };
+            }
+            return {
+                ...prev,
+                permissions: Array.from(
+                    new Set([...prev.permissions, ...moduleCodes])
+                ),
+            };
+        });
+    };
+
+    const selectAllPermissions = () => {
+        const allCodes = availablePermissions.map((p) => p.code);
+        setForm((prev) => ({
+            ...prev,
+            permissions: Array.from(new Set([...prev.permissions, ...allCodes])),
+        }));
+        toast.success(`Selected all ${allCodes.length} permissions.`);
+    };
+
+    const clearAllPermissions = () => {
+        setForm((prev) => ({ ...prev, permissions: [] }));
+        toast("Cleared all permissions.", { icon: "🧹" });
+    };
+
+    const copyPermissionsFromRole = (role) => {
+        if (!role.permissions || !role.permissions.length) {
+            toast("This role template has no permissions.", { icon: "ℹ️" });
+            return;
+        }
+
+        const validCodes = availablePermissions.map((p) => p.code);
+        const applicable = role.permissions.filter((c) => validCodes.includes(c));
+
+        setSelectedRefRoleName(role.key || (role.name || "").trim().toLowerCase());
+        setForm((prev) => ({
+            ...prev,
+            permissions: applicable.length ? applicable : [...role.permissions],
+        }));
+
+        toast.success(
+            `Loaded ${applicable.length || role.permissions.length} permissions from ${toTitleCase(role.name)}`
+        );
     };
 
     const saveRole = async (event) => {
         event.preventDefault();
         setFormError("");
-        setSuccess("");
 
         if (!form.name.trim()) {
-            setFormError("Enter a role name.");
+            const msg = "Enter a role name.";
+            setFormError(msg);
+            toast.error(msg);
             return;
         }
 
         if (form.scope === "STORE" && !form.storeId) {
-            setFormError("Select a store for this role.");
+            const msg = "Select a store for this role.";
+            setFormError(msg);
+            toast.error(msg);
             return;
         }
 
         if (
             form.scope === "STORE" &&
             !isSuperAdmin &&
-            !stores.some((store) => String(store.id) === String(form.storeId))
+            !stores.some((s) => String(s.id) === String(form.storeId))
         ) {
-            setFormError("Select an authorized store for this role.");
+            const msg = "Select an authorized store for this role.";
+            setFormError(msg);
+            toast.error(msg);
             return;
         }
 
         const payload = {
             name: form.name.trim(),
             scope: form.scope,
-            storeId:
-                form.scope === "STORE"
-                    ? Number(form.storeId)
-                    : null,
+            storeId: form.scope === "STORE" ? Number(form.storeId) : null,
             permissions: form.permissions,
         };
 
@@ -454,32 +482,29 @@ function RoleManagementPage() {
 
         try {
             if (editingRole) {
-                await api.put(
-                    `/access-control/roles/${editingRole.id}`,
-                    payload
-                );
+                await api.put(`/access-control/roles/${editingRole.id}`, payload);
             } else {
                 await api.post("/access-control/roles", payload);
             }
 
             setFormOpen(false);
+            setDrawerExpanded(false);
             setEditingRole(null);
             setForm(emptyForm);
 
-            setSuccess(
-                editingRole
-                    ? "Role updated successfully."
-                    : "Role created successfully."
-            );
+            const successMsg = editingRole
+                ? "Role updated successfully."
+                : "Role created successfully.";
+            toast.success(successMsg);
 
-            await loadData();
+            await loadData(false);
         } catch (requestError) {
-            setFormError(
-                getErrorMessage(
-                    requestError,
-                    "Unable to save this role."
-                )
+            const errorMsg = getErrorMessage(
+                requestError,
+                "Unable to save this role."
             );
+            setFormError(errorMsg);
+            toast.error(errorMsg);
         } finally {
             setSaving(false);
         }
@@ -487,44 +512,44 @@ function RoleManagementPage() {
 
     const changeRoleStatus = async (role) => {
         const action = role.active ? "deactivate" : "activate";
+        const nextStatus = !role.active;
 
         const confirmed = window.confirm(
             `${role.active ? "Deactivate" : "Activate"} the role "${role.name}"?`
         );
-
         if (!confirmed) return;
 
-        setError("");
-        setSuccess("");
+        setRoles((prev) =>
+            prev.map((item) =>
+                item.id === role.id ? { ...item, active: nextStatus } : item
+            )
+        );
 
         try {
-            await api.put(
-                `/access-control/roles/${role.id}/${action}`
-            );
-
-            setSuccess(
-                `Role ${role.active ? "deactivated" : "activated"} successfully.`
-            );
-
-            await loadData();
+            await api.put(`/access-control/roles/${role.id}/${action}`);
+            const successMsg = `Role ${toTitleCase(role.name)} ${nextStatus ? "activated" : "deactivated"} successfully.`;
+            toast.success(successMsg);
+            await loadData(false);
         } catch (requestError) {
-            setError(
-                getErrorMessage(
-                    requestError,
-                    "Unable to update role status."
+            setRoles((prev) =>
+                prev.map((item) =>
+                    item.id === role.id ? { ...item, active: role.active } : item
                 )
+            );
+            toast.error(
+                getErrorMessage(requestError, "Unable to update role status.")
             );
         }
     };
 
     if (!canViewRoles) {
         return (
-            <div style={{ ...styles.panel, padding: 32, textAlign: "center" }}>
-                <LockKeyhole size={30} color={COLORS.muted} />
-                <h2 style={{ marginTop: 12, fontSize: 18 }}>
-                    Access restricted
-                </h2>
-                <p style={{ color: COLORS.muted, marginTop: 6 }}>
+            <div className="max-w-md mx-auto my-12 p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+                    <LockKeyhole size={24} />
+                </div>
+                <h2 className="text-lg font-bold text-slate-800">Access restricted</h2>
+                <p className="text-sm text-slate-500 mt-1">
                     You do not have access to configurable role management.
                 </p>
             </div>
@@ -532,197 +557,88 @@ function RoleManagementPage() {
     }
 
     return (
-        <div style={styles.page}>
-            <header style={styles.header}>
-                <div>
-                    <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        color: COLORS.muted,
-                        fontSize: 12,
-                        marginBottom: 7,
-                    }}>
-                        <ShieldCheck size={15} />
-                        Administration / Access control
+        <div className="w-full max-w-[1500px] mx-auto px-4 sm:px-6 py-6 font-sans text-slate-800 antialiased">
+            {/* TOP HEADER: LEFT HEADING + PILL KPI CARDS + CREATE ROLE BUTTON */}
+            <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+                <div className="shrink-0">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                        <ShieldCheck size={14} className="text-blue-600" />
+                        <span>Administration</span>
                     </div>
-
-                    <h1 style={styles.title}>Roles & permissions</h1>
-
-                    <p style={styles.subtitle}>
-                        Define employee access by assigning permissions to roles.
-                    </p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        Roles & Permissions
+                    </h1>
                 </div>
 
+                {/* KPI CARDS IN PILL SHAPED */}
+                <div className="flex flex-wrap items-center gap-3">
+                    {[
+                        { label: "Total roles", value: roles.length, icon: Shield, bgClass: "bg-emerald-600" },
+                        { label: "Active roles", value: activeCount, icon: ShieldCheck, bgClass: "bg-indigo-600" },
+                        { label: "Inactive roles", value: inactiveCount, icon: LockKeyhole, bgClass: "bg-orange-500" },
+                        { label: "Available permissions", value: permissions.length, icon: Check, bgClass: "bg-blue-600" },
+                    ].map((item) => {
+                        const Icon = item.icon;
+                        return (
+                            <div
+                                key={item.label}
+                                className="flex items-center gap-3 bg-white border border-slate-200/90 rounded-full px-3.5 py-1.5 shadow-xs hover:shadow-sm transition-all"
+                            >
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs ${item.bgClass}`}>
+                                    <Icon size={16} strokeWidth={2.2} />
+                                </div>
+                                <div className="flex flex-col pr-1">
+                                    <span className="text-base font-bold text-slate-900 leading-tight">
+                                        {item.value}
+                                    </span>
+                                    <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap leading-tight">
+                                        {item.label}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* CREATE ROLE BUTTON */}
                 {canCreateRole && (
-                    <button
-                        type="button"
-                        style={{ ...styles.button, ...styles.primaryButton }}
-                        onClick={openCreate}
-                    >
-                        <Plus size={17} />
-                        Create role
-                    </button>
+                    <div className="shrink-0">
+                        <button
+                            type="button"
+                            className="create-role-btn"
+                            onClick={openCreate}
+                        >
+                            <Plus size={16} />
+                            <span>Create role</span>
+                        </button>
+                    </div>
                 )}
             </header>
 
-            {error && (
-                <div role="alert" style={{
-                    padding: 12,
-                    marginBottom: 16,
-                    border: `1px solid #FECACA`,
-                    background: COLORS.dangerSoft,
-                    color: COLORS.danger,
-                    borderRadius: 8,
-                    display: "flex",
-                    gap: 9,
-                    alignItems: "center",
-                }}>
-                    <AlertCircle size={17} />
-                    {error}
-                </div>
-            )}
-
-            {success && (
-                <div role="status" style={{
-                    padding: 12,
-                    marginBottom: 16,
-                    border: "1px solid #BBF7D0",
-                    background: COLORS.successSoft,
-                    color: COLORS.success,
-                    borderRadius: 8,
-                    display: "flex",
-                    gap: 9,
-                    alignItems: "center",
-                }}>
-                    <Check size={17} />
-                    {success}
-                </div>
-            )}
-
-            <section style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                gap: 14,
-                marginBottom: 20,
-            }}>
-                {[
-                    {
-                        label: "Total roles",
-                        value: roles.length,
-                        icon: Shield,
-                    },
-                    {
-                        label: "Active roles",
-                        value: activeCount,
-                        icon: ShieldCheck,
-                    },
-                    {
-                        label: "Inactive roles",
-                        value: inactiveCount,
-                        icon: LockKeyhole,
-                    },
-                    {
-                        label: "Available permissions",
-                        value: permissions.length,
-                        icon: Check,
-                    },
-                ].map((item) => {
-                    const Icon = item.icon;
-
-                    return (
-                        <div
-                            key={item.label}
-                            style={{
-                                ...styles.panel,
-                                padding: 17,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 13,
-                            }}
-                        >
-                            <div style={{
-                                width: 39,
-                                height: 39,
-                                borderRadius: 9,
-                                background: COLORS.primarySoft,
-                                color: COLORS.primary,
-                                display: "grid",
-                                placeItems: "center",
-                                flexShrink: 0,
-                            }}>
-                                <Icon size={19} />
-                            </div>
-
-                            <div>
-                                <div style={{
-                                    fontSize: 22,
-                                    fontWeight: 700,
-                                    lineHeight: 1.2,
-                                }}>
-                                    {item.value}
-                                </div>
-                                <div style={{
-                                    fontSize: 12,
-                                    color: COLORS.muted,
-                                    marginTop: 3,
-                                }}>
-                                    {item.label}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </section>
-
-            <section style={styles.panel}>
-                <div style={{
-                    padding: 17,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    gap: 12,
-                }}>
+            {/* CONFIGURED ROLES SECTION */}
+            <section className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
                     <div>
-                        <h2 style={{ fontSize: 15, fontWeight: 700 }}>
+                        <h2 className="text-base font-bold text-slate-900 tracking-tight">
                             Configured roles
                         </h2>
-                        <p style={{
-                            color: COLORS.muted,
-                            fontSize: 12,
-                            marginTop: 4,
-                        }}>
+                        <p className="text-xs text-slate-500 mt-0.5">
                             Manage role definitions and their permission sets.
                         </p>
                     </div>
 
-                    <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 9,
-                        flexWrap: "wrap",
-                    }}>
-                        <div style={{ position: "relative" }}>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="relative">
                             <Search
-                                size={16}
-                                color={COLORS.muted}
-                                style={{
-                                    position: "absolute",
-                                    left: 10,
-                                    top: 11,
-                                }}
+                                size={15}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                             />
                             <input
                                 aria-label="Search roles"
                                 placeholder="Search roles..."
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
-                                style={{
-                                    ...styles.input,
-                                    width: 220,
-                                    paddingLeft: 34,
-                                }}
+                                className="h-9 w-52 sm:w-60 pl-9 pr-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition-all"
                             />
                         </div>
 
@@ -730,7 +646,7 @@ function RoleManagementPage() {
                             aria-label="Filter by status"
                             value={statusFilter}
                             onChange={(event) => setStatusFilter(event.target.value)}
-                            style={{ ...styles.input, width: 135 }}
+                            className="h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer transition-all"
                         >
                             <option value="ALL">All statuses</option>
                             <option value="ACTIVE">Active</option>
@@ -740,64 +656,42 @@ function RoleManagementPage() {
                         <button
                             type="button"
                             title="Refresh roles"
-                            style={{ ...styles.button, padding: "0 11px" }}
-                            onClick={loadData}
+                            className="h-9 w-9 inline-flex items-center justify-center rounded-lg border-0 bg-white text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                            onClick={() => loadData(true)}
                             disabled={loading}
                         >
-                            <RefreshCw size={16} />
+                            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
                         </button>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div style={{
-                        padding: 55,
-                        textAlign: "center",
-                        color: COLORS.muted,
-                    }}>
+                    <div className="py-14 text-center text-slate-500">
                         <LoaderCircle
-                            size={23}
-                            className="rbac-spin"
-                            style={{ margin: "0 auto 10px" }}
+                            size={24}
+                            className="animate-spin mx-auto mb-2 text-blue-600"
                         />
-                        Loading roles...
+                        <span className="text-sm">Loading roles...</span>
                     </div>
                 ) : filteredRoles.length === 0 ? (
-                    <div style={{
-                        padding: 55,
-                        textAlign: "center",
-                        color: COLORS.muted,
-                        borderTop: `1px solid ${COLORS.borderSoft}`,
-                    }}>
-                        <Shield size={30} style={{ margin: "0 auto 12px" }} />
-                        <div style={{
-                            color: COLORS.ink,
-                            fontWeight: 650,
-                            marginBottom: 5,
-                        }}>
+                    <div className="py-14 text-center text-slate-500 border-t border-slate-200">
+                        <Shield size={32} className="mx-auto mb-3 text-slate-300" />
+                        <div className="text-slate-800 font-semibold text-sm mb-1">
                             No roles found
                         </div>
-                        <p style={{ fontSize: 13 }}>
+                        <p className="text-xs text-slate-500">
                             Create a role or change your search filters.
                         </p>
                     </div>
                 ) : (
-                    <div style={{ overflowX: "auto" }}>
-                        <table style={{
-                            width: "100%",
-                            borderCollapse: "collapse",
-                            minWidth: 720,
-                        }}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse border border-slate-200 text-left min-w-[720px]">
                             <thead>
-                                <tr style={styles.tableHead}>
+                                <tr>
                                     {["Role", "Scope", "Permissions", "Status", "Actions"].map((heading) => (
                                         <th
                                             key={heading}
-                                            style={{
-                                                textAlign: "left",
-                                                padding: "12px 16px",
-                                                fontWeight: 700,
-                                            }}
+                                            className="border border-slate-200 bg-slate-50/80 px-4 py-3 text-left text-xs font-semibold text-slate-700"
                                         >
                                             {heading}
                                         </th>
@@ -807,93 +701,67 @@ function RoleManagementPage() {
 
                             <tbody>
                                 {filteredRoles.map((role) => (
-                                    <tr key={role.id}>
-                                        <td style={styles.tableCell}>
-                                            <div style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: 10,
-                                            }}>
-                                                <div style={{
-                                                    width: 34,
-                                                    height: 34,
-                                                    borderRadius: 8,
-                                                    background: COLORS.primarySoft,
-                                                    color: COLORS.primary,
-                                                    display: "grid",
-                                                    placeItems: "center",
-                                                    flexShrink: 0,
-                                                }}>
-                                                    <ShieldCheck size={17} />
+                                    <tr key={role.id} className="hover:bg-slate-50/70 transition-colors">
+                                        <td className="border border-slate-200 px-4 py-3 text-xs align-middle">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                                                    <ShieldCheck size={16} />
                                                 </div>
-                                                <div>
-                                                    <div style={{
-                                                        fontWeight: 650,
-                                                        fontSize: 13,
-                                                    }}>
-                                                        {role.name}
-                                                    </div>
+                                                <div className="flex flex-col">
+                                                    <span className="font-semibold text-slate-900 text-sm">
+                                                        {toTitleCase(role.name)}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-400">
+                                                        {role.scope === "STORE" ? "Store Role" : "Global Role"}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
 
-                                        <td style={styles.tableCell}>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.ink }}>
-                                                {role.scope === "STORE" ? storeName(role.storeId) : "Platform Global"}
-                                            </div>
+                                        <td className="border border-slate-200 px-4 py-3 text-xs align-middle">
+                                            {role.scope === "STORE" ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100/80 text-slate-700 border border-slate-200/80">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                                                    <span>{toTitleCase(storeName(role.storeId))}</span>
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/80">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                                    <span>Platform Global</span>
+                                                </span>
+                                            )}
                                         </td>
 
-                                        <td style={styles.tableCell}>
-                                            <span style={{
-                                                display: "inline-flex",
-                                                padding: "4px 9px",
-                                                borderRadius: 20,
-                                                background: "#F1F5F9",
-                                                color: "#475569",
-                                                fontSize: 11,
-                                                fontWeight: 650,
-                                            }}>
+                                        <td className="border border-slate-200 px-4 py-3 text-xs align-middle">
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/80">
                                                 {role.permissions?.length || 0} permissions
                                             </span>
                                         </td>
 
-                                        <td style={styles.tableCell}>
-                                            <span style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 6,
-                                                fontSize: 12,
-                                                fontWeight: 650,
-                                                color: role.active
-                                                    ? COLORS.success
-                                                    : COLORS.muted,
-                                            }}>
-                                                <span style={{
-                                                    width: 7,
-                                                    height: 7,
-                                                    borderRadius: "50%",
-                                                    background: role.active
-                                                        ? "#16A34A"
-                                                        : "#94A3B8",
-                                                }} />
+                                        <td className="border border-slate-200 px-4 py-3 text-xs align-middle">
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                                                    role.active
+                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                        : "bg-slate-100 text-slate-600 border-slate-200"
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`w-1.5 h-1.5 rounded-full ${
+                                                        role.active ? "bg-emerald-500" : "bg-slate-400"
+                                                    }`}
+                                                />
                                                 {role.active ? "Active" : "Inactive"}
                                             </span>
                                         </td>
 
-                                        <td style={styles.tableCell}>
+                                        <td className="border border-slate-200 px-4 py-3 text-xs align-middle">
                                             {canUpdateRole ? (
-                                                <div style={{
-                                                    display: "flex",
-                                                    gap: 7,
-                                                }}>
+                                                <div className="flex items-center gap-1.5">
                                                     <button
                                                         type="button"
                                                         title="Edit role"
-                                                        style={{
-                                                            ...styles.button,
-                                                            minHeight: 33,
-                                                            padding: "0 9px",
-                                                        }}
+                                                        className="w-8 h-8 inline-flex items-center justify-center rounded-lg border-0 bg-white text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-xs cursor-pointer"
                                                         onClick={() => openEdit(role)}
                                                     >
                                                         <Pencil size={14} />
@@ -902,21 +770,18 @@ function RoleManagementPage() {
                                                     <button
                                                         type="button"
                                                         title={role.active ? "Deactivate role" : "Activate role"}
-                                                        style={{
-                                                            ...styles.button,
-                                                            minHeight: 33,
-                                                            padding: "0 9px",
-                                                            color: role.active
-                                                                ? COLORS.danger
-                                                                : COLORS.success,
-                                                        }}
+                                                        className={`w-8 h-8 inline-flex items-center justify-center rounded-lg border-0 bg-white transition-colors shadow-xs cursor-pointer ${
+                                                            role.active
+                                                                ? "text-red-600 hover:bg-red-50"
+                                                                : "text-emerald-600 hover:bg-emerald-50"
+                                                        }`}
                                                         onClick={() => changeRoleStatus(role)}
                                                     >
                                                         <Power size={14} />
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <span style={{ fontSize: 12, color: COLORS.muted }}>View only</span>
+                                                <span className="text-slate-400 text-xs italic">View only</span>
                                             )}
                                         </td>
                                     </tr>
@@ -926,355 +791,421 @@ function RoleManagementPage() {
                     </div>
                 )}
 
-                <div style={{
-                    borderTop: `1px solid ${COLORS.borderSoft}`,
-                    padding: "12px 16px",
-                    color: COLORS.muted,
-                    fontSize: 12,
-                }}>
+                <div className="border-t border-slate-200 px-4 py-3 bg-slate-50/50 text-xs text-slate-500">
                     Showing {filteredRoles.length} of {roles.length} roles
                 </div>
             </section>
 
+            {/* EXPANDABLE ROLE DRAWER */}
             {formOpen && (
                 <div
                     role="presentation"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget) closeForm();
                     }}
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        zIndex: 1000,
-                        background: "rgba(15, 23, 42, 0.38)",
-                        display: "flex",
-                        justifyContent: "flex-end",
-                    }}
+                    className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end"
                 >
                     <section
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="role-form-title"
-                        style={{
-                            width: "min(680px, 100%)",
-                            height: "100%",
-                            background: "#fff",
-                            display: "flex",
-                            flexDirection: "column",
-                            boxShadow: "-12px 0 40px rgba(15,23,42,0.12)",
-                        }}
+                        className={`w-full ${
+                            drawerExpanded ? "max-w-7xl" : "max-w-2xl"
+                        } h-full bg-white shadow-2xl flex flex-col border-l border-slate-200 transition-all duration-300`}
                     >
-                        <header style={{
-                            padding: "20px 24px",
-                            borderBottom: `1px solid ${COLORS.border}`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                        }}>
-                            <div>
-                                <h2
-                                    id="role-form-title"
-                                    style={{ fontSize: 18, fontWeight: 700 }}
-                                >
-                                    {editingRole ? "Edit role" : "Create role"}
-                                </h2>
-                                <p style={{
-                                    color: COLORS.muted,
-                                    fontSize: 12,
-                                    marginTop: 4,
-                                }}>
-                                    Configure the role scope and permissions.
-                                </p>
+                        {/* DRAWER HEADER */}
+                        <header className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+                            <div className="flex items-center gap-3">
+                                {drawerExpanded && (
+                                    <button
+                                        type="button"
+                                        title="Back to compact view"
+                                        onClick={() => setDrawerExpanded(false)}
+                                        className="w-8 h-8 rounded-lg border-0 bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                )}
+                                <div>
+                                    <h2
+                                        id="role-form-title"
+                                        className="text-lg font-bold text-slate-900"
+                                    >
+                                        {editingRole ? "Edit Role" : "Create Role"}
+                                    </h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        {drawerExpanded
+                                            ? "Review role settings and assign module permissions."
+                                            : "Configure role name, scope, and permissions."}
+                                    </p>
+                                </div>
                             </div>
 
-                            <button
-                                type="button"
-                                aria-label="Close"
-                                onClick={closeForm}
-                                style={{
-                                    ...styles.button,
-                                    width: 36,
-                                    padding: 0,
-                                }}
-                            >
-                                <X size={17} />
-                            </button>
+                            <div className="flex items-center gap-3">
+                                {drawerExpanded && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                        {form.permissions.length} / {availablePermissions.length} selected
+                                    </span>
+                                )}
+
+                                <button
+                                    type="button"
+                                    aria-label="Close"
+                                    onClick={closeForm}
+                                    className="w-8 h-8 rounded-lg border-0 bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
                         </header>
 
                         <form
                             onSubmit={saveRole}
-                            style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                flex: 1,
-                                minHeight: 0,
-                            }}
+                            className="flex flex-col flex-1 min-h-0"
                         >
-                            <div style={{
-                                flex: 1,
-                                overflowY: "auto",
-                                padding: 24,
-                            }}>
+                            <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-4">
                                 {formError && (
-                                    <div role="alert" style={{
-                                        padding: 11,
-                                        marginBottom: 17,
-                                        borderRadius: 7,
-                                        color: COLORS.danger,
-                                        background: COLORS.dangerSoft,
-                                        fontSize: 12,
-                                    }}>
-                                        {formError}
+                                    <div
+                                        role="alert"
+                                        className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2"
+                                    >
+                                        <AlertCircle size={15} className="shrink-0" />
+                                        <span>{formError}</span>
                                     </div>
                                 )}
 
-                                <div style={{ marginBottom: 18 }}>
-                                    <label style={styles.label}>Role name</label>
-                                    <input
-                                        required
-                                        maxLength={100}
-                                        value={form.name}
-                                        onChange={(event) =>
-                                            updateField("name", event.target.value)
-                                        }
-                                        placeholder="Example: Inventory Supervisor"
-                                        style={styles.input}
-                                    />
-                                </div>
+                                {/* PRIOR DATA CARD (ROLE NAME, ROLE SCOPE, STORE, ASSIGN PERMISSIONS) */}
+                                <div className="p-4 sm:p-5 bg-white rounded-2xl space-y-3">
+                                    <div className={`grid grid-cols-1 ${drawerExpanded ? "sm:grid-cols-2 lg:grid-cols-3 gap-3" : "sm:grid-cols-2 gap-4"}`}>
+                                        {/* 1. Role Name */}
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                                Role Name
+                                            </label>
+                                            <input
+                                                required
+                                                maxLength={100}
+                                                value={form.name}
+                                                onChange={(e) => updateField("name", e.target.value)}
+                                                placeholder="Example: Commerce Manager"
+                                                className={`w-full ${drawerExpanded ? "h-9 text-xs px-3" : "h-9.5 text-xs px-3.5"} bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition-colors`}
+                                            />
+                                        </div>
 
-                                <div style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                                    gap: 14,
-                                    marginBottom: 22,
-                                }}>
-                                    <div>
-                                        <label style={styles.label}>Role scope</label>
-                                        <select
-                                            value={form.scope}
-                                            disabled={Boolean(editingRole) || !isSuperAdmin}
-                                            onChange={(event) => {
-                                                const nextScope = event.target.value;
-                                                updateField("scope", nextScope);
-                                                updateField(
-                                                    "storeId",
-                                                    nextScope === "STORE" && !isSuperAdmin && stores.length === 1
-                                                        ? String(stores[0].id)
-                                                        : ""
-                                                );
-                                            }}
-                                            style={styles.input}
-                                        >
-                                            {isSuperAdmin && (
-                                                <option value="SYSTEM">SYSTEM</option>
-                                            )}
-                                            <option value="STORE">STORE</option>
-                                        </select>
-                                        {editingRole && (
-                                            <p style={{
-                                                fontSize: 11,
-                                                color: COLORS.muted,
-                                                marginTop: 5,
-                                            }}>
-                                                Role scope cannot be changed after creation.
-                                            </p>
+                                        {/* 2. Role Scope */}
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                                Role Scope
+                                            </label>
+                                            <select
+                                                value={form.scope}
+                                                disabled={Boolean(editingRole) || !isSuperAdmin}
+                                                onChange={(e) => {
+                                                    const nextScope = e.target.value;
+                                                    updateField("scope", nextScope);
+                                                    updateField(
+                                                        "storeId",
+                                                        nextScope === "STORE" && !isSuperAdmin && stores.length === 1
+                                                            ? String(stores[0].id)
+                                                            : ""
+                                                    );
+                                                }}
+                                                className={`w-full ${drawerExpanded ? "h-9 text-xs px-3" : "h-9.5 text-xs px-3.5"} bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-slate-400 transition-colors disabled:bg-slate-100 disabled:text-slate-500 cursor-pointer`}
+                                            >
+                                                {isSuperAdmin && <option value="SYSTEM">SYSTEM</option>}
+                                                <option value="STORE">STORE</option>
+                                            </select>
+                                        </div>
+
+                                        {/* 3. Store (Beside Scope if STORE) */}
+                                        {form.scope === "STORE" ? (
+                                            <div className={drawerExpanded ? "" : "sm:col-span-2"}>
+                                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                                    Store
+                                                </label>
+                                                <select
+                                                    required
+                                                    value={form.storeId}
+                                                    disabled={Boolean(editingRole) || (!isSuperAdmin && stores.length <= 1)}
+                                                    onChange={(e) => updateField("storeId", e.target.value)}
+                                                    className={`w-full ${drawerExpanded ? "h-9 text-xs px-3" : "h-9.5 text-xs px-3.5"} bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-slate-400 transition-colors disabled:bg-slate-100 disabled:text-slate-500 cursor-pointer`}
+                                                >
+                                                    <option value="">{storeLoadError ? "Failed to load stores" : "Select store"}</option>
+                                                    {stores.map((s) => (
+                                                        <option key={s.id} value={String(s.id)}>
+                                                            {s.storeName || `Store #${s.id}`}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {storeLoadError && (
+                                                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                                        <AlertCircle size={12} className="shrink-0" />
+                                                        {storeLoadError}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            drawerExpanded && (
+                                                <div className="flex items-center text-xs text-slate-500 pt-5">
+                                                    <span>Global System scope (All Stores)</span>
+                                                </div>
+                                            )
                                         )}
                                     </div>
 
-                                    {form.scope === "STORE" && (
-                                        <div>
-                                            <label style={styles.label}>Store</label>
-                                            <select
-                                                required
-                                                value={form.storeId}
-                                                disabled={Boolean(editingRole) || (!isSuperAdmin && stores.length <= 1)}
-                                                onChange={(event) =>
-                                                    updateField("storeId", event.target.value)
-                                                }
-                                                style={styles.input}
+                                    {/* COMPACT PERMISSION BAR (WHEN NOT EXPANDED) */}
+                                    {!drawerExpanded && (
+                                        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                            <div>
+                                                <span className="text-sm font-bold text-slate-900 block">
+                                                    {form.permissions.length} Permissions Assigned
+                                                </span>
+                                                <span className="text-xs text-slate-500">
+                                                    {form.permissions.length === 0
+                                                        ? "No permissions assigned yet. Click to configure access."
+                                                        : "Click to widen and configure module permissions."}
+                                                </span>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                className="create-role-btn shrink-0"
+                                                onClick={() => {
+                                                    if (form.scope === "STORE" && !form.storeId) {
+                                                        toast.error("Please select a store first.");
+                                                        return;
+                                                    }
+                                                    setDrawerExpanded(true);
+                                                }}
                                             >
-                                                <option value="">
-                                                    {!isSuperAdmin && stores.length === 0
-                                                        ? "No authorized store assigned"
-                                                        : "Select store"}
-                                                    {storeLoadError
-                                                        ? "Failed to load stores"
-                                                        : !isSuperAdmin && stores.length === 0
-                                                            ? "No authorized store assigned"
-                                                            : "Select store"}
-                                                </option>
-                                                {stores.map((store) => (
-                                                    <option key={store.id} value={String(store.id)}>
-                                                        {store.storeName || `Store #${store.id}`}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {!isSuperAdmin && (
-                                                <p style={{
-                                                    fontSize: 11,
-                                                    color: COLORS.muted,
-                                                    marginTop: 5,
-                                                }}>
-                                                    Store context comes from your assigned access.
-                                                </p>
-                                            )}
+                                                <SlidersHorizontal size={15} />
+                                                <span>Assign permissions</span>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
 
-                                <div style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    gap: 12,
-                                    marginBottom: 12,
-                                }}>
-                                    <div>
-                                        <h3 style={{ fontSize: 14, fontWeight: 700 }}>
-                                            Permissions
-                                        </h3>
-                                        <p style={{
-                                            fontSize: 11,
-                                            color: COLORS.muted,
-                                            marginTop: 3,
-                                        }}>
-                                            {form.permissions.length} selected
-                                        </p>
-                                    </div>
+                                {/* WIDENED PERMISSIONS TWO-COLUMN VIEW (INSIDE THE DRAWER) */}
+                                {drawerExpanded && (
+                                    <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white flex flex-col md:flex-row min-h-[500px]">
+                                        {/* LEFT COLUMN: REFERENCE ROLES */}
+                                        <aside className="w-full md:w-72 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/70 flex flex-col shrink-0">
+                                            <div className="p-3 border-b border-slate-200 bg-white">
+                                                <div className="relative">
+                                                    <Search
+                                                        size={14}
+                                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Find a role template..."
+                                                        value={leftRoleSearch}
+                                                        onChange={(e) => setLeftRoleSearch(e.target.value)}
+                                                        className="w-full h-8 pl-8 pr-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400"
+                                                    />
+                                                </div>
+                                                <span className="text-[11px] text-slate-400 block mt-1.5">
+                                                    Click to copy role template
+                                                </span>
+                                            </div>
 
-                                    <div style={{ position: "relative", width: 210 }}>
-                                        <Search
-                                            size={15}
-                                            color={COLORS.muted}
-                                            style={{
-                                                position: "absolute",
-                                                left: 9,
-                                                top: 10,
-                                            }}
-                                        />
-                                        <input
-                                            aria-label="Search permissions"
-                                            value={permissionSearch}
-                                            onChange={(event) =>
-                                                setPermissionSearch(event.target.value)
-                                            }
-                                            placeholder="Search permissions"
-                                            style={{
-                                                ...styles.input,
-                                                minHeight: 36,
-                                                paddingLeft: 31,
-                                                fontSize: 12,
-                                            }}
-                                        />
-                                    </div>
-                                </div>
+                                            <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1.5 max-h-[460px]">
+                                                {consolidatedReferenceRoles.length === 0 ? (
+                                                    <div className="p-4 text-center text-xs text-slate-400">
+                                                        No matching roles
+                                                    </div>
+                                                ) : (
+                                                    consolidatedReferenceRoles.map((r) => {
+                                                        const count = r.permissions?.length || 0;
+                                                        const isSelected = selectedRefRoleName === r.key;
+                                                        const pct = Math.min(
+                                                            100,
+                                                            Math.round(
+                                                                (count /
+                                                                    Math.max(1, availablePermissions.length)) *
+                                                                    100
+                                                            )
+                                                        );
 
-                                {Object.keys(groupedPermissions).length === 0 ? (
-                                    <p style={{
-                                        padding: 24,
-                                        color: COLORS.muted,
-                                        textAlign: "center",
-                                        fontSize: 12,
-                                    }}>
-                                        No matching permissions.
-                                    </p>
-                                ) : (
-                                    Object.entries(groupedPermissions).map(
-                                        ([module, modulePermissions]) => (
-                                            <div
-                                                key={module}
-                                                style={{
-                                                    border: `1px solid ${COLORS.border}`,
-                                                    borderRadius: 8,
-                                                    marginBottom: 12,
-                                                    overflow: "hidden",
-                                                }}
-                                            >
-                                                <div style={{
-                                                    padding: "10px 13px",
-                                                    background: "#F8FAFC",
-                                                    borderBottom: `1px solid ${COLORS.border}`,
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    alignItems: "center",
-                                                }}>
-                                                    <span style={{
-                                                        fontWeight: 700,
-                                                        fontSize: 12,
-                                                    }}>
-                                                        {module}
-                                                    </span>
-                                                    <span style={{
-                                                        color: COLORS.muted,
-                                                        fontSize: 11,
-                                                    }}>
-                                                        {modulePermissions.length} permissions
-                                                    </span>
+                                                        return (
+                                                            <div
+                                                                key={r.key}
+                                                                onClick={() => copyPermissionsFromRole(r)}
+                                                                className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-2.5 group ${
+                                                                    isSelected
+                                                                        ? "bg-white border-blue-300 shadow-xs"
+                                                                        : "bg-transparent border-transparent hover:bg-white hover:border-slate-200 hover:shadow-xs"
+                                                                }`}
+                                                            >
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="font-bold text-sm text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                                                                        {toTitleCase(r.name)}
+                                                                    </div>
+                                                                    <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                                                                        {r.stores.length > 1
+                                                                            ? `In ${r.stores.length} stores`
+                                                                            : r.stores[0] || (r.scope === "SYSTEM" ? "Global" : "Store Role")}
+                                                                        {" • "}
+                                                                        <span className="font-medium text-slate-600">{count} perms</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="w-10 h-1.5 bg-slate-200 rounded-full overflow-hidden shrink-0">
+                                                                    <div
+                                                                        className="bg-blue-600 h-full rounded-full transition-all"
+                                                                        style={{ width: `${pct}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </aside>
+
+                                        {/* RIGHT COLUMN: MODULE CARDS & ACTION PILLS */}
+                                        <div className="flex-1 flex flex-col min-h-0 bg-white">
+                                            {/* Filter & Quick Actions */}
+                                            <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
+                                                <div className="relative w-56">
+                                                    <Search
+                                                        size={13}
+                                                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Filter permissions..."
+                                                        value={permSearch}
+                                                        onChange={(e) => setPermSearch(e.target.value)}
+                                                        className="w-full h-8 pl-7 pr-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400"
+                                                    />
                                                 </div>
 
-                                                <div style={{ padding: "4px 13px" }}>
-                                                    {modulePermissions.map((permission) => (
-                                                        <label
-                                                            key={permission.code}
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems: "flex-start",
-                                                                gap: 10,
-                                                                padding: "10px 0",
-                                                                borderBottom: `1px solid ${COLORS.borderSoft}`,
-                                                                cursor: "pointer",
-                                                            }}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={form.permissions.includes(permission.code)}
-                                                                onChange={() => togglePermission(permission.code)}
-                                                                style={{
-                                                                    marginTop: 3,
-                                                                    accentColor: COLORS.primary,
-                                                                }}
-                                                            />
-                                                            <span style={{ minWidth: 0 }}>
-                                                                <span style={{
-                                                                    display: "block",
-                                                                    fontSize: 12,
-                                                                    fontWeight: 650,
-                                                                }}>
-                                                                    {permission.code}
-                                                                </span>
-                                                                {permission.description && (
-                                                                    <span style={{
-                                                                        display: "block",
-                                                                        color: COLORS.muted,
-                                                                        fontSize: 11,
-                                                                        marginTop: 3,
-                                                                    }}>
-                                                                        {permission.description}
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                        </label>
-                                                    ))}
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={selectAllPermissions}
+                                                        className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors border-0 cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                                                    >
+                                                        <Check size={12} strokeWidth={2.5} />
+                                                        <span>Select all</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={clearAllPermissions}
+                                                        className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors border-0 cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                                                    >
+                                                        <X size={12} strokeWidth={2.5} />
+                                                        <span>Clear all</span>
+                                                    </button>
                                                 </div>
                                             </div>
-                                        )
-                                    )
+
+                                            {/* 2-Column Module Cards Grid */}
+                                            <div className="flex-1 overflow-y-auto no-scrollbar p-4 max-h-[460px]">
+                                                {Object.keys(groupedPermissions).length === 0 ? (
+                                                    <div className="py-12 text-center text-slate-400 text-xs">
+                                                        No permissions match your filter.
+                                                    </div>
+                                                ) : (
+                                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                                        {Object.entries(groupedPermissions).map(
+                                                            ([module, modulePermissions]) => {
+                                                                const selectedCount = modulePermissions.filter((p) =>
+                                                                    form.permissions.includes(p.code)
+                                                                ).length;
+                                                                const isAll =
+                                                                    modulePermissions.length > 0 &&
+                                                                    selectedCount === modulePermissions.length;
+                                                                const isPartial =
+                                                                    selectedCount > 0 && !isAll;
+
+                                                                return (
+                                                                    <div
+                                                                        key={module}
+                                                                        className={`bg-white rounded-2xl border p-3.5 transition-all flex flex-col justify-between ${
+                                                                            isAll
+                                                                                ? "border-blue-300 ring-1 ring-blue-500/10 shadow-xs"
+                                                                                : "border-slate-200 hover:border-slate-300 shadow-xs"
+                                                                        }`}
+                                                                    >
+                                                                        {/* Card header */}
+                                                                        <div className="flex items-center justify-between gap-2">
+                                                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={isAll}
+                                                                                    ref={(el) => {
+                                                                                        if (el) el.indeterminate = isPartial;
+                                                                                    }}
+                                                                                    onChange={() =>
+                                                                                        toggleModuleAll(modulePermissions)
+                                                                                    }
+                                                                                    className="w-4 h-4 rounded text-blue-600 accent-blue-600 cursor-pointer"
+                                                                                />
+                                                                                <span className="font-bold text-xs text-slate-900 lowercase">
+                                                                                    {module}
+                                                                                </span>
+                                                                            </label>
+
+                                                                            <span className="text-xs font-semibold text-slate-400">
+                                                                                {selectedCount}/{modulePermissions.length}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        {/* Action Pills */}
+                                                                        <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2 border-t border-slate-100">
+                                                                            {modulePermissions.map((permission) => {
+                                                                                const isSelected = form.permissions.includes(
+                                                                                    permission.code
+                                                                                );
+                                                                                const label = formatPermissionAction(
+                                                                                    permission.code
+                                                                                );
+
+                                                                                return (
+                                                                                    <button
+                                                                                        key={permission.code}
+                                                                                        type="button"
+                                                                                        onClick={() =>
+                                                                                            togglePermission(permission.code)
+                                                                                        }
+                                                                                        title={`${permission.code}: ${
+                                                                                            permission.description || ""
+                                                                                        }`}
+                                                                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border-0 cursor-pointer transition-all ${
+                                                                                            isSelected
+                                                                                                ? "bg-blue-600 text-white shadow-xs hover:bg-blue-700"
+                                                                                                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                                                                                        }`}
+                                                                                    >
+                                                                                        {isSelected && (
+                                                                                            <Check size={11} strokeWidth={2.8} />
+                                                                                        )}
+                                                                                        <span>{label}</span>
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
 
-                            <footer style={{
-                                borderTop: `1px solid ${COLORS.border}`,
-                                padding: "15px 24px",
-                                display: "flex",
-                                justifyContent: "flex-end",
-                                gap: 9,
-                                background: "#fff",
-                            }}>
+                            {/* DRAWER FOOTER: BUTTONS WITHOUT HARSH BLACK BORDERS */}
+                            <footer className="border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3 bg-white shrink-0">
                                 <button
                                     type="button"
-                                    style={styles.button}
                                     onClick={closeForm}
                                     disabled={saving}
+                                    className="create-role-btn-secondary"
                                 >
                                     Cancel
                                 </button>
@@ -1282,23 +1213,20 @@ function RoleManagementPage() {
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    style={{
-                                        ...styles.button,
-                                        ...styles.primaryButton,
-                                        minWidth: 125,
-                                        opacity: saving ? 0.7 : 1,
-                                    }}
+                                    className="create-role-btn"
                                 >
                                     {saving ? (
-                                        <LoaderCircle size={16} />
+                                        <LoaderCircle size={15} className="animate-spin" />
                                     ) : (
-                                        <Check size={16} />
+                                        <Check size={15} />
                                     )}
-                                    {saving
-                                        ? "Saving..."
-                                        : editingRole
-                                            ? "Save changes"
-                                            : "Create role"}
+                                    <span>
+                                        {saving
+                                            ? "Saving..."
+                                            : editingRole
+                                                ? "Save changes"
+                                                : "Create role"}
+                                    </span>
                                 </button>
                             </footer>
                         </form>
@@ -1306,17 +1234,92 @@ function RoleManagementPage() {
                 </div>
             )}
 
+            {/* BUTTON & UTILITY CSS: CLEAN NEUMORPHIC PILL STYLING WITHOUT BLACK BORDERS & HIDDEN SCROLLBARS */}
             <style>{`
-                @keyframes rbac-spin {
-                    to { transform: rotate(360deg); }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none !important;
+                    width: 0 !important;
+                    height: 0 !important;
                 }
-                .rbac-spin {
-                    animation: rbac-spin 1s linear infinite;
+                .no-scrollbar {
+                    -ms-overflow-style: none !important;
+                    scrollbar-width: none !important;
                 }
-                @media (max-width: 640px) {
-                    .rbac-role-page {
-                        padding: 0;
-                    }
+
+                .create-role-btn {
+                    min-width: 9.5em;
+                    padding: 0 1.3em;
+                    height: 3em;
+                    border-radius: 30em;
+                    font-size: 14px;
+                    font-family: inherit;
+                    border: none !important;
+                    outline: none !important;
+                    position: relative;
+                    overflow: hidden;
+                    z-index: 1;
+                    box-shadow: 6px 6px 12px #c5c5c5,
+                                -6px -6px 12px #ffffff;
+                    background: #ffffff;
+                    color: #002d74;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: color 0.4s ease, box-shadow 0.3s ease;
+                    white-space: nowrap;
+                }
+
+                .create-role-btn::before {
+                    content: '';
+                    width: 0;
+                    height: 3em;
+                    border-radius: 30em;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    background-image: linear-gradient(to right, #002d74 0%, #2563eb 100%);
+                    transition: width 0.5s ease;
+                    display: block;
+                    z-index: -1;
+                }
+
+                .create-role-btn:hover::before {
+                    width: 100%;
+                }
+
+                .create-role-btn:hover {
+                    color: #ffffff;
+                    box-shadow: 4px 4px 10px #b0c4de, -4px -4px 10px #ffffff;
+                }
+
+                .create-role-btn-secondary {
+                    min-width: 7.5em;
+                    padding: 0 1.25em;
+                    height: 3em;
+                    border-radius: 30em;
+                    font-size: 14px;
+                    font-family: inherit;
+                    border: none !important;
+                    outline: none !important;
+                    background: #f1f5f9;
+                    color: #475569;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 4px 4px 10px #e2e8f0, -4px -4px 10px #ffffff;
+                    transition: all 0.3s ease;
+                    white-space: nowrap;
+                }
+
+                .create-role-btn-secondary:hover {
+                    background: #e2e8f0;
+                    color: #1e293b;
                 }
             `}</style>
         </div>

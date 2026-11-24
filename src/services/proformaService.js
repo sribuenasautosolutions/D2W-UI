@@ -19,18 +19,34 @@ export const previewProformaUpload = async (file, storeId) => {
   })).data;
 };
 
-export const toProformaSaleSource = (record) => ({
+export const toProformaSaleSource = (record, previewMap = null) => ({
   ...record,
   customer: {
-    id: record.customerId, customerName: record.customerName,
-    mobileNumber: record.customerMobile, email: record.customerEmail,
-    gstin: record.customerGstin, gstRegistrationType: record.customerGstRegistrationType,
-    state: record.customerState, billingAddress: record.billingAddress,
+    id: record.customerId,
+    customerName: record.customerName,
+    legalName: record.customerLegalName,
+    customerLegalName: record.customerLegalName,
+    mobileNumber: record.customerMobile,
+    email: record.customerEmail,
+    gstin: record.customerGstin,
+    gstRegistrationType: record.customerGstRegistrationType,
+    state: record.customerState,
+    billingAddress: record.billingAddress,
     shippingAddress: record.shippingAddress,
   },
-  items: (record.items || []).map((item) => ({
-    ...item, quantity: Number(item.quantity), sellingPrice: item.unitPrice, batchId: null,
-  })),
+  items: (record.items || []).map((item) => {
+    const previewItem = previewMap?.get?.(item.id) || previewMap?.[item.id];
+    return {
+      ...item,
+      proformaItemId: item.id,
+      inventoryId: previewItem?.inventoryId || item.inventoryId || null,
+      availableQuantity: previewItem?.availableQuantity ?? null,
+      stockAvailable: previewItem?.stockAvailable ?? true,
+      quantity: Number(item.quantity),
+      sellingPrice: item.unitPrice,
+      batchId: null,
+    };
+  }),
   sourceProformaId: record.id,
 });
 

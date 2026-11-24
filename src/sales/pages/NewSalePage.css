@@ -221,18 +221,12 @@
 .ns-top-right .ns-date {
   width: 160px;
 }
-.ns-top-right .ns-store select,
-.ns-top-right .ns-date input {
-  border-color: #cbd5e1;
-  color: #0f172a;
-  font-weight: 600;
-}
-.ns-top-right .ns-store select:focus,
-.ns-top-right .ns-date input:focus {
-  border-color: #1d4ed8 !important;
+.ns-top-right .ns-time {
+  width: 140px;
 }
 .ns-store,
-.ns-date {
+.ns-date,
+.ns-time {
   position: relative;
 }
 .ns-field-icon {
@@ -439,6 +433,7 @@
 .ns-items-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
   padding: 0 0 10px;
@@ -531,6 +526,8 @@
 /* grid table */
 .ns-table-wrap {
   width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .ns-table {
   width: 100%;
@@ -544,7 +541,7 @@
   border: 1px solid #cbd5e1;
   padding: 6px 8px;
   vertical-align: middle;
-  text-align: left;
+  text-align: center;
 }
 .ns-table td {
   font-size: 13.5px;
@@ -553,6 +550,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
 }
 .ns-table td.ns-cell-box {
   padding: 0;
@@ -561,6 +559,12 @@
 .ns-table td.ns-name {
   white-space: normal;
   line-height: 1.3;
+  text-align: center;
+}
+.ns-table td.ns-brand {
+  color: #334155;
+  font-weight: 500;
+  text-align: center;
 }
 /* Table headers - transparent light beige theme */
 .ns-page .ns-table thead th,
@@ -574,8 +578,75 @@
   line-height: 1.3 !important;
   white-space: normal;
   overflow: visible;
-  border: 1px solid rgba(231, 223, 213, 0.8) !important;
-  padding: 8px 6px !important;
+  position: relative;
+}
+
+.ns-th-resizable {
+  position: relative;
+  user-select: none;
+}
+
+.ns-col-resizer {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 10;
+  touch-action: none;
+}
+
+.ns-col-resizer::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  right: 2px;
+  width: 2px;
+  background-color: transparent;
+  border-radius: 1px;
+  transition: background-color 0.15s ease;
+}
+
+.ns-col-resizer:hover::after,
+.ns-col-resizer:active::after {
+  background-color: #2563eb;
+}
+
+.ns-reset-cols-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ns-reset-cols-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.ns-reset-cols-btn.is-customized {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  font-weight: 600;
+}
+
+.ns-reset-cols-btn.is-customized:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
 }
 .ns-page .ns-table thead tr + tr th,
 .ns-table thead tr + tr th {
@@ -590,7 +661,7 @@
   text-align: center;
 }
 .ns-table .num {
-  text-align: right;
+  text-align: center;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: #0f172a;
@@ -650,17 +721,8 @@
   border: none;
   border-radius: 0;
   background: transparent;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #0f172a !important;
-  box-sizing: border-box;
-  text-align: right;
-  font-family: inherit;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.ns-table input.ns-cell-input.text-left {
-  text-align: left;
+  font-size: 13px;
+  text-align: center !important;
 }
 
 .ns-page .ns-table input.ns-cell-input::placeholder {
@@ -684,9 +746,8 @@
 .ns-table tfoot td {
   background: #f1f5f9;
   font-weight: 700;
-  font-size: 13.5px;
-  color: #0f172a;
-  border-top: 2px solid #94a3b8;
+  font-size: 13px;
+  text-align: center !important;
 }
 
 .ns-del {

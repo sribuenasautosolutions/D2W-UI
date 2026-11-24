@@ -1,3 +1,4 @@
+import api from "../../services/api";
 import { ProductUnitLabel } from "../../components/ProductUnitFields";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -13,9 +14,9 @@ import {
 } from "../../services/proformaService";
 
 import {
-  AlertCircle, AlertTriangle, Calendar, CheckCircle2,
+  AlertCircle, AlertTriangle, Calendar, CheckCircle2, Clock,
   ChevronDown, IndianRupee, Info, Loader2, Pencil, Percent,
-  Plus, Search, Store, Trash2, Upload, X,
+  Plus, RotateCcw, Search, Store, Trash2, Upload, X,
 } from "lucide-react";
 
 import { getAllStores } from "../../services/storeService";
@@ -58,7 +59,10 @@ const readUser = () => {
 const invoiceItemsForEdit = (source) =>
   source.items.map((item) => ({
     ...item,
+    _rowId: `edit-row-${item.orderItemId || item.inventoryId || Math.random().toString(36).slice(2, 7)}`,
     itemName: item.itemName || item.productName,
+    brandName: item.brandName || item.brand || "",
+    brand: item.brandName || item.brand || "",
     hsnCode: item.hsncode,
     quantity: Number(item.quantity),
     availableQuantity: Number(item.availableQuantity ?? item.quantity),
@@ -124,6 +128,11 @@ const normalizeGstPercentage = (value) => {
 
   return 0;
 };
+
+const normalizePartNumber = (val) =>
+  String(val || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 
 /* =========================================================
    FRONTEND GST TYPE -> BACKEND GST TYPE
@@ -211,6 +220,23 @@ function defaultValidatePrices(row, errors) {
       errors.push(`${field} must be greater than zero`);
   });
 }
+const SALE_TABLE_COLUMNS = [
+  { id: "sNo", index: 0, label: "S.No", defaultWidth: 50, minWidth: 40, maxWidth: 90 },
+  { id: "partNumber", index: 1, label: "Part Number", defaultWidth: 150, minWidth: 90, maxWidth: 380 },
+  { id: "itemName", index: 2, label: "Part Name", defaultWidth: 180, minWidth: 110, maxWidth: 500 },
+  { id: "brandName", index: 3, label: "Brand", defaultWidth: 130, minWidth: 70, maxWidth: 300 },
+  { id: "quantity", index: 4, label: "Qty", defaultWidth: 70, minWidth: 45, maxWidth: 160 },
+  { id: "mrp", index: 5, label: "MRP", defaultWidth: 90, minWidth: 60, maxWidth: 220 },
+  { id: "sellingPrice", index: 6, label: "Price / Unit", defaultWidth: 100, minWidth: 70, maxWidth: 240 },
+  { id: "discountPercent", index: 7, label: "Disc %", defaultWidth: 75, minWidth: 50, maxWidth: 160 },
+  { id: "discountAmount", index: 8, label: "Disc (₹)", defaultWidth: 85, minWidth: 55, maxWidth: 180 },
+  { id: "taxable", index: 9, label: "Taxable", defaultWidth: 100, minWidth: 70, maxWidth: 260 },
+  { id: "gstType", index: 10, label: "GST Rate", defaultWidth: 110, minWidth: 80, maxWidth: 240 },
+  { id: "gstAmount", index: 11, label: "GST Amount", defaultWidth: 95, minWidth: 65, maxWidth: 220 },
+  { id: "total", index: 12, label: "Total", defaultWidth: 110, minWidth: 80, maxWidth: 280 },
+  { id: "actions", index: 13, label: "Actions", defaultWidth: 55, minWidth: 40, maxWidth: 90, resizable: false },
+];
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -272,6 +298,129 @@ export default function NewSalePage({ documentMode = "SALE" }) {
   }, [dismissToast]);
 
   /* =====================================================
+       COLUMN RESIZING (Excel-Style with minWidth & maxWidth)
+    ===================================================== */
+  const storageKey = "d2w_newsale_col_widths_v3";
+
+  const [colWidths, setColWidths] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === SALE_TABLE_COLUMNS.length) {
+          return parsed.map((w, idx) => {
+            const col = SALE_TABLE_COLUMNS[idx];
+            if (!col) return w;
+            return Math.max(col.minWidth, Math.min(col.maxWidth, Number(w) || col.defaultWidth));
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return SALE_TABLE_COLUMNS.map((col) => col.defaultWidth);
+  });
+
+  const hasCustomWidths = useMemo(() => {
+    return SALE_TABLE_COLUMNS.some(
+      (col, idx) => colWidths[idx] != null && colWidths[idx] !== col.defaultWidth
+    );
+  }, [colWidths]);
+
+  const startColResize = useCallback(
+    (colIndex, e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const col = SALE_TABLE_COLUMNS[colIndex];
+      if (!col || col.resizable === false) return;
+
+      const startX = e.clientX;
+      const startWidth = colWidths[colIndex] || col.defaultWidth;
+      const minW = col.minWidth || 40;
+      const maxW = col.maxWidth || 500;
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const handleMouseMove = (moveEvent) => {
+        const delta = moveEvent.clientX - startX;
+        const newWidth = Math.max(minW, Math.min(maxW, Math.round(startWidth + delta)));
+        setColWidths((prev) => {
+          const next = [...prev];
+          next[colIndex] = newWidth;
+          return next;
+        });
+      };
+
+      const handleMouseUp = () => {
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+
+        setColWidths((latest) => {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(latest));
+          } catch {
+            /* ignore */
+          }
+          return latest;
+        });
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [colWidths]
+  );
+
+  const resetColumn = useCallback((colIndex) => {
+    const col = SALE_TABLE_COLUMNS[colIndex];
+    if (!col) return;
+    setColWidths((prev) => {
+      const next = [...prev];
+      next[colIndex] = col.defaultWidth;
+      const allMatchDefaults = SALE_TABLE_COLUMNS.every(
+        (c, idx) => next[idx] === c.defaultWidth
+      );
+      try {
+        if (allMatchDefaults) {
+          localStorage.removeItem(storageKey);
+        } else {
+          localStorage.setItem(storageKey, JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const resetAllColumns = useCallback(() => {
+    const defaults = SALE_TABLE_COLUMNS.map((col) => col.defaultWidth);
+    setColWidths(defaults);
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+    toast?.info?.("Column widths reset to default");
+  }, [toast]);
+
+  const renderResizer = (colIndex) => {
+    const col = SALE_TABLE_COLUMNS[colIndex];
+    if (!col || col.resizable === false) return null;
+    return (
+      <span
+        className="ns-col-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`Resize ${col.label} column (double-click to reset)`}
+        title={`Drag to resize (${col.minWidth}px - ${col.maxWidth}px, double-click to reset)`}
+        onMouseDown={(e) => startColResize(colIndex, e)}
+        onDoubleClick={() => resetColumn(colIndex)}
+      />
+    );
+  };
+
+  /* =====================================================
        STORE
     ===================================================== */
 
@@ -286,16 +435,14 @@ export default function NewSalePage({ documentMode = "SALE" }) {
   const [storeError, setStoreError] = useState("");
 
   useEffect(() => {
-    if (!isSuperAdmin) {
-      return;
-    }
-
+    let live = true;
     const loadStores = async () => {
       setStoreLoading(true);
       setStoreError("");
 
       try {
         const response = await getAllStores();
+        if (!live) return;
 
         const data = Array.isArray(response)
           ? response
@@ -304,21 +451,105 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             : [];
 
         setStores(data);
+        if (data.length > 0) {
+          setSelectedStoreId((current) => {
+            if (current && data.some((s) => String(s.id) === String(current))) return current;
+            return user?.storeId ? String(user.storeId) : String(data[0].id);
+          });
+        }
       } catch (error) {
         console.error("Failed to load stores:", error);
-
+        if (!live) return;
         setStores([]);
-
         setStoreError(
           error?.response?.data?.message || "Unable to load stores.",
         );
       } finally {
-        setStoreLoading(false);
+        if (live) setStoreLoading(false);
       }
     };
 
     loadStores();
-  }, [isSuperAdmin]);
+    return () => { live = false; };
+  }, [user]);
+
+  /* Discount entry mode for the whole table: PERCENT (default) or AMOUNT */
+  const [discountType, setDiscountType] = useState("PERCENT");
+
+  /* Price tax mode for the whole table: GST_EXCLUSIVE (default) or GST_INCLUSIVE */
+  const [columnPriceMode, setColumnPriceMode] = useState("GST_EXCLUSIVE");
+
+  /* =====================================================
+       GST DEFAULTS
+       One header dropdown sets tax type AND rate together.
+       Value format: "<TYPE>:<PERCENT>" e.g. "CGST_SGST:18"
+    ===================================================== */
+
+  const [defaultGstType, setDefaultGstType] = useState("CGST_SGST");
+
+  const [defaultGstPercentage, setDefaultGstPercentage] = useState(18);
+
+  const createEmptyItem = useCallback(
+    () => ({
+      _rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      inventoryId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      productId: null,
+      localProductId: null,
+      batchId: null,
+      batchNumber: null,
+      partNumber: "",
+      itemName: "",
+      brandName: "",
+      brand: "",
+      hsnCode: "",
+      stockUnit: "PCS",
+      packSize: null,
+      contentsUnit: null,
+      quantity: "",
+      availableQuantity: 999999,
+      mrp: "",
+      sellingPrice: "",
+      isManualPriceOverride: false,
+      discountMode: discountType,
+      discountPercentage: 0,
+      discountAmount: 0,
+      discountValue: 0,
+      gstType: defaultGstType === "NONE" ? "NONE" : defaultGstType,
+      gstPercentage:
+        defaultGstType === "NONE" ? 0 : Number(defaultGstPercentage),
+      gstAmount: 0,
+      taxableAmount: 0,
+      lineTotal: 0,
+    }),
+    [defaultGstType, defaultGstPercentage, discountType],
+  );
+
+  const resetFormState = useCallback(() => {
+    setItems([createEmptyItem()]);
+    setSelectedCustomer(null);
+    setCustomerSearch("");
+    setIsDraft(false);
+    setOriginalInvoice(null);
+    setCreatedOrderId(null);
+    setCreatedOrderAmount(null);
+    setCalculation(null);
+    setCalcError("");
+    setReceivedAmount("");
+    setPaymentStatus("PAID");
+    setPaymentMethod("CASH");
+    setPaymentReference("");
+    setEditReason("");
+    setBillDiscountPercent(0);
+  }, [createEmptyItem]);
+
+  const lastPathnameRef = useRef(location.pathname);
+  useEffect(() => {
+    const isNew = !editOrderId && !proformaEditId && !location.state?.proforma && !location.state?.bill;
+    if (isNew && lastPathnameRef.current !== location.pathname) {
+      resetFormState();
+    }
+    lastPathnameRef.current = location.pathname;
+  }, [location.pathname, editOrderId, proformaEditId, location.state, resetFormState]);
 
   /* Discount entry mode for the whole table: PERCENT (default) or AMOUNT */
   const [discountType, setDiscountType] = useState("PERCENT");
@@ -563,6 +794,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     }
 
     const uploadedItems = (preview.items || []).map((item) => ({
+      _rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       productId: item.inventory?.productId ?? null,
       localProductId: item.inventory?.localProductId ?? null,
       inventoryId: item.inventory?.inventoryId,
@@ -570,32 +802,50 @@ export default function NewSalePage({ documentMode = "SALE" }) {
       batchNumber: item.inventory?.batchNumber ?? null,
       partNumber: item.partNumber,
       itemName: item.inventory?.itemName,
-      brandName: item.inventory?.brandName,
-      hsnCode: item.inventory?.hsncode,
+      brandName: item.inventory?.brandName || item.inventory?.brand || "",
+      brand: item.inventory?.brand || item.inventory?.brandName || "",
+      hsnCode: item.inventory?.hsncode || item.inventory?.hsnCode || "",
+      stockUnit: item.inventory?.stockUnit || "PCS",
       quantity: Number(item.requestedQuantity || 0),
       availableQuantity: Number(
         item.batchAvailableQuantity ?? item.inventory?.quantity ?? 0,
       ),
       mrp: Number(item.inventory?.mrp || 0),
       sellingPrice: Number(item.inventory?.sellingPrice || 0),
+      discountMode: "PERCENT",
       discountPercentage: 0,
+      discountAmount: 0,
+      discountValue: 0,
       gstType: gstType === "NONE" ? "NONE" : gstType,
       gstPercentage:
         gstType === "NONE"
           ? 0
           : Number(item.inventory?.gstPercentage ?? gstPercentage ?? 0),
       gstAmount: 0,
+      taxableAmount: 0,
+      lineTotal: 0,
       bulkUploaded: true,
+      isManualPriceOverride: false,
     }));
 
     setItems((current) => {
+      // Discard blank/unfilled placeholder rows so uploaded Excel rows start at row 1
+      const isBlankRow = (it) =>
+        (!it.partNumber || String(it.partNumber).trim() === "") &&
+        (!it.itemName || String(it.itemName).trim() === "") &&
+        !it.productId &&
+        (!it.quantity || Number(it.quantity) === 0) &&
+        String(it.inventoryId || "").startsWith("row-");
+
+      const existingRealItems = current.filter((it) => !isBlankRow(it));
+
       const incomingInventory = new Set(
         uploadedItems.map((item) => String(item.inventoryId)),
       );
       // A corrected file replaces its Excel quantities for the included
       // inventory items. Keep manual quantities and previously accepted
       // items absent from the corrected file. Reuploads do not double them.
-      const merged = current.flatMap((item) => {
+      const merged = existingRealItems.flatMap((item) => {
         if (!incomingInventory.has(String(item.inventoryId))) return [item];
         const oldExcelQty = Number(
           item.bulkQuantity ?? (item.bulkUploaded ? item.quantity : 0),
@@ -632,7 +882,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
             bulkUploaded: true,
           };
       });
-      return merged;
+      return merged.length === 0 ? [createEmptyItem()] : merged;
     });
   };
 
@@ -695,6 +945,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     updateItemField(itemIndex, "partNumber", text);
 
     const requestId = ++rowSearchRequest.current;
+    if (!element) return;
     const box = element.getBoundingClientRect();
     const position = {
       left: box.left,
@@ -709,7 +960,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     }
 
     try {
-      const results = await fetchStock(trimmed);
+      const results = await fetchStock(cleanText);
       if (requestId !== rowSearchRequest.current) return;
       if (Array.isArray(results) && results.length > 0) {
         setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
@@ -988,8 +1239,23 @@ const handleItemCreated = async (result, submitted) => {
       current.map((item, itemIndex) => {
         if (itemIndex !== index) return item;
 
+        if (item.quantity === "" || item.quantity == null) {
+          return item;
+        }
+
         const availableQuantity = Number(item.availableQuantity ?? 0);
-        const quantity = Math.floor(Number(item.quantity));
+        const parsed = Number(item.quantity);
+        if (Number.isNaN(parsed) || parsed <= 0) {
+          return { ...item, quantity: "" };
+        }
+        const quantity = Math.floor(parsed);
+
+        if (isProforma) {
+          return {
+            ...item,
+            quantity,
+          };
+        }
 
         if (isProforma) {
           return {
@@ -1001,10 +1267,7 @@ const handleItemCreated = async (result, submitted) => {
 
         return {
           ...item,
-          quantity:
-            Number.isFinite(quantity) && quantity >= 1
-              ? Math.min(quantity, availableQuantity)
-              : 1,
+          quantity: Math.min(quantity, availableQuantity),
         };
       }),
     );
@@ -1186,15 +1449,16 @@ const handleItemCreated = async (result, submitted) => {
         items: activeItems.map((item) => ({
           productId: item.productId ?? null,
 
-          /*
-           * Local products do not have a global productId.
-           * Preserve localProductId so the backend can identify them.
-           */
-          localProductId: item.localProductId ?? null,
+          return {
+            productId: item.productId ?? null,
 
-          inventoryId: item.inventoryId,
+            /*
+             * Local products do not have a global productId.
+             * Preserve localProductId so the backend can identify them.
+             */
+            localProductId: item.localProductId ?? null,
 
-          batchId: item.batchId ?? null,
+            inventoryId: item.inventoryId,
 
           quantity: Number(item.quantity || 1),
 
@@ -1208,8 +1472,19 @@ const handleItemCreated = async (result, submitted) => {
               ? Number(item.discountAmount ?? item.discountValue ?? 0)
               : Number(item.discountPercentage ?? 0),
 
-          gstType: toBackendGstType(item.gstType, item.gstPercentage),
-        })),
+            discountPercentage: effectiveDiscountPct(item),
+            discountType:
+              (item.discountMode || discountType) === "AMOUNT"
+                ? "AMOUNT"
+                : "PERCENT",
+            discountValue:
+              (item.discountMode || discountType) === "AMOUNT"
+                ? Number(item.discountAmount ?? item.discountValue ?? 0)
+                : Number(item.discountPercentage ?? 0),
+
+            gstType: toBackendGstType(item.gstType, item.gstPercentage),
+          };
+        }),
       };
     },
     [selectedStoreId, billDiscountPercent, discountType],
@@ -1282,21 +1557,31 @@ const handleItemCreated = async (result, submitted) => {
   );
 
   const buildAmendmentRequest = useCallback(
-    (currentItems) => ({
-      editToken: originalInvoice?.editToken,
-      reason: editReason.trim(),
-      billDiscountPercent: normalizePercentage(billDiscountPercent),
-      items: currentItems.map((item) => ({
-        orderItemId: item.orderItemId ?? null,
-        inventoryId: Number(item.inventoryId),
-        batchId: item.batchId == null ? null : Number(item.batchId),
-        quantity: Number(item.quantity),
-        sellingPrice: Number(item.sellingPrice),
-        mrp: Number(item.mrp),
-        discountPercentage: effectiveDiscountPct(item),
-        gstType: toBackendGstType(item.gstType, item.gstPercentage),
-      })),
-    }),
+    (currentItems) => {
+      const validItems = (currentItems || []).filter(
+        (item) =>
+          item.inventoryId &&
+          !String(item.inventoryId).startsWith("row-") &&
+          !String(item.inventoryId).startsWith("item-") &&
+          Number(item.quantity) > 0 &&
+          Number(item.sellingPrice) > 0,
+      );
+      return {
+        editToken: originalInvoice?.editToken,
+        reason: (editReason || "").trim() || "Invoice amended",
+        billDiscountPercent: normalizePercentage(billDiscountPercent),
+        items: validItems.map((item) => ({
+          orderItemId: item.orderItemId ?? null,
+          inventoryId: Number(item.inventoryId),
+          batchId: item.batchId == null ? null : Number(item.batchId),
+          quantity: Number(item.quantity),
+          sellingPrice: Number(item.sellingPrice),
+          mrp: Number(item.mrp || item.sellingPrice),
+          discountPercentage: effectiveDiscountPct(item),
+          gstType: toBackendGstType(item.gstType, item.gstPercentage),
+        })),
+      };
+    },
     [originalInvoice, editReason, billDiscountPercent],
   );
 
@@ -1660,6 +1945,14 @@ const handleItemCreated = async (result, submitted) => {
 
   const openCustomerModal = (customer = null, prefillMobile = "") => {
     setEditingCustomer(customer);
+    const legal = customer?.legalName || customer?.customerName || "";
+    const trade =
+      customer?.legalName &&
+      customer?.customerName &&
+      customer.legalName !== customer.customerName
+        ? customer.customerName
+        : customer?.tradeName || "";
+
     setCustomerForm(
       customer
         ? {
@@ -1713,9 +2006,15 @@ const handleItemCreated = async (result, submitted) => {
   const handleSaveB2BCustomer = async () => {
     if (!selectedStoreId) return toast.warning("Select a store first.");
     if (!customerForm.customerName.trim())
-      return toast.warning("Party name is required.");
+      return toast.warning("Customer Name is required.");
     if (!/^\d{10}$/.test(customerForm.mobileNumber))
       return toast.warning("Enter a valid 10-digit mobile number.");
+
+    const isRegistered =
+      customerForm.gstRegistrationType !== "UNREGISTERED" ||
+      Boolean(customerForm.gstin?.trim()) ||
+      isProforma;
+
     if (
       customerForm.gstRegistrationType !== "UNREGISTERED" &&
       !/^[0-9A-Za-z]{15}$/.test(customerForm.gstin.trim())
@@ -1765,6 +2064,10 @@ const handleItemCreated = async (result, submitted) => {
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const [invoiceDate, setInvoiceDate] = useState(today);
+  const [invoiceTime, setInvoiceTime] = useState(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+  });
 
   useEffect(() => {
     const source = location.state?.proforma;
@@ -1788,6 +2091,7 @@ const handleItemCreated = async (result, submitted) => {
         setSelectedCustomer({
           id: source.customerId,
           customerName: source.customerName,
+          legalName: source.customerLegalName,
           mobileNumber: source.customerMobile,
           email: source.customerEmail,
           gstin: source.customerGstin,
@@ -1858,7 +2162,9 @@ const handleItemCreated = async (result, submitted) => {
         setOriginalInvoice(source);
         setSelectedStoreId(String(source.storeId));
         setSelectedCustomer({
+          id: source.customerId,
           customerName: source.customerName,
+          legalName: source.customerLegalName,
           mobileNumber: source.phone,
           gstin: source.customerGstin,
           gstRegistrationType:
@@ -1988,11 +2294,12 @@ const handleItemCreated = async (result, submitted) => {
       try {
         savedInvoice = await amendInvoice(editOrderId, {
           ...buildAmendmentRequest(items),
-           receivedAmount: receivedAmount === "" ? null : Number(receivedAmount), 
+          paymentStatus,
+          receivedAmount: receivedAmount === "" ? null : Number(receivedAmount),
           ...(collectPayment
             ? {
                 payment: {
-                  paymentMethod,
+                  paymentMethod: paymentMethod || "CASH",
                   transactionNumber:
                     paymentMethod === "CASH" ? null : paymentReference.trim(),
                 },
@@ -2197,6 +2504,7 @@ const handleItemCreated = async (result, submitted) => {
           defaultGstType,
           defaultGstPercentage,
           invoiceDate,
+          invoiceTime: invoiceTime || new Date().toTimeString().slice(0, 8),
         };
         const saved = proformaEditId
           ? await updateProforma(proformaEditId, proformaPayload)
@@ -2225,6 +2533,16 @@ const handleItemCreated = async (result, submitted) => {
        * inventoryId MUST be sent here (backend: "Inventory ID is required").
        */
 
+      const validSaleItems = items.filter(
+        (it) =>
+          it.inventoryId &&
+          !String(it.inventoryId).startsWith("row-") &&
+          Number(it.quantity) > 0,
+      );
+      if (validSaleItems.length === 0) {
+        throw new Error("Please add at least one product with valid stock before saving.");
+      }
+
       const orderData = {
         draft: saveAsDraft,
         ...(isDraft
@@ -2241,6 +2559,7 @@ const handleItemCreated = async (result, submitted) => {
         saleType: "B2B",
 
         customerName: selectedCustomer.customerName.trim(),
+        customerLegalName: (selectedCustomer?.legalName || selectedCustomer?.customerLegalName || customerForm?.legalName || "").trim() || null,
 
         phone: selectedCustomer.mobileNumber.trim(),
 
@@ -2258,29 +2577,43 @@ const handleItemCreated = async (result, submitted) => {
         paymentMethod: "PENDING",
 
         invoiceDate,
+        invoiceTime: invoiceTime || new Date().toTimeString().slice(0, 8),
 
         billDiscountPercent: normalizePercentage(billDiscountPercent),
         receivedAmount: receivedAmount === "" ? null : Number(receivedAmount),
 
-        items: items.map((item) => ({
-          productId: item.productId ?? null,
+        items: validSaleItems.map((item) => {
+          const rawPrice = Number(item.sellingPrice ?? 0);
+          const gstPct = Number(item.gstPercentage ?? 0);
+          const taxableUnitPrice =
+            columnPriceMode === "GST_INCLUSIVE" && gstPct > 0
+              ? Math.round((rawPrice / (1 + gstPct / 100)) * 100) / 100
+              : rawPrice;
+          return {
+            proformaItemId: item.proformaItemId || (location.state?.proforma ? item.id : null),
 
-          /*
-           * Local products have productId = null.
-           * Send localProductId so the backend can resolve them.
-           */
-          localProductId: item.localProductId ?? null,
+            productId: item.productId ?? null,
 
-          inventoryId: item.inventoryId,
+            /*
+             * Local products have productId = null.
+             * Send localProductId so the backend can resolve them.
+             */
+            localProductId: item.localProductId ?? null,
 
-          batchId: item.batchId ?? null,
+            inventoryId: item.inventoryId ?? null,
 
-          quantity: Number(item.quantity),
+            batchId: item.batchId ?? null,
 
-          discountPercentage: effectiveDiscountPct(item),
+            quantity: Number(item.quantity),
+            unitPrice: taxableUnitPrice,
+            sellingPrice: rawPrice,
+            mrp: Number(item.mrp ?? 0),
 
-          gstType: toBackendGstType(item.gstType, item.gstPercentage),
-        })),
+            discountPercentage: effectiveDiscountPct(item),
+
+            gstType: toBackendGstType(item.gstType, item.gstPercentage),
+          };
+        }),
       };
 
       console.log("Creating invoice with payload:", orderData);
@@ -2307,6 +2640,7 @@ const handleItemCreated = async (result, submitted) => {
       }
 
       if (saveAsDraft) {
+        resetFormState();
         navigate(`${isSuperAdmin ? "/owner" : "/store"}/sales`, {
           replace: true,
         });
@@ -2411,6 +2745,8 @@ const handleItemCreated = async (result, submitted) => {
     const productName =
       product.itemName ?? product.productName ?? product.name ?? "Product";
     const partNumber = product.partNumber ?? "-";
+    const brand = product.brandName || product.brand;
+    const isFromStock = Boolean(product.inventoryId || (quantity > 0 && product.source !== "GLOBAL"));
 
     return (
       <button
@@ -2421,14 +2757,27 @@ const handleItemCreated = async (result, submitted) => {
         onClick={() => onPick(product)}
       >
         <div>
-          <strong>{productName}</strong>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <strong>{productName}</strong>
+            {isFromStock ? (
+              <span style={{ fontSize: "10px", padding: "1px 6px", background: "#dcfce7", color: "#15803d", borderRadius: "4px", fontWeight: 700 }}>
+                In Stock ({quantity})
+              </span>
+            ) : (
+              <span style={{ fontSize: "10px", padding: "1px 6px", background: "#ede9fe", color: "#6d28d9", borderRadius: "4px", fontWeight: 700 }}>
+                Global Product
+              </span>
+            )}
+          </div>
           <ProductUnitLabel product={product} />
-          <span>Part Number: {partNumber}</span>
-          <span>Stock: {quantity}</span>
+          <span>Part Number: {partNumber} {brand ? `• ${brand}` : ""}</span>
+          {product.hsnCode && <span style={{ fontSize: "11px", color: "#64748b" }}>HSN: {product.hsnCode} • GST: {product.gstPercentage ?? 18}%</span>}
         </div>
-        <div>
-          <span>MRP {money(mrp)}</span>
-          <strong>{money(sellingPrice)}</strong>
+        <div style={{ textAlign: "right" }}>
+          {mrp > 0 && <span style={{ display: "block", fontSize: "11px", color: "#64748b" }}>MRP {money(mrp)}</span>}
+          <strong style={{ fontSize: "13px", color: "#1e293b" }}>
+            {sellingPrice > 0 ? money(sellingPrice) : mrp > 0 ? `Rate ~${money(calculateRateFromMrp(mrp, product.gstPercentage ?? 18))}` : "Price TBD"}
+          </strong>
         </div>
       </button>
     );
@@ -2539,7 +2888,11 @@ const handleItemCreated = async (result, submitted) => {
             type="button"
             className="ns-close"
             onClick={() =>
-              navigate(isSuperAdmin ? "/owner/sales" : "/store/sales")
+              navigate(
+                isProforma
+                  ? (isSuperAdmin ? "/owner/sales/proforma" : "/store/sales/proforma")
+                  : (isSuperAdmin ? "/owner/sales" : "/store/sales")
+              )
             }
             disabled={creatingInvoice}
             aria-label="Exit"
@@ -2702,6 +3055,15 @@ const handleItemCreated = async (result, submitted) => {
               <h2>Bill Items</h2>
               <span className="ns-badge">{billItemCount} item(s)</span>
             </div>
+            <button
+              type="button"
+              className={`ns-reset-cols-btn ${hasCustomWidths ? "is-customized" : ""}`}
+              onClick={resetAllColumns}
+              title="Reset all column widths to default (Double-click any column header border to reset that column)"
+            >
+              <RotateCcw size={12} />
+              <span>Reset Columns</span>
+            </button>
           </div>
 
           {bulkSalePreview && (
@@ -2741,7 +3103,13 @@ const handleItemCreated = async (result, submitted) => {
           )}
 
           <div className="ns-table-wrap">
-            <table className="ns-table">
+            <table
+              className="ns-table"
+              style={{
+                width: "100%",
+                minWidth: `${colWidths.reduce((a, b) => a + b, 0)}px`,
+              }}
+            >
               <colgroup>
                 {[3.5, 12, 14, 5, 7, 8, 5.5, 6.5, 8, 7.5, 7, 9, 4].map((w, i) => (
                   <col key={i} style={{ width: `${w}%` }} />
@@ -2795,8 +3163,12 @@ const handleItemCreated = async (result, submitted) => {
                       </optgroup>
                       <option value="NONE:0">No Tax</option>
                     </select>
+                    {renderResizer(10)}
                   </th>
-                  <th className="num">Amount</th>
+                  <th className="num ns-th-resizable">
+                    Amount
+                    {renderResizer(11)}
+                  </th>
                 </tr>
               </thead>
 
@@ -3032,12 +3404,8 @@ const handleItemCreated = async (result, submitted) => {
                             type="button"
                             className="ns-del"
                             onClick={() => removeItem(itemIndex)}
-                            disabled={lockedLine}
-                            title={
-                              lockedLine
-                                ? "Saved items cannot be deleted from a completed invoice"
-                                : "Remove item"
-                            }
+                            disabled={creatingInvoice}
+                            title="Remove item"
                             aria-label="Remove item"
                           >
                             <Trash2 size={15} />
@@ -3485,8 +3853,11 @@ const handleItemCreated = async (result, submitted) => {
             left: rowSearch.left,
             top: rowSearch.top,
             width: rowSearch.width,
+            maxHeight: "320px",
+            overflowY: "auto",
+            zIndex: 5000,
           }}
-          onMouseDown={(event) => event.preventDefault()}
+          onMouseDown={(event) => event.stopPropagation()}
         >
           {rowSearch.results.map((product, index) =>
             renderStockResult(product, index, (picked) =>
@@ -3541,6 +3912,7 @@ const handleItemCreated = async (result, submitted) => {
                   }
                 />
               </label>
+
               <label>
                 Phone Number *
                 <input
@@ -3573,6 +3945,7 @@ const handleItemCreated = async (result, submitted) => {
                   <option value="REGISTERED">Registered</option>
                 </select>
               </label>
+
               <label>
                 {customerForm.gstRegistrationType !== "UNREGISTERED"
                   ? "GSTIN *"
@@ -3594,6 +3967,22 @@ const handleItemCreated = async (result, submitted) => {
                 />
               </label>
 
+              {(customerForm.gstRegistrationType !== "UNREGISTERED" ||
+                Boolean(customerForm.gstin?.trim()) ||
+                isProforma) && (
+                <label style={{ gridColumn: "1 / -1" }}>
+                  Trade Name (Optional)
+                  <input
+                    className="ns-input"
+                    placeholder="Trade / Brand / Shop Name (if different from legal name)"
+                    value={customerForm.tradeName || ""}
+                    onChange={(event) =>
+                      handleCustomerFormChange("tradeName", event.target.value)
+                    }
+                  />
+                </label>
+              )}
+
               <label>
                 Email (Optional)
                 <input
@@ -3605,6 +3994,7 @@ const handleItemCreated = async (result, submitted) => {
                   }
                 />
               </label>
+
               <label>
                 State
                 <input

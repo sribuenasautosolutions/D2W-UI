@@ -2,9 +2,30 @@
 export function saleCalculationRows(items, calculation, isInvoiceEdit = false) {
     const lines = calculation?.items || [];
     const used = new Set();
+    const activeIndices = items
+        .map((it, idx) => ({ it, idx }))
+        .filter(({ it }) =>
+            it.inventoryId &&
+            !String(it.inventoryId).startsWith("row-") &&
+            !String(it.inventoryId).startsWith("item-") &&
+            Number(it.quantity) > 0 &&
+            Number(it.sellingPrice) > 0
+        )
+        .map(({ idx }) => idx);
+
     return items.map((item, itemIndex) => {
+        if (
+            !item.inventoryId ||
+            String(item.inventoryId).startsWith("row-") ||
+            String(item.inventoryId).startsWith("item-") ||
+            Number(item.quantity) <= 0 ||
+            Number(item.sellingPrice) <= 0
+        ) {
+            return { item, itemIndex, line: null };
+        }
         const allocations = [];
         let quantity = 0;
+        const requestIdx = activeIndices.indexOf(itemIndex);
         for (let index = 0; index < lines.length; index++) {
             const line = lines[index];
             if (used.has(index)) continue;

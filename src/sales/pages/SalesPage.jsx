@@ -1,21 +1,5 @@
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-} from "react";
-
-import {
-    Search,
-    Plus,
-    Bell,
-    ChevronDown,
-    FileText,
-    Wallet,
-    TrendingUp,
-    Store,
-} from "lucide-react";
-
+import {useCallback,useEffect,useMemo,useState,useRef,} from "react";
+import {Search,Plus,Bell,ChevronDown,FileText,Wallet,TrendingUp,Store,} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -23,21 +7,16 @@ import {
     getAllOrders,
     getOrdersByStore,
 } from "../../services/orderService";
-
 import SalesInvoiceTable from "../components/SalesInvoiceTable";
-
 import apiclient from "../../services/apiclient";
-
+import { getActiveStoresCached } from "../../services/storeService";
 import "./SalesPage.css";
-
 const localDateValue = (value = new Date()) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
     const offset = date.getTimezoneOffset() * 60_000;
     return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 };
-
-
 const readUser = () => {
     try {
         return JSON.parse(localStorage.getItem("user"));
@@ -45,8 +24,6 @@ const readUser = () => {
         return null;
     }
 };
-
-
 const formatMoney = (value) => {
     return `₹ ${Number(value || 0).toLocaleString("en-IN", {
         minimumFractionDigits: 2,
@@ -54,7 +31,8 @@ const formatMoney = (value) => {
     })}`;
 };
 
-
+const SALES_PAGE_SIZE = 25;
+const salesCache = new Map();
 export default function SalesPage() {
 
     const navigate = useNavigate();
@@ -120,17 +98,7 @@ export default function SalesPage() {
 
             try {
 
-                const response =
-                    await apiclient.get(
-                        "/stores",
-                        {
-                            params: {
-                                page: 0,
-                                size: 100,
-                                active: true,
-                            },
-                        }
-                    );
+               const response = await getActiveStoresCached();
 
                 const data = response.data;
 
@@ -166,46 +134,42 @@ export default function SalesPage() {
      * the selected store changes — React re-renders
      * handle the "refresh" for us.
      */
-    const loadSales = useCallback(
-        async () => {
+   const loadSeq = useRef(0);
+const loadSales = useCallback(
+    async () => {
+        const seq = ++loadSeq.current;
+        const cacheKey = `${user?.token || ""}:${selectedStoreId || "all"}`;
+        const cached = salesCache.get(cacheKey);
 
+        if (cached) {
+            setSales(cached);
+            setLoading(false);
+        } else {
             setLoading(true);
-            setError("");
+        }
+        setError("");
 
-            try {
+        try {
+            const data = selectedStoreId
+                ? await getOrdersByStore(selectedStoreId)
+                : await getAllOrders();
 
-                let data;
-
-                if (selectedStoreId) {
-
-                   data = await getOrdersByStore(selectedStoreId);
-
-                } else {
-
-                   data = await getAllOrders();
-
-                }
-
-                setSales(data);
-
-            } catch (requestError) {
-
-                setSales([]);
-
-                setError(
-                    requestError.response?.data?.message ||
-                    "Unable to load sales invoices."
-                );
-
-            } finally {
-
-                setLoading(false);
-
-            }
-
-        },
-        [selectedStoreId]
-    );
+            if (seq !== loadSeq.current) return;
+            salesCache.set(cacheKey, data);
+            setSales(data);
+        } catch (requestError) {
+            if (seq !== loadSeq.current) return;
+            if (!cached) setSales([]);
+            setError(
+                requestError.response?.data?.message ||
+                "Unable to load sales invoices."
+            );
+        } finally {
+            if (seq === loadSeq.current) setLoading(false);
+        }
+    },
+    [selectedStoreId, user]
+);
 
 
     useEffect(() => {
@@ -239,7 +203,7 @@ export default function SalesPage() {
         const query =
             search.trim().toLowerCase();
 
-        return sales.filter((sale) => {
+        const filtered = sales.filter((sale) => {
             const saleDate = localDateValue(sale.orderDate);
             const matchesDate = (!fromDate || saleDate >= fromDate)
                 && (!toDate || saleDate <= toDate);
@@ -259,13 +223,31 @@ export default function SalesPage() {
 
         });
 
+        return filtered.sort((a, b) => {
+            const timeA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
+            const timeB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
+            if (timeB !== timeA) return timeB - timeA;
+            return (b.orderId || 0) - (a.orderId || 0);
+        });
+
     }, [fromDate, sales, search, toDate]);
 
 
     /*
      * Summary values are only for display.
      * They do NOT replace backend financial calculations.
+     * 
      */
+    const [pageNumber, setPageNumber] = useState(1);
+        useEffect(() => {
+            setPageNumber(1);
+        }, [search, fromDate, toDate, selectedStoreId]);
+        const totalPages = Math.max(1, Math.ceil(visibleSales.length / SALES_PAGE_SIZE));
+        const currentPage = Math.min(pageNumber, totalPages);
+        const pagedSales = useMemo(
+            () => visibleSales.slice((currentPage - 1) * SALES_PAGE_SIZE, currentPage * SALES_PAGE_SIZE),
+            [visibleSales, currentPage]
+        );
     const completedInvoiceCount = visibleSales.filter(sale => sale.orderStatus !== "DRAFT").length;
     const totalSalesValue = useMemo(() => {
 
@@ -338,6 +320,7 @@ export default function SalesPage() {
         if (!confirmed) return;
         try {
             const response = await apiclient.delete(`/orders/${sale.orderId}`);
+            salesCache.clear();
             const details = response.data?.deletedRecords || response.data;
             const summary = details && typeof details === "object"
                 ? Object.entries(details).map(([name, count]) => `${name}: ${count}`).join(", ")
@@ -353,30 +336,20 @@ export default function SalesPage() {
    return (
     <section className="sales-page">
 
-        {/* NAVBAR */}
-        <header className="sales-navbar">
-            <h1 className="sales-navbar-title">Sales Invoices</h1>
-            <div className="sales-navbar-right">
-                <div className="sales-search">
-                    <Search size={16} />
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search invoice, customer, phone..."
-                    />
-                </div>
-                <button type="button" className="sales-icon-button" aria-label="Notifications">
-                    <Bell size={18} />
-                    <span className="sales-notification-dot" />
+        {/* HEADER: Title on left, New Sale button on right */}
+        <div className="sales-header-row">
+            <h1 className="sales-header-title">Sales Invoices</h1>
+            {canCreateSale && (
+                <button
+                    type="button"
+                    className="sales-new-sale-button"
+                    onClick={() => navigate("new")}
+                >
+                    <Plus size={16} />
+                    New Sale
                 </button>
-                <button type="button" className="sales-profile" aria-label="Profile">
-                    <span className="sales-avatar">{initials}</span>
-                    <span className="sales-profile-name">{displayName}</span>
-                    <ChevronDown size={16} />
-                </button>
-            </div>
-        </header>
+            )}
+        </div>
 
         {/* KPI CARDS */}
             <div className="sales-kpis">
@@ -492,16 +465,15 @@ export default function SalesPage() {
                     </label>
                 )}
 
-                {canCreateSale && (
-                    <button
-                        type="button"
-                        className="sales-new-sale-button"
-                        onClick={() => navigate("new")}
-                    >
-                        <Plus size={16} />
-                        New Sale
-                    </button>
-                )}
+                <div className="sales-search">
+                    <Search size={16} />
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search invoice, customer, phone..."
+                    />
+                </div>
             </div>
         </div>
 
@@ -509,16 +481,39 @@ export default function SalesPage() {
         <div className="sales-panel">
             {loading ? (
                 <div className="sales-loading">Loading sales invoices...</div>
-            ) : (
-                <SalesInvoiceTable
-                    sales={visibleSales}
-                    isSuperAdmin={isSuperAdmin}
-                    selectedStoreId={selectedStoreId}
-                    onViewInvoice={handleViewInvoice}
-                    onDownloadInvoice={(orderId) => navigate(`invoice/${orderId}?download=1`)}
-                    onEditInvoice={(orderId) => navigate(`edit/${orderId}`)}
-                    onDeleteInvoice={handleDeleteInvoice}
-                />
+                        ) : (
+                <>
+                    <SalesInvoiceTable
+                        sales={pagedSales}
+                        isSuperAdmin={isSuperAdmin}
+                        selectedStoreId={selectedStoreId}
+                        onViewInvoice={handleViewInvoice}
+                        onDownloadInvoice={(orderId) => navigate(`invoice/${orderId}?download=1`)}
+                        onEditInvoice={(orderId) => navigate(`edit/${orderId}`)}
+                        onDeleteInvoice={handleDeleteInvoice}
+                    />
+                    {visibleSales.length > SALES_PAGE_SIZE && (
+                        <div className="sales-pager">
+                            <button
+                                type="button"
+                                onClick={() => setPageNumber(currentPage - 1)}
+                                disabled={currentPage <= 1}
+                            >
+                                Previous
+                            </button>
+                            <span>
+                                Page {currentPage} of {totalPages} · {visibleSales.length} invoices
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setPageNumber(currentPage + 1)}
+                                disabled={currentPage >= totalPages}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
 

@@ -3,6 +3,8 @@ import { getPendingApprovalRequests } from "../../../services/localProductServic
 import "./styles/vehicle-management.css";
 import "./styles/product-approval.css";
 
+
+const PA_PAGE_SIZE = 25;
 function PendingApprovalSection({
     selectedApproval,
     setSelectedApproval,
@@ -11,7 +13,11 @@ function PendingApprovalSection({
 }) {
     const [pendingProducts, setPendingProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [pageNumber, setPageNumber] = useState(1);
 
+    useEffect(() => {
+    setPageNumber(1);
+}, [query, refreshSignal]);
     useEffect(() => {
         loadPendingProducts();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -39,7 +45,12 @@ function PendingApprovalSection({
             (product.brand || "").toLowerCase().includes(q)
         );
     });
-
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PA_PAGE_SIZE));
+const currentPage = Math.min(pageNumber, totalPages);
+const pagedProducts = filteredProducts.slice(
+    (currentPage - 1) * PA_PAGE_SIZE,
+    currentPage * PA_PAGE_SIZE
+);
     const statusTone = (status) => {
         const normalized = (status || "").toLowerCase();
         if (normalized.includes("approve")) return "green";
@@ -105,7 +116,7 @@ function PendingApprovalSection({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredProducts.map((product) => (
+                                    {pagedProducts.map((product) => (
                                         <tr
                                             key={product.approvalRequestId}
                                             className={
@@ -150,6 +161,13 @@ function PendingApprovalSection({
                         <div className="pa-table-footer">
                             {filteredProducts.length} of {pendingProducts.length} products
                         </div>
+                        {filteredProducts.length > PA_PAGE_SIZE && (
+                            <div className="pa-pager">
+                                <button type="button" onClick={() => setPageNumber(currentPage - 1)} disabled={currentPage <= 1}>Previous</button>
+                                <span>Page {currentPage} of {totalPages}</span>
+                                <button type="button" onClick={() => setPageNumber(currentPage + 1)} disabled={currentPage >= totalPages}>Next</button>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

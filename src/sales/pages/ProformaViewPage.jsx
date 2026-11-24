@@ -215,19 +215,12 @@ export default function ProformaViewPage() {
       <section className="proforma-party-grid">
         <div className="proforma-bill-to">
           <small>BILL TO</small>
-          {record.customerLegalName ? (
-            <>
-              <strong style={{ display: "block", fontSize: "14px", color: "#0f172a" }}>{record.customerLegalName}</strong>
-              <div style={{ fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "4px" }}>
-                {record.customerName}
-              </div>
-            </>
-          ) : (
-            <strong style={{ display: "block", fontSize: "14px", color: "#0f172a" }}>{record.customerName}</strong>
+          <strong>{record.customerLegalName || record.customerName}</strong>
+          {record.customerLegalName && record.customerName && record.customerLegalName.trim().toLowerCase() !== record.customerName.trim().toLowerCase() && (
+            <span style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 4px", display: "block" }}>
+              Trade Name: {record.customerName}
+            </span>
           )}
-          {record.customerMobile && <span><Phone size={12}/>Phone: {record.customerMobile}</span>}
-          {hasCustomerGst && <span>GSTIN: {gstin}</span>}
-          {hasCustomerGst && gstType && <span>GST Type: {gstType}</span>}
           {record.billingAddress && <span><MapPin size={12}/>{record.billingAddress}</span>}
           {record.customerEmail && <span><Mail size={12}/>{record.customerEmail}</span>}
           {record.shippingAddress && <span>Shipping Address: {record.shippingAddress}</span>}
