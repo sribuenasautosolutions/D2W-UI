@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState,useRef} from "react";
 import api from "../../../services/api";
 import { getActiveStoresCached } from "../../../services/storeService";
+import { useAuth } from "../../../auth/AuthContext";
 import {getCurrentStockPage,getLocalStockFilterOptions,printBarcodes,} from "../../../services/storeInventoryPanelService";
 import "./BarcodeGeneratePage.css";
 const ITEMS_PER_PAGE_OPTIONS = [10,25,50,100,];
@@ -33,8 +34,8 @@ const toBarcodeItems = (stockItems) =>
     .filter((item) => item.partNumber);
 
 function BarcodeGeneratePage() {
-  const user = useMemo(() => readUser(), []);
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const { hasPermission } = useAuth();
+  const isSuperAdmin = hasPermission?.("STORES.VIEW"); // Platform-level store access
 
   /* STORE */
   const [stores, setStores] = useState([]);
@@ -79,7 +80,7 @@ function BarcodeGeneratePage() {
     return () => clearTimeout(timer);
   }, [searchText]);
 
-  /* LOAD STORES FOR SUPER ADMIN */
+  /* LOAD STORES FOR PLATFORM ADMIN */
   useEffect(() => {
     if (!isSuperAdmin) {
       return;

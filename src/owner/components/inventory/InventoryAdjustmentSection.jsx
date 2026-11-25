@@ -1,20 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import api from "../../../services/api";
+import { useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 import { createInventoryAdjustment } from "../../../services/inventoryTransactionService";
 
 const reasons = ["DAMAGED", "LOST", "PHYSICAL_COUNT", "MANUAL_CORRECTION"];
 
-function getUser() {
-  try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
-}
-
 export default function InventoryAdjustmentSection() {
-  const user = getUser();
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const { hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const isPlatformAdmin = hasGlobalStoreManagementAuthority();
+  const canAdjust = hasPermission("INVENTORY.ADJUST");
+
   const [stores, setStores] = useState([]);
-  const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
+  const [storeId, setStoreId] = useState("");
   const [inventory, setInventory] = useState([]);
   const [inventoryId, setInventoryId] = useState("");
   const [adjustedQty, setAdjustedQty] = useState("");
@@ -25,12 +24,12 @@ export default function InventoryAdjustmentSection() {
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!isPlatformAdmin) return;
     getActiveStoresCached().then((response) => {
       const activeStores = Array.isArray(response.data?.content) ? response.data.content : [];
       setStores(activeStores);
     }).catch(() => setMessage({ type: "error", text: "Unable to load stores" }));
-  }, [isSuperAdmin]);
+  }, [isPlatformAdmin]);
 
   const loadInventory = useCallback(async () => {
     if (!storeId) {
@@ -62,6 +61,10 @@ export default function InventoryAdjustmentSection() {
   );
 
   const save = async () => {
+    if (!canAdjust) {
+      setMessage({ type: "error", text: "You don't have permission to adjust inventory" });
+      return;
+    }
     if (!storeId || !selected) {
       setMessage({ type: "error", text: "Select an available inventory item" });
       return;
@@ -98,9 +101,11 @@ export default function InventoryAdjustmentSection() {
         <div style={S.icon}><SlidersHorizontal size={18} /></div>
         <div><h2 style={S.title}>Stock Adjustment</h2><p style={S.subtitle}>Correct the physical quantity of available store stock.</p></div>
       </div>
+      {!canAdjust && <div style={S.error}>You don't have permission to adjust inventory (requires INVENTORY.ADJUST)</div>}
       {message && <div style={message.type === "error" ? S.error : S.success}>{message.text}</div>}
       <div style={S.form}>
-        {isSuperAdmin && <Field label="Store"><select style={S.input} value={storeId} onChange={(e) => { setStoreId(e.target.value); setInventoryId(""); }}><option value="">Select store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select></Field>}
+        {isPlatformAdmin && <Field label="Store"><select style={S.input} value={storeId} onChange={(e) => { setStoreId(e.target.value); setInventoryId(""); }}><option value="">Select store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select></Field>}
+        {!isPlatformAdmin && <Field label="Store"><input style={S.readonly} value={storeId || "Not assigned"} readOnly /></Field>}
         <Field label="Available stock item"><select style={S.input} value={inventoryId} disabled={!storeId || loading} onChange={(e) => { setInventoryId(e.target.value); const item = inventory.find((entry) => String(entry.inventoryId) === e.target.value); setAdjustedQty(item ? String(item.quantity) : ""); }}><option value="">{loading ? "Loading stock..." : "Select inventory item"}</option>{inventory.map((item) => <option key={item.inventoryId} value={item.inventoryId}>{item.itemName} | {item.partNumber} | Available: {item.quantity}</option>)}</select></Field>
         <Field label="Current quantity"><input style={S.readonly} value={selected?.quantity ?? ""} readOnly placeholder="Select stock" /></Field>
         <Field label="New physical quantity"><input style={S.input} type="number" min="0" value={adjustedQty} onChange={(e) => setAdjustedQty(e.target.value)} placeholder="0" /></Field>
@@ -108,7 +113,7 @@ export default function InventoryAdjustmentSection() {
         <Field label="Remarks"><input style={S.input} value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional note" /></Field>
       </div>
       {selected && <div style={S.summary}><span>Product <strong>{selected.itemName}</strong></span><span>Part <strong>{selected.partNumber}</strong></span><span>Current <strong>{selected.quantity}</strong></span><span>Difference <strong>{adjustedQty === "" ? "—" : Number(adjustedQty) - Number(selected.quantity)}</strong></span></div>}
-      <button type="button" style={S.button} disabled={saving || !selected} onClick={save}>{saving ? "Saving..." : "Save Adjustment"}</button>
+      <button type="button" style={S.button} disabled={saving || !selected || !canAdjust} onClick={save}>{saving ? "Saving..." : "Save Adjustment"}</button>
     </section>
   );
 }

@@ -45,24 +45,15 @@ const emptyStore = {
 
 function StoresPage() {
     const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
-    const isSuperAdmin = Boolean(
-        currentUser?.role === "SUPER_ADMIN" ||
-        (currentUser?.role || "").toUpperCase() === "SUPER_ADMIN"
-    );
-    const canCreateStore = isSuperAdmin || hasPermission?.("STORES.CREATE");
-    const canUpdateStore = isSuperAdmin || hasPermission?.("STORES.UPDATE");
-    const canDelegatePermissions = Boolean(
-        isSuperAdmin ||
-        (typeof hasGlobalStoreManagementAuthority === "function" && hasGlobalStoreManagementAuthority()) ||
-        hasPermission?.("STORE_PERMISSIONS.DELEGATE") ||
+    const canCreateStore = hasPermission?.("STORES.CREATE");
+    const canUpdateStore = hasPermission?.("STORES.UPDATE");
+    const canDelegatePermissions = hasPermission?.("STORE_PERMISSIONS.DELEGATE") ||
         hasPermission?.("PERMISSIONS.MANAGE") ||
-        hasPermission?.("PERMISSIONS.VIEW")
-    );
-    const canDeleteStore = Boolean(
-        typeof hasGlobalStoreManagementAuthority === "function"
-            ? hasGlobalStoreManagementAuthority()
-            : isSuperAdmin
-    );
+        hasPermission?.("PERMISSIONS.VIEW") ||
+        (typeof hasGlobalStoreManagementAuthority === "function" && hasGlobalStoreManagementAuthority());
+    const canDeleteStore = typeof hasGlobalStoreManagementAuthority === "function"
+        ? hasGlobalStoreManagementAuthority()
+        : false;
 
     const [stores, setStores] = useState([]);
     const [selectedId, setSelectedId] = useState(null);

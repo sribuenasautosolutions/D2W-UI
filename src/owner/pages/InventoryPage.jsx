@@ -41,11 +41,9 @@ const INVENTORY_VIEWS = {
 };
 
 function InventoryPage() {
-    const { user, hasPermission } = useAuth();
-    const isOwner = user?.role === "SUPER_ADMIN";
-    const isStoreOwner = user?.role === "STORE_OWNER";
-    const canAdjust = isOwner || isStoreOwner || hasPermission?.("INVENTORY.ADJUST");
-    const canPrintBarcodes = isOwner || isStoreOwner || hasPermission?.("BARCODES.PRINT");
+    const { hasPermission } = useAuth();
+    const canAdjust = hasPermission?.("INVENTORY.ADJUST");
+    const canPrintBarcodes = hasPermission?.("BARCODES.PRINT");
 
     const [searchParams] = useSearchParams();
     const requestedView = searchParams.get("view") || "stock";

@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, FilterX, History, Search } from "lucide-react";
 import { getActiveStoresCached } from "../../../services/storeService";
+import { useAuth } from "../../../auth/AuthContext";
 import { getInventoryTransactionsPage } from "../../../services/inventoryTransactionService";
 
 const transactionTypes = ["STOCK_IN", "STOCK_OUT", "SALE", "RETURN", "ADJUSTMENT", "DAMAGED"];
-
-function getUser() {
-  try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
-}
 
 function formatDate(value) {
   if (!value) return "—";
@@ -17,10 +14,11 @@ function formatDate(value) {
 }
 
 export default function InventoryTransactionsSection() {
-  const user = getUser();
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const { hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const isPlatformAdmin = hasGlobalStoreManagementAuthority();
+
   const [stores, setStores] = useState([]);
-  const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
+  const [storeId, setStoreId] = useState("");
   const [searchText, setSearchText] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [type, setType] = useState("");
@@ -33,12 +31,12 @@ export default function InventoryTransactionsSection() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!isPlatformAdmin) return;
     getActiveStoresCached().then((response) => {
       const active = Array.isArray(response.data?.content) ? response.data.content : [];
       setStores(active);
     }).catch(() => setError("Unable to load stores"));
-  }, [isSuperAdmin]);
+  }, [isPlatformAdmin]);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
