@@ -343,6 +343,35 @@ import { loginUser } from "../services/authService";
 import { useAuth } from "../auth/AuthContext";
 import "./LoginPage.css";
 
+function extractPermissions(rawPermissions) {
+    if (!Array.isArray(rawPermissions)) return [];
+    return rawPermissions
+        .map((p) => {
+            if (typeof p === "string") return p.trim();
+            if (p && typeof p === "object") {
+                return (p.code || p.permissionCode || p.name || "").trim();
+            }
+            return "";
+        })
+        .filter(Boolean);
+}
+
+function resolveOwnerRoute(perms) {
+    if (perms.includes("DASHBOARD.VIEW") || perms.includes("STORES.UPDATE")) {
+        return "/owner/dashboard";
+    }
+    if (perms.some((p) => p.startsWith("STORES."))) {
+        return "/owner/stores";
+    }
+    if (perms.some((p) => p.startsWith("EMPLOYEES."))) {
+        return "/owner/users";
+    }
+    if (perms.some((p) => p.startsWith("ROLES.") || p.startsWith("PERMISSIONS."))) {
+        return "/owner/roles";
+    }
+    return "/unauthorized";
+}
+
 function LoginPage() {
     const navigate = useNavigate();
     const { loginSession } = useAuth();
@@ -368,8 +397,9 @@ function LoginPage() {
             loginSession(response);
 
             const role = (response.role || "").toUpperCase();
+            const responsePermissions = extractPermissions(response.permissions);
             if (role === "SUPER_ADMIN" || role === "SUPER ADMINISTRATOR") {
-                navigate("/owner/dashboard");
+                navigate(resolveOwnerRoute(responsePermissions));
             } else if (role === "STORE_OWNER" || role === "STORE MANAGER") {
                 navigate("/store/dashboard");
             } else if (role === "CASHIER" || role === "STORE CASHIER") {
@@ -379,7 +409,7 @@ function LoginPage() {
             } else if (role === "PROCUREMENT" || role === "PROCUREMENT SPECIALIST") {
                 navigate("/procurement/dashboard");
             } else {
-                navigate("/owner/dashboard");
+                navigate(resolveOwnerRoute(responsePermissions));
             }
         } catch (error) {
             const data = error.response?.data;

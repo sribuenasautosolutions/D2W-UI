@@ -1,15 +1,31 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
+function resolveOwnerRoute(permissions = []) {
+    if (permissions.includes("DASHBOARD.VIEW") || permissions.includes("STORES.UPDATE")) {
+        return "/owner/dashboard";
+    }
+    if (permissions.some((p) => p.startsWith("STORES."))) {
+        return "/owner/stores";
+    }
+    if (permissions.some((p) => p.startsWith("EMPLOYEES."))) {
+        return "/owner/users";
+    }
+    if (permissions.some((p) => p.startsWith("ROLES.") || p.startsWith("PERMISSIONS."))) {
+        return "/owner/roles";
+    }
+    return "/unauthorized";
+}
+
 function PublicRoute({ children }) {
 
-    const { user } = useAuth();
+    const { user, permissions } = useAuth();
 
     if (user) {
         const role = (user.role || "").toUpperCase();
 
         if (role === "SUPER_ADMIN" || role === "SUPER ADMINISTRATOR") {
-            return <Navigate to="/owner/dashboard" replace />;
+            return <Navigate to={resolveOwnerRoute(permissions)} replace />;
         }
 
         if (role === "STORE_OWNER" || role === "STORE MANAGER") {
@@ -24,7 +40,7 @@ function PublicRoute({ children }) {
             return <Navigate to="/store/dashboard" replace />;
         }
 
-        return <Navigate to="/owner/dashboard" replace />;
+        return <Navigate to={resolveOwnerRoute(permissions)} replace />;
     }
 
     return children;

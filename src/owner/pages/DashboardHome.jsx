@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Boxes, Building2, CalendarCheck, ChevronLeft, ChevronRight, IndianRupee, Package, RefreshCw, Search, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import { useAuth } from "../../auth/AuthContext";
 import { getDashboard, getStoreDashboard, getStorePerformance } from "../../services/dashboardService";
 import "./DashboardHome.css";
 
@@ -7,10 +8,8 @@ const number = (value) => Number(value || 0).toLocaleString("en-IN");
 const money = (value) => `\u20B9 ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 export default function DashboardHome() {
-  const isSuperAdmin = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem("user"))?.role === "SUPER_ADMIN"; }
-    catch { return false; }
-  }, []);
+  const { hasPermission } = useAuth();
+  const isSuperAdmin = Boolean(hasPermission?.("STORES.UPDATE"));
   const [dashboard, setDashboard] = useState(null);
   const [stores, setStores] = useState([]);
   const [selectedStoreId, setSelectedStoreId] = useState("");
