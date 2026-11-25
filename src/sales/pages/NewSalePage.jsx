@@ -551,54 +551,6 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     lastPathnameRef.current = location.pathname;
   }, [location.pathname, editOrderId, proformaEditId, location.state, resetFormState]);
 
-  /* Discount entry mode for the whole table: PERCENT (default) or AMOUNT */
-  const [discountType, setDiscountType] = useState("PERCENT");
-
-  /* Price tax mode for the whole table: GST_EXCLUSIVE (default) or GST_INCLUSIVE */
-  const [columnPriceMode, setColumnPriceMode] = useState("GST_EXCLUSIVE");
-
-  /* =====================================================
-       GST DEFAULTS
-       One header dropdown sets tax type AND rate together.
-       Value format: "<TYPE>:<PERCENT>" e.g. "CGST_SGST:18"
-    ===================================================== */
-
-  const [defaultGstType, setDefaultGstType] = useState("CGST_SGST");
-
-  const [defaultGstPercentage, setDefaultGstPercentage] = useState(18);
-
-  const createEmptyItem = useCallback(
-    () => ({
-      inventoryId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      productId: null,
-      localProductId: null,
-      batchId: null,
-      batchNumber: null,
-      partNumber: "",
-      itemName: "",
-      brandName: "",
-      hsnCode: "",
-      stockUnit: "PCS",
-      packSize: null,
-      contentsUnit: null,
-      quantity: "",
-      availableQuantity: 999999,
-      mrp: "",
-      sellingPrice: "",
-      isManualPriceOverride: false,
-      discountMode: discountType,
-      discountPercentage: 0,
-      discountAmount: 0,
-      discountValue: 0,
-      gstType: defaultGstType === "NONE" ? "NONE" : defaultGstType,
-      gstPercentage:
-        defaultGstType === "NONE" ? 0 : Number(defaultGstPercentage),
-      gstAmount: 0,
-      taxableAmount: 0,
-      lineTotal: 0,
-    }),
-    [defaultGstType, defaultGstPercentage, discountType],
-  );
 
   const handleStoreChange = (event) => {
     const newStoreId = event.target.value;
@@ -1449,16 +1401,13 @@ const handleItemCreated = async (result, submitted) => {
         items: activeItems.map((item) => ({
           productId: item.productId ?? null,
 
-          return {
-            productId: item.productId ?? null,
+          /*
+           * Local products do not have a global productId.
+           * Preserve localProductId so the backend can identify them.
+           */
+          localProductId: item.localProductId ?? null,
 
-            /*
-             * Local products do not have a global productId.
-             * Preserve localProductId so the backend can identify them.
-             */
-            localProductId: item.localProductId ?? null,
-
-            inventoryId: item.inventoryId,
+          inventoryId: item.inventoryId,
 
           quantity: Number(item.quantity || 1),
 
@@ -1472,19 +1421,8 @@ const handleItemCreated = async (result, submitted) => {
               ? Number(item.discountAmount ?? item.discountValue ?? 0)
               : Number(item.discountPercentage ?? 0),
 
-            discountPercentage: effectiveDiscountPct(item),
-            discountType:
-              (item.discountMode || discountType) === "AMOUNT"
-                ? "AMOUNT"
-                : "PERCENT",
-            discountValue:
-              (item.discountMode || discountType) === "AMOUNT"
-                ? Number(item.discountAmount ?? item.discountValue ?? 0)
-                : Number(item.discountPercentage ?? 0),
-
-            gstType: toBackendGstType(item.gstType, item.gstPercentage),
-          };
-        }),
+          gstType: toBackendGstType(item.gstType, item.gstPercentage),
+        })),
       };
     },
     [selectedStoreId, billDiscountPercent, discountType],
