@@ -40,7 +40,7 @@ function AppRoutesNew() {
           <ProtectedRoute
             allowedRoles={["SUPER_ADMIN", "STORE_OWNER", "CASHIER", "SALESPERSON", "PROCUREMENT"]}
             requiredPermissions={[
-              "EMPLOYEES.VIEW", "STORES.VIEW", "CATALOGUE.VIEW", "VEHICLES.VIEW",
+              "EMPLOYEES.VIEW", "STORES.VIEW", "STORES.UPDATE", "CATALOGUE.VIEW", "VEHICLES.VIEW",
               "INVENTORY.VIEW", "PURCHASE_ORDERS.VIEW", "SALES.VIEW",
               "CUSTOMERS.VIEW", "LEADS.VIEW", "REPORTS.VIEW", "DASHBOARD.VIEW",
               "ROLES.VIEW", "PERMISSIONS.VIEW"
