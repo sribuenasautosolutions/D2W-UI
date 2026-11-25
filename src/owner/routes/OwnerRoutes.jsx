@@ -1,4 +1,3 @@
-
 import { Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
@@ -81,7 +80,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/proforma/:id/lead"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["PROFORMA.VIEW", "LEADS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.VIEW", "LEADS.VIEW"]}>
               <DashboardLayout>
                 <LeadOfferPage />
               </DashboardLayout>
@@ -92,7 +91,7 @@ function OwnerRoutes() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["DASHBOARD.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["DASHBOARD.VIEW", "STORES.UPDATE"]}>
               <DashboardLayout>
                 <DashboardHome />
               </DashboardLayout>
@@ -103,7 +102,7 @@ function OwnerRoutes() {
         <Route
           path="/products"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["CATALOGUE.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["CATALOGUE.VIEW"]}>
               <DashboardLayout>
                 <ProductPage />
               </DashboardLayout>
@@ -114,7 +113,7 @@ function OwnerRoutes() {
         <Route
           path="/product-approval"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["LOCAL_PRODUCTS.APPROVE"]}>
+            <ProtectedRoute requiredPermissions={["LOCAL_PRODUCTS.APPROVE"]}>
               <DashboardLayout>
                 <ProductApprovalPage />
               </DashboardLayout>
@@ -125,7 +124,7 @@ function OwnerRoutes() {
         <Route
           path="inventory/products/:inventoryId/manage"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW"]}>
               <ProductManagePage />
             </ProtectedRoute>
           }
@@ -134,7 +133,7 @@ function OwnerRoutes() {
         <Route
           path="/vehicles"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["VEHICLES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["VEHICLES.VIEW"]}>
               <DashboardLayout>
                 <VehicleManagement />
               </DashboardLayout>
@@ -145,7 +144,7 @@ function OwnerRoutes() {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW"]}>
               <DashboardLayout>
                 <InventoryPage />
               </DashboardLayout>
@@ -156,7 +155,7 @@ function OwnerRoutes() {
         <Route
           path="/purchases"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["PURCHASE_ORDERS.VIEW", "VENDORS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PURCHASE_ORDERS.VIEW", "VENDORS.VIEW"]}>
               <DashboardLayout>
                 <PurchasesPage />
               </DashboardLayout>
@@ -167,7 +166,7 @@ function OwnerRoutes() {
         <Route
           path="/sales"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.VIEW"]}>
               <DashboardLayout>
                 <SalesPage />
               </DashboardLayout>
@@ -178,7 +177,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/edit/:orderId"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["SALES.CREATE", "SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.CREATE", "SALES.VIEW"]}>
               <NewSalePage />
             </ProtectedRoute>
           }
@@ -186,7 +185,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/new"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["SALES.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["SALES.CREATE"]}>
               <NewSalePage />
             </ProtectedRoute>
           }
@@ -195,7 +194,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/import-items"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["SALES.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["SALES.CREATE"]}>
               <SaleBulkUploadPage />
             </ProtectedRoute>
           }
@@ -204,7 +203,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/proforma"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["PROFORMA.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.VIEW"]}>
               <DashboardLayout>
                 <ProformaListPage />
               </DashboardLayout>
@@ -215,7 +214,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/proforma/new"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["PROFORMA.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.CREATE"]}>
               <NewSalePage documentMode="PROFORMA" />
             </ProtectedRoute>
           }
@@ -224,7 +223,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/proforma/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["PROFORMA.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.CREATE"]}>
               <NewSalePage documentMode="PROFORMA" />
             </ProtectedRoute>
           }
@@ -233,7 +232,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/proforma/:id"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["PROFORMA.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.VIEW"]}>
               <ProformaViewPage />
             </ProtectedRoute>
           }
@@ -242,7 +241,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/leads"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["LEADS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW"]}>
               <DashboardLayout>
                 <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
                   <LeadList />
@@ -255,7 +254,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/leads/:id"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["LEADS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW"]}>
               <DashboardLayout>
                 <LeadDetails />
               </DashboardLayout>
@@ -266,7 +265,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/leads/chats"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
               <DashboardLayout>
                 <WhatsAppChats />
               </DashboardLayout>
@@ -277,7 +276,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/leads/whatsapp"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
               <DashboardLayout>
                 <WhatsAppConnect />
               </DashboardLayout>
@@ -288,7 +287,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/leads/new"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["LEADS.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.CREATE"]}>
               <DashboardLayout>
                 <LeadCreate />
               </DashboardLayout>
@@ -299,7 +298,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/payment/:orderId"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["SALES.PAYMENT", "SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.PAYMENT", "SALES.VIEW"]}>
               <PaymentPage />
             </ProtectedRoute>
           }
@@ -308,7 +307,7 @@ function OwnerRoutes() {
         <Route
           path="/sales/invoice/:orderId"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.VIEW"]}>
               <InvoicePage />
             </ProtectedRoute>
           }
@@ -317,7 +316,7 @@ function OwnerRoutes() {
         <Route
           path="/reports"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["REPORTS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW"]}>
               <DashboardLayout>
                 <ReportsPage />
               </DashboardLayout>
@@ -339,7 +338,7 @@ function OwnerRoutes() {
         <Route
           path="/users"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["EMPLOYEES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["EMPLOYEES.VIEW"]}>
               <DashboardLayout>
                 <UsersPage />
               </DashboardLayout>
@@ -351,7 +350,7 @@ function OwnerRoutes() {
         <Route
           path="/roles"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN"]} requiredPermissions={["ROLES.VIEW", "PERMISSIONS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["ROLES.VIEW", "PERMISSIONS.VIEW"]}>
               <DashboardLayout>
                 <RoleManagementPage />
               </DashboardLayout>
