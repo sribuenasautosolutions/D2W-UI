@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../../services/api";
+import { useAuth } from "../../../auth/AuthContext";
 import {
   getProductDetails,
   getManagementBatches,
@@ -44,6 +45,7 @@ const ProductManagePage = () => {
   const storeId = searchParams.get("storeId") || "";
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasPermission } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -162,10 +164,7 @@ const ProductManagePage = () => {
     }));
   };
 
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const canEditBasic = product && (
-    ["SUPER_ADMIN", "STORE_OWNER"].includes(currentUser.role)
-  );
+  const canEditBasic = product && hasPermission("INVENTORY.ADJUST");
 
   const handleSaveChanges = async () => {
     if (isSaving) return;

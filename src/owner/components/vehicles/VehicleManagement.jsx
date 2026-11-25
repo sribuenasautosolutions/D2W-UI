@@ -23,8 +23,8 @@ const UTILITY_TABS = [
 ];
 
 function VehicleManagement() {
-    const { user, hasPermission } = useAuth();
-    const canManageVehicles = user?.role === "SUPER_ADMIN" || hasPermission?.("VEHICLES.MANAGE");
+    const { hasPermission } = useAuth();
+    const canManageVehicles = hasPermission?.("VEHICLES.MANAGE");
     const [activeTab, setActiveTab] = useState("makes");
     const [addVehicleOpen, setAddVehicleOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);

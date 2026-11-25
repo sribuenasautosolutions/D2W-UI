@@ -25,6 +25,7 @@ import {
 
 import api from "../../../services/api";
 import { getActiveStoresCached } from "../../../services/storeService";
+import { useAuth } from "../../../auth/AuthContext";
 import {
   getCurrentStockPage,
   getLocalStockFilterOptions,
@@ -149,17 +150,25 @@ export default function CurrentStockSection() {
   const location = useLocation();
   const overview = location.state?.inventoryOverview;
   const [user] = useState(readUser);
+  const { activeStoreId, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
 
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
-  const canManage = isSuperAdmin || user.role === "STORE_OWNER";
+  const isSuperAdmin = hasGlobalStoreManagementAuthority();
+  const canManage = isSuperAdmin || hasPermission("INVENTORY.ADJUST");
 
   const [stores, setStores] = useState([]);
   const [brands, setBrands] = useState([]);
   const [categories, setCategories] = useState([]);
 
   const [storeId, setStoreId] = useState(
-    overview?.storeId || (user.storeId ? String(user.storeId) : "")
+    overview?.storeId || (activeStoreId != null ? String(activeStoreId) : (user.storeId ? String(user.storeId) : ""))
   );
+
+  useEffect(() => {
+    if (!overview?.storeId && activeStoreId != null) {
+      setStoreId(String(activeStoreId));
+      setPage(0);
+    }
+  }, [activeStoreId, overview?.storeId]);
 
   const [view, setView] = useState(overview ? "detail" : "table");
 

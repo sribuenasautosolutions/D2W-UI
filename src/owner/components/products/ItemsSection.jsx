@@ -65,6 +65,7 @@ function ItemsSection({
     requestBulkUpload = 0,
     requestAddItem = 0,
     requestExport = 0,
+    canUpdate = false,
 }) {
     const [items, setItems] = useState([]);
     const [brands, setBrands] = useState([]);
@@ -271,6 +272,12 @@ const pageItems = filteredItems.slice(startIndex, startIndex + pageSize);
     };
 
     const saveItem = async () => {
+        // Prevent updates if user lacks CATALOGUE.UPDATE permission
+        if (editingItemId && !canUpdate) {
+            setToast({ type: "error", msg: "You do not have permission to update products (requires CATALOGUE.UPDATE)." });
+            return;
+        }
+
         if (
             !formData.itemName.trim() ||
             !formData.partNumber.trim() ||
@@ -473,7 +480,13 @@ const pageItems = filteredItems.slice(startIndex, startIndex + pageSize);
                                             </button>
                                         </td>
                                         <td className={`${TD} whitespace-nowrap`}>
-                                            <button type="button" className={ROW_ACTION_EDIT} onClick={() => editItem(item)} aria-label={`Edit ${item.itemName}`}>
+                                            <button
+                                                type="button"
+                                                className={ROW_ACTION_EDIT}
+                                                onClick={() => editItem(item)}
+                                                aria-label={`Edit ${item.itemName}`}
+                                                disabled={!canUpdate}
+                                            >
                                                 <Pencil size={13} className="shrink-0" /> Edit
                                             </button>
                                         </td>

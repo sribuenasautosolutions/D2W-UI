@@ -174,9 +174,10 @@ export function AuthProvider({ children }) {
     const switchActiveStore = useCallback(async (storeId) => {
         const nextStoreId = storeId != null && storeId !== "" ? Number(storeId) : null;
         const currentUser = readStoredUser();
+        const canSwitchAnyStore = permissions.includes("STORES.UPDATE") || permissions.includes("STORES.VIEW");
 
-        // For users without assigned store (e.g., Super Admin), don't allow store switching
-        if (currentUser?.storeId == null) {
+        // Block store switching only for store-less users without platform store access
+        if (currentUser?.storeId == null && !canSwitchAnyStore) {
             setActiveStoreId(null);
             localStorage.removeItem("activeStoreId");
             refreshRequestId.current += 1;
@@ -195,7 +196,7 @@ export function AuthProvider({ children }) {
 
         refreshRequestId.current += 1;
         return refreshPermissions(nextStoreId);
-    }, [refreshPermissions]);
+    }, [permissions, refreshPermissions]);
 
     const hasPermission = useCallback(
         (code) => Boolean(code) && permissions.includes(code),

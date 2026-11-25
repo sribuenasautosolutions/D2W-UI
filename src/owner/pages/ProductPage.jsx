@@ -47,10 +47,10 @@ function ProductPage() {
     };
 
     const { user, hasPermission } = useAuth();
-    const isSuperAdmin = user?.role === "SUPER_ADMIN";
-    const canCreate = isSuperAdmin || hasPermission?.("CATALOGUE.CREATE");
+    const canCreate = hasPermission?.("CATALOGUE.CREATE");
+    const canUpdate = hasPermission?.("CATALOGUE.UPDATE");
 
-    const displayName = user?.name || "Super Admin";
+    const displayName = user?.name || "User";
     const initials =
         displayName
             .split(/\s+/)
@@ -199,6 +199,7 @@ function ProductPage() {
                         requestBulkUpload={itemsActions.bulk}
                         requestAddItem={itemsActions.add}
                         requestExport={itemsActions.export}
+                        canUpdate={canUpdate}
                     />
                 )}
                 {activeTab === "brands" && (

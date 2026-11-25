@@ -103,7 +103,7 @@ function StoreRoutes() {
         <Route
           path="/sales/proforma/:id/lead"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.VIEW", "LEADS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.VIEW", "LEADS.VIEW"]}>
               <DashboardLayout>
                 <LeadOfferPage />
               </DashboardLayout>
@@ -114,7 +114,7 @@ function StoreRoutes() {
         <Route
           path="/sales/leads/:id"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW"]}>
               <DashboardLayout>
                 <LeadDetails />
               </DashboardLayout>
@@ -125,7 +125,7 @@ function StoreRoutes() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["DASHBOARD.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["DASHBOARD.VIEW"]}>
               <DashboardLayout>
                 <DashboardHome />
               </DashboardLayout>
@@ -136,7 +136,7 @@ function StoreRoutes() {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW"]}>
               <DashboardLayout>
                 <InventoryPage />
               </DashboardLayout>
@@ -147,7 +147,7 @@ function StoreRoutes() {
         <Route
           path="/inventory/products/:inventoryId/manage"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW"]}>
               <ProductManagePage />
             </ProtectedRoute>
           }
@@ -156,7 +156,7 @@ function StoreRoutes() {
         <Route
           path="/purchases"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["PURCHASE_ORDERS.VIEW", "VENDORS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PURCHASE_ORDERS.VIEW", "VENDORS.VIEW"]}>
               <DashboardLayout>
                 <PurchasesPage />
               </DashboardLayout>
@@ -167,7 +167,7 @@ function StoreRoutes() {
         <Route
           path="/sales"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.VIEW"]}>
               <DashboardLayout>
                 <SalesPage />
               </DashboardLayout>
@@ -178,7 +178,7 @@ function StoreRoutes() {
         <Route
           path="/sales/leads"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW"]}>
               <DashboardLayout>
                 <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
                   <LeadList />
@@ -191,7 +191,7 @@ function StoreRoutes() {
         <Route
           path="/sales/leads/chats"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
               <DashboardLayout>
                 <WhatsAppChats />
               </DashboardLayout>
@@ -202,7 +202,7 @@ function StoreRoutes() {
         <Route
           path="/sales/leads/whatsapp"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW", "WHATSAPP.VIEW"]}>
               <DashboardLayout>
                 <WhatsAppConnect />
               </DashboardLayout>
@@ -213,7 +213,7 @@ function StoreRoutes() {
         <Route
           path="/sales/leads/new"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["LEADS.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["LEADS.CREATE"]}>
               <DashboardLayout>
                 <LeadCreate />
               </DashboardLayout>
@@ -224,7 +224,7 @@ function StoreRoutes() {
         <Route
           path="/sales/edit/:orderId"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.CREATE", "SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.CREATE", "SALES.VIEW"]}>
               <NewSalePage />
             </ProtectedRoute>
           }
@@ -233,7 +233,7 @@ function StoreRoutes() {
         <Route
           path="/sales/new"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["SALES.CREATE"]}>
               <NewSalePage />
             </ProtectedRoute>
           }
@@ -243,7 +243,7 @@ function StoreRoutes() {
         <Route
           path="/sales/proforma"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.VIEW"]}>
               <DashboardLayout>
                 <ProformaListPage />
               </DashboardLayout>
@@ -254,7 +254,7 @@ function StoreRoutes() {
         <Route
           path="/sales/proforma/new"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.CREATE"]}>
               <NewSalePage documentMode="PROFORMA" />
             </ProtectedRoute>
           }
@@ -263,7 +263,7 @@ function StoreRoutes() {
         <Route
           path="/sales/proforma/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.CREATE"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.CREATE"]}>
               <NewSalePage documentMode="PROFORMA" />
             </ProtectedRoute>
           }
@@ -272,7 +272,7 @@ function StoreRoutes() {
         <Route
           path="/sales/proforma/:id"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["PROFORMA.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PROFORMA.VIEW"]}>
               <ProformaViewPage />
             </ProtectedRoute>
           }
@@ -281,7 +281,7 @@ function StoreRoutes() {
         <Route
           path="/sales/invoice/:orderId"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.VIEW"]}>
               <InvoicePage />
             </ProtectedRoute>
           }
@@ -290,7 +290,7 @@ function StoreRoutes() {
         <Route
           path="/sales/payment/:orderId"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER", "CASHIER"]} requiredPermissions={["SALES.PAYMENT", "SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["SALES.PAYMENT", "SALES.VIEW"]}>
               <PaymentPage />
             </ProtectedRoute>
           }
@@ -299,7 +299,7 @@ function StoreRoutes() {
         <Route
           path="/users"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["EMPLOYEES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["EMPLOYEES.VIEW"]}>
               <DashboardLayout>
                 <UsersPage />
               </DashboardLayout>
@@ -311,7 +311,7 @@ function StoreRoutes() {
         <Route
           path="/reports"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW"]}>
               <DashboardLayout>
                 <StoreWiseReportPage />
               </DashboardLayout>
@@ -322,7 +322,7 @@ function StoreRoutes() {
         <Route
           path="/reports/inventory"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
               <DashboardLayout>
                 <InventoryReportPage />
               </DashboardLayout>
@@ -333,7 +333,7 @@ function StoreRoutes() {
         <Route
           path="/reports/sales"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "SALES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "SALES.VIEW"]}>
               <DashboardLayout>
                 <SalesReportPage />
               </DashboardLayout>
@@ -344,7 +344,7 @@ function StoreRoutes() {
         <Route
           path="/reports/low-stock"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
               <DashboardLayout>
                 <LowStockReportPage />
               </DashboardLayout>
@@ -355,7 +355,7 @@ function StoreRoutes() {
         <Route
           path="/reports/customers"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
               <DashboardLayout>
                 <CustomerReportPage />
               </DashboardLayout>
@@ -366,7 +366,7 @@ function StoreRoutes() {
         <Route
           path="/roles"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["ROLES.VIEW", "PERMISSIONS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["ROLES.VIEW", "PERMISSIONS.VIEW"]}>
               <DashboardLayout>
                 <RoleManagementPage />
               </DashboardLayout>
@@ -377,7 +377,7 @@ function StoreRoutes() {
         <Route
           path="/reports/customers/:id"
           element={
-            <ProtectedRoute allowedRoles={["STORE_OWNER"]} requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
               <DashboardLayout>
                 <CustomerDetailsPage />
               </DashboardLayout>
