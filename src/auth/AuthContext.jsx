@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import api from "../services/api";
 
 const AuthContext = createContext(null);
@@ -64,14 +64,19 @@ function writeStoredPermissions(nextPermissions) {
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(() => readStoredUser());
     const [activeStoreId, setActiveStoreId] = useState(() => {
-        const storedStoreId = localStorage.getItem("activeStoreId");
-        if (storedStoreId) return Number(storedStoreId);
         const initialUser = readStoredUser();
+        // Only use localStorage activeStoreId if user has an assigned store
+        if (initialUser?.storeId != null) {
+            const storedStoreId = localStorage.getItem("activeStoreId");
+            if (storedStoreId) return Number(storedStoreId);
+        }
         return initialUser?.storeId ?? null;
     });
     const [permissions, setPermissions] = useState(() =>
         normalizePermissions(readStoredUser()?.permissions)
     );
+    // Use ref for request version to prevent stale async responses
+    const refreshRequestId = useRef(0);
 
     const logoutSession = useCallback(() => {
         localStorage.removeItem("token");
@@ -80,6 +85,7 @@ export function AuthProvider({ children }) {
         setUser(null);
         setPermissions([]);
         setActiveStoreId(null);
+        refreshRequestId.current += 1;
     }, []);
 
     useEffect(() => {
@@ -111,6 +117,8 @@ export function AuthProvider({ children }) {
         setUser(nextUser);
         setPermissions(nextPermissions);
         setActiveStoreId(nextStoreId);
+        // Increment request ID to invalidate any in-flight refresh requests from previous session
+        refreshRequestId.current += 1;
     }, []);
 
     const refreshPermissions = useCallback(async (storeIdOverride) => {
@@ -119,18 +127,40 @@ export function AuthProvider({ children }) {
             return [];
         }
 
-        const targetStoreId = storeIdOverride !== undefined ? storeIdOverride : activeStoreId;
+        // Capture the current request ID and identity context
+        const currentRequestId = refreshRequestId.current;
+        const currentUser = readStoredUser();
+        const currentStoreId = storeIdOverride !== undefined ? storeIdOverride : activeStoreId;
+
+        const targetStoreId = currentStoreId;
         try {
             const response = await api.get("/users/me/permissions", {
                 params: targetStoreId != null ? { storeId: targetStoreId } : {},
             });
-            const nextPermissions = normalizePermissions(response.data);
-            setPermissions(nextPermissions);
-            writeStoredPermissions(nextPermissions);
-            return nextPermissions;
+            // Only update state if this request is still the current one
+            // and user identity and store context still match
+            if (
+                refreshRequestId.current === currentRequestId &&
+                readStoredUser()?.userId === currentUser?.userId &&
+                (storeIdOverride !== undefined ? storeIdOverride : activeStoreId) === currentStoreId
+            ) {
+                const nextPermissions = normalizePermissions(response.data);
+                setPermissions(nextPermissions);
+                writeStoredPermissions(nextPermissions);
+                return nextPermissions;
+            }
+            // Stale request - discard response
+            return [];
         } catch (error) {
-            setPermissions([]);
-            writeStoredPermissions([]);
+            // Only clear permissions if this request is still the current one
+            // AND we don't have valid permissions from login
+            if (refreshRequestId.current === currentRequestId) {
+                const storedUser = readStoredUser();
+                if (!storedUser?.permissions?.length) {
+                    setPermissions([]);
+                    writeStoredPermissions([]);
+                }
+            }
             throw error;
         }
     }, [activeStoreId]);
@@ -143,6 +173,16 @@ export function AuthProvider({ children }) {
 
     const switchActiveStore = useCallback(async (storeId) => {
         const nextStoreId = storeId != null && storeId !== "" ? Number(storeId) : null;
+        const currentUser = readStoredUser();
+
+        // For users without assigned store (e.g., Super Admin), don't allow store switching
+        if (currentUser?.storeId == null) {
+            setActiveStoreId(null);
+            localStorage.removeItem("activeStoreId");
+            refreshRequestId.current += 1;
+            return refreshPermissions(null);
+        }
+
         setPermissions([]);
         writeStoredPermissions([]);
         setActiveStoreId(nextStoreId);
@@ -153,25 +193,23 @@ export function AuthProvider({ children }) {
             localStorage.removeItem("activeStoreId");
         }
 
+        refreshRequestId.current += 1;
         return refreshPermissions(nextStoreId);
     }, [refreshPermissions]);
 
-    const roleUpper = normalizeRoleName(user?.role);
-    const isSuperAdmin = roleUpper === "SUPER_ADMIN";
-
     const hasPermission = useCallback(
-        (code) => Boolean(code) && (isSuperAdmin || permissions.includes(code)),
-        [isSuperAdmin, permissions]
+        (code) => Boolean(code) && permissions.includes(code),
+        [permissions]
     );
 
     const hasAnyPermission = useCallback(
-        (codes) => Array.isArray(codes) && (isSuperAdmin || codes.some((code) => permissions.includes(code))),
-        [isSuperAdmin, permissions]
+        (codes) => Array.isArray(codes) && codes.some((code) => permissions.includes(code)),
+        [permissions]
     );
 
     const hasGlobalStoreManagementAuthority = useCallback(() => {
-        return Boolean(user && (isSuperAdmin || permissions.includes("STORES.UPDATE")));
-    }, [user, isSuperAdmin, permissions]);
+        return Boolean(user && permissions.includes("STORES.UPDATE"));
+    }, [user, permissions]);
 
     const value = useMemo(
         () => ({

@@ -6,7 +6,7 @@ function normalizeRoleName(role) {
     if (!role) return "";
     const normalized = role.toUpperCase().trim();
     // Map various name formats to standard form
-    if (normalized === "SUPER_ADMIN" || normalized === "SUPER ADMINISTRATOR" || normalized === "SUPER ADMINISTRATOR") {
+    if (normalized === "SUPER_ADMIN" || normalized === "SUPER ADMINISTRATOR") {
         return "SUPER_ADMIN";
     }
     if (normalized === "STORE_OWNER" || normalized === "STORE MANAGER") {
@@ -37,12 +37,6 @@ function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
     }
 
     const role = normalizeRoleName(user.role);
-    const isSuperAdmin = role === "SUPER_ADMIN";
-
-    // Super Admin has global platform administrative access across all protected routes
-    if (isSuperAdmin) {
-        return children;
-    }
 
     // USER role (or no role) has minimal access - deny all restricted routes
     if (role === "USER" || !role) {
