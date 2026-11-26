@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import { useCart } from "../context/CartContext";
 import { calculateOrder } from "../../services/orderService";
 import { getCustomerByMobile } from "../../services/customerService";
@@ -35,10 +35,11 @@ const getUser = () => {
 function CheckoutPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user: authUser, hasPermission } = useAuth();
-  const isSuperAdmin = authUser?.role === "SUPER_ADMIN";
-  const isStoreOwner = authUser?.role === "STORE_OWNER";
-  const isCashier = authUser?.role === "CASHIER";
+  const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const normalizedRole = normalizeRoleName(authUser?.role);
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+  const isStoreOwner = normalizedRole === "STORE_OWNER";
+  const isCashier = normalizedRole === "CASHIER";
   const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
   const canMakePayment = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.PAYMENT");
 

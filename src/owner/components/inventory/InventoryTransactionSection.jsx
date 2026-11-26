@@ -14,11 +14,13 @@ function formatDate(value) {
 }
 
 export default function InventoryTransactionsSection() {
-  const { hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const { user, activeStoreId, hasGlobalStoreManagementAuthority } = useAuth();
   const isPlatformAdmin = hasGlobalStoreManagementAuthority();
 
   const [stores, setStores] = useState([]);
-  const [storeId, setStoreId] = useState("");
+  const [storeId, setStoreId] = useState(() =>
+    !isPlatformAdmin && (activeStoreId || user?.storeId) ? String(activeStoreId || user.storeId) : ""
+  );
   const [searchText, setSearchText] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [type, setType] = useState("");
@@ -84,7 +86,7 @@ export default function InventoryTransactionsSection() {
       </div>
 
       <div style={S.filters}>
-        {isSuperAdmin && <select style={S.select} value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">All Stores</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
+        {isPlatformAdmin && <select style={S.select} value={storeId} onChange={(e) => { setStoreId(e.target.value); setPage(0); }}><option value="">All Stores</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.storeName}</option>)}</select>}
         <div style={S.searchWrap}><Search size={15} color="#64748B" /><input style={S.searchInput} value={searchText} onChange={(e) => setSearchText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { setAppliedSearch(searchText.trim()); setPage(0); } }} placeholder="Search item, part number or remarks" /><button style={S.searchButton} type="button" onClick={() => { setAppliedSearch(searchText.trim()); setPage(0); }}>Search</button></div>
         <select style={S.select} value={type} onChange={(e) => { setType(e.target.value); setPage(0); }}><option value="">All transaction types</option>{transactionTypes.map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select>
         <label style={S.dateField}><span>From</span><input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} /></label>

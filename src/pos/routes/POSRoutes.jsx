@@ -17,7 +17,6 @@ function POSRoutes() {
           path="/"
           element={
             <ProtectedRoute
-              allowedRoles={["SUPER_ADMIN", "STORE_OWNER", "CASHIER"]}
               requiredPermissions={["SALES.CREATE", "SALES.VIEW"]}
             >
               <POSPage />
@@ -28,7 +27,6 @@ function POSRoutes() {
           path="/checkout"
           element={
             <ProtectedRoute
-              allowedRoles={["SUPER_ADMIN", "STORE_OWNER", "CASHIER"]}
               requiredPermissions={["SALES.CREATE", "SALES.PAYMENT"]}
             >
               <CheckoutPage />
@@ -39,7 +37,6 @@ function POSRoutes() {
           path="/invoice/:orderId"
           element={
             <ProtectedRoute
-              allowedRoles={["SUPER_ADMIN", "STORE_OWNER", "CASHIER"]}
               requiredPermissions={["SALES.VIEW"]}
             >
               <InvoicePage />
@@ -50,7 +47,6 @@ function POSRoutes() {
           path="/product/:id"
           element={
             <ProtectedRoute
-              allowedRoles={["SUPER_ADMIN", "STORE_OWNER", "CASHIER"]}
               requiredPermissions={["SALES.VIEW"]}
             >
               <ProductDetailsPage />

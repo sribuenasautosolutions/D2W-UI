@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CirclePlus, Clock3, PackagePlus, Search, Send, Trash2, Warehouse } from "lucide-react";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 import {
   createD2WStockRequest,
@@ -39,8 +40,12 @@ function emptyRequestRow() {
 }
 
 export default function D2WStockRequestSection() {
-  const user = useMemo(getUser, []);
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
+  const storedUser = useMemo(() => getUser(), []);
+  const user = authUser || storedUser;
+  const isSuperAdmin =
+    Boolean(hasGlobalStoreManagementAuthority?.()) ||
+    normalizeRoleName(user.role) === "SUPER_ADMIN";
   const [stores, setStores] = useState([]);
   const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
   const [query, setQuery] = useState("");

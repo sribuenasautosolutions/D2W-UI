@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../../services/api";
-import { useAuth } from "../../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import {
   getProductDetails,
   getManagementBatches,
@@ -45,7 +45,7 @@ const ProductManagePage = () => {
   const storeId = searchParams.get("storeId") || "";
   const navigate = useNavigate();
   const location = useLocation();
-  const { hasPermission } = useAuth();
+  const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +164,7 @@ const ProductManagePage = () => {
     }));
   };
 
-  const canEditBasic = product && hasPermission("INVENTORY.ADJUST");
+  const canEditBasic = product && (hasGlobalStoreManagementAuthority?.() || hasPermission("INVENTORY.ADJUST"));
 
   const handleSaveChanges = async () => {
     if (isSaving) return;
@@ -203,7 +203,7 @@ const ProductManagePage = () => {
         });
       }
 
-      navigate(location.state?.returnTo || (currentUser.role === "STORE_OWNER" ? "/store/inventory" : "/owner/inventory"), {
+      navigate(location.state?.returnTo || (normalizeRoleName(currentUser?.role) === "STORE_OWNER" ? "/store/inventory" : "/owner/inventory"), {
         replace: true,
         state: { inventoryOverview: { inventoryId: Number(inventoryId), storeId } },
       });

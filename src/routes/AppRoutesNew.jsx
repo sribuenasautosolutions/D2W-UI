@@ -38,12 +38,16 @@ function AppRoutesNew() {
         path="/owner/*"
         element={
           <ProtectedRoute
-            allowedRoles={["SUPER_ADMIN", "STORE_OWNER", "CASHIER", "SALESPERSON", "PROCUREMENT"]}
-            requiredPermissions={[
-              "EMPLOYEES.VIEW", "STORES.VIEW", "STORES.UPDATE", "CATALOGUE.VIEW", "VEHICLES.VIEW",
-              "INVENTORY.VIEW", "PURCHASE_ORDERS.VIEW", "SALES.VIEW",
-              "CUSTOMERS.VIEW", "LEADS.VIEW", "REPORTS.VIEW", "DASHBOARD.VIEW",
-              "ROLES.VIEW", "PERMISSIONS.VIEW"
+              requiredPermissions={[
+              "EMPLOYEES.VIEW", "STORES.VIEW", "STORES.UPDATE",
+              "CATALOGUE.VIEW", "CATALOGUE.CREATE", "CATALOGUE.UPDATE", "LOCAL_PRODUCTS.APPROVE",
+              "VEHICLES.VIEW", "VEHICLES.MANAGE",
+              "INVENTORY.VIEW", "INVENTORY.ADJUST", "INVENTORY.TRANSFER", "BARCODES.PRINT",
+              "PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE", "VENDORS.VIEW", "VENDORS.MANAGE",
+              "SALES.VIEW", "SALES.CREATE", "SALES.PAYMENT", "PROFORMA.VIEW", "PROFORMA.CREATE",
+              "CUSTOMERS.VIEW", "LEADS.VIEW", "LEADS.CREATE", "WHATSAPP.VIEW",
+              "REPORTS.VIEW", "DASHBOARD.VIEW",
+              "ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "PERMISSIONS.VIEW", "PERMISSIONS.MANAGE"
             ]}
           >
             <OwnerRoutes />
@@ -55,11 +59,10 @@ function AppRoutesNew() {
         path="/store/*"
         element={
           <ProtectedRoute
-            allowedRoles={["STORE_OWNER", "CASHIER"]}
             requiredPermissions={[
               "INVENTORY.VIEW", "PURCHASE_ORDERS.VIEW", "SALES.VIEW",
               "CUSTOMERS.VIEW", "LEADS.VIEW", "REPORTS.VIEW", "EMPLOYEES.VIEW",
-              "ROLES.VIEW", "PERMISSIONS.VIEW"
+              "ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "ROLES.ASSIGN", "PERMISSIONS.VIEW"
             ]}
           >
             <StoreRoutes />
@@ -71,7 +74,6 @@ function AppRoutesNew() {
         path="/pos/*"
         element={
           <ProtectedRoute
-            allowedRoles={["SUPER_ADMIN", "STORE_OWNER", "CASHIER", "SALESPERSON"]}
             requiredPermissions={["SALES.VIEW", "SALES.CREATE", "SALES.PAYMENT"]}
           >
             <POSRoutes />

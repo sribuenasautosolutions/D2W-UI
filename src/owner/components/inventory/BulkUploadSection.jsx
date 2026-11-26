@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../../services/api";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 import BulkUploadShell from "./BulkUploadShell";
 
@@ -137,13 +138,18 @@ function recheckRows(rows) {
 }
 
 export default function BulkUploadSection({ onClose, hideTitle = false }) {
-  const user = currentUser();
+  const { user: authUser, activeStoreId, hasGlobalStoreManagementAuthority } = useAuth();
+  const user = authUser || currentUser();
   const [allDiscount, setAllDiscount] = useState("");
   const workInProgress = useRef(false);
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const isSuperAdmin =
+    Boolean(hasGlobalStoreManagementAuthority?.()) ||
+    normalizeRoleName(user?.role) === "SUPER_ADMIN";
 
   const [stores, setStores] = useState([]);
-  const [selectedStoreId, setSelectedStoreId] = useState(user.storeId ? String(user.storeId) : "");
+  const [selectedStoreId, setSelectedStoreId] = useState(() =>
+    !isSuperAdmin && (activeStoreId || user?.storeId) ? String(activeStoreId || user.storeId) : ""
+  );
   const fixedStoreId = selectedStoreId || null;
 
   const fileInputRef = useRef(null);

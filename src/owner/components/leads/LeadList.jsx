@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import {
     AlertCircle,
     AlertTriangle,
@@ -1083,12 +1083,14 @@ function LeadList() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const { user: authUser, hasPermission } = useAuth();
-    const currentRole = authUser?.role || (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role; } catch { return null; } })();
+    const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const rawRole = authUser?.role || (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role; } catch { return null; } })();
+    const currentRole = normalizeRoleName(rawRole);
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || currentRole === "SUPER_ADMIN";
     const isProcurementUser = currentRole === "PROCUREMENT";
     const isLeadStaff = currentRole === "SALESPERSON" || isProcurementUser;
-    const canCreateLead = ["SUPER_ADMIN", "STORE_OWNER", "SALESPERSON", "PROCUREMENT"].includes(currentRole) || hasPermission?.("LEADS.CREATE");
-    const canViewLeadChats = currentRole === "SUPER_ADMIN" || currentRole === "STORE_OWNER" || hasPermission?.("LEADS.VIEW") || hasPermission?.("WHATSAPP.VIEW");
+    const canCreateLead = isSuperAdmin || ["STORE_OWNER", "SALESPERSON", "PROCUREMENT"].includes(currentRole) || hasPermission?.("LEADS.CREATE");
+    const canViewLeadChats = isSuperAdmin || currentRole === "STORE_OWNER" || hasPermission?.("LEADS.VIEW") || hasPermission?.("WHATSAPP.VIEW");
     const basePath = location.pathname.startsWith("/owner/")
         ? "/owner/sales"
         : location.pathname.startsWith("/salesperson/")
@@ -1351,7 +1353,7 @@ function LeadList() {
             if (!cancelled) {
                 let user = {}; try { user = JSON.parse(localStorage.getItem("user") || "{}"); } catch { /* Invalid session data: no extra store choices. */ }
                 const rows = Array.isArray(response) ? response : response?.content || [];
-                setAuthorizedStores(user.role === "SUPER_ADMIN" ? rows : rows.filter(row => String(row.id) === String(user.storeId)));
+                setAuthorizedStores(isSuperAdmin ? rows : rows.filter(row => String(row.id) === String(user.storeId)));
             }
         }).catch(() => { if (!cancelled) setAuthorizedStores([]); });
         return () => { cancelled = true; };

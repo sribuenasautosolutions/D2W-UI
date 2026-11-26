@@ -221,7 +221,7 @@ function Sidebar() {
         CASHIER: "Cashier",
         SALESPERSON: "Salesperson",
         PROCUREMENT: "Procurement",
-    }[user?.role] || "User";
+    }[role] || user?.role || "User";
 
     // Style helpers
     const linkStyle = (to, danger = false) => {
@@ -383,8 +383,8 @@ function Sidebar() {
         return canViewOrders;
     });
 
-    const canViewSalesOrders = isOwner || isStoreOwner || user?.role === "CASHIER" || hasPermission?.("SALES.VIEW");
-    const canAccessPos = isOwner || isStoreOwner || user?.role === "CASHIER" || hasAnyPermission?.(["SALES.VIEW", "SALES.CREATE", "PAYMENTS.RECEIVE"]);
+    const canViewSalesOrders = isOwner || isStoreOwner || role === "CASHIER" || hasPermission?.("SALES.VIEW");
+    const canAccessPos = isOwner || isStoreOwner || role === "CASHIER" || hasAnyPermission?.(["SALES.VIEW", "SALES.CREATE", "PAYMENTS.RECEIVE"]);
     const canViewProforma = isOwner || isStoreOwner || hasPermission?.("PROFORMA.VIEW");
     const canViewLeads = isOwner || isStoreOwner || hasPermission?.("LEADS.VIEW");
 

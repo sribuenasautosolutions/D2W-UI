@@ -8,12 +8,14 @@ import { createInventoryAdjustment } from "../../../services/inventoryTransactio
 const reasons = ["DAMAGED", "LOST", "PHYSICAL_COUNT", "MANUAL_CORRECTION"];
 
 export default function InventoryAdjustmentSection() {
-  const { hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const { user, activeStoreId, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
   const isPlatformAdmin = hasGlobalStoreManagementAuthority();
-  const canAdjust = hasPermission("INVENTORY.ADJUST");
+  const canAdjust = isPlatformAdmin || hasPermission("INVENTORY.ADJUST");
 
   const [stores, setStores] = useState([]);
-  const [storeId, setStoreId] = useState("");
+  const [storeId, setStoreId] = useState(() =>
+    !isPlatformAdmin && (activeStoreId || user?.storeId) ? String(activeStoreId || user.storeId) : ""
+  );
   const [inventory, setInventory] = useState([]);
   const [inventoryId, setInventoryId] = useState("");
   const [adjustedQty, setAdjustedQty] = useState("");

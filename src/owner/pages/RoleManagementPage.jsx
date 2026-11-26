@@ -68,12 +68,13 @@ function getErrorMessage(error, fallback) {
 
 function RoleManagementPage() {
     const { user: currentUser, hasPermission, hasAnyPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const isSuperAdmin = hasGlobalStoreManagementAuthority();
 
     // Use proper RBAC permission checks for authorization
     // hasGlobalStoreManagementAuthority checks for STORES.UPDATE permission which indicates platform admin
-    const canViewRoles = hasGlobalStoreManagementAuthority() || hasAnyPermission?.(["ROLES.VIEW", "PERMISSIONS.VIEW"]);
-    const canCreateRole = hasGlobalStoreManagementAuthority() || hasPermission?.("ROLES.CREATE");
-    const canUpdateRole = hasGlobalStoreManagementAuthority() || hasPermission?.("ROLES.UPDATE");
+    const canViewRoles = isSuperAdmin || hasAnyPermission?.(["ROLES.VIEW", "PERMISSIONS.VIEW"]);
+    const canCreateRole = isSuperAdmin || hasPermission?.("ROLES.CREATE");
+    const canUpdateRole = isSuperAdmin || hasPermission?.("ROLES.UPDATE");
 
     const [roles, setRoles] = useState([]);
     const [permissions, setPermissions] = useState([]);

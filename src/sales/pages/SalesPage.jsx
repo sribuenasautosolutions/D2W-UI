@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useMemo,useState,useRef,} from "react";
 import {Search,Plus,Bell,ChevronDown,FileText,Wallet,TrendingUp,Store,} from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 
 import {
     getAllOrders,
@@ -37,12 +37,13 @@ export default function SalesPage() {
 
     const navigate = useNavigate();
 
-    const { user: authUser, hasPermission } = useAuth();
+    const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || readUser();
 
-    const isSuperAdmin = user?.role === "SUPER_ADMIN";
-    const isStoreOwner = user?.role === "STORE_OWNER";
-    const isCashier = user?.role === "CASHIER";
+    const normalizedRole = normalizeRoleName(user?.role);
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+    const isStoreOwner = normalizedRole === "STORE_OWNER";
+    const isCashier = normalizedRole === "CASHIER";
     const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
 
 

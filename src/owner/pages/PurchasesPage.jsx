@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import D2WStockRequestSection from "../components/purchases/D2WStockRequestSection";
 import VendorPurchasesSection from "../components/purchases/VendorPurchasesSection";
 import VendorsSection from "../components/purchases/VendorsSection";
@@ -29,9 +29,10 @@ const PURCHASE_VIEWS = {
 };
 
 export default function PurchasesPage() {
-    const { user, hasAnyPermission } = useAuth();
-    const isOwner = user?.role === "SUPER_ADMIN";
-    const isStoreOwner = user?.role === "STORE_OWNER";
+    const { user, hasAnyPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const normalizedRole = normalizeRoleName(user?.role);
+    const isOwner = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+    const isStoreOwner = normalizedRole === "STORE_OWNER";
     const canViewVendors = isOwner || isStoreOwner || hasAnyPermission?.(["VENDORS.VIEW", "VENDORS.MANAGE"]);
     const canViewOrders = isOwner || isStoreOwner || hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE"]);
 

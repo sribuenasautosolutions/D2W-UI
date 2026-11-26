@@ -99,10 +99,10 @@ function OwnerRoutes() {
           }
         />
 
-        <Route
+          <Route
           path="/products"
           element={
-            <ProtectedRoute requiredPermissions={["CATALOGUE.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["CATALOGUE.VIEW", "CATALOGUE.CREATE", "CATALOGUE.UPDATE"]}>
               <DashboardLayout>
                 <ProductPage />
               </DashboardLayout>
@@ -133,7 +133,7 @@ function OwnerRoutes() {
         <Route
           path="/vehicles"
           element={
-            <ProtectedRoute requiredPermissions={["VEHICLES.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["VEHICLES.VIEW", "VEHICLES.MANAGE"]}>
               <DashboardLayout>
                 <VehicleManagement />
               </DashboardLayout>
@@ -144,7 +144,7 @@ function OwnerRoutes() {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW", "INVENTORY.ADJUST", "INVENTORY.TRANSFER", "BARCODES.PRINT"]}>
               <DashboardLayout>
                 <InventoryPage />
               </DashboardLayout>
@@ -155,7 +155,7 @@ function OwnerRoutes() {
         <Route
           path="/purchases"
           element={
-            <ProtectedRoute requiredPermissions={["PURCHASE_ORDERS.VIEW", "VENDORS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE", "VENDORS.VIEW", "VENDORS.MANAGE"]}>
               <DashboardLayout>
                 <PurchasesPage />
               </DashboardLayout>
@@ -350,7 +350,7 @@ function OwnerRoutes() {
         <Route
           path="/roles"
           element={
-            <ProtectedRoute requiredPermissions={["ROLES.VIEW", "PERMISSIONS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "PERMISSIONS.VIEW", "PERMISSIONS.MANAGE"]}>
               <DashboardLayout>
                 <RoleManagementPage />
               </DashboardLayout>

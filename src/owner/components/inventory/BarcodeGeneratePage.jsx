@@ -34,12 +34,14 @@ const toBarcodeItems = (stockItems) =>
     .filter((item) => item.partNumber);
 
 function BarcodeGeneratePage() {
-  const { hasPermission } = useAuth();
-  const isSuperAdmin = hasPermission?.("STORES.VIEW"); // Platform-level store access
+  const { user, activeStoreId, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const isSuperAdmin = hasGlobalStoreManagementAuthority?.() || hasPermission?.("STORES.VIEW"); // Platform-level store access
 
   /* STORE */
   const [stores, setStores] = useState([]);
-  const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
+  const [storeId, setStoreId] = useState(() =>
+    !isSuperAdmin && (activeStoreId || user?.storeId) ? String(activeStoreId || user.storeId) : ""
+  );
   const [storesLoading, setStoresLoading] = useState(false);
 
   /* INVENTORY: only the rows of the CURRENT page are kept in memory */

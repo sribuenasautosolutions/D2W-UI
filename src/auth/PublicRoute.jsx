@@ -8,6 +8,30 @@ function resolveOwnerRoute(permissions = []) {
     if (permissions.some((p) => p.startsWith("STORES."))) {
         return "/owner/stores";
     }
+    if (permissions.some((p) => p.startsWith("CATALOGUE."))) {
+        return "/owner/products";
+    }
+    if (permissions.includes("LOCAL_PRODUCTS.APPROVE")) {
+        return "/owner/product-approval";
+    }
+    if (permissions.some((p) => p.startsWith("VEHICLES."))) {
+        return "/owner/vehicles";
+    }
+    if (permissions.some((p) => p.startsWith("INVENTORY.") || p === "BARCODES.PRINT")) {
+        return "/owner/inventory";
+    }
+    if (permissions.some((p) => p.startsWith("PURCHASE_ORDERS.") || p.startsWith("VENDORS."))) {
+        return "/owner/purchases";
+    }
+    if (permissions.some((p) => p.startsWith("SALES.") || p.startsWith("PROFORMA."))) {
+        return "/owner/sales";
+    }
+    if (permissions.some((p) => p.startsWith("LEADS."))) {
+        return "/owner/sales/leads";
+    }
+    if (permissions.some((p) => p.startsWith("REPORTS."))) {
+        return "/owner/reports";
+    }
     if (permissions.some((p) => p.startsWith("EMPLOYEES."))) {
         return "/owner/users";
     }
