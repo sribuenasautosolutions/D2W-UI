@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getAllStores } from "../../services/storeService";
 
 export default function StoreWiseReportPage() {
 
     const navigate = useNavigate();
+    const location = useLocation();
+    const reportsBase = location.pathname.startsWith("/owner/") ? "/owner/reports" : "/store/reports";
 
     const [stores, setStores] = useState([]);
 
@@ -21,11 +23,12 @@ export default function StoreWiseReportPage() {
             const data =
                 await getAllStores();
 
-            setStores(data);
+            setStores(Array.isArray(data) ? data : (data?.content || []));
 
         } catch (error) {
 
             console.log(error);
+            setStores([]);
         }
     };
 
@@ -73,7 +76,7 @@ export default function StoreWiseReportPage() {
                         <button
                             onClick={() =>
                                 navigate(
-                                    `/admin/reports/store/${store.id}`
+                                    `${reportsBase}/sales?storeId=${store.id}`
                                 )
                             }
                         >

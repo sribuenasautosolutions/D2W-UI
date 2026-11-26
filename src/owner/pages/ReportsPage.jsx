@@ -90,7 +90,7 @@ function ReportsPage() {
       icon: "📊",
       iconBg: "#eff6ff",
       description: "View all sales orders, revenue and order details.",
-      path: "/admin/reports/sales",
+      path: "/owner/reports/sales",
       btnColor: "#2563eb",
     },
     {
@@ -98,7 +98,7 @@ function ReportsPage() {
       icon: "📦",
       iconBg: "#f0fdf4",
       description: "Check stock levels, product availability and inventory details.",
-      path: "/admin/reports/inventory",
+      path: "/owner/reports/inventory",
       btnColor: "#16a34a",
     },
     {
@@ -106,7 +106,7 @@ function ReportsPage() {
       icon: "⚠️",
       iconBg: "#fffbeb",
       description: "View products that are low in stock.",
-      path: "/admin/reports/low-stock",
+      path: "/owner/reports/low-stock",
       btnColor: "#d97706",
     },
     {
@@ -114,7 +114,7 @@ function ReportsPage() {
       icon: "🏪",
       iconBg: "#fff7ed",
       description: "Compare sales and orders across stores.",
-      path: "/admin/reports/store-wise",
+      path: "/owner/reports/store-wise",
       btnColor: "#ea580c",
     },
     {
@@ -122,7 +122,7 @@ function ReportsPage() {
       icon: "👥",
       iconBg: "#f5f3ff",
       description: "View customer orders and purchase summary.",
-      path: "/admin/reports/customers",
+      path: "/owner/reports/customers",
       btnColor: "#7c3aed",
     },
     {

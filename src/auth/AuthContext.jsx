@@ -184,8 +184,6 @@ export function AuthProvider({ children }) {
             return refreshPermissions(null);
         }
 
-        setPermissions([]);
-        writeStoredPermissions([]);
         setActiveStoreId(nextStoreId);
 
         if (nextStoreId != null) {
