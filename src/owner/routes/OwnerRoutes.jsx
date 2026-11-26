@@ -72,6 +72,24 @@ const LeadDetails = lazy(
 const RoleManagementPage = lazy(
   () => import("../pages/RoleManagementPage")
 );
+const StoreWiseReportPage = lazy(
+  () => import("../../store/pages/StoreWiseReportPage")
+);
+const InventoryReportPage = lazy(
+  () => import("../../store/pages/inventoryReportPage")
+);
+const SalesReportPage = lazy(
+  () => import("../../store/pages/SalesReportPage")
+);
+const LowStockReportPage = lazy(
+  () => import("../../store/pages/LowStockReportPage")
+);
+const CustomerReportPage = lazy(
+  () => import("../../store/pages/CustomerReportPage")
+);
+const CustomerDetailsPage = lazy(
+  () => import("../../store/pages/CustomerDetailsPage")
+);
 
 function OwnerRoutes() {
   return (
@@ -319,6 +337,72 @@ function OwnerRoutes() {
             <ProtectedRoute requiredPermissions={["REPORTS.VIEW"]}>
               <DashboardLayout>
                 <ReportsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/store-wise"
+          element={
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW"]}>
+              <DashboardLayout>
+                <StoreWiseReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/inventory"
+          element={
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
+              <DashboardLayout>
+                <InventoryReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/sales"
+          element={
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "SALES.VIEW"]}>
+              <DashboardLayout>
+                <SalesReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/low-stock"
+          element={
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "INVENTORY.VIEW"]}>
+              <DashboardLayout>
+                <LowStockReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/customers"
+          element={
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
+              <DashboardLayout>
+                <CustomerReportPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/customers/:id"
+          element={
+            <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
+              <DashboardLayout>
+                <CustomerDetailsPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
