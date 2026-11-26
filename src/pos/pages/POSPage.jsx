@@ -9,7 +9,7 @@ import {
 } from "../../services/productService";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../../pos/context/CartContext";
-import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import { getAllStores } from "../../services/storeService";
 
 function POSPage() {
@@ -25,23 +25,26 @@ function POSPage() {
     const [heldBills, setHeldBills] = useState([]);
     const [showHeldBills, setShowHeldBills] = useState(false);
     const { replaceCart, clearCart } = useCart();
-    const { switchActiveStore } = useAuth();
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const { user: authUser, switchActiveStore, hasGlobalStoreManagementAuthority } = useAuth();
+    const user = authUser || JSON.parse(localStorage.getItem("user") || "null");
+    const isSuperAdmin =
+        Boolean(hasGlobalStoreManagementAuthority?.()) ||
+        normalizeRoleName(user?.role) === "SUPER_ADMIN";
     const [stores,setStores]=useState([]);
     const [selectedStoreId,setSelectedStoreId]=useState(
-        user?.role === "SUPER_ADMIN"
+        isSuperAdmin
             ? localStorage.getItem("pos_store_id") || ""
             : user?.storeId || ""
     );
 
     const productsPerPage = 9;
     useEffect(() => {
-        const user = JSON.parse(localStorage.getItem("user"));
-        if (!user) {
+        const current = authUser || JSON.parse(localStorage.getItem("user") || "null");
+        if (!current) {
             navigate("/login");
             return;
         }
-        if(user?.role === "SUPER_ADMIN") getAllStores().then(v=>setStores(Array.isArray(v)?v:(v?.content||[]))).catch(console.error);
+        if(isSuperAdmin) getAllStores().then(v=>setStores(Array.isArray(v)?v:(v?.content||[]))).catch(console.error);
         else localStorage.removeItem("pos_store_id");
         if(selectedStoreId) loadStoreInventory(1);
         try {

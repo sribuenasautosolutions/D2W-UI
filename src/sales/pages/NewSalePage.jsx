@@ -1,4 +1,5 @@
 import api from "../../services/api";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import { ProductUnitLabel } from "../../components/ProductUnitFields";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -261,9 +262,13 @@ export default function NewSalePage({ documentMode = "SALE" }) {
   const [receivedAmount, setReceivedAmount] = useState("");
   const amendmentBusy = useRef(false);
 
-  const user = useMemo(() => readUser(), []);
+  const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
+  const fallbackUser = useMemo(() => readUser(), []);
+  const user = authUser || fallbackUser;
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isSuperAdmin =
+    Boolean(hasGlobalStoreManagementAuthority?.()) ||
+    normalizeRoleName(user?.role) === "SUPER_ADMIN";
 
   /* =====================================================
        TOASTS (lightweight, no extra dependency)

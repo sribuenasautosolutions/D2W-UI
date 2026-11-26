@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import { getBatchReport } from "../../../services/inventoryService";
 import { getActiveStoresCached } from "../../../services/storeService";
 import { createBatchReportPdf } from "./batchReportPdf";
@@ -551,8 +552,9 @@ function BatchReportPage() {
     const [pdfBusy, setPdfBusy] = useState(false);
     useEffect(() => () => { if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url); }, [pdfPreview]);
 
-    const user = getUser();
-    const isOwner = (user.role || "").toUpperCase() === "SUPER_ADMIN";
+    const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
+    const user = authUser || getUser();
+    const isOwner = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizeRoleName(user.role) === "SUPER_ADMIN";
     const [stores, setStores] = useState([]);
     const [selectedStoreId, setSelectedStoreId] = useState(user.storeId ? String(user.storeId) : "");
 

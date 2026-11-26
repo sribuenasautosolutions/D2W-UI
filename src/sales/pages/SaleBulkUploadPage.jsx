@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, UploadCloud } from "lucide-react";
 
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import BulkUploadShell from "../../owner/components/inventory/BulkUploadShell";
 import "../../owner/components/inventory/BulkUploadSection.css";
 import "../../owner/components/inventory/BulkUploadPriceSettings.css";
@@ -49,8 +50,11 @@ function errorMessage(error, fallback) {
 export default function SalesBulkUploadPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = currentUser();
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
+  const user = authUser || currentUser();
+  const isSuperAdmin =
+    Boolean(hasGlobalStoreManagementAuthority?.()) ||
+    normalizeRoleName(user.role) === "SUPER_ADMIN";
 
   /* Handed over by New Sale; sensible fallbacks for a direct visit. */
   const storeId = location.state?.storeId || (isSuperAdmin ? "" : user.storeId);

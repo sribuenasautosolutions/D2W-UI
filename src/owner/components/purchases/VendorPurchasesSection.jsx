@@ -4,7 +4,7 @@ import {
   MoreHorizontal, PackageCheck, ReceiptText, RotateCcw, Search, Trash2, Upload, X,
 } from "lucide-react";
 import api from "../../../services/api";
-import { useAuth } from "../../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 import VendorBillBulkUploader from "./VendorBillBulkUploader";
 import VendorPurchaseInvoiceView from "./VendorPurchaseInvoiceView";
@@ -423,10 +423,11 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
    Main component
    ========================================================= */
 function ManualStockReceipt() {
-  const { user: authUser, hasPermission } = useAuth();
+  const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
   const user = authUser || getUser();
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
-  const isStoreOwner = user.role === "STORE_OWNER";
+  const normalizedRole = normalizeRoleName(user.role);
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+  const isStoreOwner = normalizedRole === "STORE_OWNER";
   const canCreateBill = isSuperAdmin || isStoreOwner || hasPermission?.("PURCHASE_ORDERS.CREATE");
 
   const [rows, setRows] = useState([emptyRow()]);

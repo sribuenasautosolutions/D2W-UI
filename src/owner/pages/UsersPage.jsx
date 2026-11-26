@@ -24,7 +24,7 @@ import {
     Lock,
 } from "lucide-react";
 import api from "../../services/api";
-import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import { getActiveStoresCached } from "../../services/storeService";
 import toast from "react-hot-toast";
 
@@ -173,9 +173,10 @@ function getRoleDisplay(role = "", roleName = "") {
 }
 
 function UsersPage() {
-    const { user: currentUser, hasPermission } = useAuth();
-    const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
-    const isStoreOwner = currentUser?.role === "STORE_OWNER";
+    const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const normalizedCurrentRole = normalizeRoleName(currentUser?.role);
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedCurrentRole === "SUPER_ADMIN";
+    const isStoreOwner = normalizedCurrentRole === "STORE_OWNER";
     const canCreateUser = isSuperAdmin || isStoreOwner || Boolean(hasPermission?.("EMPLOYEES.CREATE"));
     const canUpdateUser = isSuperAdmin || isStoreOwner || Boolean(hasPermission?.("EMPLOYEES.UPDATE"));
     const canManageStoreAccess = isSuperAdmin || Boolean(hasPermission?.("STORE_ACCESS.MANAGE"));

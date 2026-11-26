@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Search, X } from "lucide-react";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 
 import { createLead, updateLead } from "../../../services/leadService";
 import { getAllStores } from "../../../services/storeService";
@@ -64,9 +65,12 @@ export default function LeadCreate({
     const isEditMode = mode === "edit";
     const navigate = useNavigate();
 
-    const user = useMemo(() => readUser(), []);
-    const isSuperAdmin = user?.role === "SUPER_ADMIN";
-    const leadBase = isSuperAdmin ? "/owner/sales" : user?.role === "SALESPERSON" ? "/salesperson/sales" : user?.role === "PROCUREMENT" ? "/procurement/sales" : "/store/sales";
+    const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
+    const fallbackUser = useMemo(() => readUser(), []);
+    const user = authUser || fallbackUser;
+    const normalizedRole = normalizeRoleName(user?.role);
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+    const leadBase = isSuperAdmin ? "/owner/sales" : normalizedRole === "SALESPERSON" ? "/salesperson/sales" : normalizedRole === "PROCUREMENT" ? "/procurement/sales" : "/store/sales";
 
     /* ============================== STORE ============================== */
     const [selectedStoreId, setSelectedStoreId] = useState(

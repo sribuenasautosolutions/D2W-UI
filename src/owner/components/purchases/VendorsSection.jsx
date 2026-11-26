@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CirclePlus, Download, Filter, MoreHorizontal, Power, Search, Store, UserRoundCheck, X } from "lucide-react";
 import api from "../../../services/api";
-import { useAuth } from "../../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 
 import VendorStockModal from "./VendorStockModal";
@@ -33,10 +33,11 @@ function csvValue(value) {
 }
 
 export default function VendorsSection() {
-    const { user: authUser, hasPermission } = useAuth();
+    const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || getUser();
-    const isSuperAdmin = user.role === "SUPER_ADMIN";
-    const isStoreOwner = user.role === "STORE_OWNER";
+    const normalizedRole = normalizeRoleName(user.role);
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+    const isStoreOwner = normalizedRole === "STORE_OWNER";
     const canManageVendors = isSuperAdmin || isStoreOwner || hasPermission?.("VENDORS.MANAGE");
     const [stores, setStores] = useState([]);
     const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
@@ -62,9 +63,8 @@ export default function VendorsSection() {
             .then((response) => {
                 if (!active) return;
                 const content = Array.isArray(response.data?.content) ? response.data.content : [];
-                const operationalStores = content.filter((store) => store.storeType !== "WAREHOUSE");
-                setStores(operationalStores);
-                setStoreId((current) => current || (operationalStores[0]?.id ? String(operationalStores[0].id) : ""));
+                setStores(content);
+                setStoreId((current) => current || (content[0]?.id ? String(content[0].id) : ""));
             })
             .catch(() => active && setMessage({ type: "error", text: "Unable to load stores" }));
         return () => { active = false; };

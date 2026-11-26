@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Car, ChevronDown, MapPin, ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import d2wLogo from "./d2w-logo.png";
 import "./POSLayout.css";
 
@@ -17,11 +17,12 @@ function POSLayout({
     selectedStoreId = "",
     onStoreChange
 }) {
-    const user = JSON.parse(localStorage.getItem("user"));
-    const { user: authUser, hasPermission } = useAuth();
-    const isSuperAdmin = authUser?.role === "SUPER_ADMIN";
-    const isStoreOwner = authUser?.role === "STORE_OWNER";
-    const isCashier = authUser?.role === "CASHIER";
+    const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const user = authUser || JSON.parse(localStorage.getItem("user") || "null");
+    const normalizedRole = normalizeRoleName(user?.role);
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+    const isStoreOwner = normalizedRole === "STORE_OWNER";
+    const isCashier = normalizedRole === "CASHIER";
     const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
 
     const {
@@ -91,9 +92,9 @@ function POSLayout({
     const goToAdmin = () => {
         setProfileOpen(false);
 
-        if (user?.role === "SUPER_ADMIN") {
+        if (isSuperAdmin) {
             navigate("/owner/dashboard");
-        } else if (hasPermission?.("DASHBOARD.VIEW") || user?.role === "STORE_OWNER") {
+        } else if (hasPermission?.("DASHBOARD.VIEW") || isStoreOwner) {
             navigate("/store/dashboard");
         } else {
             navigate("/store/sales");
@@ -205,7 +206,7 @@ function POSLayout({
                 <div className="pos-nav-right">
 
                     {/* STORE */}
-                    {user?.role === "SUPER_ADMIN" ? (
+                    {isSuperAdmin ? (
                         <div
                             className="store-wrap"
                             ref={storeRef}
@@ -259,7 +260,7 @@ function POSLayout({
                             )}
                         </div>
                     ) : (
-                        user?.role === "STORE_OWNER" && (
+                        isStoreOwner && (
                             <span className="store-badge">
                                 <MapPin size={14} />
 
@@ -352,7 +353,7 @@ function POSLayout({
                                     className="profile-menu-item"
                                     onClick={goToAdmin}
                                 >
-                                    {user?.role === "CASHIER" ? "Sales & Invoices" : "Back to Admin"}
+                                    {isCashier ? "Sales & Invoices" : "Back to Admin"}
                                 </button>
 
                                 <div className="profile-menu-divider" />

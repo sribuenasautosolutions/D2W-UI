@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Ban, CheckCircle2, Clock, FileText, IndianRupee, MoreHorizontal, Pencil, Plus, Search, XCircle } from "lucide-react";
 import { cancelProforma, getProforma, getProformas, toProformaSaleSource } from "../../services/proformaService";
-import { useAuth } from "../../auth/AuthContext";
+import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
 import "./ProformaPage.css";
 
 const displayDate = (record) => {
@@ -58,11 +58,12 @@ export default function ProformaListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const base = location.pathname.startsWith("/owner/") ? "/owner/sales" : "/store/sales";
-  const { user: authUser, hasPermission } = useAuth();
+  const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
   const fallbackUser = useMemo(() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } }, []);
   const user = authUser || fallbackUser;
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const isStoreOwner = user?.role === "STORE_OWNER";
+  const normalizedRole = normalizeRoleName(user?.role);
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
+  const isStoreOwner = normalizedRole === "STORE_OWNER";
   const canCreateProforma = isSuperAdmin || isStoreOwner || hasPermission?.("PROFORMA.CREATE");
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,11 +73,11 @@ export default function ProformaListPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
-  const load = () => getProformas(user?.role === "SUPER_ADMIN" ? null : user?.storeId).then((value) => setRecords(Array.isArray(value) ? value : []));
+  const load = () => getProformas(isSuperAdmin ? null : user?.storeId).then((value) => setRecords(Array.isArray(value) ? value : []));
 
   useEffect(() => {
     let live = true;
-    getProformas(user?.role === "SUPER_ADMIN" ? null : user?.storeId)
+    getProformas(isSuperAdmin ? null : user?.storeId)
       .then((value) => live && setRecords(Array.isArray(value) ? value : []))
       .catch((requestError) => live && setError(requestError?.response?.data?.message || "Unable to load proforma invoices."))
       .finally(() => live && setLoading(false));

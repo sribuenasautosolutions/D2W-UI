@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
 import {
     ArrowLeft,
     Camera,
@@ -443,8 +444,9 @@ export function ChatView({ conversation, onBack, onActivity, onOpenLead, embedde
 export default function WhatsAppChats() {
     const navigate = useNavigate();
     const location = useLocation();
-    const user = readUser();
-    const isSuperAdmin = user.role === "SUPER_ADMIN";
+    const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
+    const user = authUser || readUser();
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizeRoleName(user.role) === "SUPER_ADMIN";
 
     const [stores, setStores] = useState([]);
     const [storeId, setStoreId] = useState("");

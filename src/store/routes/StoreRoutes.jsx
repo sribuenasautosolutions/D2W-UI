@@ -136,7 +136,7 @@ function StoreRoutes() {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["INVENTORY.VIEW", "INVENTORY.ADJUST", "INVENTORY.TRANSFER", "BARCODES.PRINT"]}>
               <DashboardLayout>
                 <InventoryPage />
               </DashboardLayout>
@@ -156,7 +156,7 @@ function StoreRoutes() {
         <Route
           path="/purchases"
           element={
-            <ProtectedRoute requiredPermissions={["PURCHASE_ORDERS.VIEW", "VENDORS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE", "VENDORS.VIEW", "VENDORS.MANAGE"]}>
               <DashboardLayout>
                 <PurchasesPage />
               </DashboardLayout>
@@ -366,7 +366,7 @@ function StoreRoutes() {
         <Route
           path="/roles"
           element={
-            <ProtectedRoute requiredPermissions={["ROLES.VIEW", "PERMISSIONS.VIEW"]}>
+            <ProtectedRoute requiredPermissions={["ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "ROLES.ASSIGN", "PERMISSIONS.VIEW"]}>
               <DashboardLayout>
                 <RoleManagementPage />
               </DashboardLayout>

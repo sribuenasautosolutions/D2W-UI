@@ -29,7 +29,7 @@ function normalizeRoleName(role) {
 
 function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
 
-    const { user, hasAnyPermission } = useAuth();
+    const { user, hasPermission, hasAnyPermission } = useAuth();
 
     // Not logged in
     if (!user) {
@@ -38,33 +38,33 @@ function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
 
     const role = normalizeRoleName(user.role);
 
-    // USER role (or no role) has minimal access - deny all restricted routes
-    if (role === "USER" || !role) {
-        return <Navigate to="/unauthorized" replace />;
-    }
-
     const hasRoleRestriction = Array.isArray(allowedRoles) && allowedRoles.length > 0;
     const hasPermissionRestriction =
         Array.isArray(requiredPermissions) && requiredPermissions.length > 0;
+
+    // If a route has no permission restriction, deny USER or empty role
+    if ((role === "USER" || !role) && !hasPermissionRestriction) {
+        return <Navigate to="/unauthorized" replace />;
+    }
 
     const normalizedAllowedRoles = hasRoleRestriction
         ? allowedRoles.map((r) => normalizeRoleName(r))
         : [];
 
     const roleAllowed = hasRoleRestriction && normalizedAllowedRoles.includes(role);
+
+    // Enforce role restriction when specified
+    if (hasRoleRestriction && !roleAllowed) {
+        return <Navigate to="/unauthorized" replace />;
+    }
+
+    // SUPER_ADMIN (or system-level STORES.UPDATE authority) has access to all permitted role routes
+    const isSuperAdmin = role === "SUPER_ADMIN" || hasPermission("STORES.UPDATE");
     const permissionAllowed =
         hasPermissionRestriction && hasAnyPermission(requiredPermissions);
 
-    // Configurable RBAC: Permission restriction is primary and mandatory.
-    // If permission restriction is present, the user must hold at least one required permission.
-    if (hasPermissionRestriction) {
-        if (!permissionAllowed) {
-            return <Navigate to="/unauthorized" replace />;
-        }
-    } else if (hasRoleRestriction) {
-        if (!roleAllowed) {
-            return <Navigate to="/unauthorized" replace />;
-        }
+    if (hasPermissionRestriction && !isSuperAdmin && !permissionAllowed) {
+        return <Navigate to="/unauthorized" replace />;
     }
 
     return children;
