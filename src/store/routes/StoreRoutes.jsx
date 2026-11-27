@@ -96,6 +96,10 @@ const CustomerDetailsPage = lazy(
   () => import("../../store/pages/CustomerDetailsPage")
 );
 
+const SettingsPage = lazy(
+  () => import("../../owner/pages/SettingsPage")
+);
+
 function DashboardShell() {
   return (
     <DashboardLayout>
@@ -278,6 +282,15 @@ function StoreRoutes() {
           element={
             <ProtectedRoute requiredPermissions={["REPORTS.VIEW", "CUSTOMERS.VIEW"]}>
               <CustomerDetailsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings/*"
+          element={
+            <ProtectedRoute requiredPermissions={["STORES.UPDATE"]}>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />

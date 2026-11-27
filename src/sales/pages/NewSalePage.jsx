@@ -225,20 +225,19 @@ function defaultValidatePrices(row, errors) {
   });
 }
 const SALE_TABLE_COLUMNS = [
-  { id: "sNo", index: 0, label: "S.No", defaultWidth: 50, minWidth: 40, maxWidth: 90 },
-  { id: "partNumber", index: 1, label: "Part Number", defaultWidth: 150, minWidth: 90, maxWidth: 380 },
-  { id: "itemName", index: 2, label: "Part Name", defaultWidth: 180, minWidth: 110, maxWidth: 500 },
-  { id: "brandName", index: 3, label: "Brand", defaultWidth: 130, minWidth: 70, maxWidth: 300 },
-  { id: "quantity", index: 4, label: "Qty", defaultWidth: 70, minWidth: 45, maxWidth: 160 },
-  { id: "mrp", index: 5, label: "MRP", defaultWidth: 90, minWidth: 60, maxWidth: 220 },
-  { id: "sellingPrice", index: 6, label: "Price / Unit", defaultWidth: 100, minWidth: 70, maxWidth: 240 },
-  { id: "discountPercent", index: 7, label: "Disc %", defaultWidth: 75, minWidth: 50, maxWidth: 160 },
-  { id: "discountAmount", index: 8, label: "Disc (₹)", defaultWidth: 85, minWidth: 55, maxWidth: 180 },
-  { id: "taxable", index: 9, label: "Taxable", defaultWidth: 100, minWidth: 70, maxWidth: 260 },
-  { id: "gstType", index: 10, label: "GST Rate", defaultWidth: 110, minWidth: 80, maxWidth: 240 },
-  { id: "gstAmount", index: 11, label: "GST Amount", defaultWidth: 95, minWidth: 65, maxWidth: 220 },
-  { id: "total", index: 12, label: "Total", defaultWidth: 110, minWidth: 80, maxWidth: 280 },
-  { id: "actions", index: 13, label: "Actions", defaultWidth: 55, minWidth: 40, maxWidth: 90, resizable: false },
+  { id: "sNo", index: 0, label: "S.No", defaultWidth: 46, minWidth: 40, maxWidth: 90 },
+  { id: "partNumber", index: 1, label: "Part Number", defaultWidth: 145, minWidth: 90, maxWidth: 380 },
+  { id: "itemName", index: 2, label: "Part Name", defaultWidth: 175, minWidth: 110, maxWidth: 500 },
+  { id: "quantity", index: 3, label: "Qty", defaultWidth: 65, minWidth: 45, maxWidth: 160 },
+  { id: "mrp", index: 4, label: "MRP", defaultWidth: 85, minWidth: 60, maxWidth: 220 },
+  { id: "sellingPrice", index: 5, label: "Price / Unit", defaultWidth: 95, minWidth: 70, maxWidth: 240 },
+  { id: "discountPercent", index: 6, label: "Disc %", defaultWidth: 70, minWidth: 50, maxWidth: 160 },
+  { id: "discountAmount", index: 7, label: "Disc (₹)", defaultWidth: 80, minWidth: 55, maxWidth: 180 },
+  { id: "taxable", index: 8, label: "Taxable", defaultWidth: 95, minWidth: 70, maxWidth: 260 },
+  { id: "gstType", index: 9, label: "GST Rate", defaultWidth: 110, minWidth: 80, maxWidth: 240 },
+  { id: "gstAmount", index: 10, label: "GST Amount", defaultWidth: 90, minWidth: 65, maxWidth: 220 },
+  { id: "total", index: 11, label: "Total", defaultWidth: 100, minWidth: 80, maxWidth: 280 },
+  { id: "actions", index: 12, label: "Actions", defaultWidth: 54, minWidth: 40, maxWidth: 90, resizable: false },
 ];
 
 /* =========================================================
@@ -314,7 +313,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
   /* =====================================================
        COLUMN RESIZING (Excel-Style with minWidth & maxWidth)
     ===================================================== */
-  const storageKey = "d2w_newsale_col_widths_v3";
+  const storageKey = "d2w_newsale_col_widths_v4";
 
   const [colWidths, setColWidths] = useState(() => {
     try {
@@ -740,6 +739,30 @@ export default function NewSalePage({ documentMode = "SALE" }) {
       setItems([createEmptyItem()]);
     }
   }, [items.length, isExistingInvoice, createEmptyItem]);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    const isRowComplete = (row) => {
+      if (!row) return false;
+      const hasDetails = Boolean(row.partNumber?.trim() && row.itemName?.trim());
+      const hasQty = Number(row.quantity) > 0;
+      const hasPrice = Number(row.mrp) > 0 || Number(row.sellingPrice) > 0;
+      const hasStock =
+        isProforma ||
+        (row.inventoryId && !String(row.inventoryId).startsWith("row-"));
+      return hasDetails && hasQty && hasPrice && hasStock;
+    };
+
+    const lastRow = items[items.length - 1];
+    if (isRowComplete(lastRow)) {
+      setItems((current) => {
+        if (!current.length || !isRowComplete(current[current.length - 1])) {
+          return current;
+        }
+        return [...current, createEmptyItem()];
+      });
+    }
+  }, [items, isProforma, createEmptyItem]);
 
   const [bulkSalePreview, setBulkSalePreview] = useState(null);
   const bulkSaleStore = useRef(selectedStoreId);
@@ -1931,6 +1954,9 @@ const handleItemCreated = async (result, submitted) => {
     setCustomerForm((current) => ({
       ...current,
       [field]: value,
+      ...(field === "gstRegistrationType" && value === "UNREGISTERED"
+        ? { gstin: "" }
+        : {}),
       ...(field === "billingAddress" && sameAsBilling
         ? { shippingAddress: value }
         : {}),
@@ -1972,7 +1998,10 @@ const handleItemCreated = async (result, submitted) => {
       legalName: customerForm.legalName?.trim() || null,
       storeId: Number(selectedStoreId),
       customerType: "B2B",
-      gstin: customerForm.gstin.trim().toUpperCase() || null,
+      gstin:
+        customerForm.gstRegistrationType === "REGISTERED"
+          ? customerForm.gstin.trim().toUpperCase() || null
+          : null,
     };
 
     setSavingCustomer(true);
@@ -3009,30 +3038,58 @@ const handleItemCreated = async (result, submitted) => {
               }}
             >
               <colgroup>
-                {[3.5, 12, 14, 5, 7, 8, 5.5, 6.5, 8, 7.5, 7, 9, 4].map((w, i) => (
-                  <col key={i} style={{ width: `${w}%` }} />
+                {colWidths.map((w, i) => (
+                  <col key={i} style={{ width: `${w}px` }} />
                 ))}
               </colgroup>
               <thead>
                 <tr>
-                  <th rowSpan={2}>S.No</th>
-                  <th rowSpan={2}>Part Number</th>
-                  <th rowSpan={2}>Part Name</th>
-                  <th rowSpan={2} className="num">Qty</th>
-                  <th rowSpan={2} className="num">MRP</th>
-                  <th rowSpan={2} className="num">
+                  <th rowSpan={2} className="ns-th-resizable">
+                    S.No
+                    {renderResizer(0)}
+                  </th>
+                  <th rowSpan={2} className="ns-th-resizable">
+                    Part Number
+                    {renderResizer(1)}
+                  </th>
+                  <th rowSpan={2} className="ns-th-resizable">
+                    Part Name
+                    {renderResizer(2)}
+                  </th>
+                  <th rowSpan={2} className="num ns-th-resizable">
+                    Qty
+                    {renderResizer(3)}
+                  </th>
+                  <th rowSpan={2} className="num ns-th-resizable">
+                    MRP
+                    {renderResizer(4)}
+                  </th>
+                  <th rowSpan={2} className="num ns-th-resizable">
                     Price / Unit
+                    {renderResizer(5)}
                   </th>
                   <th colSpan={2} className="ctr">Discount</th>
-                  <th rowSpan={2} className="num">Taxable</th>
+                  <th rowSpan={2} className="num ns-th-resizable">
+                    Taxable
+                    {renderResizer(8)}
+                  </th>
                   <th colSpan={2} className="ctr">GST</th>
-                  <th rowSpan={2} className="num">Total</th>
+                  <th rowSpan={2} className="num ns-th-resizable">
+                    Total
+                    {renderResizer(11)}
+                  </th>
                   <th rowSpan={2} className="ctr">Actions</th>
                 </tr>
                 <tr>
-                  <th className="num">Disc %</th>
-                  <th className="num">Disc (₹)</th>
-                  <th>
+                  <th className="num ns-th-resizable">
+                    Disc %
+                    {renderResizer(6)}
+                  </th>
+                  <th className="num ns-th-resizable">
+                    Disc (₹)
+                    {renderResizer(7)}
+                  </th>
+                  <th className="ns-th-resizable">
                     <select
                       className="ns-th-select"
                       value={
@@ -3061,11 +3118,11 @@ const handleItemCreated = async (result, submitted) => {
                       </optgroup>
                       <option value="NONE:0">No Tax</option>
                     </select>
-                    {renderResizer(10)}
+                    {renderResizer(9)}
                   </th>
                   <th className="num ns-th-resizable">
                     Amount
-                    {renderResizer(11)}
+                    {renderResizer(10)}
                   </th>
                 </tr>
               </thead>
@@ -3877,31 +3934,30 @@ const handleItemCreated = async (result, submitted) => {
                     )
                   }
                 >
-                  {!isProforma && <option value="UNREGISTERED">Unregistered</option>}
+                  <option value="UNREGISTERED">Unregistered</option>
                   <option value="REGISTERED">Registered</option>
                 </select>
               </label>
 
-              <label>
-                {customerForm.gstRegistrationType !== "UNREGISTERED"
-                  ? "GSTIN *"
-                  : "GSTIN (Optional)"}
-                <input
-                  className="ns-input"
-                  placeholder="15-character GSTIN"
-                  value={customerForm.gstin || ""}
-                  maxLength={15}
-                  disabled={customerForm.gstRegistrationType === "UNREGISTERED"}
-                  onChange={(event) =>
-                    handleCustomerFormChange(
-                      "gstin",
-                      event.target.value
-                        .toUpperCase()
-                        .replace(/[^0-9A-Z]/g, ""),
-                    )
-                  }
-                />
-              </label>
+              {customerForm.gstRegistrationType === "REGISTERED" && (
+                <label>
+                  GSTIN *
+                  <input
+                    className="ns-input"
+                    placeholder="15-character GSTIN"
+                    value={customerForm.gstin || ""}
+                    maxLength={15}
+                    onChange={(event) =>
+                      handleCustomerFormChange(
+                        "gstin",
+                        event.target.value
+                          .toUpperCase()
+                          .replace(/[^0-9A-Z]/g, ""),
+                      )
+                    }
+                  />
+                </label>
+              )}
 
               {(customerForm.gstRegistrationType !== "UNREGISTERED" ||
                 Boolean(customerForm.gstin?.trim()) ||

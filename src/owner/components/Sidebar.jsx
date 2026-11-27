@@ -17,7 +17,9 @@ import {
     LogOut,
     Menu,
     PackageSearch,
+    Printer,
     ReceiptText,
+    Settings,
     ShoppingCart,
     ShieldCheck,
     SlidersHorizontal,
@@ -125,6 +127,7 @@ function Sidebar() {
             "PERMISSIONS.MANAGE",
         ]);
     const canViewStores = hasGlobalAuthority || hasPermission?.("STORES.VIEW");
+    const canManageSettings = hasGlobalAuthority || hasPermission?.("STORES.UPDATE");
     const canViewDashboard = hasGlobalAuthority || hasPermission?.("DASHBOARD.VIEW");
     const canViewCatalogue =
         hasGlobalAuthority ||
@@ -186,6 +189,9 @@ function Sidebar() {
     const [purchasesOpen, setPurchasesOpen] = useState(isPurchasesRoute);
     const [salesOpen, setSalesOpen] = useState(
         location.pathname.startsWith(salesBase)
+    );
+    const [settingsOpen, setSettingsOpen] = useState(
+        location.pathname.startsWith(`${portalPrefix}/settings`)
     );
 
     // Collapsed sidebar state
@@ -252,6 +258,10 @@ function Sidebar() {
 
             if (key === "sales") {
                 setSalesOpen((open) => !open);
+            }
+
+            if (key === "settings") {
+                setSettingsOpen((open) => !open);
             }
 
             return;
@@ -925,6 +935,68 @@ function Sidebar() {
                             )}
                         </>
                     )}
+
+                    {canManageSettings && (
+                        <>
+                            {!collapsed ? (
+                                <div style={sectionLabelStyle}>
+                                    Settings
+                                </div>
+                            ) : (
+                                <div className="sidebar-divider" />
+                            )}
+
+                            <button
+                                type="button"
+                                className="sidebar-group-button"
+                                onClick={toggleGroup("settings")}
+                                aria-expanded={
+                                    collapsed
+                                        ? openFlyout === "settings"
+                                        : settingsOpen
+                                }
+                                style={groupButtonStyle(
+                                    location.pathname.startsWith(`${portalPrefix}/settings`)
+                                )}
+                                title={collapsed ? "Settings" : undefined}
+                            >
+                                <Settings size={17} />
+                                <NavLabel collapsed={collapsed}>
+                                    Settings
+                                </NavLabel>
+
+                                {!collapsed &&
+                                    (settingsOpen ? (
+                                        <ChevronDown size={16} />
+                                    ) : (
+                                        <ChevronRight size={16} />
+                                    ))}
+                            </button>
+
+                            {!collapsed && settingsOpen && (
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gap: "2px",
+                                        margin: "3px 0 7px",
+                                    }}
+                                >
+                                    <Link
+                                        to={`${portalPrefix}/settings`}
+                                        style={{
+                                            ...moduleLinkStyle(
+                                                location.pathname.startsWith(`${portalPrefix}/settings`)
+                                            ),
+                                            paddingLeft: "34px",
+                                        }}
+                                    >
+                                        <Printer size={15} />
+                                        <span>Print</span>
+                                    </Link>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </nav>
 
                 {/* Footer profile */}
@@ -1077,6 +1149,7 @@ function Sidebar() {
                         {openFlyout === "inventory" && "Inventory"}
                         {openFlyout === "purchases" && "Purchases"}
                         {openFlyout === "sales" && "Sales"}
+                        {openFlyout === "settings" && "Settings"}
                     </div>
 
                     <div className="sidebar-flyout-body">
@@ -1136,6 +1209,19 @@ function Sidebar() {
                                     </Link>
                                 );
                             })}
+
+                        {openFlyout === "settings" && (
+                            <Link
+                                to={`${portalPrefix}/settings`}
+                                style={flyoutLinkStyle(
+                                    location.pathname.startsWith(`${portalPrefix}/settings`)
+                                )}
+                                onClick={closeFlyout}
+                            >
+                                <Printer size={15} />
+                                <span>Print</span>
+                            </Link>
+                        )}
                     </div>
                 </div>
             )}

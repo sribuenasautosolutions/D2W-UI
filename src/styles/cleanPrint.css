@@ -1,16 +1,34 @@
-/* Browser-generated headers/footers need page-margin space. Keep that space
-   inside the document instead, so date/time, tab title and URL are omitted. */
+/* Universal standard A4 printable format with top, right, bottom, left margins on EVERY page */
+@page {
+  size: A4 portrait;
+  margin: 12mm 10mm 14mm 10mm !important;
+  @bottom-left {
+    content: "This is a computer-generated invoice";
+    font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+    font-size: 8.5pt;
+    color: #333333;
+  }
+  @bottom-right {
+    content: "Invoice " var(--inv-no, "") " | Page " counter(page) " of " counter(pages);
+    font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+    font-size: 8.5pt;
+    font-weight: bold;
+    color: #111111;
+  }
+}
+
 @media print {
-  @page { margin: 0 !important; }
-  html { margin: 0 !important; padding: 0 !important; }
   html, body, #root, .invoice-page, .proforma-invoice-page {
     min-height: 0 !important;
     height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
   }
   body {
-    margin: 0 !important;
-    padding: 10mm !important;
-    box-sizing: border-box !important;
-    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

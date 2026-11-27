@@ -90,6 +90,7 @@ const CustomerReportPage = lazy(
 const CustomerDetailsPage = lazy(
   () => import("../../store/pages/CustomerDetailsPage")
 );
+const SettingsPage = lazy(() => import("../pages/SettingsPage"));
 
 function DashboardShell() {
   return (
@@ -318,6 +319,15 @@ function OwnerRoutes() {
           element={
             <ProtectedRoute requiredPermissions={["ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "PERMISSIONS.VIEW", "PERMISSIONS.MANAGE"]}>
               <RoleManagementPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings/*"
+          element={
+            <ProtectedRoute requiredPermissions={["STORES.UPDATE"]}>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />

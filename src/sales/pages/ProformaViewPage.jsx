@@ -47,34 +47,32 @@ const buildProformaSaleDoc = ({ record, items, maskPartNos, showDiscount, totalM
   const gstType = String(record.customerGstRegistrationType || "").trim();
   const hasCustomerGst = Boolean(gstin) && !/^unregistered/i.test(gstin) && !/^unregistered/i.test(gstType);
 
-  const legalName = String(record.customerLegalName || "").trim();
-  const customerName = String(record.customerName || "").trim();
-  const primaryName = legalName || customerName;
-  const secondaryName = legalName && customerName && legalName.toLowerCase() !== customerName.toLowerCase() ? customerName : null;
-
   return {
     tableVariant: "proforma", // keeps the proforma's own columns inside the Sale layout
     title: "Proforma Invoice",
     notice: "NOT A TAX INVOICE",
     logo: d2wLogo,
     detailsTitle: "Proforma Details",
+    invoiceNumber: displayNumber(record),
     store: {
       name: record.storeName,
       lines: [record.storeAddress || "Address not available", `GSTIN: ${record.storeGstin || "—"}`],
     },
     billTo: {
-      name: primaryName,
-      secondaryName,
+      name: record.customerLegalName || record.customerName,
       lines: [
-        record.customerMobile && `Phone: ${record.customerMobile}`,
+        record.customerLegalName && record.customerName && record.customerLegalName.trim().toLowerCase() !== record.customerName.trim().toLowerCase()
+          ? `Trade Name: ${record.customerName}`
+          : null,
+        record.billingAddress,
+        record.customerMobile && `Mobile: ${record.customerMobile}`,
+        record.customerEmail && `Email: ${record.customerEmail}`,
         hasCustomerGst && `GSTIN: ${gstin}`,
         hasCustomerGst && gstType && `GST Type: ${gstType}`,
-        record.billingAddress,
-        record.customerEmail && `Email: ${record.customerEmail}`,
         record.placeOfSupply && `Place of Supply: ${record.placeOfSupply}`,
       ].filter(Boolean),
     },
-    shipTo: { lines: record.shippingAddress ? [String(record.shippingAddress)] : [] },
+    shipTo: { lines: (record.shippingAddress && (!record.billingAddress || record.shippingAddress.trim().toLowerCase() !== record.billingAddress.trim().toLowerCase())) ? [String(record.shippingAddress)] : [] },
     details: [
       { label: "Proforma No.", value: displayNumber(record) },
       { label: "Proforma Date", value: date(record.invoiceDate) },
@@ -119,16 +117,6 @@ const buildProformaSaleDoc = ({ record, items, maskPartNos, showDiscount, totalM
       Number(record.igstAmount || 0) > 0 && { label: "IGST", value: record.igstAmount },
       { label: "Round Off", value: record.roundOffAmount },
       { label: "Grand Total", value: grandTotal, bar: true },
-      Number(record.advanceAmount || record.receivedAmount || 0) > 0 && {
-        label: "Received",
-        value: Number(record.advanceAmount || record.receivedAmount),
-        subtract: true,
-      },
-      Number(record.advanceAmount || record.receivedAmount || 0) > 0 && {
-        label: "Balance Due",
-        value: record.balanceDue != null ? record.balanceDue : grandTotal - Number(record.advanceAmount || record.receivedAmount || 0),
-        strong: true,
-      },
     ].filter(Boolean),
     customerSignature: false,
     footerNote: "",
@@ -178,41 +166,53 @@ export default function ProformaViewPage() {
       </div>
       <div className="proforma-view-actions">
         {record.sourceLeadId && <button onClick={() => navigate(`${base}/proforma/${record.id}/lead`)}>Customer decision and sales</button>}
-        <InvoiceThemeSwitch themeKey={themeKey} onChange={setTheme} />
         <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
           <input type="checkbox" checked={maskPartNos} onChange={(event) => setMaskPartNos(event.target.checked)} />
           Mask part numbers
         </label>
         <button className="quiet" onClick={() => printCleanDocument()}><Printer size={15}/> PDF / Print</button>
-        {!record.sourceLeadId && (record.status === "SAVED" || record.status === "DRAFT") && <button className="quiet" onClick={() => navigate(`${base}/proforma/${record.id}/edit`)}><Pencil size={15}/> Edit</button>}
-        {!record.sourceLeadId && (record.status === "SAVED" || record.status === "DRAFT") && <button onClick={convert}>Convert to Sale</button>}
+        {!record.sourceLeadId && record.status === "SAVED" && <button className="quiet" onClick={() => navigate(`${base}/proforma/${record.id}/edit`)}><Pencil size={15}/> Edit</button>}
+        {!record.sourceLeadId && record.status === "SAVED" && <button onClick={convert}>Convert to Sale</button>}
       </div>
     </header>
 
-    {themeKey === "sale" && <SaleDocumentSheet
-      className="proforma-invoice-sheet"
-      doc={buildProformaSaleDoc({ record, items, maskPartNos, showDiscount, totalMrp, totalItemDiscount, grandTotal })}
+    {(themeKey === "sale" || themeKey === "landscape" || themeKey === "charcoal") && <SaleDocumentSheet
+      className={themeKey === "landscape" ? "proforma-invoice-sheet vy-sheet--landscape" : "proforma-invoice-sheet"}
+      doc={{
+        ...buildProformaSaleDoc({ record, items, maskPartNos, showDiscount, totalMrp, totalItemDiscount, grandTotal }),
+        landscape: themeKey === "landscape",
+        charcoal: themeKey === "charcoal",
+      }}
     />}
 
-    {themeKey !== "sale" && <article className="proforma-invoice-sheet" data-template={themeKey}>
-      <header className="proforma-letterhead">
-        <div className="proforma-brand">
-          <img className="proforma-brand-logo" src={d2wLogo} alt="Deals2Wheels"/>
-          <div className="proforma-entity">
-            <strong>{record.storeName}</strong>
-            <span><MapPin size={12}/>{record.storeAddress || "Address not available"}</span>
-            <span>GSTIN {record.storeGstin || "—"}</span>
-          </div>
-        </div>
-        <div className="proforma-title-block">
-          <h1 className="proforma-invoice-title">PROFORMA INVOICE</h1>
-          <p className="proforma-not-tax">NOT A TAX INVOICE</p>
-          <div className="proforma-info-line"><span>Proforma No.</span><strong>{displayNumber(record)}</strong></div>
-          <div className="proforma-info-line"><span>Proforma Date</span><strong>{date(record.invoiceDate)}</strong></div>
-        </div>
-      </header>
-
-      <section className="proforma-party-grid">
+    {(themeKey === "navy" || themeKey === "soft") && <article className="proforma-invoice-sheet" data-template={themeKey}>
+      <table className="proforma-page-container">
+        <thead>
+          <tr>
+            <td>
+              <header className="proforma-letterhead">
+                <div className="proforma-brand">
+                  <img className="proforma-brand-logo" src={d2wLogo} alt="Deals2Wheels"/>
+                  <div className="proforma-entity">
+                    <strong>{record.storeName}</strong>
+                    <span><MapPin size={12}/>{record.storeAddress || "Address not available"}</span>
+                    <span>GSTIN {record.storeGstin || "—"}</span>
+                  </div>
+                </div>
+                <div className="proforma-title-block">
+                  <h1 className="proforma-invoice-title">PROFORMA INVOICE</h1>
+                  <p className="proforma-not-tax">NOT A TAX INVOICE</p>
+                  <div className="proforma-info-line"><span>Proforma No.</span><strong>{displayNumber(record)}</strong></div>
+                  <div className="proforma-info-line"><span>Proforma Date</span><strong>{date(record.invoiceDate)}</strong></div>
+                </div>
+              </header>
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <section className="proforma-party-grid">
         <div className="proforma-bill-to">
           <small>BILL TO</small>
           <strong>{record.customerLegalName || record.customerName}</strong>
@@ -222,7 +222,10 @@ export default function ProformaViewPage() {
             </span>
           )}
           {record.billingAddress && <span><MapPin size={12}/>{record.billingAddress}</span>}
+          {record.customerMobile && <span><Phone size={12}/>{record.customerMobile}</span>}
           {record.customerEmail && <span><Mail size={12}/>{record.customerEmail}</span>}
+          {hasCustomerGst && <span>GSTIN {gstin}</span>}
+          {hasCustomerGst && gstType && <span>GST Type {gstType}</span>}
           {record.shippingAddress && <span>Shipping Address: {record.shippingAddress}</span>}
           {record.placeOfSupply && <span>Place of Supply: {record.placeOfSupply}</span>}
         </div>
@@ -238,7 +241,7 @@ export default function ProformaViewPage() {
           <colgroup>{colWidths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
           <thead>
   <tr>
-    <th className="ctr">S.No</th><th>Part Details</th><th>Brand</th><th className="ctr">HSN</th><th className="ctr">Qty</th>
+    <th className="ctr">Sl No</th><th>Part Details</th><th>Brand</th><th className="ctr">HSN</th><th className="ctr">Qty</th>
     <th className="num">Rate</th><th className="num">MRP</th>
     {showDiscount && <th className="num">Discount</th>}
     <th className="num">GST</th><th className="num">Amount</th>
@@ -283,16 +286,14 @@ export default function ProformaViewPage() {
           {Number(record.igstAmount || 0) > 0 && <div><span>IGST</span><strong>{money(record.igstAmount)}</strong></div>}
           <div><span>Round Off</span><strong>{money(record.roundOffAmount)}</strong></div>
           <div className="grand-total"><span>GRAND TOTAL</span><strong>{money(grandTotal)}</strong></div>
-          {Number(record.advanceAmount || record.receivedAmount || 0) > 0 && (
-            <>
-              <div><span>Received ({record.paymentMethod || "CASH"})</span><strong>- {money(record.advanceAmount || record.receivedAmount)}</strong></div>
-              <div className="grand-total"><span>BALANCE DUE</span><strong>{money(record.balanceDue != null ? record.balanceDue : grandTotal - Number(record.advanceAmount || record.receivedAmount || 0))}</strong></div>
-            </>
-          )}
         </div>
       </section>
 
       <footer className="proforma-footer"><strong>Terms</strong><span>This is a proforma invoice and does not create a tax liability or deduct stock.</span></footer>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </article>}
   </div>;
 }

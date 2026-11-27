@@ -3,7 +3,7 @@ import InvoiceThemeSwitch, { useInvoiceTheme, SaleDocumentSheet } from "../../co
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Download, Printer } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import apiclient from "../../services/apiclient";
+import api from "../../services/api";
 import { printDisplayedInvoice } from "../utils/printInvoice";
 import { downloadDisplayedInvoicePdf } from "../utils/invoicePdf";
 import d2wLogo from "../../assets/deals2wheels-logo100.png";
@@ -138,6 +138,7 @@ const buildInvoiceSaleDoc = ({ invoice, items, payments, collectedBy, totals, ha
     notice: "",
     logo: d2wLogo,
     detailsTitle: "Invoice Details",
+    invoiceNumber: invoice.invoiceNumber || "",
     store: {
       name: text(invoice.storeName),
       lines: [
@@ -160,11 +161,10 @@ const buildInvoiceSaleDoc = ({ invoice, items, payments, collectedBy, totals, ha
           `Registration: ${registration}`,
           `State / Place of Supply: ${text(invoice.placeOfSupply || invoice.customerState)}`,
         ] : []),
-        billingAddress && String(billingAddress),
         invoice.customerEmail && `Email: ${invoice.customerEmail}`,
       ].filter(Boolean),
     },
-    shipTo: { lines: invoice.shippingAddress ? [String(invoice.shippingAddress)] : [] },
+    shipTo: { lines: (invoice.shippingAddress && (!billingAddress || invoice.shippingAddress.trim().toLowerCase() !== billingAddress.trim().toLowerCase())) ? [String(invoice.shippingAddress)] : [] },
     details: [
       { label: "Invoice No.", value: text(invoice.invoiceNumber) },
       { label: "Invoice Date", value: date(invoice.orderDate) },
@@ -234,17 +234,12 @@ const buildInvoiceSaleDoc = ({ invoice, items, payments, collectedBy, totals, ha
 /* 4. Table column widths (percent). Each array adds up to 100.        */
 /* ------------------------------------------------------------------ */
 // HSN is folded into the Item Description cell rather than given its own column.
-const COLUMN_WIDTHS_WITH_DISCOUNT = [5, 24, 10, 6, 9, 9, 12, 9, 7, 9];
+const COLUMN_WIDTHS_WITH_DISCOUNT = [4, 23, 13, 5, 8, 8, 10, 8, 9, 12];
 const COLUMN_WIDTHS_NO_DISCOUNT = [5, 30, 11, 6, 10, 10, 10, 8, 10];
 
 /* ------------------------------------------------------------------ */
 /* 5. The page                                                         */
 /* ------------------------------------------------------------------ */
-const invoiceCache = new Map();
-
-const getInvoiceCacheKey = (orderId) =>
-  `${localStorage.getItem("token") || ""}:${orderId}`;
-
 export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const { orderId: routeOrderId } = useParams();
   const orderId = orderIdOverride || routeOrderId;
@@ -266,37 +261,21 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
 
   const loadInvoice = useCallback(async () => {
     const version = ++invoiceRequest.current;
-    const cacheKey = orderId ? getInvoiceCacheKey(orderId) : "";
-    const cached = cacheKey ? invoiceCache.get(cacheKey) : null;
-
-    if (cached && cached.orderStatus !== "DRAFT") {
-      setInvoice(cached);
-      setLoading(false);
-    } else {
-      setLoading(true);
-      setInvoice(null);
-    }
+    setLoading(true);
+    setInvoice(null);
     setError("");
     try {
       if (!orderId) throw new Error("Invoice identifier is missing.");
-      const response = await apiclient.get(`/orders/${orderId}`, { timeout: 20000 });
+      const response = await api.get(`/orders/${orderId}`, { timeout: 20000 });
       if (invoiceRequest.current === version) {
         if (response.data.orderStatus === "DRAFT") {
-          invoiceCache.delete(cacheKey);
           navigate((location.pathname.startsWith("/owner") ? "/owner" : "/store") + "/sales/edit/" + orderId, { replace: true });
           return;
         }
-        if (invoiceCache.size >= 50) {
-          const oldestKey = invoiceCache.keys().next().value;
-          if (oldestKey !== undefined) invoiceCache.delete(oldestKey);
-        }
-        invoiceCache.set(cacheKey, response.data);
         setInvoice(response.data);
       }
     } catch (requestError) {
-      if (invoiceRequest.current === version && !cached) {
-        setError(requestError.response?.data?.message || requestError.message || "Unable to load this invoice.");
-      }
+      if (invoiceRequest.current === version) setError(requestError.response?.data?.message || requestError.message || "Unable to load this invoice.");
     } finally {
       if (invoiceRequest.current === version) setLoading(false);
     }
@@ -363,21 +342,9 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
   }, [items]);
 
   const handleSavePdf = useCallback(async () => {
-    if (pdfInProgress.current || !invoiceSheet.current) return;
-    const id = orderId;
-    const node = invoiceSheet.current;
-    pdfInProgress.current = true;
-    setPdfLoading(true); setPdfError("");
-    try {
-      const filename = (invoice.invoiceNumber || "invoice-" + orderId).replace(/[^a-zA-Z0-9_-]/g, "_") + ".pdf";
-      await downloadDisplayedInvoicePdf(node, filename, () => currentOrder.current === id);
-    } catch (requestError) {
-      if (currentOrder.current === id) setPdfError(requestError.message || "Unable to save the invoice PDF.");
-    } finally {
-      pdfInProgress.current = false;
-      if (currentOrder.current === id) setPdfLoading(false);
-    }
-  }, [invoice, orderId]);
+    // Universal printable vector output for both Print and Save as PDF
+    await handlePrint();
+  }, [handlePrint]);
 
   useEffect(() => {
     if (loading || !invoice || new URLSearchParams(location.search).get("download") !== "1"
@@ -394,43 +361,61 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
   if (error || !invoice) return <div className="invoice-state invoice-state--error"><div>{error || "Invoice not found."}<br /><button className="invoice-button" onClick={loadInvoice}>Retry</button></div></div>;
 
   return <main className="invoice-page">
-    <nav className="invoice-toolbar">
-      {!embedded && <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}><ArrowLeft size={16} />Back</button>}
-      <div>
-        <InvoiceThemeSwitch themeKey={themeKey} onChange={setTheme} />
-        <button className="invoice-button invoice-button--quiet" onClick={handlePrint}><Printer size={16} />Print</button>
-        <button className="invoice-button invoice-button--quiet" disabled={pdfLoading} onClick={handleSavePdf}><Download size={16} />{pdfLoading ? "Saving PDF…" : "Save PDF"}</button>
+    <nav className="invoice-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+      {!embedded ? (
+        <button className="invoice-button invoice-button--quiet" onClick={() => navigate(-1)}>
+          <ArrowLeft size={16} /> Back
+        </button>
+      ) : <div />}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <button className="invoice-button invoice-button--quiet" onClick={handlePrint}>
+          <Printer size={16} /> Print
+        </button>
+        <button className="invoice-button invoice-button--quiet" disabled={pdfLoading} onClick={handleSavePdf}>
+          <Download size={16} /> {pdfLoading ? "Saving PDF…" : "Save PDF"}
+        </button>
       </div>
     </nav>
 
     {pdfError && <div className="invoice-pdf-error" role="alert">{pdfError}</div>}
 
-    {themeKey === "sale" && <SaleDocumentSheet
+    {(themeKey === "sale" || themeKey === "landscape" || themeKey === "charcoal") && <SaleDocumentSheet
+      className={themeKey === "landscape" ? "invoice-sheet vy-sheet--landscape" : "invoice-sheet"}
+      id="invoice-export-sheet"
+      sheetRef={invoiceSheet}
+      doc={{
+        ...buildInvoiceSaleDoc({ invoice, items, payments, collectedBy, totals, hasDiscount }),
+        landscape: themeKey === "landscape",
+        charcoal: themeKey === "charcoal"
+      }}
+    />}
+    {false && <SaleDocumentSheet
       className="invoice-sheet"
       id="invoice-export-sheet"
       sheetRef={invoiceSheet}
       doc={buildInvoiceSaleDoc({ invoice, items, payments, collectedBy, totals, hasDiscount })}
     />}
 
-    {themeKey !== "sale" && <article className="invoice-sheet" id="invoice-export-sheet" ref={invoiceSheet} data-template={themeKey}>
-      <header className="invoice-header">
-        <div className="invoice-brand">
-          <img className="invoice-brand-logo" src={d2wLogo} alt="Deals2Wheels" />
-          <div className="invoice-store-copy">
-            <h1>{text(invoice.storeName)}</h1>
-            <p>{invoice.storePhone && `Phone: ${invoice.storePhone}`}{invoice.storePhone && invoice.storeEmail && "  |  "}{invoice.storeEmail && `Email: ${invoice.storeEmail}`}</p>
-            <p className="invoice-gstin"><span>GSTIN:</span> {text(invoice.storeGstno)}</p>
-          </div>
-        </div>
-        <div className="invoice-title-block">
-          <h2>TAX INVOICE</h2>
-          <InfoLine label="Invoice No." value={invoice.invoiceNumber} />
-          <InfoLine label="Invoice Date" value={date(invoice.orderDate)} />
-          <InfoLine label="Order No." value={`#${invoice.orderId}`} />
-        </div>
-      </header>
-
-      <section className="invoice-party-grid">
+    {(themeKey === "navy" || themeKey === "soft") && <article className="invoice-sheet" id="invoice-export-sheet" ref={invoiceSheet} data-template={themeKey}>
+      <table className="invoice-page-container">
+        <thead>
+          <tr>
+            <td>
+              <header className="invoice-header">
+                <div className="invoice-store-copy">
+                  <h1>{text(invoice.storeName)}</h1>
+                  {invoice.storeAddress && <p>{text(invoice.storeAddress)}</p>}
+                  <p>{invoice.storePhone && `Phone: ${invoice.storePhone}`}{invoice.storePhone && invoice.storeEmail && "  |  "}{invoice.storeEmail && `Email: ${invoice.storeEmail}`}</p>
+                  <p className="invoice-gstin"><span>GSTIN:</span> {text(invoice.storeGstno)}</p>
+                  {invoice.storeState && <p><span>State:</span> {text(invoice.storeState)}</p>}
+                </div>
+                <img className="invoice-brand-logo" src={d2wLogo} alt="Deals2Wheels" />
+              </header>
+              </td></tr></thead><tbody><tr><td>
+              <div className="invoice-titlebox">
+                <h2 className="invoice-title">TAX INVOICE</h2>
+              </div>
+              <section className={`invoice-party-grid ${Boolean(invoice.shippingAddress && String(invoice.shippingAddress).trim() && String(invoice.shippingAddress).trim().toLowerCase() !== String(invoice.billingAddress || invoice.customerAddress || "").trim().toLowerCase()) ? "invoice-party-grid--three" : "invoice-party-grid--two"}`}>
         <div className="invoice-party">
           <h3>BILL TO</h3>
           <strong className="invoice-customer-name">{text(invoice.customerLegalName || invoice.customerName)}</strong>
@@ -445,13 +430,14 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
             <p>Registration: {text(invoice.customerGstRegistrationType)?.replaceAll?.("_", " ")}</p>
             <p>State / Place of Supply: {text(invoice.placeOfSupply || invoice.customerState)}</p>
             <p>Billing Address: {text(invoice.billingAddress || invoice.customerAddress)}</p>
-            {invoice.shippingAddress && <p>Shipping Address: {invoice.shippingAddress}</p>}
             {invoice.customerEmail && <p>Email: {invoice.customerEmail}</p>}
           </>}
         </div>
         <div className="invoice-meta">
           <h3>INVOICE DETAILS</h3>
-          <InfoLine label="Order Date" value={date(invoice.orderDate, true)} />
+          <InfoLine label="Invoice No." value={invoice.invoiceNumber} />
+          <InfoLine label="Invoice Date" value={date(invoice.orderDate)} />
+          <InfoLine label="Order No." value={`#${invoice.orderId}`} />
           <InfoLine label="Payment" value={paymentSummary(payments)} />
           <StatusLine label="Status" value={invoice.orderStatus} />
           <InfoLine label="Collected By" value={collectedBy} />
@@ -465,7 +451,7 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
           </colgroup>
           <thead>
             <tr>
-              <th>S.No</th>
+              <th>Sl No</th>
               <th>Item Description</th>
               <th>Brand</th>
               <th className="invoice-num">Qty</th>
@@ -548,6 +534,10 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
         <div><span>Authorized Signatory</span></div>
       </footer>
       <p className="invoice-generated">This is a computer-generated invoice.</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </article>}
   </main>;
 }
