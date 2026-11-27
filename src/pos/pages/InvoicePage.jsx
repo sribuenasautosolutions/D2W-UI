@@ -240,6 +240,11 @@ const COLUMN_WIDTHS_NO_DISCOUNT = [5, 30, 11, 6, 10, 10, 10, 8, 10];
 /* ------------------------------------------------------------------ */
 /* 5. The page                                                         */
 /* ------------------------------------------------------------------ */
+const invoiceCache = new Map();
+
+const getInvoiceCacheKey = (orderId) =>
+  `${localStorage.getItem("token") || ""}:${orderId}`;
+
 export default function InvoicePage({ orderIdOverride, embedded = false }) {
   const { orderId: routeOrderId } = useParams();
   const orderId = orderIdOverride || routeOrderId;
@@ -261,21 +266,37 @@ export default function InvoicePage({ orderIdOverride, embedded = false }) {
 
   const loadInvoice = useCallback(async () => {
     const version = ++invoiceRequest.current;
-    setLoading(true);
-    setInvoice(null);
+    const cacheKey = orderId ? getInvoiceCacheKey(orderId) : "";
+    const cached = cacheKey ? invoiceCache.get(cacheKey) : null;
+
+    if (cached && cached.orderStatus !== "DRAFT") {
+      setInvoice(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+      setInvoice(null);
+    }
     setError("");
     try {
       if (!orderId) throw new Error("Invoice identifier is missing.");
       const response = await apiclient.get(`/orders/${orderId}`, { timeout: 20000 });
       if (invoiceRequest.current === version) {
         if (response.data.orderStatus === "DRAFT") {
+          invoiceCache.delete(cacheKey);
           navigate((location.pathname.startsWith("/owner") ? "/owner" : "/store") + "/sales/edit/" + orderId, { replace: true });
           return;
         }
+        if (invoiceCache.size >= 50) {
+          const oldestKey = invoiceCache.keys().next().value;
+          if (oldestKey !== undefined) invoiceCache.delete(oldestKey);
+        }
+        invoiceCache.set(cacheKey, response.data);
         setInvoice(response.data);
       }
     } catch (requestError) {
-      if (invoiceRequest.current === version) setError(requestError.response?.data?.message || requestError.message || "Unable to load this invoice.");
+      if (invoiceRequest.current === version && !cached) {
+        setError(requestError.response?.data?.message || requestError.message || "Unable to load this invoice.");
+      }
     } finally {
       if (invoiceRequest.current === version) setLoading(false);
     }

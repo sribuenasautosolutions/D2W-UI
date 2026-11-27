@@ -1,7 +1,11 @@
     import api from "./api";
+    const hasGlobalStoreAccess = (user) => {
+        const perms = Array.isArray(user?.permissions) ? user.permissions : [];
+        return perms.includes("STORES.UPDATE") || user?.storeId == null;
+    };
     const activeStoreId = (user) =>
-        user?.role === "SUPER_ADMIN"
-            ? localStorage.getItem("pos_store_id")
+        hasGlobalStoreAccess(user)
+            ? localStorage.getItem("pos_store_id") || localStorage.getItem("activeStoreId")
             : user?.storeId;
     /*
     |--------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CirclePlus, Download, Filter, MoreHorizontal, Power, Search, Store, UserRoundCheck, X } from "lucide-react";
 import api from "../../../services/api";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 
 import VendorStockModal from "./VendorStockModal";
@@ -35,10 +35,8 @@ function csvValue(value) {
 export default function VendorsSection() {
     const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || getUser();
-    const normalizedRole = normalizeRoleName(user.role);
-    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-    const isStoreOwner = normalizedRole === "STORE_OWNER";
-    const canManageVendors = isSuperAdmin || isStoreOwner || hasPermission?.("VENDORS.MANAGE");
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+    const canManageVendors = isSuperAdmin || hasPermission?.("VENDORS.MANAGE");
     const [stores, setStores] = useState([]);
     const [storeId, setStoreId] = useState(user.storeId ? String(user.storeId) : "");
     const [vendors, setVendors] = useState([]);

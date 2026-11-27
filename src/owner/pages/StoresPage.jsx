@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useAuth } from "../../auth/AuthContext";
+import { useAuthState } from "../../auth/AuthContext";
 import {
     ChevronLeft,
     ChevronRight,
@@ -44,7 +44,7 @@ const emptyStore = {
 };
 
 function StoresPage() {
-    const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuthState();
     const canCreateStore = hasPermission?.("STORES.CREATE");
     const canUpdateStore = hasPermission?.("STORES.UPDATE");
     const canDelegatePermissions = hasPermission?.("STORE_PERMISSIONS.DELEGATE") ||

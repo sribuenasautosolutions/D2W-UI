@@ -1,9 +1,9 @@
 import api from "../../services/api";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import { ProductUnitLabel } from "../../components/ProductUnitFields";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import OpeningStockManualEntry from "../../owner/components/inventory/OpeningStockManualEntry";
+const OpeningStockManualEntry = lazy(() => import("../../owner/components/inventory/OpeningStockManualEntry"));
 import "../../owner/components/inventory/CurrentStockSection.css"; 
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -48,6 +48,9 @@ import { saleCalculationRows } from "../utils/saleCalculationRows";
 /* =========================================================
    HELPERS
 ========================================================= */
+
+let tempRowIdSeq = 0;
+const nextTempId = (prefix) => `${prefix}-${++tempRowIdSeq}`;
 
 const readUser = () => {
   try {
@@ -261,14 +264,20 @@ export default function NewSalePage({ documentMode = "SALE" }) {
   const [paymentReference, setPaymentReference] = useState("");
   const [receivedAmount, setReceivedAmount] = useState("");
   const amendmentBusy = useRef(false);
+  const [calculationResult, setCalculation] = useState(null);
+  const [calculationKey, setCalculationKey] = useState("");
+  // Overall bill discount percentage, sent to backend calculation & final invoice payload.
+  const [billDiscountPercent, setBillDiscountPercent] = useState(0);
+  const [calcLoading, setCalcLoading] = useState(false);
+  const [calcError, setCalcError] = useState("");
+  const debounceRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
   const fallbackUser = useMemo(() => readUser(), []);
   const user = authUser || fallbackUser;
 
-  const isSuperAdmin =
-    Boolean(hasGlobalStoreManagementAuthority?.()) ||
-    normalizeRoleName(user?.role) === "SUPER_ADMIN";
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
 
   /* =====================================================
        TOASTS (lightweight, no extra dependency)
@@ -395,7 +404,9 @@ export default function NewSalePage({ documentMode = "SALE" }) {
         } else {
           localStorage.setItem(storageKey, JSON.stringify(next));
         }
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       return next;
     });
   }, []);
@@ -405,7 +416,9 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     setColWidths(defaults);
     try {
       localStorage.removeItem(storageKey);
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     toast?.info?.("Column widths reset to default");
   }, [toast]);
 
@@ -730,7 +743,9 @@ export default function NewSalePage({ documentMode = "SALE" }) {
 
   const [bulkSalePreview, setBulkSalePreview] = useState(null);
   const bulkSaleStore = useRef(selectedStoreId);
-  bulkSaleStore.current = selectedStoreId;
+  useEffect(() => {
+    bulkSaleStore.current = selectedStoreId;
+  }, [selectedStoreId]);
 
   /*
    * Excel upload happens on its own page (SalesBulkUploadPage). The page
@@ -917,7 +932,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     }
 
     try {
-      const results = await fetchStock(cleanText);
+      const results = await fetchStock(trimmed);
       if (requestId !== rowSearchRequest.current) return;
       if (Array.isArray(results) && results.length > 0) {
         setRowSearch({ itemIndex, ...position, results, loading: false, error: "" });
@@ -972,7 +987,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     const inventoryId =
       product.inventoryId ||
       (isProforma
-        ? `manual-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+        ? nextTempId("manual")
         : null);
     const batchId = batch?.batchId ?? batch?.id ?? null;
     const availableQuantity = Number(
@@ -1000,7 +1015,7 @@ export default function NewSalePage({ documentMode = "SALE" }) {
     const itemData = {
       productId,
       localProductId,
-      inventoryId: inventoryId || `item-${Date.now()}`,
+      inventoryId: inventoryId || nextTempId("item"),
       batchId,
       batchNumber:
         batch?.batchNumber ?? batch?.batchNo ?? batch?.number ?? null,
@@ -1371,24 +1386,9 @@ const handleItemCreated = async (result, submitted) => {
        CALCULATION
     ===================================================== */
 
-  const [calculationResult, setCalculation] = useState(null);
-  const [calculationKey, setCalculationKey] = useState("");
-
-  // Overall bill discount percentage.
-  // Sent to the backend calculation and the final invoice payload.
-  const [billDiscountPercent, setBillDiscountPercent] = useState(0);
-
   const handleBillDiscountChange = (value) => {
     setBillDiscountPercent(normalizePercentage(value));
   };
-
-  const [calcLoading, setCalcLoading] = useState(false);
-
-  const [calcError, setCalcError] = useState("");
-
-  const debounceRef = useRef(null);
-
-  const requestIdRef = useRef(0);
 
   const buildCalculationRequest = useCallback(
     (currentItems) => {
@@ -2681,51 +2681,6 @@ const handleItemCreated = async (result, submitted) => {
       </section>
     );
 
-  const renderStockResult = (product, index, onPick) => {
-    const quantity = Number(product.quantity ?? 0);
-    const mrp = Number(product.mrp ?? 0);
-    const sellingPrice = Number(product.sellingPrice ?? product.price ?? 0);
-    const productName =
-      product.itemName ?? product.productName ?? product.name ?? "Product";
-    const partNumber = product.partNumber ?? "-";
-    const brand = product.brandName || product.brand;
-    const isFromStock = Boolean(product.inventoryId || (quantity > 0 && product.source !== "GLOBAL"));
-
-    return (
-      <button
-        type="button"
-        className="ns-result"
-        key={product.inventoryId ?? product.productId ?? index}
-        disabled={!isProforma && quantity <= 0}
-        onClick={() => onPick(product)}
-      >
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <strong>{productName}</strong>
-            {isFromStock ? (
-              <span style={{ fontSize: "10px", padding: "1px 6px", background: "#dcfce7", color: "#15803d", borderRadius: "4px", fontWeight: 700 }}>
-                In Stock ({quantity})
-              </span>
-            ) : (
-              <span style={{ fontSize: "10px", padding: "1px 6px", background: "#ede9fe", color: "#6d28d9", borderRadius: "4px", fontWeight: 700 }}>
-                Global Product
-              </span>
-            )}
-          </div>
-          <ProductUnitLabel product={product} />
-          <span>Part Number: {partNumber} {brand ? `• ${brand}` : ""}</span>
-          {product.hsnCode && <span style={{ fontSize: "11px", color: "#64748b" }}>HSN: {product.hsnCode} • GST: {product.gstPercentage ?? 18}%</span>}
-        </div>
-        <div style={{ textAlign: "right" }}>
-          {mrp > 0 && <span style={{ display: "block", fontSize: "11px", color: "#64748b" }}>MRP {money(mrp)}</span>}
-          <strong style={{ fontSize: "13px", color: "#1e293b" }}>
-            {sellingPrice > 0 ? money(sellingPrice) : mrp > 0 ? `Rate ~${money(calculateRateFromMrp(mrp, product.gstPercentage ?? 18))}` : "Price TBD"}
-          </strong>
-        </div>
-      </button>
-    );
-  };
-
   const billItemCount = items.length;
   const pageTitle = isDraft
     ? "Draft Sale"
@@ -3802,11 +3757,49 @@ const handleItemCreated = async (result, submitted) => {
           }}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          {rowSearch.results.map((product, index) =>
-            renderStockResult(product, index, (picked) =>
-              handleAddProduct(picked, rowSearch.itemIndex),
-            ),
-          )}
+          {rowSearch.results.map((product, index) => {
+            const quantity = Number(product.quantity ?? 0);
+            const mrp = Number(product.mrp ?? 0);
+            const sellingPrice = Number(product.sellingPrice ?? product.price ?? 0);
+            const productName =
+              product.itemName ?? product.productName ?? product.name ?? "Product";
+            const partNumber = product.partNumber ?? "-";
+            const brand = product.brandName || product.brand;
+            const isFromStock = Boolean(product.inventoryId || (quantity > 0 && product.source !== "GLOBAL"));
+            return (
+              <button
+                type="button"
+                className="ns-result"
+                key={product.inventoryId ?? product.productId ?? index}
+                disabled={!isProforma && quantity <= 0}
+                onClick={() => handleAddProduct(product, rowSearch.itemIndex)}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <strong>{productName}</strong>
+                    {isFromStock ? (
+                      <span style={{ fontSize: "10px", padding: "1px 6px", background: "#dcfce7", color: "#15803d", borderRadius: "4px", fontWeight: 700 }}>
+                        In Stock ({quantity})
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: "10px", padding: "1px 6px", background: "#ede9fe", color: "#6d28d9", borderRadius: "4px", fontWeight: 700 }}>
+                        Global Product
+                      </span>
+                    )}
+                  </div>
+                  <ProductUnitLabel product={product} />
+                  <span>Part Number: {partNumber} {brand ? `• ${brand}` : ""}</span>
+                  {product.hsnCode && <span style={{ fontSize: "11px", color: "#64748b" }}>HSN: {product.hsnCode} • GST: {product.gstPercentage ?? 18}%</span>}
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  {mrp > 0 && <span style={{ display: "block", fontSize: "11px", color: "#64748b" }}>MRP {money(mrp)}</span>}
+                  <strong style={{ fontSize: "13px", color: "#1e293b" }}>
+                    {sellingPrice > 0 ? money(sellingPrice) : mrp > 0 ? `Rate ~${money(calculateRateFromMrp(mrp, product.gstPercentage ?? 18))}` : "Price TBD"}
+                  </strong>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -4113,6 +4106,7 @@ const handleItemCreated = async (result, submitted) => {
           </button>
         </header>
         <div className="stock-drawer-body stock-drawer-body--embedded">
+          <Suspense fallback={<div style={{ padding: 24, textAlign: "center" }}>Loading...</div>}>
           <OpeningStockManualEntry
             compact
             storeId={selectedStoreId || null}
@@ -4120,6 +4114,7 @@ const handleItemCreated = async (result, submitted) => {
             onCreated={handleItemCreated}
             onSelectApproved={() => setAddItemOpen(false)}
           />
+          </Suspense>
         </div>
       </aside>
     </>,

@@ -16,11 +16,10 @@ function LowStockReportPage() {
 
     try {
 
-      const reportData =
-        await getLowStockReport(storeId);
-
-      const itemData =
-        await getLowStockItems(storeId);
+      const [reportData, itemData] = await Promise.all([
+        getLowStockReport(storeId),
+        getLowStockItems(storeId),
+      ]);
 
       setReport(reportData);
       setItems(itemData);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Boxes, Building2, CalendarCheck, ChevronLeft, ChevronRight, IndianRupee, Package, RefreshCw, Search, ShoppingBag, TrendingUp, Users } from "lucide-react";
-import { useAuth } from "../../auth/AuthContext";
+import { useAuthState } from "../../auth/AuthContext";
 import { getDashboard, getStoreDashboard, getStorePerformance } from "../../services/dashboardService";
 import "./DashboardHome.css";
 
@@ -8,7 +8,7 @@ const number = (value) => Number(value || 0).toLocaleString("en-IN");
 const money = (value) => `\u20B9 ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 export default function DashboardHome() {
-  const { hasPermission } = useAuth();
+  const { hasPermission } = useAuthState();
   const isSuperAdmin = Boolean(hasPermission?.("STORES.UPDATE"));
   const [dashboard, setDashboard] = useState(null);
   const [stores, setStores] = useState([]);
@@ -27,21 +27,38 @@ export default function DashboardHome() {
     setLoading(true);
     setError("");
     try {
-      const dashboardData = await getDashboard();
-      setDashboard(dashboardData);
-      if (isSuperAdmin) {
-        try {
-          const storeData = await getStorePerformance();
-          setStores(Array.isArray(storeData) ? storeData : []);
-        } catch (storeError) {
-          setError(storeError.response?.data?.message || "Dashboard totals loaded, but store performance is unavailable.");
-        }
+      if (!isSuperAdmin) {
+        const dashboardData = await getDashboard();
+        setDashboard(dashboardData);
+        setStores([]);
+        return;
+      }
+
+      const [dashboardResult, storeResult] = await Promise.allSettled([
+        getDashboard(),
+        getStorePerformance(),
+      ]);
+
+      if (dashboardResult.status === "rejected") {
+        throw dashboardResult.reason;
+      }
+
+      setDashboard(dashboardResult.value);
+
+      if (storeResult.status === "fulfilled") {
+        setStores(Array.isArray(storeResult.value) ? storeResult.value : []);
       } else {
         setStores([]);
+        setError(
+          storeResult.reason?.response?.data?.message ||
+            "Dashboard totals loaded, but store performance is unavailable."
+        );
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to load dashboard data.");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }, [isSuperAdmin]);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
@@ -49,17 +66,28 @@ export default function DashboardHome() {
   useEffect(() => {
     if (!selectedStoreId) {
       setStoreDashboard(null);
+      setStoreLoading(false);
       return;
     }
+    let active = true;
     setStoreLoading(true);
     setError("");
     getStoreDashboard(selectedStoreId)
-      .then(setStoreDashboard)
-      .catch((requestError) => {
-        setStoreDashboard(null);
-        setError(requestError.response?.data?.message || "Unable to load the selected store dashboard.");
+      .then((data) => {
+        if (active) setStoreDashboard(data);
       })
-      .finally(() => setStoreLoading(false));
+      .catch((requestError) => {
+        if (active) {
+          setStoreDashboard(null);
+          setError(requestError.response?.data?.message || "Unable to load the selected store dashboard.");
+        }
+      })
+      .finally(() => {
+        if (active) setStoreLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [selectedStoreId]);
 
   const filteredStores = useMemo(() => {

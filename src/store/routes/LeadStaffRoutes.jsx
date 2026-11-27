@@ -17,21 +17,31 @@ export default function LeadStaffRoutes({ role }) {
         <Route
           path="/sales/leads"
           element={
-            <DashboardLayout>
-              <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
-                <LeadList />
-              </Suspense>
-            </DashboardLayout>
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW", "LEADS.PROCUREMENT"]}>
+              <DashboardLayout>
+                <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}><strong>Loading leads module...</strong></div>}>
+                  <LeadList />
+                </Suspense>
+              </DashboardLayout>
+            </ProtectedRoute>
           }
         />
-        <Route path="/sales/leads/:id" element={<DashboardLayout><LeadDetails /></DashboardLayout>} />
-        {["SALESPERSON", "PROCUREMENT"].includes(role) && (
-          <Route path="/sales/leads/new" element={
-            <ProtectedRoute allowedRoles={["SALESPERSON", "PROCUREMENT"]}>
+        <Route
+          path="/sales/leads/:id"
+          element={
+            <ProtectedRoute requiredPermissions={["LEADS.VIEW", "LEADS.PROCUREMENT"]}>
+              <DashboardLayout><LeadDetails /></DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sales/leads/new"
+          element={
+            <ProtectedRoute requiredPermissions={["LEADS.CREATE"]}>
               <DashboardLayout><LeadCreate /></DashboardLayout>
             </ProtectedRoute>
-          } />
-        )}
+          }
+        />
         <Route path="*" element={<Navigate to={`${base}/sales/leads`} replace />} />
       </Routes>
     </Suspense>

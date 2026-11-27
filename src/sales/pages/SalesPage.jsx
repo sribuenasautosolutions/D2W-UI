@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useMemo,useState,useRef,} from "react";
 import {Search,Plus,Bell,ChevronDown,FileText,Wallet,TrendingUp,Store,} from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 
 import {
     getAllOrders,
@@ -40,11 +40,8 @@ export default function SalesPage() {
     const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || readUser();
 
-    const normalizedRole = normalizeRoleName(user?.role);
-    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-    const isStoreOwner = normalizedRole === "STORE_OWNER";
-    const isCashier = normalizedRole === "CASHIER";
-    const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+    const canCreateSale = isSuperAdmin || Boolean(hasPermission?.("SALES.CREATE"));
 
 
     const displayName =
@@ -127,6 +124,11 @@ export default function SalesPage() {
         loadStores();
 
     }, [isSuperAdmin]);
+
+    // Preload the lazy InvoicePage chunk so clicking a row opens immediately
+    useEffect(() => {
+        import("../../pos/pages/InvoicePage").catch(() => {});
+    }, []);
 
 
     /*

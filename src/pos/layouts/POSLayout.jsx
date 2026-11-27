@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Car, ChevronDown, MapPin, ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import d2wLogo from "./d2w-logo.png";
 import "./POSLayout.css";
 
@@ -19,11 +19,17 @@ function POSLayout({
 }) {
     const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || JSON.parse(localStorage.getItem("user") || "null");
-    const normalizedRole = normalizeRoleName(user?.role);
-    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-    const isStoreOwner = normalizedRole === "STORE_OWNER";
-    const isCashier = normalizedRole === "CASHIER";
-    const canCreateSale = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.CREATE");
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+    const canCreateSale = isSuperAdmin || Boolean(hasPermission?.("SALES.CREATE"));
+    const canViewSales = isSuperAdmin || Boolean(hasPermission?.("SALES.VIEW"));
+    const hasBackOfficeAccess =
+        isSuperAdmin ||
+        Boolean(
+            hasPermission?.("DASHBOARD.VIEW") ||
+            hasPermission?.("INVENTORY.VIEW") ||
+            hasPermission?.("PURCHASE_ORDERS.VIEW") ||
+            hasPermission?.("REPORTS.VIEW")
+        );
 
     const {
         cartItems,
@@ -94,7 +100,7 @@ function POSLayout({
 
         if (isSuperAdmin) {
             navigate("/owner/dashboard");
-        } else if (hasPermission?.("DASHBOARD.VIEW") || isStoreOwner) {
+        } else if (hasPermission?.("DASHBOARD.VIEW")) {
             navigate("/store/dashboard");
         } else {
             navigate("/store/sales");
@@ -260,7 +266,7 @@ function POSLayout({
                             )}
                         </div>
                     ) : (
-                        isStoreOwner && (
+                        user?.storeId != null && (
                             <span className="store-badge">
                                 <MapPin size={14} />
 
@@ -271,7 +277,7 @@ function POSLayout({
                     )}
 
                     {/* INVOICES & SALES LINK */}
-                    {(isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.VIEW")) && (
+                    {canViewSales && (
                         <button
                             type="button"
                             className="pos-search-btn"
@@ -353,7 +359,7 @@ function POSLayout({
                                     className="profile-menu-item"
                                     onClick={goToAdmin}
                                 >
-                                    {isCashier ? "Sales & Invoices" : "Back to Admin"}
+                                    {hasBackOfficeAccess ? "Back to Admin" : "Sales & Invoices"}
                                 </button>
 
                                 <div className="profile-menu-divider" />

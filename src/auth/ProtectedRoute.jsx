@@ -1,70 +1,66 @@
-import { Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAuth } from "./AuthContext";
+import { resolveLandingRoute } from "./routeResolver";
 
-// Normalize role name - handles variations like "SUPER_ADMIN", "Super Administrator", "SUPER ADMINISTRATOR"
-function normalizeRoleName(role) {
-    if (!role) return "";
-    const normalized = role.toUpperCase().trim();
-    // Map various name formats to standard form
-    if (normalized === "SUPER_ADMIN" || normalized === "SUPER ADMINISTRATOR") {
-        return "SUPER_ADMIN";
-    }
-    if (normalized === "STORE_OWNER" || normalized === "STORE MANAGER") {
-        return "STORE_OWNER";
-    }
-    if (normalized === "CASHIER") {
-        return "CASHIER";
-    }
-    if (normalized === "SALESPERSON" || normalized === "STORE SALESPERSON") {
-        return "SALESPERSON";
-    }
-    if (normalized === "PROCUREMENT" || normalized === "PROCUREMENT SPECIALIST") {
-        return "PROCUREMENT";
-    }
-    if (normalized === "USER") {
-        return "USER";
-    }
-    return normalized;
+function AccessDeniedRedirect({ to, message }) {
+    useEffect(() => {
+        toast.error(message, { id: "access-denied" });
+    }, [message]);
+
+    return <Navigate to={to} replace />;
 }
 
-function ProtectedRoute({ children, allowedRoles, requiredPermissions }) {
-
-    const { user, hasPermission, hasAnyPermission } = useAuth();
+function ProtectedRoute({ children, requiredPermissions }) {
+    const location = useLocation();
+    const {
+        user,
+        permissions,
+        permissionsLoading,
+        hasAnyPermission,
+        hasGlobalStoreManagementAuthority,
+    } = useAuth();
 
     // Not logged in
     if (!user) {
         return <Navigate to="/login" replace />;
     }
 
-    const role = normalizeRoleName(user.role);
+    // Wait for initial permission fetch before denying access
+    if (permissionsLoading && (!Array.isArray(permissions) || permissions.length === 0)) {
+        return <div role="status">Loading permissions…</div>;
+    }
 
-    const hasRoleRestriction = Array.isArray(allowedRoles) && allowedRoles.length > 0;
+    // Deny users who have no active permissions assigned in the database
+    if (!Array.isArray(permissions) || permissions.length === 0) {
+        return (
+            <AccessDeniedRedirect
+                to="/unauthorized"
+                message="You don't have access to this page."
+            />
+        );
+    }
+
     const hasPermissionRestriction =
         Array.isArray(requiredPermissions) && requiredPermissions.length > 0;
 
-    // If a route has no permission restriction, deny USER or empty role
-    if ((role === "USER" || !role) && !hasPermissionRestriction) {
-        return <Navigate to="/unauthorized" replace />;
-    }
-
-    const normalizedAllowedRoles = hasRoleRestriction
-        ? allowedRoles.map((r) => normalizeRoleName(r))
-        : [];
-
-    const roleAllowed = hasRoleRestriction && normalizedAllowedRoles.includes(role);
-
-    // Enforce role restriction when specified
-    if (hasRoleRestriction && !roleAllowed) {
-        return <Navigate to="/unauthorized" replace />;
-    }
-
-    // SUPER_ADMIN (or system-level STORES.UPDATE authority) has access to all permitted role routes
-    const isSuperAdmin = role === "SUPER_ADMIN" || hasPermission("STORES.UPDATE");
+    // Database-driven RBAC: global platform authority (STORES.UPDATE) or matching DB permission
+    const hasGlobalAccess = hasGlobalStoreManagementAuthority();
     const permissionAllowed =
         hasPermissionRestriction && hasAnyPermission(requiredPermissions);
 
-    if (hasPermissionRestriction && !isSuperAdmin && !permissionAllowed) {
-        return <Navigate to="/unauthorized" replace />;
+    if (hasPermissionRestriction && !hasGlobalAccess && !permissionAllowed) {
+        const fallbackRoute = resolveLandingRoute(permissions, user);
+        const redirectTarget =
+            fallbackRoute !== location.pathname ? fallbackRoute : "/unauthorized";
+
+        return (
+            <AccessDeniedRedirect
+                to={redirectTarget}
+                message="You don't have access to this page."
+            />
+        );
     }
 
     return children;

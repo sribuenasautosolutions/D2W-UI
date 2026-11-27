@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from "react";
 
 const CartContext = createContext();
 const sameLine = (item, inventoryId, batchId) =>
@@ -21,7 +21,7 @@ export const CartProvider = ({ children }) => {
   const commit = (items) => { cartRef.current = items; setCartItems(items); };
   useEffect(() => { localStorage.setItem("cartItems", JSON.stringify(cartItems)); }, [cartItems]);
 
-  const canIncrease = (item, nextQuantity, items = cartRef.current) => {
+  const canIncrease = useCallback((item, nextQuantity, items = cartRef.current) => {
     const limit = stockLimit(item);
     const inventoryLimit = Number(item.inventoryStock);
     const hasLine = items.some((line) => sameLine(line, item.inventoryId, item.batchId));
@@ -33,15 +33,15 @@ export const CartProvider = ({ children }) => {
       return false;
     }
     return true;
-  };
-  const increaseQuantity = (inventoryId, batchId) => {
+  }, []);
+  const increaseQuantity = useCallback((inventoryId, batchId) => {
     const items = cartRef.current;
     const item = items.find((line) => sameLine(line, inventoryId, batchId));
     if (!item || !canIncrease(item, Number(item.quantity) + 1)) return false;
     commit(items.map((line) => sameLine(line, inventoryId, batchId) ? { ...line, quantity: Number(line.quantity) + 1 } : line));
     return true;
-  };
-  const addToCart = (product) => {
+  }, [canIncrease]);
+  const addToCart = useCallback((product) => {
     const items = cartRef.current;
     const existing = items.find((line) => sameLine(line, product.inventoryId, product.batchId));
     const item = { ...existing, ...product, inventoryStock: product.inventoryStock ?? product.quantity,
@@ -52,15 +52,20 @@ export const CartProvider = ({ children }) => {
     else commit([...items, { ...item, quantity: 1, itemDiscount: product.discountPercentage || 0,
       gstPercentage: product.gstPercentage || 0, hsnCode: product.hsnCode || product.hsncode || "" }]);
     return true;
-  };
-  const decreaseQuantity = (inventoryId, batchId) => commit(cartRef.current.map((item) =>
-    sameLine(item, inventoryId, batchId) ? { ...item, quantity: Math.max(1, Number(item.quantity) - 1) } : item));
-  const removeFromCart = (inventoryId, batchId) => commit(cartRef.current.filter((item) => !sameLine(item, inventoryId, batchId)));
-  const clearCart = () => commit([]);
-  const replaceCart = (items) => commit(Array.isArray(items) ? items : []);
-  const updateDiscount = (inventoryId, batchId, discount) => commit(cartRef.current.map((item) =>
-    sameLine(item, inventoryId, batchId) ? { ...item, itemDiscount: Number(discount) } : item));
-  return <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, increaseQuantity,
-    decreaseQuantity, clearCart, replaceCart, updateDiscount }}>{children}</CartContext.Provider>;
+  }, [canIncrease]);
+  const decreaseQuantity = useCallback((inventoryId, batchId) => commit(cartRef.current.map((item) =>
+    sameLine(item, inventoryId, batchId) ? { ...item, quantity: Math.max(1, Number(item.quantity) - 1) } : item)), []);
+  const removeFromCart = useCallback((inventoryId, batchId) => commit(cartRef.current.filter((item) => !sameLine(item, inventoryId, batchId))), []);
+  const clearCart = useCallback(() => commit([]), []);
+  const replaceCart = useCallback((items) => commit(Array.isArray(items) ? items : []), []);
+  const updateDiscount = useCallback((inventoryId, batchId, discount) => commit(cartRef.current.map((item) =>
+    sameLine(item, inventoryId, batchId) ? { ...item, itemDiscount: Number(discount) } : item)), []);
+
+  const value = useMemo(() => ({
+    cartItems, addToCart, removeFromCart, increaseQuantity,
+    decreaseQuantity, clearCart, replaceCart, updateDiscount
+  }), [cartItems, addToCart, removeFromCart, increaseQuantity, decreaseQuantity, clearCart, replaceCart, updateDiscount]);
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 export const useCart = () => useContext(CartContext);

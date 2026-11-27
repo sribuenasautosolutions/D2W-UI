@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../../services/api";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import {
   getProductDetails,
   getManagementBatches,
@@ -203,7 +203,7 @@ const ProductManagePage = () => {
         });
       }
 
-      navigate(location.state?.returnTo || (normalizeRoleName(currentUser?.role) === "STORE_OWNER" ? "/store/inventory" : "/owner/inventory"), {
+      navigate(location.state?.returnTo || (hasGlobalStoreManagementAuthority?.() || currentUser?.storeId == null ? "/owner/inventory" : "/store/inventory"), {
         replace: true,
         state: { inventoryOverview: { inventoryId: Number(inventoryId), storeId } },
       });

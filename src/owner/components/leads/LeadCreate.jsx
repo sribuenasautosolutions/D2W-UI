@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Search, X } from "lucide-react";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 
 import { createLead, updateLead } from "../../../services/leadService";
 import { getAllStores } from "../../../services/storeService";
@@ -65,12 +65,17 @@ export default function LeadCreate({
     const isEditMode = mode === "edit";
     const navigate = useNavigate();
 
-    const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
+    const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const fallbackUser = useMemo(() => readUser(), []);
     const user = authUser || fallbackUser;
-    const normalizedRole = normalizeRoleName(user?.role);
-    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-    const leadBase = isSuperAdmin ? "/owner/sales" : normalizedRole === "SALESPERSON" ? "/salesperson/sales" : normalizedRole === "PROCUREMENT" ? "/procurement/sales" : "/store/sales";
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+    const canAssignSalesperson =
+        isSuperAdmin || hasPermission?.("EMPLOYEES.VIEW") || hasPermission?.("LEADS.ASSIGN");
+    const isProcurementOnly =
+        !isSuperAdmin &&
+        Boolean(hasPermission?.("LEADS.PROCUREMENT")) &&
+        !hasPermission?.("LEADS.CREATE");
+    const leadBase = isSuperAdmin ? "/owner/sales" : "/store/sales";
 
     /* ============================== STORE ============================== */
     const [selectedStoreId, setSelectedStoreId] = useState(
@@ -185,7 +190,7 @@ export default function LeadCreate({
 
     /* ============================== LOAD SALESPERSONS ============================== */
     const loadSalespersons = useCallback(async (storeId) => {
-        if (!storeId || user?.role === "PROCUREMENT") {
+        if (!storeId || !canAssignSalesperson) {
             setSalespersons([]);
             return;
         }
@@ -199,7 +204,7 @@ export default function LeadCreate({
         } finally {
             setSalespersonLoading(false);
         }
-    }, [user?.role]);
+    }, [canAssignSalesperson]);
 
     useEffect(() => {
         loadSalespersons(selectedStoreId);
@@ -209,7 +214,7 @@ export default function LeadCreate({
 
     useEffect(() => {
         let cancelled = false;
-        if (!selectedStoreId || isEditMode || user?.role === "PROCUREMENT") {
+        if (!selectedStoreId || isEditMode || isProcurementOnly) {
             setProcurementAssignees([]);
             setProcurementAssigneeId("");
             setProcurementLoadError(false);
@@ -228,7 +233,7 @@ export default function LeadCreate({
             })
             .finally(() => { if (!cancelled) setProcurementLoading(false); });
         return () => { cancelled = true; };
-    }, [selectedStoreId, isEditMode, user?.role]);
+    }, [selectedStoreId, isEditMode, isProcurementOnly]);
 
     /* ============================== HYDRATE SALESPERSON (EDIT MODE) ============================== */
     useEffect(() => {
@@ -778,7 +783,7 @@ export default function LeadCreate({
                         </div>
 
                         {/* Assign To — dropdown */}
-                        {!['SALESPERSON', 'PROCUREMENT'].includes(user?.role) && <div className="lead-field">
+                        {canAssignSalesperson && <div className="lead-field">
                             <label htmlFor="lead-salesperson" className="lead-label">
                                 Assign To
                             </label>
@@ -845,8 +850,8 @@ export default function LeadCreate({
                             />
                         </div>
 
-                        {/* Lead Source */}
-                        {!isEditMode && user?.role !== "PROCUREMENT" && <div className="lead-field">
+                        {/* Assign Procurement */}
+                        {!isEditMode && !isProcurementOnly && <div className="lead-field">
                             <label htmlFor="lead-procurement-assignee" className="lead-label">Assign Procurement</label>
                             <select
                                 id="lead-procurement-assignee"

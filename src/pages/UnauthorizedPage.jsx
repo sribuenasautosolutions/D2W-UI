@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { resolveLandingRoute } from "../auth/routeResolver";
 
 function UnauthorizedPage() {
     const navigate = useNavigate();
-    const { user, logoutSession } = useAuth();
+    const { user, permissions, logoutSession } = useAuth();
 
     const handleLogoutAndLogin = () => {
         logoutSession();
@@ -15,20 +16,8 @@ function UnauthorizedPage() {
             navigate("/login");
             return;
         }
-        const role = (user.role || "").toUpperCase();
-        if (role === "SUPER_ADMIN" || role === "SUPER ADMINISTRATOR") {
-            navigate("/owner/dashboard");
-        } else if (role === "STORE_OWNER" || role === "STORE MANAGER") {
-            navigate("/store/dashboard");
-        } else if (role === "CASHIER" || role === "STORE CASHIER") {
-            navigate("/pos");
-        } else if (role === "PROCUREMENT" || role === "PROCUREMENT SPECIALIST") {
-            navigate("/store/purchases");
-        } else if (role === "SALESPERSON" || role === "STORE SALESPERSON") {
-            navigate("/salesperson/sales/leads");
-        } else {
-            navigate("/owner/dashboard");
-        }
+        const target = resolveLandingRoute(permissions, user);
+        navigate(target !== "/unauthorized" ? target : "/login");
     };
 
     return (

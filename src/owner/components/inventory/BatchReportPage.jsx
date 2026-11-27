@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import { getBatchReport } from "../../../services/inventoryService";
 import { getActiveStoresCached } from "../../../services/storeService";
 import { createBatchReportPdf } from "./batchReportPdf";
@@ -554,7 +554,7 @@ function BatchReportPage() {
 
     const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || getUser();
-    const isOwner = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizeRoleName(user.role) === "SUPER_ADMIN";
+    const isOwner = Boolean(hasGlobalStoreManagementAuthority?.());
     const [stores, setStores] = useState([]);
     const [selectedStoreId, setSelectedStoreId] = useState(user.storeId ? String(user.storeId) : "");
 

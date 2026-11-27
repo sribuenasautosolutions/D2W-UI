@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, Pencil, X } from "lucide-react";
+import { useAuth } from "../../../auth/AuthContext";
 import {
     downloadLeadEstimation,
     getLeadById,
@@ -31,15 +32,6 @@ const TABS = [
     { key: "estimation", label: "Estimation" },
     { key: "history", label: "History" },
 ];
-
-const canUseWhatsApp = () => {
-    try {
-        const role = JSON.parse(localStorage.getItem("user") || "{}").role;
-        return role === "SUPER_ADMIN" || role === "STORE_OWNER";
-    } catch {
-        return false;
-    }
-};
 
 const errorText = (err, fallback) =>
     err?.response?.data?.message || err?.response?.data?.error || fallback;
@@ -346,9 +338,14 @@ export default function LeadWorkspaceDrawer({ lead, stage, userRole, initialTab 
     const [lostError, setLostError] = useState("");
 
     // Shared state with embedded procurement and follow-up drawer
+    const { hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
     const [workspaceItemsCount, setWorkspaceItemsCount] = useState(lead.items?.length || 0);
     const [isEditingCustomer, setIsEditingCustomer] = useState(false);
-    const showChat = canUseWhatsApp();
+    const showChat = Boolean(
+        hasGlobalStoreManagementAuthority?.() ||
+        hasPermission?.("WHATSAPP.VIEW") ||
+        hasPermission?.("LEADS.VIEW")
+    );
 
     const leadId = lead.id;
     const closed = stage === "WON" || stage === "LOST";

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import { getInvoice } from "../../services/orderService";
 import { calculatePayment, addPayment, previewPosPayment, checkoutPosPayment } from "../../services/paymentService";
 import { useCart } from "../context/CartContext";
@@ -110,12 +110,9 @@ function PaymentPage({ orderIdOverride, embedded = false, compact = false, onInv
   const invoicePath = `${salesBase || "/pos"}/invoice/${orderId}`;
   const newSalePath = salesBase ? `${salesBase}/new` : "/pos";
   const { clearCart } = useCart();
-  const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
-  const normalizedRole = normalizeRoleName(authUser?.role);
-  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-  const isStoreOwner = normalizedRole === "STORE_OWNER";
-  const isCashier = normalizedRole === "CASHIER";
-  const canRecordPayment = isSuperAdmin || isStoreOwner || isCashier || hasPermission?.("SALES.PAYMENT");
+  const { hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+  const canRecordPayment = isSuperAdmin || Boolean(hasPermission?.("SALES.PAYMENT"));
   const user = getUser();
 
   /* ---------- Invoice header (loaded from backend) ---------- */

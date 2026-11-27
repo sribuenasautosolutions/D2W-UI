@@ -9,7 +9,7 @@ import {
 } from "../../services/productService";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../../pos/context/CartContext";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import { getAllStores } from "../../services/storeService";
 
 function POSPage() {
@@ -27,9 +27,7 @@ function POSPage() {
     const { replaceCart, clearCart } = useCart();
     const { user: authUser, switchActiveStore, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || JSON.parse(localStorage.getItem("user") || "null");
-    const isSuperAdmin =
-        Boolean(hasGlobalStoreManagementAuthority?.()) ||
-        normalizeRoleName(user?.role) === "SUPER_ADMIN";
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
     const [stores,setStores]=useState([]);
     const [selectedStoreId,setSelectedStoreId]=useState(
         isSuperAdmin
