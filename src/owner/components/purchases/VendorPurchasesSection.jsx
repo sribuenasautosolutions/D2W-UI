@@ -267,9 +267,7 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
           (col) => typeof parsed[col.id] === "number" && parsed[col.id] !== col.defaultWidth
         );
       }
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     return false;
   });
 
@@ -354,9 +352,7 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
           setColumnWidths((latest) => {
             try {
               localStorage.setItem(storageKey, JSON.stringify(latest));
-            } catch {
-      /* ignore */
-    }
+            } catch {}
             return latest;
           });
         }
@@ -389,15 +385,11 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
           setHasCustomWidths(false);
           try {
             localStorage.removeItem(storageKey);
-          } catch {
-      /* ignore */
-    }
+          } catch {}
         } else {
           try {
             localStorage.setItem(storageKey, JSON.stringify(updated));
-          } catch {
-      /* ignore */
-    }
+          } catch {}
         }
         return updated;
       });
@@ -410,9 +402,7 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
     setHasCustomWidths(false);
     try {
       localStorage.removeItem(storageKey);
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }, [defaultWidths, storageKey]);
 
   const totalTableWidth = useMemo(() => {
@@ -467,6 +457,8 @@ function ManualStockReceipt() {
   const [purchases, setPurchases] = useState([]);
   const [screen, setScreen] = useState("list");
   const [billSearch, setBillSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [sortMode, setSortMode] = useState("NEWEST");
@@ -1128,6 +1120,7 @@ function ManualStockReceipt() {
   const purchaseSummary = (() => {
     let totalItems = 0;
     let taxableAmount = 0;
+    let totalDiscount = 0;
     let cgstAmount = 0;
     let sgstAmount = 0;
     let igstAmount = 0;
@@ -1138,6 +1131,7 @@ function ManualStockReceipt() {
       const a = computeRowAmounts(row, columnPriceMode);
       totalItems += 1;
       taxableAmount += a.taxableAmount;
+      totalDiscount += a.discountAmount;
       grandTotal += a.lineTotal;
 
       if (gstMode === "IGST") {
@@ -1153,6 +1147,7 @@ function ManualStockReceipt() {
     return {
       totalItems,
       taxableAmount: Number(taxableAmount.toFixed(2)),
+      totalDiscount: Number(totalDiscount.toFixed(2)),
       cgstAmount: Number(cgstAmount.toFixed(2)),
       sgstAmount: Number(sgstAmount.toFixed(2)),
       igstAmount: Number(igstAmount.toFixed(2)),
@@ -1181,6 +1176,9 @@ function ManualStockReceipt() {
   const balanceBills = purchases.filter((b) => b.status !== "DRAFT" && b.paymentStatus === "UNPAID");
   const paidValue = paidBills.reduce((t, b) => t + Number(b.totalAmount || 0), 0);
   const balanceValue = balanceBills.reduce((t, b) => t + Number(b.balanceDue ?? b.totalAmount ?? 0), 0);
+  const totalBillValue = paidValue + balanceValue;
+  const paidPct = totalBillValue > 0 ? Math.min(100, Math.round((paidValue / totalBillValue) * 100)) : 0;
+  const balancePct = totalBillValue > 0 ? Math.min(100, Math.round((balanceValue / totalBillValue) * 100)) : 0;
 
   /* =======================================================
      RENDER
@@ -1189,218 +1187,316 @@ function ManualStockReceipt() {
     <section className="vp-page">
       {/* ===================== LIST VIEW ===================== */}
       {screen === "list" && (
-        <div className="vp-list-page">
-          <header className="vp-list-header">
-            <div className="vp-list-title-group">
-              <div className="vp-list-title-icon">
-                <ReceiptText size={21} />
-              </div>
-              <div>
-                <span className="vp-list-eyebrow">Purchases</span>
-                <h1 className="vp-page-title">Vendor bills</h1>
-                <p className="vp-page-subtitle">
-                  Review supplier invoices, payment status and stock receipts.
-                </p>
-              </div>
-            </div>
-
-            <div className="vp-list-header-actions">
-              <div className="vp-list-search">
-                <Search size={16} />
-                <input
-                  value={billSearch}
-                  onChange={(e) => setBillSearch(e.target.value)}
-                  placeholder="Search bills or vendors"
-                />
-                {billSearch && (
-                  <button type="button" onClick={() => setBillSearch("")} aria-label="Clear">
-                    <X size={14} />
-                  </button>
-                )}
+        <div className="min-h-[calc(100vh-28px)] bg-slate-50/40 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="mx-auto max-w-[1440px] space-y-5">
+            <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <ReceiptText size={20} />
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Purchases</span>
+                  <h1 className="m-0 text-xl font-bold tracking-tight text-slate-900">Vendor bills</h1>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Review supplier invoices, payment status and stock receipts.
+                  </p>
+                </div>
               </div>
 
-              {isSuperAdmin && (
-                <label className="vp-store-filter-field">
-                  <span>Store</span>
-                  <select
-                    value={storeId}
-                    onFocus={loadStores}
-                    onChange={(e) => setStoreId(e.target.value)}
-                    className="vp-store-filter-select"
-                  >
-                    <option value="">Select store</option>
-                    {stores.map((s) => (
-                      <option key={s.id} value={s.id}>{s.storeName}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              <div ref={filterRef} className="vp-relative">
-                <button
-                  type="button"
-                  className={`vp-toolbar-button${statusFilter !== "ALL" ? " is-active" : ""}`}
-                  onClick={toggleFilter}
-                >
-                  <Filter size={16} /> Filter
-                </button>
-                {filterOpen && (
-                  <div className="vp-filter-menu">
-                    <label className="vp-filter-label">
-                      Status
-                      <select
-                        className="vp-filter-select"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                      >
-                        <option value="ALL">All statuses</option>
-                        <option value="PAID">Paid</option>
-                        <option value="UNPAID">Unpaid</option>
-                        <option value="DRAFT">Draft</option>
-                      </select>
-                    </label>
-                  </div>
-                )}
-              </div>
-
-              <div ref={moreRef} className="vp-relative">
-                <button type="button" className="vp-toolbar-button" onClick={toggleMore}>
-                  <MoreHorizontal size={17} /> More
-                </button>
-                {moreMenuOpen && (
-                  <div className="vp-more-menu">
-                    {canCreateBill && (
-                      <button type="button" onClick={openBillImport}>
-                        <Upload size={15} /> Import Bills
-                      </button>
-                    )}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 lg:justify-end">
+                {(searchOpen || billSearch) ? (
+                  <div className="flex h-9.5 w-full items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-slate-400 shadow-2xs transition-all focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 sm:w-60">
+                    <Search size={15} className="shrink-0 text-slate-400" />
+                    <input
+                      ref={searchInputRef}
+                      value={billSearch}
+                      onChange={(e) => setBillSearch(e.target.value)}
+                      placeholder="Search bills or vendors"
+                      className="w-full min-w-0 border-0 bg-transparent text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                    />
                     <button
                       type="button"
                       onClick={() => {
-                        setSortMode((m) =>
-                          m === "NEWEST" ? "OLDEST" :
-                          m === "OLDEST" ? "AMOUNT_HIGH" :
-                          m === "AMOUNT_HIGH" ? "AMOUNT_LOW" : "NEWEST"
-                        );
-                        setMoreMenuOpen(false);
+                        setBillSearch("");
+                        setSearchOpen(false);
                       }}
+                      aria-label="Close search"
+                      className="text-slate-400 hover:text-slate-600"
                     >
-                      <Filter size={15} /> Sort: {sortLabel(sortMode)}
-                    </button>
-                    <button type="button" disabled={saving} onClick={exportBills}>
-                      <Download size={15} /> Export Bills
+                      <X size={14} />
                     </button>
                   </div>
-                )}
-              </div>
-
-              {canCreateBill && (
-                <button type="button" className="vp-primary-button" onClick={startNewBill}>
-                  <CirclePlus size={16} /> New Bill
-                </button>
-              )}
-            </div>
-          </header>
-
-          <div className="vp-financial-summary">
-            <div className="vp-financial-metric">
-              <div className="vp-metric-icon vp-metric-icon--paid"><PackageCheck size={18} /></div>
-              <div>
-                <span>Paid bills</span>
-                <strong>{formatMoney(paidValue)}</strong>
-                <small>{paidBills.length} completed bill{paidBills.length === 1 ? "" : "s"}</small>
-              </div>
-            </div>
-            <div className="vp-financial-metric">
-              <div className="vp-metric-icon vp-metric-icon--due"><AlertTriangle size={18} /></div>
-              <div>
-                <span>Balance due</span>
-                <strong>{formatMoney(balanceValue)}</strong>
-                <small>{balanceBills.length} unpaid bill{balanceBills.length === 1 ? "" : "s"}</small>
-              </div>
-            </div>
-          </div>
-
-          {statusFilter !== "ALL" && (
-            <div className="vp-list-tools">
-              <span>Showing status: <strong>{statusFilter}</strong></span>
-              <button type="button" onClick={() => setStatusFilter("ALL")}>Clear filter</button>
-              <span className="vp-result-count">
-                {visiblePurchases.length} result{visiblePurchases.length === 1 ? "" : "s"}
-              </span>
-            </div>
-          )}
-
-          {message && (
-            <div className={message.type === "error" ? "vp-error" : "vp-success"}>
-              {message.text}
-            </div>
-          )}
-
-          <div className="vp-bill-table-wrap">
-            <table className="vp-bill-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Bill Number</th>
-                  <th>Vendor Name</th>
-                  <th>Status</th>
-                  <th>Due Date</th>
-                  <th style={{ textAlign: "right" }}>Amount</th>
-                  <th style={{ textAlign: "right" }}>Balance Due</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!storeId ? (
-                  <tr>
-                    <td colSpan="7" className="vp-empty-bills">
-                      <div className="vp-empty-state">
-                        <div className="vp-empty-state-icon"><ReceiptText size={24} /></div>
-                        <strong>Select a store</strong>
-                        <span>Choose a store above to view its vendor bills and balances.</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : visiblePurchases.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="vp-empty-bills">
-                      <div className="vp-empty-state">
-                        <div className="vp-empty-state-icon"><ReceiptText size={24} /></div>
-                        <strong>No vendor bills yet</strong>
-                        <span>Create a new bill or import supplier items to begin receiving stock.</span>
-                        <button type="button" className="vp-empty-state-button" onClick={startNewBill}>
-                          <CirclePlus size={15} /> Create first bill
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
                 ) : (
-                  visiblePurchases.map((bill) => (
-                    <tr key={bill.receiptId} onClick={() => viewBill(bill.receiptId)}>
-                      <td>{formatDate(bill.invoiceDate)}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="vp-bill-link"
-                          onClick={(e) => { e.stopPropagation(); viewBill(bill.receiptId); }}
-                        >
-                          {bill.vendorInvoiceNumber}
-                        </button>
-                      </td>
-                      <td>{bill.vendorName || "—"}</td>
-                      <td>
-                        <span className={`vp-status-pill vp-status--${displayBillStatus(bill).toLowerCase()}`}>
-                          {displayBillStatus(bill)}
-                        </span>
-                      </td>
-                      <td>{formatDate(bill.dueDate || bill.invoiceDate)}</td>
-                      <td style={{ textAlign: "right" }}>{formatMoney(bill.totalAmount)}</td>
-                      <td style={{ textAlign: "right" }}>{formatMoney(bill.balanceDue)}</td>
-                    </tr>
-                  ))
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchOpen(true);
+                      setTimeout(() => searchInputRef.current?.focus(), 0);
+                    }}
+                    aria-label="Search bills or vendors"
+                    title="Search bills or vendors"
+                    className="inline-flex h-9.5 w-9.5 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs transition-colors hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    <Search size={16} />
+                  </button>
                 )}
-              </tbody>
-            </table>
+
+                {isSuperAdmin && (
+                  <div className="relative">
+                    <select
+                      aria-label="Store"
+                      value={storeId}
+                      onFocus={loadStores}
+                      onChange={(e) => setStoreId(e.target.value)}
+                      className="h-9.5 min-w-[160px] rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 shadow-2xs transition-colors hover:border-slate-300 focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="">Select store</option>
+                      {stores.map((s) => (
+                        <option key={s.id} value={s.id}>{s.storeName}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div ref={filterRef} className="relative">
+                  <button
+                    type="button"
+                    className={`inline-flex h-9.5 items-center justify-center gap-1.5 rounded-lg border px-3.5 text-xs font-semibold shadow-2xs transition-colors ${
+                      statusFilter !== "ALL"
+                        ? "border-blue-300 bg-blue-50 text-blue-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={toggleFilter}
+                  >
+                    <Filter size={15} /> Filter
+                  </button>
+                  {filterOpen && (
+                    <div className="vp-filter-menu">
+                      <label className="vp-filter-label">
+                        Status
+                        <select
+                          className="vp-filter-select"
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                          <option value="ALL">All statuses</option>
+                          <option value="PAID">Paid</option>
+                          <option value="UNPAID">Unpaid</option>
+                          <option value="DRAFT">Draft</option>
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div ref={moreRef} className="relative">
+                  <button
+                    type="button"
+                    className="inline-flex h-9.5 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+                    onClick={toggleMore}
+                  >
+                    <MoreHorizontal size={16} /> More
+                  </button>
+                  {moreMenuOpen && (
+                    <div className="vp-more-menu">
+                      {canCreateBill && (
+                        <button type="button" onClick={openBillImport}>
+                          <Upload size={15} /> Import Bills
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSortMode((m) =>
+                            m === "NEWEST" ? "OLDEST" :
+                            m === "OLDEST" ? "AMOUNT_HIGH" :
+                            m === "AMOUNT_HIGH" ? "AMOUNT_LOW" : "NEWEST"
+                          );
+                          setMoreMenuOpen(false);
+                        }}
+                      >
+                        <Filter size={15} /> Sort: {sortLabel(sortMode)}
+                      </button>
+                      <button type="button" disabled={saving} onClick={exportBills}>
+                        <Download size={15} /> Export Bills
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {canCreateBill && (
+                  <button
+                    type="button"
+                    className="inline-flex h-9.5 items-center justify-center gap-1.5 rounded-lg border border-blue-600 bg-blue-600 px-4 text-xs font-semibold text-white shadow-xs transition-colors hover:border-blue-700 hover:bg-blue-700 focus:outline-none"
+                    onClick={startNewBill}
+                  >
+                    <CirclePlus size={15} /> New Bill
+                  </button>
+                )}
+              </div>
+            </header>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                      <PackageCheck size={15} />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700">Paid bills</span>
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-500">
+                    {paidBills.length} bill{paidBills.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="mt-1.5 text-lg font-bold tracking-tight text-slate-900">
+                  {formatMoney(paidValue)}
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${paidPct}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                      <AlertTriangle size={15} />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700">Balance due</span>
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-500">
+                    {balanceBills.length} bill{balanceBills.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="mt-1.5 text-lg font-bold tracking-tight text-slate-900">
+                  {formatMoney(balanceValue)}
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                    style={{ width: `${balancePct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {statusFilter !== "ALL" && (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-600">
+                <span>Showing status: <strong className="text-slate-900">{statusFilter}</strong></span>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("ALL")}
+                  className="font-semibold text-blue-600 hover:text-blue-700"
+                >
+                  Clear filter
+                </button>
+                <span className="ml-auto text-slate-500">
+                  {visiblePurchases.length} result{visiblePurchases.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            )}
+
+            {message && (
+              <div className={message.type === "error" ? "vp-error !mx-0" : "vp-success !mx-0"}>
+                {message.text}
+              </div>
+            )}
+
+            <div className="overflow-x-auto rounded-xl border border-slate-300 bg-white shadow-2xs">
+              <table className="w-full min-w-[780px] border-collapse text-center text-[13px] text-slate-900">
+                <thead className="border-b border-slate-300 bg-slate-50">
+                  <tr className="divide-x divide-slate-300">
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black whitespace-nowrap">Date</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black whitespace-nowrap">Bill Number</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black whitespace-nowrap">Vendor Name</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black whitespace-nowrap">Due Date</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black whitespace-nowrap">Amount</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black whitespace-nowrap">Balance Due</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black whitespace-nowrap">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {!storeId ? (
+                    <tr>
+                      <td colSpan="7" className="vp-empty-bills">
+                        <div className="vp-empty-state">
+                          <div className="vp-empty-state-icon"><ReceiptText size={24} /></div>
+                          <strong>Select a store</strong>
+                          <span>Choose a store above to view its vendor bills and balances.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : visiblePurchases.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="vp-empty-bills">
+                        <div className="vp-empty-state">
+                          <div className="vp-empty-state-icon"><ReceiptText size={24} /></div>
+                          <strong>No vendor bills yet</strong>
+                          <span>Create a new bill or import supplier items to begin receiving stock.</span>
+                          <button type="button" className="vp-empty-state-button" onClick={startNewBill}>
+                            <CirclePlus size={15} /> Create first bill
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    visiblePurchases.map((bill) => {
+                      const billStatus = displayBillStatus(bill);
+                      const isPaid = billStatus === "PAID";
+                      const isUnpaid = billStatus === "UNPAID";
+                      return (
+                        <tr
+                          key={bill.receiptId}
+                          onClick={() => viewBill(bill.receiptId)}
+                          className="cursor-pointer divide-x divide-slate-200 transition-colors hover:bg-slate-50"
+                        >
+                          <td className="px-4 py-3 text-center whitespace-nowrap font-medium text-slate-900">{formatDate(bill.invoiceDate)}</td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              className="border-0 bg-transparent p-0 font-semibold text-slate-900 hover:text-black"
+                              onClick={(e) => { e.stopPropagation(); viewBill(bill.receiptId); }}
+                            >
+                              {bill.vendorInvoiceNumber}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 text-center font-medium text-slate-900">{bill.vendorName || "—"}</td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap font-medium text-slate-900">{formatDate(bill.dueDate || bill.invoiceDate)}</td>
+                          <td className="px-4 py-3 text-center font-semibold text-slate-900 whitespace-nowrap">{formatMoney(bill.totalAmount)}</td>
+                          <td className="px-4 py-3 text-center font-semibold text-slate-900 whitespace-nowrap">{formatMoney(bill.balanceDue)}</td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-2 text-xs font-semibold ${
+                                isPaid
+                                  ? "text-emerald-700"
+                                  : isUnpaid
+                                    ? "text-red-700"
+                                    : "text-amber-700"
+                              }`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  isPaid
+                                    ? "bg-emerald-500"
+                                    : isUnpaid
+                                      ? "bg-red-500"
+                                      : "bg-amber-500"
+                                }`}
+                              />
+                              {billStatus}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -2003,6 +2099,13 @@ function ManualStockReceipt() {
                       <span>Taxable Amount</span>
                       <strong>{formatMoney(purchaseSummary.taxableAmount)}</strong>
                     </div>
+
+                    {purchaseSummary.totalDiscount > 0 && (
+                      <div className="vp-summary-row">
+                        <span>Total Discount</span>
+                        <strong>{formatMoney(purchaseSummary.totalDiscount)}</strong>
+                      </div>
+                    )}
 
                     {gstMode === "IGST" ? (
                       <div className="vp-summary-row">

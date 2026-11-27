@@ -1,83 +1,693 @@
-/* Theme switcher: pill shape with a gradient active button.
-   Selectors are two classes deep so they beat ".proforma-view-actions button". */
-.invoice-theme-switch{display:inline-flex;align-items:center;gap:4px;padding:4px;border:1px solid #d3d9e3;border-radius:999px;background:#eef1f6;box-shadow:inset 0 1px 2px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04)}
-.invoice-theme-switch .invoice-theme-switch__btn{height:34px;padding:0 18px;border:0;border-radius:999px;background:transparent;color:#334155;font-size:13px;font-weight:700;letter-spacing:.01em;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
-.invoice-theme-switch .invoice-theme-switch__btn:hover{background:rgba(15,23,42,.06)}
+/* ==========================================================================
+   GST Tax Invoice & Document Styling (Clean, High-Contrast Indian GST Standard)
+   Strictly styling-only CSS. Single typography family, 12mm A4 margins.
+   ========================================================================== */
+
+/* Universal print and box model resets */
+* {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  box-sizing: border-box;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 12mm 10mm 14mm 10mm !important;
+  @bottom-left {
+    content: "This is a computer-generated invoice";
+    font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+    font-size: 8.5pt;
+    color: #333333;
+  }
+  @bottom-right {
+    content: "Invoice " var(--inv-no, "") " | Page " counter(page) " of " counter(pages);
+    font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+    font-size: 8.5pt;
+    font-weight: bold;
+    color: #111111;
+  }
+}
+
+/* Theme switcher UI (non-printable toolbar component) */
+.invoice-theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #555;
+  border-radius: 2px;
+  background: #f4f4f4;
+}
+.invoice-theme-switch .invoice-theme-switch__btn {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: #222;
+  font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.invoice-theme-switch .invoice-theme-switch__btn:hover {
+  background: #e2e2e2;
+}
 .invoice-theme-switch .invoice-theme-switch__btn.is-active,
-.invoice-theme-switch .invoice-theme-switch__btn.is-active:hover{background:linear-gradient(135deg,#3b3fc0 0%,#4b1380 100%);color:#fff;box-shadow:0 4px 12px rgba(75,19,128,.35)}
-.invoice-theme-switch .invoice-theme-switch__btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
-@media print{.invoice-theme-switch{display:none}}
+.invoice-theme-switch .invoice-theme-switch__btn.is-active:hover {
+  background: #5c6bc0;
+  color: #ffffff;
+}
+.invoice-theme-switch .invoice-theme-switch__btn:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 1px;
+}
+@media print {
+  .invoice-theme-switch {
+    display: none !important;
+  }
+}
 
-/* "Sale" layout shared by the tax invoice and the proforma.
-   Change --vy to recolour the whole template. */
-.vy-sheet{--vy:#5c6bc0;--vy-tint:#eceefa;--vy-ink:#111827;--vy-text:#374151;--vy-muted:#4b5563;--vy-line:#e5e7eb;--vy-grid:#c5cae9;
-  color:var(--vy-ink);font-size:11px;line-height:1.4;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif}
+/* ==========================================================================
+   Main Invoice Sheet (.vy-sheet)
+   ========================================================================== */
+.vy-sheet {
+  --vy: #5c6bc0;
+  --vy-tint: #eceefa;
+  --vy-ink: #111111;
+  --vy-text: #222222;
+  --vy-muted: #333333;
+  --vy-line: #c5cae9;
+  --vy-grid: #c5cae9;
 
-/* Header: store on the left, logo on the right */
-.vy-header{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-6);padding-bottom:var(--sp-4);border-bottom:1px solid var(--vy-ink)}
-.vy-store h1{margin:0 0 4px;font-size:17px;font-weight:800;text-transform:uppercase}
-.vy-store p{margin:2px 0;color:var(--vy-text)}
-.vy-logo{display:block;flex:none;width:auto;height:56px;max-width:130px;object-fit:contain}
-.vy-titlebox{margin:var(--sp-4) 0}
-.vy-title{margin:0;text-align:center;font-size:22px;font-weight:800;color:var(--vy)}
-.vy-notice{margin:var(--sp-1) 0 0;text-align:center;color:#b42318;font-size:10px;font-weight:700;letter-spacing:.08em}
+  width: 100%;
+  max-width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #111111;
+  font-family: Arial, Helvetica, "Liberation Sans", sans-serif !important;
+  font-size: 10px;
+  line-height: 1.4;
+  border: 1px solid #c5cae9;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 12mm;
+  box-sizing: border-box;
+}
 
-/* Bill To | Ship To | Details: separate rounded cards. Ship To is not drawn at all when there is no shipping address. */
-.vy-parties{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:var(--sp-4);margin-bottom:var(--sp-5)}
-.vy-parties--two{grid-template-columns:1fr 1fr}
-.vy-party{min-width:0;padding:var(--sp-4);border:1px solid var(--vy-grid);border-radius:8px}
-.vy-party h3{margin:0 0 var(--sp-3);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--vy-muted)}
-.vy-party p{margin:3px 0;color:var(--vy-text);overflow-wrap:anywhere}
-.vy-name{display:block;margin-bottom:3px;font-size:13px}
-.vy-detail-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:4px 0}
-.vy-detail-row span{color:var(--vy-muted)}
-.vy-detail-row strong{text-align:right;font-weight:700;color:var(--vy-ink)}
+/* Header: Seller details on left, Logo on right, separated by 1.5px solid #000 below */
+.vy-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--vy, #5c6bc0) !important;
+}
+.vy-store {
+  flex: 1;
+}
+.vy-store h1 {
+  margin: 0 0 2px;
+  font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #111111;
+}
+.vy-store p {
+  margin: 1.5px 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #222222;
+  font-weight: 400;
+}
+.vy-logo {
+  display: block;
+  flex: none;
+  width: auto;
+  height: 48px;
+  max-width: 140px;
+  object-fit: contain;
+}
 
-/* Items table */
-.vy-table{width:100%;table-layout:fixed;border-collapse:collapse;font-variant-numeric:tabular-nums}
-.vy-table th{padding:8px;background:var(--vy);color:#fff;font-size:10px;font-weight:700;text-align:left}
-.vy-table td{padding:7px 8px;vertical-align:top;border-bottom:1px solid var(--vy-line);overflow-wrap:break-word}
-.vy-table .num{text-align:right;white-space:nowrap}
-.vy-table .ctr{text-align:center}
-.vy-table .vy-sub{display:block;margin-top:2px;color:var(--vy-text)}
-.vy-table--proforma th,.vy-table--proforma td{padding-left:5px;padding-right:5px}
-.vy-table--proforma td strong{overflow-wrap:anywhere}
-.vy-table td small{display:block;margin-top:2px;color:var(--vy-muted);font-size:10px}
-.vy-table td small.vy-partno{display:flex;flex-wrap:wrap;gap:0 10px}
-.vy-partno span{overflow-wrap:anywhere}
-.vy-table tfoot{display:table-row-group}
-.vy-table tfoot td{font-weight:700;border-top:1px solid var(--vy-ink);border-bottom:1px solid var(--vy-ink)}
-.vy-count{padding:var(--sp-2) 2px 0;color:var(--vy-muted);font-size:10.5px}
+/* Title Block: "Tax Invoice" 16px bold centered, same font */
+.vy-titlebox {
+  margin: 8px 0;
+  text-align: center;
+}
+.vy-title {
+  margin: 0;
+  text-align: center;
+  font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #111111;
+}
+.vy-notice {
+  margin: 2px 0 0;
+  text-align: center;
+  color: #b42318;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
 
-/* Lower section */
-.vy-bottom{display:grid;grid-template-columns:1.1fr .9fr;gap:var(--sp-6);margin-top:var(--sp-4);align-items:stretch}
-.vy-left,.vy-right{display:flex;flex-direction:column;min-width:0}
-.vy-block{margin-bottom:var(--sp-3)}
-.vy-block h3{margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase}
-.vy-block p{margin:0 0 2px;color:var(--vy-text)}
-.vy-block .vy-words{font-weight:700;color:var(--vy-ink)}
-.vy-block ol{margin:0;padding-left:var(--sp-4);color:var(--vy-text);line-height:1.55}
-.vy-pay-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:4px 0;border-bottom:1px solid var(--vy-line)}
-.vy-pay-row span{color:var(--vy-text)}
-.vy-pay-row small{grid-column:1/-1;color:var(--vy-muted)}
+/* Bill To, Ship To & Invoice Details boxes */
+.vy-parties {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: stretch;
+}
+.vy-parties--two {
+  grid-template-columns: 1.2fr 1fr !important;
+}
+.vy-parties--three {
+  grid-template-columns: 1fr 1fr 1fr !important;
+}
+.vy-party {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #c5cae9;
+  border-radius: 0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.vy-party h3 {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #111111;
+}
+.vy-party p {
+  margin: 1.5px 0;
+  color: #222222;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 400;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.vy-name {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #111111;
+}
 
-.vy-summary{border:1px solid var(--vy-grid)}
-.vy-sum-row{display:flex;justify-content:space-between;gap:var(--sp-5);padding:5px 10px;border-bottom:1px solid var(--vy-line)}
-.vy-sum-row:last-child{border-bottom:0}
-.vy-sum-row span{color:var(--vy-muted)}
-.vy-sum-row strong{font-weight:700;color:var(--vy-ink)}
-.vy-sum-row.is-strong span{color:var(--vy-ink);font-weight:600}
-.vy-sum-row.is-bar{background:var(--vy);border-bottom-color:var(--vy)}
-.vy-sum-row.is-bar span,.vy-sum-row.is-bar strong{color:#fff;font-weight:700}
+/* Invoice Details: 2-column label/value rows, labels left (regular #222), values right-aligned (bold #111) */
+.vy-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.vy-detail-row span {
+  color: #222222;
+  font-weight: 400;
+  text-align: left;
+}
+.vy-detail-row strong {
+  text-align: right;
+  font-weight: 700;
+  color: #111111;
+}
 
-.vy-sign{margin-top:auto;padding-top:var(--sp-3)}
-.vy-sign p{margin:0;color:var(--vy-text)}
-.vy-sign-box{height:14mm;margin:6px 0;border:1px dashed #9ca3af}
-.vy-sign-label{text-align:center}
-.vy-note{margin:var(--sp-4) 0 0;text-align:center;font-size:9px;color:var(--vy-muted)}
+/* Status Badges */
+.doc-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.doc-badge.doc-badge--ok {
+  background: #dcfce7 !important;
+  border: 1px solid #86efac !important;
+  color: #14532d !important;
+}
+.doc-badge.doc-badge--warn {
+  background: #fef3c7 !important;
+  border: 1px solid #fcd34d !important;
+  color: #78350f !important;
+}
+.doc-badge.doc-badge--danger {
+  background: #fee2e2 !important;
+  border: 1px solid #fca5a5 !important;
+  color: #7f1d1d !important;
+}
+.doc-badge.doc-badge--neutral {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1f2937 !important;
+}
 
-@media print{
-  .vy-table thead{display:table-header-group}
-  .vy-table tr,.vy-summary,.vy-sign,.vy-block,.vy-parties{break-inside:avoid}
-  .vy-table th,.vy-sum-row.is-bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* ==========================================================================
+   Items Table
+   - Header: background #4a4a4a, white bold text
+   - Cell padding: 5px 6px, vertical-align: top
+   - Row separator: border-bottom 1px solid #999
+   - Total row: bold, border-top & border-bottom 1.5px solid #000
+   ========================================================================== */
+.vy-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.vy-table th {
+  padding: 5px 6px;
+  background: var(--vy, #5c6bc0) !important;
+  color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.3px;
+  border-top: 1px solid var(--vy, #5c6bc0);
+  border-bottom: 1px solid var(--vy, #5c6bc0);
+  vertical-align: middle;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.vy-table th.num {
+  text-align: right;
+  white-space: nowrap;
+}
+.vy-table th.ctr {
+  text-align: center;
+}
+.vy-table td {
+  padding: 5px 6px;
+  vertical-align: top;
+  border-bottom: 1px solid #999999;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #111111;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.vy-table td strong {
+  font-weight: 700;
+  color: #111111;
+}
+.vy-table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.vy-table .ctr {
+  text-align: center;
+}
+.vy-table .vy-sub {
+  display: block;
+  margin-top: 1px;
+  color: #222222;
+}
+.vy-table--proforma th,
+.vy-table--proforma td {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+.vy-table--proforma td strong {
+  overflow-wrap: break-word;
+}
+.vy-table td small {
+  display: block;
+  margin-top: 1px;
+  color: #333333;
+  font-size: 9.5px;
+  line-height: 1.3;
+  font-weight: 400;
+}
+.vy-table td small.vy-partno {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+}
+.vy-partno span {
+  overflow-wrap: break-word;
+}
+.vy-partno-col {
+  font-weight: 400;
+  font-size: 10px;
+  color: #111111;
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+/* Total row */
+.vy-table tfoot {
+  display: table-row-group;
+}
+.vy-table tfoot td {
+  padding: 5px 6px;
+  font-weight: 700;
+  font-size: 11px;
+  border-top: 1.5px solid #000000 !important;
+  border-bottom: 2px solid var(--vy, #5c6bc0) !important;
+  background: #eeeeee !important;
+  color: #111111 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.vy-count {
+  padding: 4px 2px 0;
+  color: #333333;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+/* ==========================================================================
+   Bottom Summary, Notes & Signatures
+   ========================================================================== */
+.vy-bottom {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 12px;
+  margin-top: 8px;
+  align-items: stretch;
+}
+.vy-left,
+.vy-right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.vy-block {
+  margin-bottom: 6px;
+}
+.vy-block h3 {
+  margin: 0 0 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #111111;
+}
+.vy-block p {
+  margin: 0 0 2px;
+  color: #222222;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+.vy-block .vy-words {
+  font-weight: 700;
+  color: #111111;
+}
+.vy-block ol {
+  margin: 0;
+  padding-left: 14px;
+  color: #222222;
+  font-size: 9.5px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+.vy-pay-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid #999999;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.vy-pay-row span {
+  color: #222222;
+  font-weight: 400;
+}
+.vy-pay-row strong {
+  color: #111111;
+  font-weight: 700;
+}
+.vy-pay-row small {
+  display: block;
+  color: #444444;
+  font-size: 9px;
+}
+
+/* Totals block: right-aligned labels/values, thin border, Grand Total row emphasized */
+.vy-summary {
+  border: 1px solid #c5cae9;
+  border-radius: 0;
+  overflow: hidden;
+  background: #ffffff;
+}
+.vy-sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #999999;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.vy-sum-row:last-child {
+  border-bottom: 0;
+}
+.vy-sum-row span {
+  color: #222222;
+  font-weight: 400;
+}
+.vy-sum-row strong {
+  font-weight: 700;
+  color: #111111;
+  text-align: right;
+}
+.vy-sum-row.is-strong span {
+  color: #111111;
+  font-weight: 700;
+}
+
+/* Grand Total Row: Bold, background #eee, black text, 1.5px solid #000 border */
+.vy-sum-row.is-bar {
+  background: var(--vy, #5c6bc0) !important;
+  border-top: 1.5px solid var(--vy, #5c6bc0) !important;
+  border-bottom: 1.5px solid var(--vy, #5c6bc0) !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.vy-sum-row.is-bar span,
+.vy-sum-row.is-bar strong {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 10.5px;
+}
+
+/* Signatures: Solid 1px border (not dashed), labels centered below, "For : [Store]" directly above */
+.vy-sign {
+  margin-top: auto;
+  padding-top: 6px;
+}
+.vy-sign p:not(.vy-sign-label) {
+  margin: 0 0 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #111111;
+  text-align: right;
+}
+.vy-sign-box {
+  height: 14mm;
+  margin: 4px 0;
+  border: 1px solid #555555 !important;
+  border-radius: 0 !important;
+  background: transparent;
+}
+.vy-sign-label {
+  text-align: center;
+  font-size: 9.5px;
+  font-weight: 400;
+  color: #111111;
+  margin: 2px 0 0;
+}
+
+/* Remove duplicate "computer-generated invoice" visual clutter via CSS */
+.vy-note,
+.vy-footer-note {
+  display: none !important;
+}
+
+/* Repeating Page-level Table and Footer */
+.vy-page-container {
+  width: 100%;
+  border-collapse: collapse;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.vy-page-container > thead,
+.vy-page-container > tbody,
+.vy-page-container > tfoot,
+.vy-page-container > thead > tr,
+.vy-page-container > tbody > tr,
+.vy-page-container > tfoot > tr,
+.vy-page-container > thead > tr > td,
+.vy-page-container > tbody > tr > td,
+.vy-page-container > tfoot > tr > td {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: top;
+}
+.vy-page-container > thead {
+  display: table-header-group !important;
+}
+.vy-page-container > thead tr,
+.vy-page-container > thead td {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.vy-page-container > tfoot {
+  display: table-footer-group !important;
+}
+.vy-page-container > tfoot tr,
+.vy-page-container > tfoot td {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  vertical-align: bottom;
+}
+
+.vy-page-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 6px;
+  margin-top: 8px;
+  border-top: 1px solid #555555;
+  font-size: 9px;
+  color: #333333;
+}
+.vy-footer-left {
+  font-weight: 400;
+}
+.vy-footer-right {
+  font-weight: 700;
+}
+
+/* Landscape override */
+.vy-sheet--landscape {
+  max-width: 297mm !important;
+  width: 100% !important;
+}
+@page vy-landscape-page {
+  size: A4 landscape;
+  margin: 12mm;
+}
+@media print {
+  .vy-sheet--landscape {
+    page: vy-landscape-page !important;
+  }
+}
+
+/* ==========================================================================
+   Print & PDF Paginated Rules
+   ========================================================================== */
+@media print {
+  body, html {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+  .invoice-toolbar,
+  .invoice-theme-switch,
+  .invoice-pdf-error {
+    display: none !important;
+  }
+  .vy-sheet {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+  }
+  .vy-page-container > thead,
+  table thead {
+    display: table-header-group !important;
+  }
+  .vy-page-container > tfoot,
+  table tfoot {
+    display: table-footer-group !important;
+  }
+  .vy-table thead {
+    display: table-header-group !important;
+  }
+  .vy-table tfoot {
+    display: table-row-group !important;
+  }
+  tr,
+  .totals,
+  .signatures,
+  .vy-table tr,
+  .vy-summary,
+  .vy-sign,
+  .vy-block,
+  .vy-parties,
+  .vy-header {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .vy-table th,
+  .vy-sum-row.is-bar,
+  .vy-table tfoot td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .vy-page-footer {
+    display: flex !important;
+  }
+}
+
+.vy-sheet--charcoal, .vy-sheet[data-template="charcoal"] {
+  --vy: #374151 !important;
+  --vy-grid: #9ca3af !important;
+  --vy-tint: #f3f4f6 !important;
+  --vy-line: #d1d5db !important;
+}
+
+
+
+@media print {
+  .vy-page-container > tfoot,
+  .vy-page-footer {
+    display: none !important;
+  }
+}
+
+/* Text size variants controlled by Print Settings */
+.vy-sheet--text-sm {
+  font-size: 11px;
+}
+.vy-sheet--text-sm .vy-table th,
+.vy-sheet--text-sm .vy-table td {
+  font-size: 10px;
+}
+.vy-sheet--text-lg {
+  font-size: 13px;
+}
+.vy-sheet--text-lg .vy-table th,
+.vy-sheet--text-lg .vy-table td {
+  font-size: 12px;
 }

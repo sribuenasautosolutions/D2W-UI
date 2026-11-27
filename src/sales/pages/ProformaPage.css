@@ -15,12 +15,39 @@
   }
 
   .proforma-invoice-sheet {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .proforma-page-container {
     width: 100%;
-    margin: 0;
-    padding: var(--sp-5);
+    border-collapse: collapse;
     border: 0;
-    border-radius: 0;
-    box-shadow: none;
+    margin: 0;
+    padding: 0;
+  }
+  .proforma-page-container > thead,
+  .proforma-page-container > tbody,
+  .proforma-page-container > thead > tr,
+  .proforma-page-container > tbody > tr,
+  .proforma-page-container > thead > tr > td,
+  .proforma-page-container > tbody > tr > td {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    vertical-align: top;
+  }
+  .proforma-page-container > thead {
+    display: table-header-group !important;
+  }
+  .proforma-page-container > thead tr,
+  .proforma-page-container > thead td {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .proforma-items-wrap {
@@ -29,6 +56,13 @@
 
   .proforma-invoice-table {
     min-width: 0;
+    width: 100% !important;
+    border-collapse: collapse;
+    page-break-inside: auto;
+  }
+
+  .proforma-invoice-table thead {
+    display: table-header-group !important;
   }
 
   .proforma-not-tax {
@@ -37,15 +71,22 @@
 
   /* Keep bill summary together on one page */
   .proforma-summary-row,
-  .proforma-summary-card {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  .proforma-summary-card,
+  .proforma-footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   /* Keep invoice rows together */
-  .proforma-invoice-table tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  .proforma-invoice-table tr,
+  .proforma-invoice-table tbody tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm 12mm 10mm !important;
   }
 }
 
