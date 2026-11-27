@@ -24,7 +24,7 @@ import {
     Lock,
 } from "lucide-react";
 import api from "../../services/api";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import { getActiveStoresCached } from "../../services/storeService";
 import toast from "react-hot-toast";
 
@@ -174,13 +174,11 @@ function getRoleDisplay(role = "", roleName = "") {
 
 function UsersPage() {
     const { user: currentUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
-    const normalizedCurrentRole = normalizeRoleName(currentUser?.role);
-    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedCurrentRole === "SUPER_ADMIN";
-    const isStoreOwner = normalizedCurrentRole === "STORE_OWNER";
-    const canCreateUser = isSuperAdmin || isStoreOwner || Boolean(hasPermission?.("EMPLOYEES.CREATE"));
-    const canUpdateUser = isSuperAdmin || isStoreOwner || Boolean(hasPermission?.("EMPLOYEES.UPDATE"));
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+    const canCreateUser = isSuperAdmin || Boolean(hasPermission?.("EMPLOYEES.CREATE"));
+    const canUpdateUser = isSuperAdmin || Boolean(hasPermission?.("EMPLOYEES.UPDATE"));
     const canManageStoreAccess = isSuperAdmin || Boolean(hasPermission?.("STORE_ACCESS.MANAGE"));
-    const canAssignRoles = isSuperAdmin || isStoreOwner || Boolean(hasPermission?.("ROLES.ASSIGN"));
+    const canAssignRoles = isSuperAdmin || Boolean(hasPermission?.("ROLES.ASSIGN"));
 
     const [users, setUsers] = useState([]);
     const [stores, setStores] = useState([]);
@@ -1296,7 +1294,7 @@ function UsersPage() {
                                                             <span>View Details</span>
                                                         </button>
 
-                                                        {canUpdateUser && (isSuperAdmin || !["SUPER_ADMIN", "STORE_OWNER"].includes(user.role)) && (
+                                                        {canUpdateUser && (isSuperAdmin || user.storeId != null) && (
                                                             <>
                                                                 <button
                                                                     type="button"
@@ -1520,7 +1518,7 @@ function UsersPage() {
                                     Management Actions
                                 </h3>
                                 <div className="flex flex-wrap gap-2.5">
-                                    {canUpdateUser && (isSuperAdmin || !["SUPER_ADMIN", "STORE_OWNER"].includes(selectedUser.role)) && (
+                                    {canUpdateUser && (isSuperAdmin || selectedUser.storeId != null) && (
                                         <>
                                             <button
                                                 type="button"

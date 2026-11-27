@@ -9,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../../services/api";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 import BulkUploadShell from "./BulkUploadShell";
 
@@ -142,9 +142,7 @@ export default function BulkUploadSection({ onClose, hideTitle = false }) {
   const user = authUser || currentUser();
   const [allDiscount, setAllDiscount] = useState("");
   const workInProgress = useRef(false);
-  const isSuperAdmin =
-    Boolean(hasGlobalStoreManagementAuthority?.()) ||
-    normalizeRoleName(user?.role) === "SUPER_ADMIN";
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
 
   const [stores, setStores] = useState([]);
   const [selectedStoreId, setSelectedStoreId] = useState(() =>

@@ -139,9 +139,9 @@ export function InfoGrid({ rows, columns = 4 }) {
   );
 }
 
-export const productManageRoute = (inventoryId, storeId, role = "SUPER_ADMIN") => {
+export const productManageRoute = (inventoryId, storeId, isGlobal = true) => {
   const query = storeId ? `?storeId=${encodeURIComponent(storeId)}` : "";
-  const base = role === "STORE_OWNER" ? "/store" : "/owner";
+  const base = isGlobal ? "/owner" : "/store";
   return `${base}/inventory/products/${inventoryId}/manage${query}`;
 };
 
@@ -371,7 +371,7 @@ export default function CurrentStockSection() {
     if (!selectedId) return;
     const selectedRow = result.content.find((row) => row.inventoryId === selectedId);
     const detailStoreId = storeId || selectedRow?.storeId;
-    navigate(productManageRoute(selectedId, detailStoreId, user.role), {
+    navigate(productManageRoute(selectedId, detailStoreId, isSuperAdmin), {
       state: { returnTo: location.pathname + location.search },
     });
   };

@@ -1,9 +1,17 @@
+import { lazy, Suspense, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
-import D2WStockRequestSection from "../components/purchases/D2WStockRequestSection";
-import VendorPurchasesSection from "../components/purchases/VendorPurchasesSection";
+import { useAuthState } from "../../auth/AuthContext";
 import VendorsSection from "../components/purchases/VendorsSection";
-import VendorOrdersSection from "../components/purchases/VendorOrdersSection";
+
+const purchaseLoaders = {
+    bills:        () => import("../components/purchases/VendorPurchasesSection"),
+    vendororders: () => import("../components/purchases/VendorOrdersSection"),
+    requestd2w:   () => import("../components/purchases/D2WStockRequestSection"),
+};
+
+const VendorPurchasesSection = lazy(purchaseLoaders.bills);
+const VendorOrdersSection    = lazy(purchaseLoaders.vendororders);
+const D2WStockRequestSection = lazy(purchaseLoaders.requestd2w);
 
 const PURCHASE_VIEWS = {
     vendors: {
@@ -29,12 +37,24 @@ const PURCHASE_VIEWS = {
 };
 
 export default function PurchasesPage() {
-    const { user, hasAnyPermission, hasGlobalStoreManagementAuthority } = useAuth();
-    const normalizedRole = normalizeRoleName(user?.role);
-    const isOwner = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-    const isStoreOwner = normalizedRole === "STORE_OWNER";
-    const canViewVendors = isOwner || isStoreOwner || hasAnyPermission?.(["VENDORS.VIEW", "VENDORS.MANAGE"]);
-    const canViewOrders = isOwner || isStoreOwner || hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE"]);
+    const { hasAnyPermission, hasGlobalStoreManagementAuthority } = useAuthState();
+    const isOwner = Boolean(hasGlobalStoreManagementAuthority?.());
+    const canViewVendors = isOwner || hasAnyPermission?.(["VENDORS.VIEW", "VENDORS.MANAGE"]);
+    const canViewOrders = isOwner || hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE"]);
+
+    useEffect(() => {
+        const prefetchViews = () => {
+            Object.values(purchaseLoaders).forEach((load) => {
+                load().catch(() => {});
+            });
+        };
+        if ("requestIdleCallback" in window) {
+            const id = window.requestIdleCallback(prefetchViews, { timeout: 1500 });
+            return () => window.cancelIdleCallback(id);
+        }
+        const timer = window.setTimeout(prefetchViews, 800);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     const [searchParams] = useSearchParams();
     const requestedView = searchParams.get("view") || "vendors";
@@ -67,7 +87,9 @@ export default function PurchasesPage() {
                     </div>
                 </header>
             )}
-            <ActiveComponent />
+            <Suspense fallback={<div style={{ padding: "24px", color: "#64748b", fontSize: "14px" }}>Loading section…</div>}>
+                <ActiveComponent />
+            </Suspense>
         </main>
     );
 }

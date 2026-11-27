@@ -3,6 +3,7 @@ import {
     Search, Bell, ChevronDown, ChevronRight, Boxes,
     CheckCircle2, AlertCircle, X,
 } from "lucide-react";
+import { useAuthState } from "../../auth/AuthContext";
 
 import PendingApprovalSection from "../../owner/components/productreqest/PendingApprovalSection";
 import Review from "../../owner/components/productreqest/Review";
@@ -10,14 +11,6 @@ import ProductSection from "../../owner/components/productreqest/ProductSection"
 import MergeSection from "../../owner/components/productreqest/MergeSection";
 import "../../owner/components/productreqest/styles/product-approval-page.css";
 import "../../owner/components/productreqest/styles/product-approval.css";
-
-const readUser = () => {
-    try {
-        return JSON.parse(localStorage.getItem("user"));
-    } catch {
-        return null;
-    }
-};
 
 function ProductApprovalPage() {
     const [activeStep, setActiveStep] = useState("create");
@@ -43,7 +36,7 @@ function ProductApprovalPage() {
 
     const isDrawerOpen = !!selectedApproval;
 
-    const user = readUser();
+    const { user } = useAuthState();
     const displayName = user?.name || "Super Admin";
     const initials =
         displayName

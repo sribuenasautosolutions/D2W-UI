@@ -1,15 +1,22 @@
-import { useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Upload, Plus } from "lucide-react";
-import { useAuth } from "../../../auth/AuthContext";
+import { useAuthState } from "../../../auth/AuthContext";
 
 import VehicleMakesSection from "./VehicleMakesSection";
-import VehicleModelsSection from "./VehicleModelsSection";
-import VehicleGenerationsSection from "./VehicleGenerationsSection";
-import VehicleVariantsSection from "./VehicleVariantsSection";
-import VehicleBulkUploadSection from "./VehicleBulkUploadSection";
-import VehicleQuickAddDrawer from "./VehicleQuickAddDrawer";
+const VehicleModelsSection      = lazy(() => import("./VehicleModelsSection"));
+const VehicleGenerationsSection = lazy(() => import("./VehicleGenerationsSection"));
+const VehicleVariantsSection    = lazy(() => import("./VehicleVariantsSection"));
+const VehicleBulkUploadSection  = lazy(() => import("./VehicleBulkUploadSection"));
+const VehicleQuickAddDrawer     = lazy(() => import("./VehicleQuickAddDrawer"));
 import { VehicleToastHost } from "./VehicleToast";
 import "./styles/vehicle-management.css";
+
+const TAB_PREFETCH = {
+    models:      () => import("./VehicleModelsSection"),
+    generations: () => import("./VehicleGenerationsSection"),
+    variants:    () => import("./VehicleVariantsSection"),
+    bulk:        () => import("./VehicleBulkUploadSection"),
+};
 
 const PRIMARY_TABS = [
     { key: "makes",       label: "Makes" },
@@ -23,11 +30,34 @@ const UTILITY_TABS = [
 ];
 
 function VehicleManagement() {
-    const { hasPermission } = useAuth();
+    const { hasPermission } = useAuthState();
     const canManageVehicles = hasPermission?.("VEHICLES.MANAGE");
     const [activeTab, setActiveTab] = useState("makes");
     const [addVehicleOpen, setAddVehicleOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+
+    // Prefetch non-default tab chunks after mount so they're warm when the user clicks
+    useEffect(() => {
+        const id = typeof requestIdleCallback !== "undefined"
+            ? requestIdleCallback(() => {
+                import("./VehicleModelsSection");
+                import("./VehicleGenerationsSection");
+                import("./VehicleVariantsSection");
+                import("./VehicleBulkUploadSection");
+                import("./VehicleQuickAddDrawer");
+            })
+            : setTimeout(() => {
+                import("./VehicleModelsSection");
+                import("./VehicleGenerationsSection");
+                import("./VehicleVariantsSection");
+                import("./VehicleBulkUploadSection");
+                import("./VehicleQuickAddDrawer");
+            }, 2000);
+        return () => {
+            if (typeof requestIdleCallback !== "undefined") cancelIdleCallback(id);
+            else clearTimeout(id);
+        };
+    }, []);
 
     const currentTab = !canManageVehicles && activeTab === "bulk" ? "makes" : activeTab;
 
@@ -47,6 +77,7 @@ function VehicleManagement() {
                                 (currentTab === tab.key ? " is-active" : "")
                             }
                             onClick={() => setActiveTab(tab.key)}
+                            onMouseEnter={() => TAB_PREFETCH[tab.key]?.()}
                         >
                             <span>{tab.label}</span>
                         </button>
@@ -67,6 +98,7 @@ function VehicleManagement() {
                                         (currentTab === tab.key ? " is-active" : "")
                                     }
                                     onClick={() => setActiveTab(tab.key)}
+                                    onMouseEnter={() => TAB_PREFETCH[tab.key]?.()}
                                 >
                                     <tab.icon size={15} />
                                     <span>{tab.label}</span>
@@ -85,6 +117,7 @@ function VehicleManagement() {
                 )}
             </div>
 
+            <Suspense fallback={<div className="vm-tab-content" style={{ minHeight: 200 }} />}>
             <div key={`${currentTab}-${refreshKey}`} className="vm-tab-content">
                 {currentTab === "makes"       && <VehicleMakesSection />}
                 {currentTab === "models"      && <VehicleModelsSection />}
@@ -96,7 +129,9 @@ function VehicleManagement() {
                     />
                 )}
             </div>
+            </Suspense>
 
+            <Suspense fallback={null}>
             <VehicleQuickAddDrawer
                 open={addVehicleOpen}
                 onClose={() => setAddVehicleOpen(false)}
@@ -105,6 +140,7 @@ function VehicleManagement() {
                     setRefreshKey((k) => k + 1);
                 }}
             />
+            </Suspense>
 
         </div>
     );

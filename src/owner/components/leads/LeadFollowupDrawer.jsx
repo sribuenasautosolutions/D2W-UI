@@ -348,13 +348,14 @@ if (colTableStyle) {
     }
   };
 
+  const createdAt = fullLead?.createdAt;
   const trail = useMemo(() => {
     const entries = [...activities];
-    if (fullLead?.createdAt) {
-      entries.push({ id: "system-created", type: "System", text: `${leadNumber} created`, at: fullLead.createdAt });
+    if (createdAt) {
+      entries.push({ id: "system-created", type: "System", text: `${leadNumber} created`, at: createdAt });
     }
     return entries;
-  }, [activities, fullLead?.createdAt, leadNumber]);
+  }, [activities, createdAt, leadNumber]);
 
   const statusDirty = status !== fullLead?.status;
   const latestScheduledAt = activities.find(activity => activity.nextFollowUpAt)?.nextFollowUpAt;

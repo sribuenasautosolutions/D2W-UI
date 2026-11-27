@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Loader2, QrCode, WifiOff } from "lucide-react";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import {
     connectWhatsapp,
     disconnectWhatsapp,
@@ -38,7 +38,7 @@ export default function WhatsAppConnect() {
     const location = useLocation();
     const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
     const user = authUser || readUser();
-    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizeRoleName(user.role) === "SUPER_ADMIN";
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
 
     const [stores, setStores] = useState([]);
     const [storeId, setStoreId] = useState("");

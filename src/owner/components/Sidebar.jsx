@@ -27,9 +27,15 @@ import {
 } from "lucide-react";
 
 import logo from "../../assets/NEW LOGO D2W.png";
-import { useAuth } from "../../auth/AuthContext";
-import { normalizeRoleName } from "../../auth/AuthContext";
+import api from "../../services/api";
+import { useAuthActions, useAuthState } from "../../auth/AuthContext";
 import "./Sidebar.css";
+
+const accessibleStoresCache = {
+    userId: null,
+    data: null,
+    promise: null,
+};
 
 function NavLabel({ collapsed, children }) {
     return (
@@ -40,58 +46,126 @@ function NavLabel({ collapsed, children }) {
 }
 
 function Sidebar() {
-    const { user, logoutSession, hasPermission, hasAnyPermission, activeStoreId, switchActiveStore } = useAuth();
+    const {
+        user,
+        hasPermission,
+        hasAnyPermission,
+        hasGlobalStoreManagementAuthority,
+        activeStoreId,
+    } = useAuthState();
+    const { logoutSession, switchActiveStore } = useAuthActions();
     const location = useLocation();
+    const userId = user?.userId ?? null;
 
-    const [accessibleStores, setAccessibleStores] = useState([]);
+    const [accessibleStores, setAccessibleStores] = useState(() =>
+        userId && accessibleStoresCache.userId === userId && accessibleStoresCache.data
+            ? accessibleStoresCache.data
+            : []
+    );
 
     useEffect(() => {
-        let mounted = true;
-        if (user) {
-            import("../../services/api").then(({ default: api }) => {
-                api.get("/access-control/stores")
-                    .then((res) => {
-                        if (mounted && Array.isArray(res.data)) {
-                            setAccessibleStores(res.data);
-                        }
-                    })
-                    .catch(() => {});
-            });
+        if (!userId) {
+            accessibleStoresCache.userId = null;
+            accessibleStoresCache.data = null;
+            accessibleStoresCache.promise = null;
+            setAccessibleStores([]);
+            return;
         }
-        return () => { mounted = false; };
-    }, [user]);
 
-    const role = normalizeRoleName(user?.role);
-    const isOwner = role === "SUPER_ADMIN";
-    const isStoreOwner = role === "STORE_OWNER";
-    const canViewUsers = isOwner || isStoreOwner || hasAnyPermission?.(["EMPLOYEES.VIEW"]);
-    const canManageRoles = isOwner || isStoreOwner || hasAnyPermission?.(["ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "ROLES.ASSIGN"]);
-    const canManageSystemRoles = isOwner || (!isStoreOwner && hasAnyPermission?.(["ROLES.VIEW", "ROLES.CREATE", "PERMISSIONS.VIEW", "PERMISSIONS.MANAGE"]));
-    const canViewStores = isOwner || hasPermission?.("STORES.VIEW");
-    const canViewDashboard = isOwner || isStoreOwner || hasPermission?.("DASHBOARD.VIEW");
-    const canViewInventory = isOwner || isStoreOwner || hasAnyPermission?.(["INVENTORY.VIEW", "INVENTORY.ADJUST", "INVENTORY.TRANSFER", "BARCODES.PRINT"]);
-    const canViewPurchases = isOwner || isStoreOwner || hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE", "VENDORS.VIEW", "VENDORS.MANAGE"]);
-    const canViewSales = isOwner || isStoreOwner || role === "CASHIER" || hasAnyPermission?.(["SALES.VIEW", "SALES.CREATE", "PROFORMA.VIEW", "LEADS.VIEW"]);
-    const canViewReports = isOwner || isStoreOwner || hasPermission?.("REPORTS.VIEW");
-    const isSalesperson = role === "SALESPERSON";
-    const isProcurement = role === "PROCUREMENT";
-    const isLeadStaff = isSalesperson || isProcurement;
+        if (accessibleStoresCache.userId === userId && accessibleStoresCache.data) {
+            setAccessibleStores(accessibleStoresCache.data);
+            return;
+        }
 
-    const homeBase = isSalesperson
-        ? "/salesperson"
-        : isProcurement
-            ? "/procurement"
-            : isOwner
-                ? "/owner"
-                : "/store";
+        let mounted = true;
+        if (accessibleStoresCache.userId !== userId || !accessibleStoresCache.promise) {
+            accessibleStoresCache.userId = userId;
+            accessibleStoresCache.data = null;
+            accessibleStoresCache.promise = api
+                .get("/access-control/stores")
+                .then((res) => {
+                    const list = Array.isArray(res.data) ? res.data : [];
+                    if (accessibleStoresCache.userId === userId) {
+                        accessibleStoresCache.data = list;
+                    }
+                    return list;
+                })
+                .catch(() => {
+                    if (accessibleStoresCache.userId === userId) {
+                        accessibleStoresCache.promise = null;
+                    }
+                    return [];
+                });
+        }
 
-    const inventoryBase = isOwner ? "/owner/inventory" : "/store/inventory";
-    const purchasesBase = isOwner ? "/owner/purchases" : "/store/purchases";
-    const salesBase = isOwner
-        ? "/owner/sales"
-        : isLeadStaff
-            ? `${homeBase}/sales`
-            : "/store/sales";
+        accessibleStoresCache.promise.then((list) => {
+            if (mounted && accessibleStoresCache.userId === userId) {
+                setAccessibleStores(list);
+            }
+        });
+
+        return () => {
+            mounted = false;
+        };
+    }, [userId]);
+
+    const hasGlobalAuthority = hasGlobalStoreManagementAuthority();
+    const isGlobalPortal = hasGlobalAuthority || user?.storeId == null;
+    const portalPrefix = isGlobalPortal ? "/owner" : "/store";
+
+    const canViewUsers = hasGlobalAuthority || hasPermission?.("EMPLOYEES.VIEW");
+    const canManageRoles =
+        hasGlobalAuthority ||
+        hasAnyPermission?.([
+            "ROLES.VIEW",
+            "ROLES.CREATE",
+            "ROLES.UPDATE",
+            "ROLES.ASSIGN",
+            "PERMISSIONS.VIEW",
+            "PERMISSIONS.MANAGE",
+        ]);
+    const canViewStores = hasGlobalAuthority || hasPermission?.("STORES.VIEW");
+    const canViewDashboard = hasGlobalAuthority || hasPermission?.("DASHBOARD.VIEW");
+    const canViewCatalogue =
+        hasGlobalAuthority ||
+        hasAnyPermission?.(["CATALOGUE.VIEW", "CATALOGUE.CREATE", "CATALOGUE.UPDATE"]);
+    const canApproveLocalProducts =
+        hasGlobalAuthority || hasPermission?.("LOCAL_PRODUCTS.APPROVE");
+    const canViewVehicles =
+        hasGlobalAuthority || hasAnyPermission?.(["VEHICLES.VIEW", "VEHICLES.MANAGE"]);
+    const canViewInventory =
+        hasGlobalAuthority ||
+        hasAnyPermission?.([
+            "INVENTORY.VIEW",
+            "INVENTORY.ADJUST",
+            "INVENTORY.TRANSFER",
+            "BARCODES.PRINT",
+        ]);
+    const canViewPurchases =
+        hasGlobalAuthority ||
+        hasAnyPermission?.([
+            "PURCHASE_ORDERS.VIEW",
+            "PURCHASE_ORDERS.CREATE",
+            "VENDORS.VIEW",
+            "VENDORS.MANAGE",
+        ]);
+    const canViewSales =
+        hasGlobalAuthority ||
+        hasAnyPermission?.([
+            "SALES.VIEW",
+            "SALES.CREATE",
+            "SALES.PAYMENT",
+            "PAYMENTS.RECEIVE",
+            "PROFORMA.VIEW",
+            "LEADS.VIEW",
+            "LEADS.CREATE",
+            "LEADS.PROCUREMENT",
+        ]);
+    const canViewReports = hasGlobalAuthority || hasPermission?.("REPORTS.VIEW");
+
+    const inventoryBase = `${portalPrefix}/inventory`;
+    const purchasesBase = `${portalPrefix}/purchases`;
+    const salesBase = `${portalPrefix}/sales`;
 
     const isInventoryRoute = location.pathname === inventoryBase;
     const isPurchasesRoute = location.pathname === purchasesBase;
@@ -215,13 +289,7 @@ function Sidebar() {
             .map((part) => part[0].toUpperCase())
             .join("") || "DU";
 
-    const roleLabel = {
-        SUPER_ADMIN: "Super Admin",
-        STORE_OWNER: "Store Owner",
-        CASHIER: "Cashier",
-        SALESPERSON: "Salesperson",
-        PROCUREMENT: "Procurement",
-    }[role] || user?.role || "User";
+    const roleLabel = user?.role || "User";
 
     // Style helpers
     const linkStyle = (to, danger = false) => {
@@ -365,9 +433,9 @@ function Sidebar() {
         },
     ];
 
-    const canPrintBarcodes = isOwner || isStoreOwner || hasPermission?.("BARCODES.PRINT");
-    const canAdjustInventory = isOwner || isStoreOwner || hasPermission?.("INVENTORY.ADJUST");
-    const canViewInventoryStock = isOwner || isStoreOwner || hasPermission?.("INVENTORY.VIEW");
+    const canPrintBarcodes = hasGlobalAuthority || hasPermission?.("BARCODES.PRINT");
+    const canAdjustInventory = hasGlobalAuthority || hasPermission?.("INVENTORY.ADJUST");
+    const canViewInventoryStock = hasGlobalAuthority || hasPermission?.("INVENTORY.VIEW");
 
     const filteredInventoryItems = inventoryItems.filter((item) => {
         if (item.key === "barcode") return canPrintBarcodes;
@@ -375,18 +443,25 @@ function Sidebar() {
         return canViewInventoryStock;
     });
 
-    const canViewVendors = isOwner || isStoreOwner || hasAnyPermission?.(["VENDORS.VIEW", "VENDORS.MANAGE"]);
-    const canViewOrders = isOwner || isStoreOwner || hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE"]);
+    const canViewVendors =
+        hasGlobalAuthority || hasAnyPermission?.(["VENDORS.VIEW", "VENDORS.MANAGE"]);
+    const canViewOrders =
+        hasGlobalAuthority ||
+        hasAnyPermission?.(["PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE"]);
 
     const filteredPurchaseItems = purchaseItems.filter((item) => {
         if (item.key === "vendors") return canViewVendors;
         return canViewOrders;
     });
 
-    const canViewSalesOrders = isOwner || isStoreOwner || role === "CASHIER" || hasPermission?.("SALES.VIEW");
-    const canAccessPos = isOwner || isStoreOwner || role === "CASHIER" || hasAnyPermission?.(["SALES.VIEW", "SALES.CREATE", "PAYMENTS.RECEIVE"]);
-    const canViewProforma = isOwner || isStoreOwner || hasPermission?.("PROFORMA.VIEW");
-    const canViewLeads = isOwner || isStoreOwner || hasPermission?.("LEADS.VIEW");
+    const canViewSalesOrders = hasGlobalAuthority || hasPermission?.("SALES.VIEW");
+    const canAccessPos =
+        hasGlobalAuthority ||
+        hasAnyPermission?.(["SALES.VIEW", "SALES.CREATE", "SALES.PAYMENT", "PAYMENTS.RECEIVE"]);
+    const canViewProforma = hasGlobalAuthority || hasPermission?.("PROFORMA.VIEW");
+    const canViewLeads =
+        hasGlobalAuthority ||
+        hasAnyPermission?.(["LEADS.VIEW", "LEADS.CREATE", "LEADS.PROCUREMENT"]);
 
     const filteredSalesItems = salesItems.filter((item) => {
         if (item.key === "invoices") return canViewSalesOrders;
@@ -477,127 +552,82 @@ function Sidebar() {
                         overflowY: "auto",
                     }}
                 >
-                    {isLeadStaff ? (
-                        <>
-                            <Link
-                                to={`${homeBase}/dashboard`}
-                                style={linkStyle(`${homeBase}/dashboard`)}
-                            >
-                                <House size={17} />
-                                <NavLabel collapsed={collapsed}>
-                                    Dashboard
-                                </NavLabel>
-                            </Link>
+                    {/* Dashboard */}
+                    {canViewDashboard && (
+                        <Link
+                            to={`${portalPrefix}/dashboard`}
+                            style={linkStyle(`${portalPrefix}/dashboard`)}
+                            title={collapsed ? "Dashboard" : undefined}
+                        >
+                            <House size={17} />
+                            <NavLabel collapsed={collapsed}>
+                                Dashboard
+                            </NavLabel>
+                        </Link>
+                    )}
 
-                            {!collapsed && (
-                                <div style={sectionLabelStyle}>
-                                    {isSalesperson ? "Sales" : "Operations"}
-                                </div>
-                            )}
+                    {(canViewCatalogue || canApproveLocalProducts || canViewVehicles) && !collapsed && (
+                        <div style={sectionLabelStyle}>
+                            Catalog
+                        </div>
+                    )}
 
-                            <Link
-                                to={`${homeBase}/sales/leads`}
-                                style={linkStyle(`${homeBase}/sales/leads`)}
-                            >
-                                {isSalesperson ? (
-                                    <ClipboardList size={17} />
-                                ) : (
-                                    <PackageSearch size={17} />
-                                )}
+                    {canViewCatalogue && (
+                        <Link
+                            to="/owner/products"
+                            style={linkStyle("/owner/products")}
+                            title={
+                                collapsed
+                                    ? "Product Management"
+                                    : undefined
+                            }
+                        >
+                            <Boxes size={17} />
+                            <NavLabel collapsed={collapsed}>
+                                Product Management
+                            </NavLabel>
+                        </Link>
+                    )}
 
-                                <NavLabel collapsed={collapsed}>
-                                    {isSalesperson
-                                        ? "My Leads"
-                                        : "Assigned Procurement"}
-                                </NavLabel>
-                            </Link>
-                        </>
-                    ) : (
-                        <>
-                            {/* Dashboard */}
-                            {canViewDashboard && (
-                                <Link
-                                    to={
-                                        isOwner
-                                            ? "/owner/dashboard"
-                                            : "/store/dashboard"
-                                    }
-                                    style={linkStyle(
-                                        isOwner
-                                            ? "/owner/dashboard"
-                                            : "/store/dashboard"
-                                    )}
-                                    title={collapsed ? "Dashboard" : undefined}
-                                >
-                                    <House size={17} />
-                                    <NavLabel collapsed={collapsed}>
-                                        Dashboard
-                                    </NavLabel>
-                                </Link>
-                            )}
+                    {canApproveLocalProducts && (
+                        <Link
+                            to="/owner/product-approval"
+                            style={linkStyle("/owner/product-approval")}
+                            title={
+                                collapsed
+                                    ? "Product Approval"
+                                    : undefined
+                            }
+                        >
+                            <ClipboardCheck size={17} />
+                            <NavLabel collapsed={collapsed}>
+                                Product Approval
+                            </NavLabel>
+                        </Link>
+                    )}
 
-                            {isOwner && !collapsed && (
-                                <div style={sectionLabelStyle}>
-                                    Catalog
-                                </div>
-                            )}
+                    {canViewVehicles && (
+                        <Link
+                            to="/owner/vehicles"
+                            style={linkStyle("/owner/vehicles")}
+                            title={
+                                collapsed
+                                    ? "Vehicle Management"
+                                    : undefined
+                            }
+                        >
+                            <CarFront size={17} />
+                            <NavLabel collapsed={collapsed}>
+                                Vehicle Management
+                            </NavLabel>
+                        </Link>
+                    )}
 
-                            {(isOwner || hasAnyPermission?.(["CATALOGUE.VIEW", "CATALOGUE.CREATE", "CATALOGUE.UPDATE"])) && (
-                                <Link
-                                    to="/owner/products"
-                                    style={linkStyle("/owner/products")}
-                                    title={
-                                        collapsed
-                                            ? "Product Management"
-                                            : undefined
-                                    }
-                                >
-                                    <Boxes size={17} />
-                                    <NavLabel collapsed={collapsed}>
-                                        Product Management
-                                    </NavLabel>
-                                </Link>
-                            )}
-
-                            {(isOwner || hasPermission?.("LOCAL_PRODUCTS.APPROVE")) && (
-                                <Link
-                                    to="/owner/product-approval"
-                                    style={linkStyle("/owner/product-approval")}
-                                    title={
-                                        collapsed
-                                            ? "Product Approval"
-                                            : undefined
-                                    }
-                                >
-                                    <ClipboardCheck size={17} />
-                                    <NavLabel collapsed={collapsed}>
-                                        Product Approval
-                                    </NavLabel>
-                                </Link>
-                            )}
-
-                            {(isOwner || hasAnyPermission?.(["VEHICLES.VIEW", "VEHICLES.MANAGE"])) && (
-                                <Link
-                                    to="/owner/vehicles"
-                                    style={linkStyle("/owner/vehicles")}
-                                    title={
-                                        collapsed
-                                            ? "Vehicle Management"
-                                            : undefined
-                                    }
-                                >
-                                    <CarFront size={17} />
-                                    <NavLabel collapsed={collapsed}>
-                                        Vehicle Management
-                                    </NavLabel>
-                                </Link>
-                            )}
-
-                            {!collapsed && (canViewInventory || canViewPurchases || canViewSales) && (
-                                <div style={sectionLabelStyle}>
-                                    Operations
-                                </div>
-                            )}
+                    {!collapsed && (canViewInventory || canViewPurchases || canViewSales) && (
+                        <div style={sectionLabelStyle}>
+                            Operations
+                        </div>
+                    )}
 
                             {/* Inventory */}
                             {canViewInventory && filteredInventoryItems.length > 0 && (
@@ -781,36 +811,28 @@ function Sidebar() {
                                 </>
                             )}
 
-                            {/* Reports */}
-                            {canViewReports && (
-                                <Link
-                                    to={
-                                        isOwner
-                                            ? "/owner/reports"
-                                            : "/store/reports"
-                                    }
-                                    style={linkStyle(
-                                        isOwner
-                                            ? "/owner/reports"
-                                            : "/store/reports"
-                                    )}
-                                    title={collapsed ? "Reports" : undefined}
-                                >
-                                    <FileChartColumn size={17} />
-                                    <NavLabel collapsed={collapsed}>
-                                        Reports
-                                    </NavLabel>
-                                </Link>
-                            )}
+                    {/* Reports */}
+                    {canViewReports && (
+                        <Link
+                            to={`${portalPrefix}/reports`}
+                            style={linkStyle(`${portalPrefix}/reports`)}
+                            title={collapsed ? "Reports" : undefined}
+                        >
+                            <FileChartColumn size={17} />
+                            <NavLabel collapsed={collapsed}>
+                                Reports
+                            </NavLabel>
+                        </Link>
+                    )}
 
-                            {/* Organization and access control */}
-                            {isOwner && !collapsed && (
+                    {/* Global organization and access control */}
+                    {isGlobalPortal && (canViewStores || canViewUsers || canManageRoles) && (
+                        <>
+                            {!collapsed ? (
                                 <div style={sectionLabelStyle}>
                                     Organization
                                 </div>
-                            )}
-
-                            {isOwner && collapsed && (
+                            ) : (
                                 <div className="sidebar-divider" />
                             )}
 
@@ -840,8 +862,7 @@ function Sidebar() {
                                 </Link>
                             )}
 
-                            {/* SYSTEM role management */}
-                            {canManageSystemRoles && (
+                            {canManageRoles && (
                                 <Link
                                     to="/owner/roles"
                                     style={linkStyle("/owner/roles")}
@@ -857,50 +878,50 @@ function Sidebar() {
                                     </NavLabel>
                                 </Link>
                             )}
+                        </>
+                    )}
 
-                            {/* Store team and role management */}
-                            {!canManageSystemRoles && (canViewUsers || canManageRoles) && (
-                                <>
-                                    {!collapsed && (
-                                        <div style={sectionLabelStyle}>
-                                            Team
-                                        </div>
-                                    )}
+                    {/* Store team and role management */}
+                    {!isGlobalPortal && (canViewUsers || canManageRoles) && (
+                        <>
+                            {!collapsed && (
+                                <div style={sectionLabelStyle}>
+                                    Team
+                                </div>
+                            )}
 
-                                    {(isStoreOwner || canViewUsers) && (
-                                        <Link
-                                            to="/store/users"
-                                            style={linkStyle("/store/users")}
-                                            title={
-                                                collapsed
-                                                    ? "Employees"
-                                                    : undefined
-                                            }
-                                        >
-                                            <UserRound size={17} />
-                                            <NavLabel collapsed={collapsed}>
-                                                Employees
-                                            </NavLabel>
-                                        </Link>
-                                    )}
+                            {canViewUsers && (
+                                <Link
+                                    to="/store/users"
+                                    style={linkStyle("/store/users")}
+                                    title={
+                                        collapsed
+                                            ? "Employees"
+                                            : undefined
+                                    }
+                                >
+                                    <UserRound size={17} />
+                                    <NavLabel collapsed={collapsed}>
+                                        Employees
+                                    </NavLabel>
+                                </Link>
+                            )}
 
-                                    {canManageRoles && (
-                                        <Link
-                                            to="/store/roles"
-                                            style={linkStyle("/store/roles")}
-                                            title={
-                                                collapsed
-                                                    ? "Roles & Permissions"
-                                                    : undefined
-                                            }
-                                        >
-                                            <ShieldCheck size={17} />
-                                            <NavLabel collapsed={collapsed}>
-                                                Roles & Permissions
-                                            </NavLabel>
-                                        </Link>
-                                    )}
-                                </>
+                            {canManageRoles && (
+                                <Link
+                                    to="/store/roles"
+                                    style={linkStyle("/store/roles")}
+                                    title={
+                                        collapsed
+                                            ? "Roles & Permissions"
+                                            : undefined
+                                    }
+                                >
+                                    <ShieldCheck size={17} />
+                                    <NavLabel collapsed={collapsed}>
+                                        Roles & Permissions
+                                    </NavLabel>
+                                </Link>
                             )}
                         </>
                     )}

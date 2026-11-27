@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {Search, ChevronDown, ChevronRight,Upload, Download, Plus,Boxes, Tag, LayoutGrid, Layers, GitCompareArrows, Wrench, SlidersHorizontal,
 } from "lucide-react";
-import { useAuth } from "../../auth/AuthContext";
+import { useAuthState } from "../../auth/AuthContext";
 
-import BrandsSection from "../../owner/components/products/BrandsSection";
-import CategoriesSection from "../../owner/components/products/CategoriesSection";
-import MastersSection from "../../owner/components/products/MastersSection";
 import ItemsSection from "../../owner/components/products/ItemsSection";
-import FitmentsSection from "../../owner/components/products/FitmentsSection";
-import CrossReferenceSection from "../../owner/components/products/CrossReferenceSection";
-import ProductAttributesSection from "../../owner/components/products/ProductAttributesSection";
+
+const tabLoaders = {
+    brands:          () => import("../../owner/components/products/BrandsSection"),
+    categories:      () => import("../../owner/components/products/CategoriesSection"),
+    masters:         () => import("../../owner/components/products/MastersSection"),
+    fitments:        () => import("../../owner/components/products/FitmentsSection"),
+    crossReferences: () => import("../../owner/components/products/CrossReferenceSection"),
+    specifications:  () => import("../../owner/components/products/ProductAttributesSection"),
+};
+
+const BrandsSection            = lazy(tabLoaders.brands);
+const CategoriesSection        = lazy(tabLoaders.categories);
+const MastersSection           = lazy(tabLoaders.masters);
+const FitmentsSection          = lazy(tabLoaders.fitments);
+const CrossReferenceSection    = lazy(tabLoaders.crossReferences);
+const ProductAttributesSection = lazy(tabLoaders.specifications);
 
 import "./ProductPage.css";
 
@@ -46,9 +56,23 @@ function ProductPage() {
         setSearchQuery("");
     };
 
-    const { user, hasPermission } = useAuth();
+    const { user, hasPermission } = useAuthState();
     const canCreate = hasPermission?.("CATALOGUE.CREATE");
     const canUpdate = hasPermission?.("CATALOGUE.UPDATE");
+
+    useEffect(() => {
+        const prefetchTabs = () => {
+            Object.values(tabLoaders).forEach((load) => {
+                load().catch(() => {});
+            });
+        };
+        if ("requestIdleCallback" in window) {
+            const id = window.requestIdleCallback(prefetchTabs, { timeout: 1500 });
+            return () => window.cancelIdleCallback(id);
+        }
+        const timer = window.setTimeout(prefetchTabs, 800);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     const displayName = user?.name || "User";
     const initials =
@@ -136,6 +160,7 @@ function ProductPage() {
                                         : "border-transparent font-medium text-ink-muted hover:border-line-strong hover:text-ink"
                                 }`}
                                 onClick={() => handleTabChange(tab.id)}
+                                onMouseEnter={() => tabLoaders[tab.id]?.().catch(() => {})}
                             >
                                 <Icon size={15} className="shrink-0" />
                                 <span>{tab.label}</span>
@@ -193,27 +218,29 @@ function ProductPage() {
                     />
                 </div>
             )}
-                {activeTab === "items" && (
-                    <ItemsSection
-                        query={searchQuery}
-                        requestBulkUpload={itemsActions.bulk}
-                        requestAddItem={itemsActions.add}
-                        requestExport={itemsActions.export}
-                        canUpdate={canUpdate}
-                    />
-                )}
-                {activeTab === "brands" && (
-                    <BrandsSection
-                        query={searchQuery}
-                        requestBulkUpload={brandsActions.bulk}
-                        requestAddBrand={brandsActions.add}
-                    />
-                )}
-                {activeTab === "categories" && <CategoriesSection />}
-                {activeTab === "masters" && <MastersSection />}
-                {activeTab === "crossReferences" && <CrossReferenceSection />}
-                {activeTab === "fitments" && <FitmentsSection />}
-                {activeTab === "specifications" && <ProductAttributesSection />}
+                <Suspense fallback={<div className="py-10 text-center text-sm text-ink-muted">Loading section…</div>}>
+                    {activeTab === "items" && (
+                        <ItemsSection
+                            query={searchQuery}
+                            requestBulkUpload={itemsActions.bulk}
+                            requestAddItem={itemsActions.add}
+                            requestExport={itemsActions.export}
+                            canUpdate={canUpdate}
+                        />
+                    )}
+                    {activeTab === "brands" && (
+                        <BrandsSection
+                            query={searchQuery}
+                            requestBulkUpload={brandsActions.bulk}
+                            requestAddBrand={brandsActions.add}
+                        />
+                    )}
+                    {activeTab === "categories" && <CategoriesSection />}
+                    {activeTab === "masters" && <MastersSection />}
+                    {activeTab === "crossReferences" && <CrossReferenceSection />}
+                    {activeTab === "fitments" && <FitmentsSection />}
+                    {activeTab === "specifications" && <ProductAttributesSection />}
+                </Suspense>
             </div>
         </div>
     );

@@ -64,10 +64,13 @@ const logoutAndRedirect = () => {
 
 api.interceptors.request.use((config) => {
     try {
-        const user = JSON.parse(localStorage.getItem("user"));
-        // Keep requests authenticated even when the access token was persisted
-        // separately by the refresh flow or an older login session.
-        const token = user?.token || localStorage.getItem("token");
+        // Fast-path: check the dedicated token key first (written by the refresh flow)
+        // and only parse the heavier "user" JSON as a fallback.
+        let token = localStorage.getItem("token");
+        if (!token) {
+            const user = JSON.parse(localStorage.getItem("user"));
+            token = user?.token ?? null;
+        }
 
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;

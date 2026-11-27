@@ -29,17 +29,17 @@ const STEPS = [
 
 function ProductApprovalPage() {
     
-    const pageStartTime = useRef(performance.now());
+    const [pageStartTime] = useState(() => performance.now());
 
     useEffect(() => {
         requestAnimationFrame(() => {
             console.log(
                 "Product Approval page painted:",
-                (performance.now() - pageStartTime.current).toFixed(2),
+                (performance.now() - pageStartTime).toFixed(2),
                 "ms"
             );
         });
-    }, []);
+    }, [pageStartTime]);
 
     // Which workflow step is currently visible INSIDE the modal.
     const [activeStep, setActiveStep] = useState("review");

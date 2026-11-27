@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Ban, CheckCircle2, Clock, FileText, IndianRupee, MoreHorizontal, Pencil, Plus, Search, XCircle } from "lucide-react";
 import { cancelProforma, getProforma, getProformas, toProformaSaleSource } from "../../services/proformaService";
-import { normalizeRoleName, useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import "./ProformaPage.css";
 
 const displayDate = (record) => {
@@ -58,13 +58,9 @@ export default function ProformaListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const base = location.pathname.startsWith("/owner/") ? "/owner/sales" : "/store/sales";
-  const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
-  const fallbackUser = useMemo(() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } }, []);
-  const user = authUser || fallbackUser;
-  const normalizedRole = normalizeRoleName(user?.role);
-  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-  const isStoreOwner = normalizedRole === "STORE_OWNER";
-  const canCreateProforma = isSuperAdmin || isStoreOwner || hasPermission?.("PROFORMA.CREATE");
+  const { user, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+  const canCreateProforma = isSuperAdmin || Boolean(hasPermission?.("PROFORMA.CREATE"));
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

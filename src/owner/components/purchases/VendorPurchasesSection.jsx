@@ -4,7 +4,7 @@ import {
   MoreHorizontal, PackageCheck, ReceiptText, RotateCcw, Search, Trash2, Upload, X,
 } from "lucide-react";
 import api from "../../../services/api";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import { getActiveStoresCached } from "../../../services/storeService";
 import VendorBillBulkUploader from "./VendorBillBulkUploader";
 import VendorPurchaseInvoiceView from "./VendorPurchaseInvoiceView";
@@ -267,7 +267,9 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
           (col) => typeof parsed[col.id] === "number" && parsed[col.id] !== col.defaultWidth
         );
       }
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     return false;
   });
 
@@ -352,7 +354,9 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
           setColumnWidths((latest) => {
             try {
               localStorage.setItem(storageKey, JSON.stringify(latest));
-            } catch {}
+            } catch {
+      /* ignore */
+    }
             return latest;
           });
         }
@@ -385,11 +389,15 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
           setHasCustomWidths(false);
           try {
             localStorage.removeItem(storageKey);
-          } catch {}
+          } catch {
+      /* ignore */
+    }
         } else {
           try {
             localStorage.setItem(storageKey, JSON.stringify(updated));
-          } catch {}
+          } catch {
+      /* ignore */
+    }
         }
         return updated;
       });
@@ -402,7 +410,9 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
     setHasCustomWidths(false);
     try {
       localStorage.removeItem(storageKey);
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   }, [defaultWidths, storageKey]);
 
   const totalTableWidth = useMemo(() => {
@@ -425,10 +435,8 @@ function useResizableColumns({ tableKey, columnsConfig, tableRef }) {
 function ManualStockReceipt() {
   const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
   const user = authUser || getUser();
-  const normalizedRole = normalizeRoleName(user.role);
-  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || normalizedRole === "SUPER_ADMIN";
-  const isStoreOwner = normalizedRole === "STORE_OWNER";
-  const canCreateBill = isSuperAdmin || isStoreOwner || hasPermission?.("PURCHASE_ORDERS.CREATE");
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+  const canCreateBill = isSuperAdmin || hasPermission?.("PURCHASE_ORDERS.CREATE");
 
   const [rows, setRows] = useState([emptyRow()]);
   const [stores, setStores] = useState([]);

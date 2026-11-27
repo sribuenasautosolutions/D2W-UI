@@ -60,8 +60,12 @@ function AppRoutesNew() {
         element={
           <ProtectedRoute
             requiredPermissions={[
-              "INVENTORY.VIEW", "PURCHASE_ORDERS.VIEW", "SALES.VIEW",
-              "CUSTOMERS.VIEW", "LEADS.VIEW", "REPORTS.VIEW", "EMPLOYEES.VIEW",
+              "DASHBOARD.VIEW", "CATALOGUE.VIEW",
+              "INVENTORY.VIEW", "INVENTORY.ADJUST", "INVENTORY.TRANSFER", "BARCODES.PRINT",
+              "PURCHASE_ORDERS.VIEW", "PURCHASE_ORDERS.CREATE", "VENDORS.VIEW",
+              "SALES.VIEW", "SALES.CREATE", "SALES.PAYMENT", "PROFORMA.VIEW",
+              "CUSTOMERS.VIEW", "LEADS.VIEW", "LEADS.CREATE", "LEADS.PROCUREMENT", "WHATSAPP.VIEW",
+              "REPORTS.VIEW", "EMPLOYEES.VIEW",
               "ROLES.VIEW", "ROLES.CREATE", "ROLES.UPDATE", "ROLES.ASSIGN", "PERMISSIONS.VIEW"
             ]}
           >
@@ -82,10 +86,10 @@ function AppRoutesNew() {
       />
 
       <Route path="/salesperson/*" element={
-        <ProtectedRoute allowedRoles={["SALESPERSON"]} requiredPermissions={["LEADS.VIEW", "SALES.VIEW"]}><LeadStaffRoutes role="SALESPERSON" /></ProtectedRoute>
+        <ProtectedRoute requiredPermissions={["LEADS.VIEW", "SALES.VIEW"]}><LeadStaffRoutes role="SALESPERSON" /></ProtectedRoute>
       } />
       <Route path="/procurement/*" element={
-        <ProtectedRoute allowedRoles={["PROCUREMENT"]} requiredPermissions={["LEADS.VIEW", "LEADS.PROCUREMENT"]}><LeadStaffRoutes role="PROCUREMENT" /></ProtectedRoute>
+        <ProtectedRoute requiredPermissions={["LEADS.VIEW", "LEADS.PROCUREMENT"]}><LeadStaffRoutes role="PROCUREMENT" /></ProtectedRoute>
       } />
 
     </Routes>

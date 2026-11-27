@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import {
     AlertCircle,
     AlertTriangle,
@@ -1084,13 +1084,9 @@ function LeadList() {
     const location = useLocation();
 
     const { user: authUser, hasPermission, hasGlobalStoreManagementAuthority } = useAuth();
-    const rawRole = authUser?.role || (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role; } catch { return null; } })();
-    const currentRole = normalizeRoleName(rawRole);
-    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.()) || currentRole === "SUPER_ADMIN";
-    const isProcurementUser = currentRole === "PROCUREMENT";
-    const isLeadStaff = currentRole === "SALESPERSON" || isProcurementUser;
-    const canCreateLead = isSuperAdmin || ["STORE_OWNER", "SALESPERSON", "PROCUREMENT"].includes(currentRole) || hasPermission?.("LEADS.CREATE");
-    const canViewLeadChats = isSuperAdmin || currentRole === "STORE_OWNER" || hasPermission?.("LEADS.VIEW") || hasPermission?.("WHATSAPP.VIEW");
+    const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
+    const canCreateLead = isSuperAdmin || Boolean(hasPermission?.("LEADS.CREATE"));
+    const canViewLeadChats = isSuperAdmin || Boolean(hasPermission?.("WHATSAPP.VIEW") || hasPermission?.("LEADS.VIEW"));
     const basePath = location.pathname.startsWith("/owner/")
         ? "/owner/sales"
         : location.pathname.startsWith("/salesperson/")
@@ -1478,7 +1474,7 @@ function LeadList() {
                 </div>
 
                 <div className="ref-lead-header-actions">
-                    {!isLeadStaff && (
+                    {canViewLeadChats && (
                         <button
                             type="button"
                             className="ref-header-btn ref-header-btn--chats"
@@ -1487,7 +1483,7 @@ function LeadList() {
                             Chats
                         </button>
                     )}
-                    {!isLeadStaff && (
+                    {canViewLeadChats && (
                         <button
                             type="button"
                             className="ref-header-btn ref-header-btn--whatsapp"
@@ -1818,7 +1814,7 @@ function LeadList() {
                         <Suspense fallback={<div className="ref-kanban-empty-wrap" style={{ minHeight: "40vh" }}><strong>Loading procurement drawer...</strong></div>}>
                             <LeadProcurementDrawer
                                 lead={procurementLead}
-                                userRole={currentRole}
+                                userRole={authUser?.role || ""}
                                 onUpdated={() => loadLeads()}
                                 onClose={refreshAfterAction}
                                 onToast={pushToast}
@@ -1858,7 +1854,7 @@ function LeadList() {
                             <LeadWorkspaceDrawer
                                 lead={workspaceLead}
                                 stage={getStage(workspaceLead)}
-                                userRole={currentRole}
+                                userRole={authUser?.role || ""}
                                 initialTab={workspaceInitialTab}
                                 onClose={closeWorkspace}
                                 onUpdated={loadLeads}

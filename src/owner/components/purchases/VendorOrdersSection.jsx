@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { normalizeRoleName, useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 import { downloadVendorOrders, getVendorOrders } from "../../../services/vendorOrderService";
 import "./VendorOrdersSection.css";
 
@@ -46,9 +46,7 @@ export default function VendorOrdersSection() {
   const { user: authUser, hasGlobalStoreManagementAuthority } = useAuth();
   const [storedUser] = useState(readUser);
   const user = authUser || storedUser;
-  const isSuperAdmin =
-    Boolean(hasGlobalStoreManagementAuthority?.()) ||
-    normalizeRoleName(user.role) === "SUPER_ADMIN";
+  const isSuperAdmin = Boolean(hasGlobalStoreManagementAuthority?.());
 
   const load = async () => {
     setLoading(true);

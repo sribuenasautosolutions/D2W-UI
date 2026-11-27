@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../services/api";
-import { useAuth } from "../../auth/AuthContext";
+import { useAuthState } from "../../auth/AuthContext";
 
 const emptyForm = {
     name: "",
@@ -67,7 +67,7 @@ function getErrorMessage(error, fallback) {
 }
 
 function RoleManagementPage() {
-    const { user: currentUser, hasPermission, hasAnyPermission, hasGlobalStoreManagementAuthority } = useAuth();
+    const { user: currentUser, hasPermission, hasAnyPermission, hasGlobalStoreManagementAuthority } = useAuthState();
     const isSuperAdmin = hasGlobalStoreManagementAuthority();
 
     // Use proper RBAC permission checks for authorization
